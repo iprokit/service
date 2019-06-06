@@ -1,0 +1,20 @@
+{
+  "name": "ipromicro",
+  "version": "0.1.0",
+  "description": "iProtechs Micro Services Framework/SDK",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://bitbucket.org/iprotechs/micro_node_sdk.git"
+  },
+  "keywords": [
+    "iProtechs",
+    "Node",
+    "JS",
+    "Microservice",
+    "Framework"
+  ],
+  "author": "Rutvik.Katuri@iProTechs",
+  "license": "ISC",
+  "homepage": "https://bitbucket.org/iprotechs/micro_node_sdk/src/master/README.md"
+}
