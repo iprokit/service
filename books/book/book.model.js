@@ -1,8 +1,9 @@
 //Import Modules or Paths
 import Sequelize from 'sequelize'
 import CustomSequelize from '../ConfigFiles/sequelize'
+import CustomMQTT from '../ConfigFiles/mqtt'
 //CUSTOM SEQUELIZE
-const sequelize = new CustomSequelize(Sequelize,true,false,
+const sequelize = new CustomSequelize(false,false,
     process.env.DB_NAME,
     process.env.DB_USERNAME,
     process.env.DB_PASSWORD,
@@ -14,8 +15,10 @@ const sequelize = new CustomSequelize(Sequelize,true,false,
     process.env.DB_IDLE,
 )
 sequelize.init()
+const mqttServer = new CustomMQTT()
+mqttServer.intiMQTTServer()
 //Create a Schema
-const BookSchema = sequelize.sequelize.define('book', {
+const BookSchema = CustomSequelize.sequelize().define('book', {
     id: {
         type: Sequelize.INTEGER,
         primaryKey: true,

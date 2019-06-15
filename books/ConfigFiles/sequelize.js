@@ -1,8 +1,8 @@
+import Sequelize from 'sequelize'
 //Sequelize Class
 class CustomSequelize {
     //Constructor
-    constructor(Sequelize, SynchForce, Authenticate, DB_NAME, DB_USERNAME, DB_PASSWORD, DB_HOST, DB_DIALECT, DB_MAX_POOL, DB_MIN_POOL, DB_ACQUIRE_POOL, DB_IDLE_POOL) {
-        this.Sequelize = Sequelize
+    constructor(Authenticate, SynchForce, DB_NAME, DB_USERNAME, DB_PASSWORD, DB_HOST, DB_DIALECT, DB_MAX_POOL, DB_MIN_POOL, DB_ACQUIRE_POOL, DB_IDLE_POOL) {
         this.SynchForce = SynchForce
         this.Authenticate = Authenticate
         this.DB_NAME = DB_NAME
@@ -24,20 +24,22 @@ class CustomSequelize {
         }
     }
     //This method is used for sequelize connection setup
-    sequelize = new this.Sequelize(this.DB_NAME, this.DB_USERNAME, this.DB_PASSWORD, {
-        host: this.DB_HOST,
-        dialect: this.DB_DIALECT || 'mysql',
-        operatorsAliases: false,
-        pool: {
-            max: this.DB_MAX_POOL || 3,
-            min: this.DB_MIN_POOL || 2,
-            acquire: this.DB_ACQUIRE_POOL || 30000,
-            idle: this.DB_IDLE_POOL || 10000
-        }
-    })
+    static sequelize() {
+        return new Sequelize(this.DB_NAME, this.DB_USERNAME, this.DB_PASSWORD, {
+            host: this.DB_HOST,
+            dialect: this.DB_DIALECT || 'mysql',
+            operatorsAliases: false,
+            pool: {
+                max: this.DB_MAX_POOL || 3,
+                min: this.DB_MIN_POOL || 2,
+                acquire: this.DB_ACQUIRE_POOL || 30000,
+                idle: this.DB_IDLE_POOL || 10000
+            }
+        })
+    }
     //Test the connection by trying to authenticate Aliases: validate
     authentication() {
-        this.sequelize
+        CustomSequelize.sequelize()
             .authenticate()
             .then(() => {
                 console.log('Connection has been established successfully.');
@@ -48,7 +50,7 @@ class CustomSequelize {
     }
     //Sync all defined models to the DB.
     synchronization() {
-        this.sequelize.sync({ force: this.SynchForce })
+        CustomSequelize.sequelize().sync({ force: this.SynchForce })
             .then(() => {
                 console.log(`Database & tables created!`)
             })
