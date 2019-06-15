@@ -90,46 +90,5 @@ app.listen(port, () => {
         .catch(error => {
             console.log("Error is................", error)
         })
-//}
-
-// export function app(){
-//     let mqttServer = new mosca.Server(options)
-
-//     //express
-//     var app = express();
-//     expressWs(app)
-    
-//     app.ws('/mqtt', function (ws, req) {
-//         mqttServer.attachWebsocket(ws)
-//     })
-    
-//     //Express 
-//     app.use(logger('dev'));
-//     app.use(express.json());
-//     app.use(express.urlencoded({ extended: false }));
-//     app.use(cookieParser());
-//     app.set('view engine', 'jade');
-    
-//     //Services
-//     app.use('/api/books', router)
-//     // catch 404 and forward to error handler
-//     app.use(function (req, res, next) {
-//         next(createError(404));
-//     });
-//     // error handler
-//     app.use(function (err, req, res, next) {
-//         // set locals, only providing error in development
-//         res.locals.message = err.message;
-//         res.locals.error = req.app.get('env') === 'development' ? err : {};
-//         // render the error page
-//         res.status(err.status || 500);
-//         res.render('error');
-//     });
-//     const port = process.env.NODE_PORT || 3000;
-//     app.listen(port, () => {
-//         console.log("Book micro service running on", port);
-//     });
-// }
-
-//Exports above all functions here..............
+        
 export default {app,sequelize}
