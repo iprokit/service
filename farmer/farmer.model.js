@@ -1,9 +1,9 @@
-class Customers{
+class FarmerModel{
     findById(id){
         return new Promise((resolve, reject) => {
-            resolve({number: id})
+            resolve({id: id})
         });
     }
 }
 
-export default Customers
+export default FarmerModel;

@@ -1,0 +1,16 @@
+{
+  "name": "pond",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "babel-node pond.app.js --presets es2015"
+  },
+  "dependencies": {
+    "http-status-codes": "1.3.2"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-es2015": "^6.24.1",
+    "rimraf": "^2.6.2"
+  }
+}

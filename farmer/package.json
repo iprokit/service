@@ -1,9 +1,9 @@
 {
-  "name": "customers",
+  "name": "farmer",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "babel-node customers.app.js --presets es2015"
+    "start": "babel-node farmer.app.js --presets es2015"
   },
   "dependencies": {
     "http-status-codes": "1.3.2"

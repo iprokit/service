@@ -39,7 +39,6 @@ class MicroService {
         this.serviceIP = ip.address()
 
         this._initExpressServer();
-        this._initMQTTServer();
     }
 
     _initExpressServer(){
@@ -63,10 +62,6 @@ class MicroService {
         });
     }
 
-    _initMQTTServer(){
-
-    }
-
     startService(){
         // Start server.
         app.listen(this.servicePort, () => {
@@ -79,6 +74,8 @@ class MicroService {
     ///////Router Functions
     /////////////////////////
     get(url, fn){
+        //subscribe
+        //publish
         router.get(url, fn);
     }
 

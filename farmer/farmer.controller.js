@@ -2,15 +2,13 @@
 import Controller from '../mico_sdk/controller'
 
 //Local Imports
-import CustomersModel from './customers.model'
+import FarmerModel from './farmer.model'
 
-class CustomerController extends Controller{
+class FarmerController extends Controller{
     //Default Constructor
     constructor(){
-        var model = new CustomersModel()
-        super(model);
+        super(new FarmerModel());
     }
-
     selectOneByID(request, response){
         super.selectOneByID(request, response);
     }
@@ -28,4 +26,4 @@ class CustomerController extends Controller{
     }
 }
 
-export default CustomerController
+export default FarmerController;
