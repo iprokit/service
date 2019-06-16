@@ -1,21 +1,31 @@
-import httpStatus from 'http-status-codes'
+//Import modules
+import Controller from '../mico_sdk/controller'
 
-class Customer{
-    selectOneByID(req, res){
-        res.status(httpStatus.OK).send({ status: true, message: "selectOneByID" });
+//Local Imports
+import CustomersModel from './customers.model'
+
+class CustomerController extends Controller{
+    //Default Constructor
+    constructor(){
+        var model = new CustomersModel()
+        super(model);
     }
-    selectAll(req, res){
-        res.status(httpStatus.OK).send({ status: true, message: "selectAll" });
+
+    selectOneByID(request, response){
+        super.selectOneByID(request, response);
     }
-    add(req, res){
-        res.status(httpStatus.OK).send({ status: true, message: "add" });
+    selectAll(request, response){
+        super.selectAll(request, response);
     }
-    update(req, res){
-        res.status(httpStatus.OK).send({ status: true, message: "update" });
+    add(request, response){
+        super.add(request, response);
     }
-    deleteOneByID(req, res){
-        res.status(httpStatus.OK).send({ status: true, message: "deleteOneByID" });
+    update(request, response){
+        super.update(request, response);
+    }
+    deleteOneByID(request, response){
+        super.deleteOneByID(request, response);
     }
 }
 
-export default Customer
+export default CustomerController
