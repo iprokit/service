@@ -15,37 +15,37 @@ var router = express.Router();
 
 class MicroService {
     //Default Constructor
-    constructor(config){
+    constructor(config) {
         this.serviceID = uuid();
-        if(config.name == 'undefined' || config.name == null){
+        if (config.name == 'undefined' || config.name == null) {
             throw new Error('Service name required');
-        }else{
+        } else {
             this.serviceName = config.name
         }
-        if(config.version == 'undefined' || config.version == null){
+        if (config.version == 'undefined' || config.version == null) {
             this.serviceVersion = '1.0'
-        }else{
+        } else {
             this.serviceVersion = config.version
         }
-        if(config.type == 'undefined' || config.type == null){
+        if (config.type == 'undefined' || config.type == null) {
             this.serviceType = 'api'
-        }else{
+        } else {
             this.serviceType = config.type
         }
-        if(config.port == 'undefined' || config.port == null){
+        if (config.port == 'undefined' || config.port == null) {
             this.servicePort = 3000 //Setting default port
-        }else{
+        } else {
             this.servicePort = config.port
         }
         this.serviceIP = ip.address()
 
         this._initExpressServer();
-        
+
         //Load sequalize
-        this.sequelize = new Sequelize(config.db.name, config.db.username);
+        this.sequelize = new Sequelize(config.db.name, config.db.username, config.db.password, config.db.host, config.db.dialect, config.db.isAuth, config.db.isSync);
     }
 
-    _initExpressServer(){
+    _initExpressServer() {
         //Setup Express
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
@@ -54,54 +54,54 @@ class MicroService {
         app.use(url, router);
 
         // Error handler for 404
-        app.use(function(req, res, next) {
+        app.use(function (req, res, next) {
             next(createError(404));
         });
 
         // Default error handler
-        app.use(function(err, req, res, next) {
+        app.use(function (err, req, res, next) {
             res.locals.message = err.message;
             res.locals.error = req.app.get('env') === 'development' ? err : {};
             res.status(err.status || 500).send(err.message)
         });
     }
 
-    startService(){
+    startService() {
         // Start server.
         app.listen(this.servicePort, () => {
             console.log("%s micro service running on %s:%s", this.serviceName, this.serviceIP, this.servicePort);
-            console.log('%s : %o', this.serviceName, {id: this.serviceID, version: this.serviceVersion, type: this.serviceType})
+            console.log('%s : %o', this.serviceName, { id: this.serviceID, version: this.serviceVersion, type: this.serviceType })
         });
     }
 
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    get(url, fn){
+    get(url, fn) {
         //subscribe
         //publish
         router.get(url, fn);
     }
 
-    post(url, fn){
+    post(url, fn) {
         router.post(url, fn);
     }
 
-    put(url, fn){
+    put(url, fn) {
         router.put(url, fn);
     }
 
-    delete(url, fn){
+    delete(url, fn) {
         router.delete(url, fn);
     }
 
     /////////////////////////
     ///////CRUD Services
     /////////////////////////
-    createCRUD(object){
+    createCRUD(object) {
         var controller = object
 
-        if(!(object instanceof Controller)){
+        if (!(object instanceof Controller)) {
             //Model object case
             controller = new Controller(object);
         }
@@ -116,12 +116,12 @@ class MicroService {
     /////////////////////////
     ///////Health Services
     /////////////////////////
-    _createHealth(){
-        this.get('/health', function(request, response){
+    _createHealth() {
+        this.get('/health', function (request, response) {
             try {
                 response.status(httpStatus.OK).send({ status: true })
-            }catch(error){
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error})
+            } catch (error) {
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
             }
         });
 
@@ -134,7 +134,7 @@ class MicroService {
             ip: this.serviceIP,
         }
 
-        this.get('/health/report', function(request, response){
+        this.get('/health/report', function (request, response) {
             try {
                 var routes = [];
                 var baseURL = request.baseUrl;
@@ -143,49 +143,49 @@ class MicroService {
                 router.stack.forEach((item) => {
                     var method = item.route.stack[0].method;
                     var url = baseURL + item.route.path;
-                    routes.push({method, url});
+                    routes.push({ method, url });
                 })
 
-                response.status(httpStatus.OK).send({ status: true, data : {service: serviceObject, registeredRoutes: routes}});
-            }catch(error){
+                response.status(httpStatus.OK).send({ status: true, data: { service: serviceObject, registeredRoutes: routes } });
+            } catch (error) {
                 console.log(error);
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error});
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error });
             }
         });
     }
 }
 
 class IMicroService extends MicroService {
-    constructor(config){
+    constructor(config) {
         super(config)
     }
 
-    startService(){
+    startService() {
         this._createHealth();
         super.startService();
     }
 
-    get(url, fn){
+    get(url, fn) {
         super.get(url, fn);
     }
 
-    post(url, fn){
+    post(url, fn) {
         super.post(url, fn);
     }
 
-    put(url, fn){
+    put(url, fn) {
         super.put(url, fn);
     }
 
-    delete(url, fn){
+    delete(url, fn) {
         super.delete(url, fn);
     }
 
-    createCRUD(object){
+    createCRUD(object) {
         super.createCRUD(object);
     }
 
-    getSequalize(){
+    getSequalize() {
         return this.sequelize;
     }
 }

@@ -1,5 +1,9 @@
 import Sequelize from 'sequelize'
-const FarmerModel = Sequelize.define('farmer',{
+//Import modules
+import MicroService from '../mico_sdk/index'
+//Init & start service
+const microService = new MicroService();
+const FarmerModel = microService.sequelize.define('farmer',{
     id: {
         type: Sequelize.INTEGER(6),
         primaryKey: true,

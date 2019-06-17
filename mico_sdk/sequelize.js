@@ -3,13 +3,19 @@ import Sequelize from 'sequelize'
 var sequelize;
 
 //Sequelize Class
-class Sequelize {
+class CustomSequelize {
     //Constructor
     constructor(DB_NAME, DB_USERNAME, DB_PASSWORD, DB_HOST, DB_DIALECT, isAuth, isSync) {
         this.isAuth = isAuth;
         this.isSync = isSync;
-
-        sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_NAME, DB_DIALECT);
+        //Connection Setup
+        sequelize = new Sequelize(DB_NAME, DB_USERNAME, DB_PASSWORD, {
+            host: DB_HOST,
+            dialect: DB_DIALECT,
+            operatorsAliases: false,
+            timezone: "+5:30",
+            logging: true,
+        })
     }
     //Init
     init() {
@@ -42,4 +48,4 @@ class Sequelize {
     }
 }
 //Export sequelize connection                        
-export default Sequelize
+export default CustomSequelize
