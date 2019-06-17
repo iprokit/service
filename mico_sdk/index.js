@@ -42,7 +42,7 @@ class MicroService {
         this._initExpressServer();
 
         //Load sequalize
-        this.sequelize = new Sequelize(config.db.name, config.db.username, config.db.password, config.db.host, config.db.dialect, config.db.isAuth, config.db.isSync);
+        this.sequelize = new Sequelize(config.db.name, config.db.username, config.db.password, config.db.host, config.db.dialect, config.db.isAuth, config.db.isSync)
     }
 
     _initExpressServer() {
