@@ -7,6 +7,7 @@ import httpStatus from 'http-status-codes'
 
 //Local Imports
 import Controller from './controller';
+import Sequelize from './sequelize';
 
 //Init variables
 var app = express();
@@ -39,6 +40,9 @@ class MicroService {
         this.serviceIP = ip.address()
 
         this._initExpressServer();
+        
+        //Load sequalize
+        this.sequelize = new Sequelize(config.db.name, config.db.username);
     }
 
     _initExpressServer(){
@@ -179,6 +183,10 @@ class IMicroService extends MicroService {
 
     createCRUD(object){
         super.createCRUD(object);
+    }
+
+    getSequalize(){
+        return this.sequelize;
     }
 }
 

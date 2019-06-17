@@ -1,0 +1,19 @@
+version: '3'
+services:
+    farmer:
+        build: ./farmer
+        image: farmer
+        ports:
+            - "3001:3000"
+        network_mode: host
+        command: |
+            bash -c "npm start --env dev"
+
+    pond:
+        build: ./pond
+        image: pond
+        ports:
+            - "3001:3000"
+        network_mode: host
+        command: |
+            bash -c "npm start --env dev"
