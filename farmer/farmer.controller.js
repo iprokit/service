@@ -1,13 +1,9 @@
-//Import modules
 import Controller from '../mico_sdk/controller'
-
-//Local Imports
-import FarmerModel from './farmer.model'
 
 class FarmerController extends Controller{
     //Default Constructor
-    constructor(){
-        super(new FarmerModel());
+    constructor(farmerModel){
+        super(farmerModel);
     }
     selectOneByID(request, response){
         super.selectOneByID(request, response);

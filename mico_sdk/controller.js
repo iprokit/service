@@ -2,62 +2,62 @@
 import httpStatus from 'http-status-codes'
 
 //Init variables
-var _model;
+var model;
 
 class Controller{
     //Default Constructor
-    constructor(model){
-        _model = model
+    constructor(modelObject){
+        model = modelObject
     }
 
     selectOneByID(request, response){
         try {
-            _model.findById(request.params.id)
+            model.findById(request.params.id)
                 .then(data => { response.status(httpStatus.OK).send({status: true, data: data}) })
-                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error }) })
+                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
-            console.log(error);
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
         }
     }
 
     selectAll(request, response){
         try {
-            _model.findAll()
+            model.findAll()
                 .then(data => { response.status(httpStatus.OK).send({status: true, data: data}) })
-                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error }) })
+                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+            console.log(error);
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
         }
     }
 
     add(request, response){
         try {
-            _model.create(request.body)
+            model.create(request.body)
                 .then(() => { response.status(httpStatus.CREATED).send({ status: true, message: "Created!" }) })
-                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error }) })
+                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
         }
     }
 
     update(request, response){
         try {
-            _model.update(request.body, { where: { id: request.body.id } })
+            model.update(request.body, { where: { id: request.body.id } })
                 .then(() => { response.status(httpStatus.OK).send({ status: true, data: { affectedRows : 1 } }) })
-                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error }) })
+                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
-            res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+            res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
         }
     }
 
     deleteOneByID(request, response){
         try {
-            _model.destroy({ where: { id: request.body.id } })
+            model.destroy({ where: { id: request.body.id } })
                 .then(() => { response.status(httpStatus.OK).send({ status: true, message: "Deleted!" }) })
-                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error }) })
+                .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
-            res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+            res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
         }
     }
 }

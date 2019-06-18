@@ -1,48 +1,46 @@
 //Import modules
 import express from 'express'
-import createError from 'http-errors'
-import ip from 'ip'
-import uuid from 'uuid/v1'
 import httpStatus from 'http-status-codes'
+import createError from 'http-errors'
+import uuid from 'uuid/v1'
 
 //Local Imports
-import Controller from './controller';
-import Sequelize from './sequelize';
+import Controller from './controller'
+import DockerUtility from './docker.utility'
+import SequelizeConnection from './db.sequelize.connection'
 
 //Init variables
 var app = express();
 var router = express.Router();
+var docker = new DockerUtility();
 
 class MicroService {
     //Default Constructor
     constructor(config) {
+        if (!config.hasOwnProperty('name') || config.name === '') {
+            throw new Error("Service name required");
+        } else {
+            this.serviceName = config.name;
+        }
+
         this.serviceID = uuid();
-        if (config.name == 'undefined' || config.name == null) {
-            throw new Error('Service name required');
-        } else {
-            this.serviceName = config.name
-        }
-        if (config.version == 'undefined' || config.version == null) {
-            this.serviceVersion = '1.0'
-        } else {
-            this.serviceVersion = config.version
-        }
-        if (config.type == 'undefined' || config.type == null) {
-            this.serviceType = 'api'
-        } else {
-            this.serviceType = config.type
-        }
-        if (config.port == 'undefined' || config.port == null) {
-            this.servicePort = 3000 //Setting default port
-        } else {
-            this.servicePort = config.port
-        }
-        this.serviceIP = ip.address()
+        this.serviceVersion = config.version || '1.0';
+        this.serviceType = config.type || 'api';
+        this.servicePort = config.port || 3000;
+        this.serviceIP = docker.getContainerIP();
 
         this._initExpressServer();
 
-        //Load sequalize
-        this.sequelize = new Sequelize(config.db.name, config.db.username, config.db.password, config.db.host, config.db.dialect, config.db.isAuth, config.db.isSync)
+        //Load sequelize
+        if(config.hasOwnProperty('mysql')){
+            config.mysql.dialect = 'mysql';
+            this.sequelizeConnection = new SequelizeConnection(config.mysql);
+            this.sequelizeConnection.start();
+
+            this.sequelizeConfig = config.mysql;
+            this.sequelizeConfig.username = 'xxxxxxxxxx';
+            this.sequelizeConfig.password = 'xxxxxxxxxx';
+        }
     }
 
     _initExpressServer() {
@@ -50,7 +48,7 @@ class MicroService {
         app.use(express.json());
         app.use(express.urlencoded({ extended: false }));
 
-        var url = "/" + this.serviceType + "/" + this.serviceName
+        var url = "/" + this.serviceType + "/" + this.serviceName;
         app.use(url, router);
 
         // Error handler for 404
@@ -62,15 +60,17 @@ class MicroService {
         app.use(function (err, req, res, next) {
             res.locals.message = err.message;
             res.locals.error = req.app.get('env') === 'development' ? err : {};
-            res.status(err.status || 500).send(err.message)
+            res.status(err.status || 500).send(err.message);
         });
+
+        //Terminate DB connection on end
     }
 
     startService() {
         // Start server.
         app.listen(this.servicePort, () => {
             console.log("%s micro service running on %s:%s", this.serviceName, this.serviceIP, this.servicePort);
-            console.log('%s : %o', this.serviceName, { id: this.serviceID, version: this.serviceVersion, type: this.serviceType })
+            console.log("%s : %o", this.serviceName, { id: this.serviceID, version: this.serviceVersion, type: this.serviceType })
         });
     }
 
@@ -78,8 +78,6 @@ class MicroService {
     ///////Router Functions
     /////////////////////////
     get(url, fn) {
-        //subscribe
-        //publish
         router.get(url, fn);
     }
 
@@ -104,13 +102,13 @@ class MicroService {
         if (!(object instanceof Controller)) {
             //Model object case
             controller = new Controller(object);
-        }
+        }//Might need to modify this.
 
-        this.get('/:id', controller.selectOneByID);
-        this.get('/', controller.selectAll);
-        this.post('/', controller.add);
-        this.put('/', controller.update);
-        this.delete('/:id', controller.deleteOneByID);
+        this.get('/select/:id', controller.selectOneByID);
+        this.get('/select/', controller.selectAll);
+        this.post('/add/', controller.add);
+        this.put('/update/', controller.update);
+        this.delete('/delete/:id', controller.deleteOneByID);
     }
 
     /////////////////////////
@@ -144,9 +142,15 @@ class MicroService {
                     var method = item.route.stack[0].method;
                     var url = baseURL + item.route.path;
                     routes.push({ method, url });
-                })
+                });
 
-                response.status(httpStatus.OK).send({ status: true, data: { service: serviceObject, registeredRoutes: routes } });
+                var data = {
+                    service: serviceObject,
+                    registeredRoutes: routes,
+                    db: this.sequelizeConfig
+                }
+
+                response.status(httpStatus.OK).send({ status: true, data });
             } catch (error) {
                 console.log(error);
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error });
@@ -185,8 +189,12 @@ class IMicroService extends MicroService {
         super.createCRUD(object);
     }
 
-    getSequalize() {
-        return this.sequelize;
+    getSequelize() {
+        if(this.sequelizeConnection != null){
+            return this.sequelizeConnection.getSequelize();
+        }else{
+            throw new Error('Sequelize connection object does not exist.');
+        }
     }
 }
 
