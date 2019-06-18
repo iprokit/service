@@ -1,11 +1,11 @@
 //Import modules
 import {DataTypes} from 'sequelize'
+import Model from '../mico_sdk/model'
 
-var schema;
-
-class FarmerModel{
-    constructor(name, sequelize){
-        schema = sequelize.define(name, {
+class FarmerModel extends Model{
+    //Default Constructor
+    constructor(sequelizeConnection){
+        super({
             id: {
                 type: DataTypes.INTEGER(6),
                 primaryKey: true,
@@ -19,11 +19,7 @@ class FarmerModel{
                 type: DataTypes.STRING(20),
                 allowNull: true
             }
-        });
-    }
-
-    getSchema(){
-        return schema;
+        }, sequelizeConnection);
     }
 }
 export default FarmerModel;

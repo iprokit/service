@@ -10,22 +10,24 @@ var docker = new DockerUtility();
 class SequelizeConnection {
     //Default Constructor
     constructor(dbConfig) {
+        this.docker = new DockerUtility();
+
         this.dialect = dbConfig.dialect;
         this.name = dbConfig.name;
 
-        if(!dbConfig.hasOwnProperty('host') || dbConfig.host === ''){
-            this.host = docker.getHostIP();
+        if(!dbConfig.hasOwnProperty('host') || dbConfig.host == ''){
+            this.host = this.docker.getHostIP();
         }else{
             this.host = dbConfig.host;
         }
 
-        if (!dbConfig.hasOwnProperty('auth') || dbConfig.auth === '') {
+        if (!dbConfig.hasOwnProperty('auth') || dbConfig.auth == '') {
             this.auth = true;
         } else {
             this.auth = dbConfig.auth;
         }
 
-        if (!dbConfig.hasOwnProperty('force') || dbConfig.force === '') {
+        if (!dbConfig.hasOwnProperty('force') || dbConfig.force == '') {
             this.force = false;
         } else {
             this.force = dbConfig.force;

@@ -15,15 +15,15 @@ var microService = new MicroService({ name: "aqu",
         password: 'iPr0tech$2020',
         timezone: '+5:30'
     }
-    });
+});
 
-var sequelize = microService.getSequelize();
+var sequelizeConnection = microService.getSequelize();
 
-var farmerModel = new FarmerModel('farmer', sequelize);
+var farmerModel = new FarmerModel(sequelizeConnection);
 
 var farmerController = new FarmerController(farmerModel);
 
-microService.createCRUD(farmerController);
+microService.createCRUD(farmerModel, farmerController);
 
 //Start the service.
 microService.startService();

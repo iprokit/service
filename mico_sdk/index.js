@@ -5,6 +5,7 @@ import createError from 'http-errors'
 import uuid from 'uuid/v1'
 
 //Local Imports
+import Model from './model';
 import Controller from './controller'
 import DockerUtility from './docker.utility'
 import SequelizeConnection from './db.sequelize.connection'
@@ -12,12 +13,13 @@ import SequelizeConnection from './db.sequelize.connection'
 //Init variables
 var app = express();
 var router = express.Router();
-var docker = new DockerUtility();
 
 class MicroService {
     //Default Constructor
     constructor(config) {
-        if (!config.hasOwnProperty('name') || config.name === '') {
+        this.docker = new DockerUtility();
+
+        if (!config.hasOwnProperty('name') || config.name == '') {
             throw new Error("Service name required");
         } else {
             this.serviceName = config.name;
@@ -27,19 +29,21 @@ class MicroService {
         this.serviceVersion = config.version || '1.0';
         this.serviceType = config.type || 'api';
         this.servicePort = config.port || 3000;
-        this.serviceIP = docker.getContainerIP();
+        this.serviceIP = this.docker.getContainerIP();
 
         this._initExpressServer();
 
         //Load sequelize
         if(config.hasOwnProperty('mysql')){
-            config.mysql.dialect = 'mysql';
-            this.sequelizeConnection = new SequelizeConnection(config.mysql);
+            var mysql = config.mysql;
+
+            mysql.dialect = 'mysql';
+            this.sequelizeConnection = new SequelizeConnection(mysql);
             this.sequelizeConnection.start();
 
-            this.sequelizeConfig = config.mysql;
-            this.sequelizeConfig.username = 'xxxxxxxxxx';
-            this.sequelizeConfig.password = 'xxxxxxxxxx';
+            this.dbConfig = mysql;
+            this.dbConfig.username = 'xxxxxxxxxx';
+            this.dbConfig.password = 'xxxxxxxxxx';
         }
     }
 
@@ -96,19 +100,18 @@ class MicroService {
     /////////////////////////
     ///////CRUD Services
     /////////////////////////
-    createCRUD(object) {
-        var controller = object
-
-        if (!(object instanceof Controller)) {
-            //Model object case
-            controller = new Controller(object);
-        }//Might need to modify this.
-
-        this.get('/:id', controller.selectOneByID);
-        this.get('/', controller.selectAll);
-        this.post('/', controller.add);
-        this.put('/', controller.update);
-        this.delete('/:id', controller.deleteOneByID);
+    createCRUD(model, controller) {
+        if (model instanceof Model && controller instanceof Controller) {
+            var baseURL = "/" + model.getName();
+            var baseURL_ID = baseURL + ":id";
+            this.get(baseURL_ID, controller.selectOneByID);
+            this.get(baseURL, controller.selectAll);
+            this.post(baseURL, controller.add);
+            this.put(baseURL, controller.update);
+            this.delete(baseURL_ID, controller.deleteOneByID);
+        }else{
+            throw new Error("%s & %s should be an instance of Model & Controller", model.constructor.name, controller.constructor.name)
+        }
     }
 
     /////////////////////////
@@ -119,7 +122,7 @@ class MicroService {
             try {
                 response.status(httpStatus.OK).send({ status: true })
             } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error })
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
             }
         });
 
@@ -130,32 +133,33 @@ class MicroService {
             type: this.serviceType,
             port: this.servicePort,
             ip: this.serviceIP,
-        }
+            host: this.docker.getHostIP()
+        };
 
-        var sequelizeObject = this.sequelizeConfig;
+        var dbObject = this.dbConfig;
 
         this.get('/health/report', function (request, response) {
             try {
-                var routes = [];
+                var routesArray = [];
                 var baseURL = request.baseUrl;
 
                 //Getting all registered routes from router
                 router.stack.forEach((item) => {
                     var method = item.route.stack[0].method;
                     var url = baseURL + item.route.path;
-                    routes.push({ method, url });
+                    routesArray.push({ method, url });
                 });
 
                 var data = {
                     service: serviceObject,
-                    registeredRoutes: routes,
-                    db: sequelizeObject
+                    routes: routesArray,
+                    db: dbObject
                 }
 
                 response.status(httpStatus.OK).send({ status: true, data });
             } catch (error) {
                 console.log(error);
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error });
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             }
         });
     }
@@ -187,8 +191,8 @@ class IMicroService extends MicroService {
         super.delete(url, fn);
     }
 
-    createCRUD(object) {
-        super.createCRUD(object);
+    createCRUD(model, controller) {
+        super.createCRUD(model, controller);
     }
 
     getSequelize() {
