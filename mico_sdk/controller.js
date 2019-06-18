@@ -12,7 +12,7 @@ class Controller{
 
     selectOneByID(request, response){
         try {
-            model.findById(request.params.id)
+            model.getSchema().findByPk(request.params.id)
                 .then(data => { response.status(httpStatus.OK).send({status: true, data: data}) })
                 .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
@@ -22,7 +22,7 @@ class Controller{
 
     selectAll(request, response){
         try {
-            model.findAll()
+            model.getSchema().findAll()
                 .then(data => { response.status(httpStatus.OK).send({status: true, data: data}) })
                 .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
@@ -33,7 +33,7 @@ class Controller{
 
     add(request, response){
         try {
-            model.create(request.body)
+            model.getSchema().create(request.body)
                 .then(() => { response.status(httpStatus.CREATED).send({ status: true, message: "Created!" }) })
                 .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
@@ -43,7 +43,7 @@ class Controller{
 
     update(request, response){
         try {
-            model.update(request.body, { where: { id: request.body.id } })
+            model.getSchema().update(request.body, { where: { id: request.body.id } })
                 .then(() => { response.status(httpStatus.OK).send({ status: true, data: { affectedRows : 1 } }) })
                 .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {
@@ -53,7 +53,7 @@ class Controller{
 
     deleteOneByID(request, response){
         try {
-            model.destroy({ where: { id: request.body.id } })
+            model.getSchema().destroy({ where: { id: request.params.id } })
                 .then(() => { response.status(httpStatus.OK).send({ status: true, message: "Deleted!" }) })
                 .catch(error => { response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message }) })
         } catch (error) {

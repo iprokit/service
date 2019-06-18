@@ -104,11 +104,11 @@ class MicroService {
             controller = new Controller(object);
         }//Might need to modify this.
 
-        this.get('/select/:id', controller.selectOneByID);
-        this.get('/select/', controller.selectAll);
-        this.post('/add/', controller.add);
-        this.put('/update/', controller.update);
-        this.delete('/delete/:id', controller.deleteOneByID);
+        this.get('/:id', controller.selectOneByID);
+        this.get('/', controller.selectAll);
+        this.post('/', controller.add);
+        this.put('/', controller.update);
+        this.delete('/:id', controller.deleteOneByID);
     }
 
     /////////////////////////
@@ -132,6 +132,8 @@ class MicroService {
             ip: this.serviceIP,
         }
 
+        var sequelizeObject = this.sequelizeConfig;
+
         this.get('/health/report', function (request, response) {
             try {
                 var routes = [];
@@ -147,7 +149,7 @@ class MicroService {
                 var data = {
                     service: serviceObject,
                     registeredRoutes: routes,
-                    db: this.sequelizeConfig
+                    db: sequelizeObject
                 }
 
                 response.status(httpStatus.OK).send({ status: true, data });

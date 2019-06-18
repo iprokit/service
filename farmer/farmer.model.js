@@ -1,11 +1,11 @@
 //Import modules
-import {Model, DataTypes} from 'sequelize'
+import {DataTypes} from 'sequelize'
 
 var schema;
 
 class FarmerModel{
-    init(sequelize){
-        schema = sequelize.define('farmer',{
+    constructor(name, sequelize){
+        schema = sequelize.define(name, {
             id: {
                 type: DataTypes.INTEGER(6),
                 primaryKey: true,

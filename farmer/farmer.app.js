@@ -1,5 +1,4 @@
 //Import modules
-import {Sequelize, DataTypes} from 'sequelize'
 import MicroService from '../mico_sdk/index'
 
 //Import Models
@@ -9,7 +8,7 @@ import FarmerModel from './farmer.model'
 import FarmerController from './farmer.controller'
 
 //Init & start service
-var microService = new MicroService({ name: "farmer",
+var microService = new MicroService({ name: "aqu",
     mysql: {
         name: 'IPRO_AQU_ECS_VER4_6',
         username: 'microaqu',
@@ -20,25 +19,7 @@ var microService = new MicroService({ name: "farmer",
 
 var sequelize = microService.getSequelize();
 
-// //Need to move the below schema into a model
-// var farmerModel = sequelize.define('farmer',{
-//     id: {
-//         type: DataTypes.INTEGER(6),
-//         primaryKey: true,
-//         autoIncrement: true
-//     },
-//     first_name: {
-//         type: DataTypes.STRING(20),
-//         allowNull: false
-//     },
-//     last_name: {
-//         type: DataTypes.STRING(20),
-//         allowNull: true
-//     }
-// });
-
-var farmerModel = new FarmerModel();
-farmerModel.init(sequelize);
+var farmerModel = new FarmerModel('farmer', sequelize);
 
 var farmerController = new FarmerController(farmerModel);
 
