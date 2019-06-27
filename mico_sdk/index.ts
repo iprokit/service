@@ -1,26 +1,36 @@
 //Import modules
-import express from 'express'
-import httpStatus from 'http-status-codes'
-import createError from 'http-errors'
-import uuid from 'uuid/v1'
+import express from 'express';
+import httpStatus from 'http-status-codes';
+import createError from 'http-errors';
+import uuid from 'uuid/v1';
 
 //Local Imports
-import Model from './model';
-import Controller from './controller'
-import DockerUtility from './docker.utility'
-import SequelizeConnection from './db.sequelize.connection'
+import Model from './model'
+import Controller from './controller';
+import DockerUtility from './docker.utility';
+import SequelizeConnection from './db.sequelize.connection';
 
 //Init variables
-var app = express();
-var router = express.Router();
+const app = express();
+const router = express.Router();
 
 class MicroService {
+    dbConfig: any;
+    serviceType: string;
+    servicePort: number;
+    serviceIP: string;
+    serviceName: string;
+    docker: any;
+    serviceVersion: string;
+    serviceID: string;
+    sequelizeConnection: any;
+
     //Default Constructor
-    constructor(config) {
+    constructor(config: any) {
         this.docker = new DockerUtility();
 
         if (!config.hasOwnProperty('name') || config.name == '') {
-            throw new Error("Service name required");
+            throw new Error('Service name required');
         } else {
             this.serviceName = config.name;
         }
@@ -34,8 +44,8 @@ class MicroService {
         this._initExpressServer();
 
         //Load sequelize
-        if(config.hasOwnProperty('mysql')){
-            var mysql = config.mysql;
+        if (config.hasOwnProperty('mysql')) {
+            let mysql = config.mysql;
 
             mysql.dialect = 'mysql';
             this.sequelizeConnection = new SequelizeConnection(mysql);
@@ -50,18 +60,18 @@ class MicroService {
     _initExpressServer() {
         //Setup Express
         app.use(express.json());
-        app.use(express.urlencoded({ extended: false }));
+        app.use(express.urlencoded({extended: false}));
 
-        var url = "/" + this.serviceType + "/" + this.serviceName;
+        let url = '/' + this.serviceType + '/' + this.serviceName;
         app.use(url, router);
 
         // Error handler for 404
-        app.use(function (req, res, next) {
+        app.use(function(req, res, next) {
             next(createError(404));
         });
 
         // Default error handler
-        app.use(function (err, req, res, next) {
+        app.use(function(err: any, req: any, res: any, next: any) {
             res.locals.message = err.message;
             res.locals.error = req.app.get('env') === 'development' ? err : {};
             res.status(err.status || 500).send(err.message);
@@ -73,44 +83,48 @@ class MicroService {
     startService() {
         // Start server.
         app.listen(this.servicePort, () => {
-            console.log("%s micro service running on %s:%s", this.serviceName, this.serviceIP, this.servicePort);
-            console.log("%s : %o", this.serviceName, { id: this.serviceID, version: this.serviceVersion, type: this.serviceType })
+            console.log('%s micro service running on %s:%s', this.serviceName, this.serviceIP, this.servicePort);
+            console.log('%s : %o', this.serviceName, {
+                id: this.serviceID,
+                version: this.serviceVersion,
+                type: this.serviceType
+            });
         });
     }
 
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    get(url, fn) {
+    get(url: string, fn: any) {
         router.get(url, fn);
     }
 
-    post(url, fn) {
+    post(url: string, fn: any) {
         router.post(url, fn);
     }
 
-    put(url, fn) {
+    put(url: string, fn: any) {
         router.put(url, fn);
     }
 
-    delete(url, fn) {
+    delete(url: string, fn: any) {
         router.delete(url, fn);
     }
 
     /////////////////////////
     ///////CRUD Services
     /////////////////////////
-    createCRUD(model, controller) {
+    createCRUD(model: Model, controller: Controller) {
         if (model instanceof Model && controller instanceof Controller) {
-            var baseURL = "/" + model.getName();
-            var baseURL_ID = baseURL + ":id";
+            let baseURL = '/' + model.getName();
+            let baseURL_ID = baseURL + ':id';
             this.get(baseURL_ID, controller.selectOneByID);
             this.get(baseURL, controller.selectAll);
             this.post(baseURL, controller.add);
             this.put(baseURL, controller.update);
             this.delete(baseURL_ID, controller.deleteOneByID);
-        }else{
-            throw new Error("%s & %s should be an instance of Model & Controller", model.constructor.name, controller.constructor.name)
+        } else {
+            throw new Error('%s & %s should be an instance of Model & Controller' + ' ' + model.constructor.name + ' ' + controller.constructor.name);
         }
     }
 
@@ -118,15 +132,15 @@ class MicroService {
     ///////Health Services
     /////////////////////////
     _createHealth() {
-        this.get('/health', function (request, response) {
+        this.get('/health', function(request: any, response: any) {
             try {
-                response.status(httpStatus.OK).send({ status: true })
+                response.status(httpStatus.OK).send({status: true});
             } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
 
-        var serviceObject = {
+        let serviceObject = {
             id: this.serviceID,
             name: this.serviceName,
             version: this.serviceVersion,
@@ -136,38 +150,38 @@ class MicroService {
             host: this.docker.getHostIP()
         };
 
-        var dbObject = this.dbConfig;
+        let dbObject = this.dbConfig;
 
-        this.get('/health/report', function (request, response) {
+        this.get('/health/report', function(request: any, response: any) {
             try {
-                var routesArray = [];
-                var baseURL = request.baseUrl;
+                let routesArray: any = [];
+                let baseURL = request.baseUrl;
 
                 //Getting all registered routes from router
                 router.stack.forEach((item) => {
-                    var method = item.route.stack[0].method;
-                    var url = baseURL + item.route.path;
-                    routesArray.push({ method, url });
+                    let method = item.route.stack[0].method;
+                    let url = baseURL + item.route.path;
+                    routesArray.push({method, url});
                 });
 
-                var data = {
+                let data = {
                     service: serviceObject,
                     routes: routesArray,
                     db: dbObject
-                }
+                };
 
-                response.status(httpStatus.OK).send({ status: true, data });
+                response.status(httpStatus.OK).send({status: true, data});
             } catch (error) {
                 console.log(error);
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
     }
 }
 
 class IMicroService extends MicroService {
-    constructor(config) {
-        super(config)
+    constructor(config: any) {
+        super(config);
     }
 
     startService() {
@@ -175,30 +189,30 @@ class IMicroService extends MicroService {
         super.startService();
     }
 
-    get(url, fn) {
+    get(url: string, fn: any) {
         super.get(url, fn);
     }
 
-    post(url, fn) {
+    post(url: string, fn: any) {
         super.post(url, fn);
     }
 
-    put(url, fn) {
+    put(url: string, fn: any) {
         super.put(url, fn);
     }
 
-    delete(url, fn) {
+    delete(url: string, fn: any) {
         super.delete(url, fn);
     }
 
-    createCRUD(model, controller) {
+    createCRUD(model: Model, controller: Controller) {
         super.createCRUD(model, controller);
     }
 
     getSequelize() {
-        if(this.sequelizeConnection != null){
+        if (this.sequelizeConnection != null) {
             return this.sequelizeConnection.getSequelize();
-        }else{
+        } else {
             throw new Error('Sequelize connection object does not exist.');
         }
     }
