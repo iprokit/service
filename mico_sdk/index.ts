@@ -115,7 +115,6 @@ class MicroService {
     ///////CRUD Services
     /////////////////////////
     createCRUD(model: Model, controller: Controller) {
-        if (model instanceof Model && controller instanceof Controller) {
             let baseURL = '/' + model.getName();
             let baseURL_ID = baseURL + ':id';
             this.get(baseURL_ID, controller.selectOneByID);
@@ -123,9 +122,6 @@ class MicroService {
             this.post(baseURL, controller.add);
             this.put(baseURL, controller.update);
             this.delete(baseURL_ID, controller.deleteOneByID);
-        } else {
-            throw new Error('%s & %s should be an instance of Model & Controller' + ' ' + model.constructor.name + ' ' + controller.constructor.name);
-        }
     }
 
     /////////////////////////

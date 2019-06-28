@@ -5,15 +5,11 @@ import httpStatus from 'http-status-codes';
 //Init variables
 
 class Controller {
-    _model: any;
+    _model: Model;
 
     //Default Constructor
-    constructor(model: any) {
-        if (model instanceof Model) {
+    constructor(model: Model) {
             this._model = model;
-        } else {
-            throw new Error('%s should be an instance of Model.' + ' ' + model.constructor.name);
-        }
     }
 
     selectOneByID(request: any, response: any) {

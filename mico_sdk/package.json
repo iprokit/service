@@ -1,5 +1,5 @@
 {
-  "name": "mico_node_sdk",
+  "name": "ipromicro",
   "version": "1.0.0",
   "private": true,
   "main": "dist/index.js",
@@ -7,6 +7,12 @@
     "build": "tsc",
     "watch-ts": "tsc -w"
   },
+  "keywords": [
+    "Micro SDK",
+    "iPROTECHS",
+    "Micro Service",
+    "iProMicro"
+  ],
   "dependencies": {
     "@types/bluebird": "^3.5.27",
     "@types/express": "^4.17.0",
