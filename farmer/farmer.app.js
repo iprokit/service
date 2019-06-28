@@ -1,14 +1,12 @@
 //Import modules
-import MicroService from '../mico_sdk/index'
-
+import MicroService from '@iprotechs/ipromicro'
 //Import Models
 import FarmerModel from './farmer.model'
-
 //Import Controllers
 import FarmerController from './farmer.controller'
-
 //Init & start service
-var microService = new MicroService({ name: "aqu",
+var microService = new MicroService({
+    name: "aqu",
     mysql: {
         name: 'IPRO_AQU_ECS_VER4_6',
         username: 'microaqu',

@@ -5,7 +5,7 @@ import createError from 'http-errors';
 import uuid from 'uuid/v1';
 
 //Local Imports
-import Model from './model'
+import Model from './model';
 import Controller from './controller';
 import DockerUtility from './docker.utility';
 import SequelizeConnection from './db.sequelize.connection';
@@ -115,13 +115,13 @@ class MicroService {
     ///////CRUD Services
     /////////////////////////
     createCRUD(model: Model, controller: Controller) {
-            let baseURL = '/' + model.getName();
-            let baseURL_ID = baseURL + ':id';
-            this.get(baseURL_ID, controller.selectOneByID);
-            this.get(baseURL, controller.selectAll);
-            this.post(baseURL, controller.add);
-            this.put(baseURL, controller.update);
-            this.delete(baseURL_ID, controller.deleteOneByID);
+        let baseURL = '/' + model.getName();
+        let baseURL_ID = baseURL + ':id';
+        this.get(baseURL_ID, controller.selectOneByID);
+        this.get(baseURL, controller.selectAll);
+        this.post(baseURL, controller.add);
+        this.put(baseURL, controller.update);
+        this.delete(baseURL_ID, controller.deleteOneByID);
     }
 
     /////////////////////////

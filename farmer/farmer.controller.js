@@ -1,5 +1,5 @@
 //Import modules
-import Controller from '../mico_sdk/controller'
+import Controller from '@iprotechs/ipromicro/dist/controller'
 
 class FarmerController extends Controller{
     //Default Constructor

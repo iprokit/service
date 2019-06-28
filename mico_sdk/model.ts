@@ -15,6 +15,10 @@ class Model {
 
         //Setting up schema object
         this._schema = sequelizeConnection.define(this._name, dataTypes);
+        this.association();
+    }
+    association() {
+        // doesnt do any thing
     }
 
     getSchema() {

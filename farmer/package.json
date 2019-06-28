@@ -6,8 +6,9 @@
     "start": "babel-node farmer.app.js --presets es2015"
   },
   "dependencies": {
-    "http-status-codes": "1.3.2",
+    "@iprotechs/ipromicro": "^1.0.0",
     "dotenv": "8.0.0",
+    "http-status-codes": "1.3.2",
     "sequelize": "5.8.9"
   },
   "devDependencies": {

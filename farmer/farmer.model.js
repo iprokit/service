@@ -1,10 +1,10 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import Model from '../mico_sdk/model'
+import Model from '@iprotechs/ipromicro/dist/model'
 
-class FarmerModel extends Model{
+class FarmerModel extends Model {
     //Default Constructor
-    constructor(sequelizeConnection){
+    constructor(sequelizeConnection) {
         super({
             id: {
                 type: DataTypes.INTEGER(6),
@@ -20,6 +20,14 @@ class FarmerModel extends Model{
                 allowNull: true
             }
         }, sequelizeConnection);
+
+    }
+
+    association() {
+        super.association();
+        // association logic
+
     }
 }
+
 export default FarmerModel;
