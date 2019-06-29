@@ -1,6 +1,6 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import MicroSDK from "../mico_sdk";
+import MicroSDK from '@iprotechs/ipromicro'
 let Model = MicroSDK.model;
 
 class FarmerModel extends Model {

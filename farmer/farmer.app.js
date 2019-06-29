@@ -1,5 +1,5 @@
 //Import modules
-import MicroSDK from '../mico_sdk'
+import MicroSDK from '@iprotechs/ipromicro'
 //Import Models
 let MicroService = MicroSDK.microService;
 import FarmerModel from './farmer.model'
