@@ -1,6 +1,7 @@
 //Import modules
-import MicroService from '@iprotechs/ipromicro'
+import MicroSDK from '../mico_sdk'
 //Import Models
+let MicroService = MicroSDK.microService;
 import FarmerModel from './farmer.model'
 //Import Controllers
 import FarmerController from './farmer.controller'
@@ -16,7 +17,6 @@ var microService = new MicroService({
 });
 
 var sequelizeConnection = microService.getSequelize();
-
 var farmerModel = new FarmerModel(sequelizeConnection);
 
 var farmerController = new FarmerController(farmerModel);
