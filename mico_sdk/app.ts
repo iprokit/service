@@ -116,7 +116,7 @@ class MicroService {
     /////////////////////////
     createCRUD(model: Model, controller: Controller) {
         let baseURL = '/' + model.getName();
-        let baseURL_ID = baseURL + ':id';
+        let baseURL_ID = baseURL + '/:id';
         this.get(baseURL_ID, controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
         this.post(baseURL, controller.add);

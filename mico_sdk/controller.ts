@@ -9,10 +9,10 @@ class Controller {
 
     //Default Constructor
     constructor(model: Model) {
-            this._model = model;
+        this._model = model;
     }
 
-    selectOneByID(request: any, response: any) {
+    selectOneByID = (request: any, response: any) => {
         try {
             this._model.getSchema().findByPk(request.params.id)
                 .then((data: any) => {
@@ -24,9 +24,9 @@ class Controller {
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
+    };
 
-    selectAll(request: any, response: any) {
+    selectAll = (request: any, response: any) => {
         try {
             this._model.getSchema().findAll()
                 .then((data: any) => {
@@ -38,9 +38,9 @@ class Controller {
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
+    };
 
-    add(request: any, response: any) {
+    add = (request: any, response: any) => {
         try {
             this._model.getSchema().create(request.body)
                 .then(() => {
@@ -52,9 +52,9 @@ class Controller {
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
+    };
 
-    update(request: any, response: any) {
+    update = (request: any, response: any) => {
         try {
             this._model.getSchema().update(request.body, {where: {id: request.body.id}})
                 .then(() => {
@@ -66,9 +66,9 @@ class Controller {
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
+    };
 
-    deleteOneByID(request: any, response: any) {
+    deleteOneByID = (request: any, response: any) => {
         try {
             this._model.getSchema().destroy({where: {id: request.params.id}})
                 .then(() => {
@@ -80,7 +80,7 @@ class Controller {
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
+    };
 }
 
 export default Controller;
