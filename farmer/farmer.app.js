@@ -12,7 +12,8 @@ var microService = new MicroService({
         name: 'IPRO_AQU_ECS_VER4_6',
         username: 'microaqu',
         password: 'iPr0tech$2020',
-        timezone: '+5:30'
+        timezone: '+5:30',
+        auth:false
     }
 });
 
