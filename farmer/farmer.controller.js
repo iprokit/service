@@ -5,6 +5,7 @@ let Controller = MicroSDK.controller;
 
 class FarmerController extends Controller {
     //Default Constructor
+
     constructor(farmerModel) {
         super(farmerModel);
     }

@@ -12,16 +12,13 @@ var microService = new MicroService({
         name: 'IPRO_AQU_ECS_VER4_6',
         username: 'microaqu',
         password: 'iPr0tech$2020',
-        timezone: '+5:30',
-        auth:false
+        timezone: '+5:30'
     }
 });
 
 var sequelizeConnection = microService.getSequelize();
 var farmerModel = new FarmerModel(sequelizeConnection);
-
 var farmerController = new FarmerController(farmerModel);
-
 microService.createCRUD(farmerModel, farmerController);
 
 //Start the service.
