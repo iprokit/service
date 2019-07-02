@@ -119,6 +119,7 @@ class MicroService {
         let baseURL_ID = baseURL + '/:id';
         this.get(baseURL_ID, controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
+        this.get(baseURL+"/latest", controller.selectAllByDesc);
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
         this.delete(baseURL_ID, controller.deleteOneByID);

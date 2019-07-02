@@ -39,6 +39,21 @@ class Controller {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
     };
+    selectAllByDesc = (request: any, response: any) => {
+        try {
+            this._model.getSchema().findAll({
+                order: [['createdAt', 'DESC']]
+            })
+                .then((data: any) => {
+                    response.status(httpStatus.OK).send({status: true, data: data});
+                })
+                .catch((error: any) => {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                });
+        } catch (error) {
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+        }
+    };
 
     add = (request: any, response: any) => {
         try {

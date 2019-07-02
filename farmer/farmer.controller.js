@@ -17,7 +17,9 @@ class FarmerController extends Controller {
     selectAll(request, response) {
         super.selectAll(request, response);
     }
-
+    selectAllByDesc(request, response) {
+        super.selectAllByDesc(request, response);
+    }
     add(request, response) {
         super.add(request, response);
     }
