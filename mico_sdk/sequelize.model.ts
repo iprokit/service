@@ -1,29 +1,24 @@
 //Import Local
-import {sequelize} from './app'
+import {sequelize, serviceName} from './app'
 import {Model} from 'sequelize';
 
-export default class SequelizeModel{
-    name: string;
-    schema: any;
-
-    //Default Constructor
-    constructor(dataTypes: any, _name: string) {
-        //Getting class name and setting it as the model name.
-        this.name = _name || this.constructor.name.toLowerCase().replace('model', '');
-
-        //Setting up schema object
-        if(sequelize !== undefined){
-            this.schema = sequelize.define(this.name, dataTypes);
+export default class SequelizeModel extends Model{
+    static modelName: string;
+    static tableName: string;
+    
+    static init(attributes: any, name: any){
+        this.modelName = this.name.toLowerCase().replace('model', '');
+        
+        if(name !== undefined){
+            this.tableName = name;
         }else{
-            throw new Error("Sequelize connection undefined.");
+            this.tableName = serviceName + '_' + this.modelName;
         }
+
+        return super.init(attributes, {modelName: this.modelName, tableName: this.tableName, sequelize});
     }
 
-    getSchema() {
-        return this.schema;
-    }
-
-    getName() {
-        return this.name;
+    static getName() {
+        return this.modelName;
     }
 }

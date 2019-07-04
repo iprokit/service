@@ -1,8 +1,8 @@
 //Import modules
-import MicroService from '../mico_sdk/dist/app'
+import {default as MicroService, sequelize} from '../mico_sdk/dist/app'
 
 //Import Local
-import FarmerModel from './farmer.model'
+import {default as FarmerModel} from './farmer.model'
 import FarmerController from './farmer.controller'
 
 //Init & start service
@@ -16,10 +16,13 @@ var microService = new MicroService({
     }
 });
 
-var farmerModel = new FarmerModel();
-var farmerController = new FarmerController(farmerModel);
+FarmerModel.init();
+//FarmerModel.associate();
 
-microService.createCRUD(farmerModel, farmerController);
+var farmerController = new FarmerController();
+//console.log('sequelize', sequelize);
+
+microService.createCRUD(FarmerModel, farmerController);
 
 //Start the service.
 microService.startService();

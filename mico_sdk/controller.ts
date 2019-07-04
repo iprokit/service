@@ -4,17 +4,17 @@ import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Init variables
-var model: Model;
+var model: typeof Model;
 
 export default class Controller {
     //Default Constructor
-    constructor(_model: Model) {
+    constructor(_model: typeof Model) {
         model = _model;
     }
 
     selectOneByID(request: Request, response: Response){
         try {
-            model.getSchema().findByPk(request.params.id)
+            typeof(model).findByPk(request.params.id)
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -28,7 +28,7 @@ export default class Controller {
 
     selectAll(request: Request, response: Response){
         try {
-            model.getSchema().findAll()
+            typeof(model).findAll()
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -42,7 +42,7 @@ export default class Controller {
 
     selectAllByDesc(request: Request, response: Response){
         try {
-            model.getSchema().findAll({
+            typeof(model).findAll({
                 order: [['createdAt', 'DESC']]
             })
                 .then((data: any) => {
@@ -58,7 +58,7 @@ export default class Controller {
 
     add(request: Request, response: Response){
         try {
-            model.getSchema().create(request.body)
+            model.create(request.body)
                 .then(() => {
                     response.status(httpStatus.CREATED).send({status: true, message: 'Created!'});
                 })
@@ -72,7 +72,7 @@ export default class Controller {
 
     update(request: Request, response: Response){
         try {
-            model.getSchema().update(request.body, {where: {id: request.body.id}})
+            model.update(request.body, {where: {id: request.body.id}})
                 .then(() => {
                     response.status(httpStatus.OK).send({status: true, data: {affectedRows: 1}});
                 })
@@ -86,7 +86,7 @@ export default class Controller {
 
     deleteOneByID(request: Request, response: Response){
         try {
-            model.getSchema().destroy({where: {id: request.params.id}})
+            model.destroy({where: {id: request.params.id}})
                 .then(() => {
                     response.status(httpStatus.OK).send({status: true, message: 'Deleted!'});
                 })

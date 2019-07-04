@@ -17,6 +17,7 @@ var router = express.Router();
 
 //Export variables
 export var sequelize: Sequelize;
+export var serviceName: string;
 
 class MicroService {
     serviceID: string;
@@ -38,6 +39,7 @@ class MicroService {
         } else {
             this.serviceName = config.name;
         }
+        serviceName = this.serviceName;
 
         this.serviceID = uuid();
         this.serviceVersion = config.version || '1.0';
@@ -128,8 +130,10 @@ class MicroService {
     ///////CRUD Services
     /////////////////////////
     createCRUD(model: Model, controller: Controller) {
-        let baseURL = '/' + model.getName();
+        console.log(model);
+        let baseURL = '/' + Model.getName();
         let baseURL_ID = baseURL + '/:id';
+        console.log('baseURL', baseURL);
 
         //Adding routes
         this.get(baseURL_ID, controller.selectOneByID);

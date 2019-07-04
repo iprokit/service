@@ -3,9 +3,8 @@ import {DataTypes} from 'sequelize'
 import Model from '../mico_sdk/dist/sequelize.model'
 
 export default class FarmerModel extends Model {
-    //Default Constructor
-    constructor() {
-        super({
+    static init(){
+        super.init({
             id: {
                 type: DataTypes.INTEGER(6),
                 primaryKey: true,
@@ -20,10 +19,13 @@ export default class FarmerModel extends Model {
                 allowNull: true
             }
         });
-
     }
 
-    association() {
-        this.schema.hasMany(this.sequelizeConnection.models.aqu_enduser, { foreignKey: 'customer_id', targetKey: 'customer_id' })
+    static associate() {
+        //this.myAssociation = this.belongsTo(models.OtherModel);
+        // or
+        //this.myAssociation = models.MyModel.belongsTo(models.OtherModel);
+
+        //this.hasMany(this.sequelizeConnection.models.aqu_enduser, { foreignKey: 'customer_id', targetKey: 'customer_id' })
     }
 }

@@ -1,10 +1,11 @@
 //Import modules
+import {default as FarmerModel} from './farmer.model'
 import Controller from '../mico_sdk/dist/controller'
 
 export default class FarmerController extends Controller {
     //Default Constructor
-    constructor(farmerModel) {
-        super(farmerModel);
+    constructor() {
+        super(FarmerModel);
     }
 
     selectOneByID(request, response) {
