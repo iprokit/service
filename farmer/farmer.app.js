@@ -22,9 +22,11 @@ FarmerModel.init();
 //After all init's of models
 FarmerModel.associate();
 
+//Init Controllers
 var farmerController = new FarmerController();
 
-microService.createCRUD(FarmerModel, farmerController);
+//Forward controller to CRUD
+microService.createCRUD(farmerController);
 
 //Start the service.
 microService.startService();

@@ -97,4 +97,12 @@ export default class Controller {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
     };
+
+    getModel(){
+        return model;
+    }
+
+    getName(){
+        return model.getName();
+    }
 }
