@@ -1,5 +1,5 @@
 //Import modules
-import {default as MicroService} from '../mico_sdk/dist/app'
+import {default as MicroService} from '@iprotechs/ipromicro'
 
 //Import Local
 import {default as FarmerModel} from './farmer.model'

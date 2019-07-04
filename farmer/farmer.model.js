@@ -1,9 +1,9 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import Model from '../mico_sdk/dist/sequelize.model'
+import {Model} from '@iprotechs/ipromicro'
 
 export default class FarmerModel extends Model {
-    static init(){
+    static init() {
         super.init({
             id: {
                 type: DataTypes.INTEGER(6),
@@ -22,7 +22,11 @@ export default class FarmerModel extends Model {
     }
 
     static associate() {
-        this.belongsTo(this.getModelByName('farmer'), {foreignKey: 'customer_id'});
+        try {
+            this.belongsTo(this.getModelByName('farmer'), {foreignKey: 'customer_id'});
+        } catch (e) {
+            console.log(e)
+        }
         //this.hasMany(this.getModel().farmer, { foreignKey: 'customer_id', targetKey: 'customer_id' });
         super.associate();
     }
