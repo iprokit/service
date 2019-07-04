@@ -6,7 +6,7 @@
     "start": "babel-node farmer.app.js --presets es2015"
   },
   "dependencies": {
-    "@iprotechs/ipromicro": "^1.1.0",
+    "@iprotechs/ipromicro": "^1.1.1",
     "babel-preset-env": "^1.7.0",
     "dotenv": "8.0.0",
     "http-status-codes": "1.3.2",

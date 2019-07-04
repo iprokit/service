@@ -1,7 +1,6 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import MicroSDK from '@iprotechs/ipromicro'
-let Model = MicroSDK.model;
+import {Model}from '@iprotechs/ipromicro'
 
 export default class FarmerModel extends Model {
     static init() {
