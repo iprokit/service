@@ -131,15 +131,14 @@ class MicroService {
     /////////////////////////
     createCRUD(model: typeof Model, controller: Controller) {
         let baseURL = '/' + model.getName();
-        let baseURL_ID = baseURL + '/:id';
 
         //Adding routes
-        this.get(baseURL_ID, controller.selectOneByID);
+        this.get(baseURL + '/:id', controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
-        this.get(baseURL+"/latest", controller.selectAllByDesc);
+        this.get(baseURL + "/order/new", controller.selectAllAndOrderByCreatedAt);
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
-        this.delete(baseURL_ID, controller.deleteOneByID);
+        this.delete(baseURL + '/:id', controller.deleteOneByID);
     }
 
     /////////////////////////

@@ -40,7 +40,7 @@ export default class Controller {
         }
     };
 
-    selectAllByDesc(request: Request, response: Response){
+    selectAllAndOrderByCreatedAt(request: Request, response: Response){
         try {
             model.findAll({
                 order: [['createdAt', 'DESC']]

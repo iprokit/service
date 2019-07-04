@@ -16,8 +16,8 @@ export default class FarmerController extends Controller {
         super.selectAll(request, response);
     }
 
-    selectAllByDesc(request, response) {
-        super.selectAllByDesc(request, response);
+    selectAllAndOrderByCreatedAt(request, response) {
+        super.selectAllAndOrderByCreatedAt(request, response);
     }
 
     add(request, response) {
