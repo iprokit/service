@@ -16,11 +16,10 @@ var microService = new MicroService({
     }
 });
 
+//Load Models by calling init
 FarmerModel.init();
 
-console.log('farmer app, sequelize', sequelize);
-
-//After all init of model
+//After all init's of models
 FarmerModel.associate();
 
 var farmerController = new FarmerController();

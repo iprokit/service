@@ -13,13 +13,16 @@ export default class SequelizeModel extends Model{
 
         return super.init(attributes, {modelName: this.modelName, tableName: this.tableName, sequelize});
     }
+    
+    static associate() {}
 
     static getName() {
         return this.modelName;
     }
 
-    //Might not need this.
-    // static _belongsTo(name: any, key: any) {
-    //     return this.belongsTo(name, key);
-    // }
+    static getModelByName(name: string) {
+        //Logic for filer to find the model
+        //If not model throw error
+        return sequelize.models.farmer;
+    }
 }
