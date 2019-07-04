@@ -6,7 +6,6 @@ import uuid from 'uuid/v1';
 import {Sequelize} from 'sequelize'
 
 //Local Imports
-import Model from './sequelize.model';
 import Controller from './controller';
 import SequelizeConnection from './sequelize.connection';
 import DockerUtility from './docker.utility';
@@ -131,7 +130,6 @@ class MicroService {
     /////////////////////////
     createCRUD(controller: Controller) {
         let baseURL = '/' + controller.getName();
-        console.log('baseURL', baseURL);
 
         //Adding routes
         this.get(baseURL + '/:id', controller.selectOneByID);
