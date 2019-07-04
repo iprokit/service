@@ -22,10 +22,12 @@ export default class FarmerModel extends Model {
     }
 
     static associate() {
+        FarmerModel._belongsTo('farmer', {foreignKey: 'customer_id'});
         //this.myAssociation = this.belongsTo(models.OtherModel);
         // or
         //this.myAssociation = models.MyModel.belongsTo(models.OtherModel);
 
         //this.hasMany(this.sequelizeConnection.models.aqu_enduser, { foreignKey: 'customer_id', targetKey: 'customer_id' })
+        super.associate();
     }
 }

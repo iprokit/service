@@ -14,7 +14,7 @@ export default class Controller {
 
     selectOneByID(request: Request, response: Response){
         try {
-            typeof(model).findByPk(request.params.id)
+            model.findByPk(request.params.id)
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -28,7 +28,7 @@ export default class Controller {
 
     selectAll(request: Request, response: Response){
         try {
-            typeof(model).findAll()
+            model.findAll()
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -42,7 +42,7 @@ export default class Controller {
 
     selectAllByDesc(request: Request, response: Response){
         try {
-            typeof(model).findAll({
+            model.findAll({
                 order: [['createdAt', 'DESC']]
             })
                 .then((data: any) => {

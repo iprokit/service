@@ -17,10 +17,13 @@ var microService = new MicroService({
 });
 
 FarmerModel.init();
-//FarmerModel.associate();
+
+console.log('farmer app, sequelize', sequelize);
+
+//After all init of model
+FarmerModel.associate();
 
 var farmerController = new FarmerController();
-//console.log('sequelize', sequelize);
 
 microService.createCRUD(FarmerModel, farmerController);
 

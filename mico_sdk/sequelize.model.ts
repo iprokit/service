@@ -9,11 +9,7 @@ export default class SequelizeModel extends Model{
     static init(attributes: any, name: any){
         this.modelName = this.name.toLowerCase().replace('model', '');
         
-        if(name !== undefined){
-            this.tableName = name;
-        }else{
-            this.tableName = serviceName + '_' + this.modelName;
-        }
+        this.tableName = name || serviceName + '_' + this.modelName;
 
         return super.init(attributes, {modelName: this.modelName, tableName: this.tableName, sequelize});
     }
@@ -21,4 +17,9 @@ export default class SequelizeModel extends Model{
     static getName() {
         return this.modelName;
     }
+
+    //Might not need this.
+    // static _belongsTo(name: any, key: any) {
+    //     return this.belongsTo(name, key);
+    // }
 }

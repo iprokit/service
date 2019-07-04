@@ -129,11 +129,9 @@ class MicroService {
     /////////////////////////
     ///////CRUD Services
     /////////////////////////
-    createCRUD(model: Model, controller: Controller) {
-        console.log(model);
-        let baseURL = '/' + Model.getName();
+    createCRUD(model: typeof Model, controller: Controller) {
+        let baseURL = '/' + model.getName();
         let baseURL_ID = baseURL + '/:id';
-        console.log('baseURL', baseURL);
 
         //Adding routes
         this.get(baseURL_ID, controller.selectOneByID);
@@ -220,7 +218,7 @@ export default class IMicroService extends MicroService {
         super.delete(url, fn);
     }
 
-    createCRUD(model: Model, controller: Controller) {
+    createCRUD(model: typeof Model, controller: Controller) {
         super.createCRUD(model, controller);
     }
 }
