@@ -1,6 +1,7 @@
 //Import modules
 import {default as FarmerModel} from './farmer.model'
-import {Controller} from '@iprotechs/ipromicro'
+import MicroSDK from '@iprotechs/ipromicro'
+let Controller = MicroSDK.Controller;
 
 export default class FarmerController extends Controller {
     //Default Constructor
