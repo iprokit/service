@@ -18,14 +18,15 @@ var router = express.Router();
 export var sequelize: Sequelize;
 export var serviceName: string;
 
+//Init null variables
+var serviceID: string;
+var serviceVersion: string;
+var serviceType: string;
+var servicePort: number;
+var serviceIP: string;
+var dbConfig: any;
+
 class MicroService {
-    serviceID: string;
-    serviceName: string;
-    serviceVersion: string;
-    serviceType: string;
-    servicePort: number;
-    serviceIP: string;
-    dbConfig: any;
     sequelizeConnection: SequelizeConnection
     docker: DockerUtility;
 
@@ -36,15 +37,14 @@ class MicroService {
         if (!config.hasOwnProperty('name') || config.name == '') {
             throw new Error('Service name required');
         } else {
-            this.serviceName = config.name;
+            serviceName = config.name;
         }
-        serviceName = this.serviceName;
 
-        this.serviceID = uuid();
-        this.serviceVersion = config.version || '1.0';
-        this.serviceType = config.type || 'api';
-        this.servicePort = config.port || 3000;
-        this.serviceIP = this.docker.getContainerIP();
+        serviceID = uuid();
+        serviceVersion = config.version || '1.0';
+        serviceType = config.type || 'api';
+        servicePort = config.port || 3000;
+        serviceIP = this.docker.getContainerIP();
 
         //Load sequelize
         if (config.hasOwnProperty('mysql')) {
@@ -63,9 +63,9 @@ class MicroService {
         this.sequelizeConnection = new SequelizeConnection(mysql);
         this.sequelizeConnection.start();
 
-        this.dbConfig = mysql;
-        this.dbConfig.username = 'xxxxxxxxxx';
-        this.dbConfig.password = 'xxxxxxxxxx';
+        dbConfig = mysql;
+        dbConfig.username = 'xxxxxxxxxx';
+        dbConfig.password = 'xxxxxxxxxx';
 
         //Setting in variable can be used by calling getSequelizeConnection();
         sequelize = this.sequelizeConnection.getConnection();
@@ -76,7 +76,7 @@ class MicroService {
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
 
-        let url = '/' + this.serviceType + '/' + this.serviceName;
+        let url = '/' + serviceType + '/' + serviceName;
         app.use(url, router);
 
         // Error handler for 404
@@ -96,12 +96,12 @@ class MicroService {
 
     startService() {
         // Start server.
-        app.listen(this.servicePort, () => {
-            console.log('%s micro service running on %s:%s', this.serviceName, this.serviceIP, this.servicePort);
-            console.log('%s : %o', this.serviceName, {
-                id: this.serviceID,
-                version: this.serviceVersion,
-                type: this.serviceType
+        app.listen(servicePort, () => {
+            console.log('%s micro service running on %s:%s', serviceName, serviceIP, servicePort);
+            console.log('%s : %o', serviceName, {
+                id: serviceID,
+                version: serviceVersion,
+                type: serviceType
             });
         });
     }
@@ -153,16 +153,16 @@ class MicroService {
         });
 
         let serviceObject = {
-            id: this.serviceID,
-            name: this.serviceName,
-            version: this.serviceVersion,
-            type: this.serviceType,
-            port: this.servicePort,
-            ip: this.serviceIP,
+            id: serviceID,
+            name: serviceName,
+            version: serviceVersion,
+            type: serviceType,
+            port: servicePort,
+            ip: serviceIP,
             host: this.docker.getHostIP()
         };
 
-        let dbObject = this.dbConfig;
+        let dbObject = dbConfig;
 
         this.get('/health/report', function(request: any, response: any) {
             try {

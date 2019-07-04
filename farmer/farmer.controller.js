@@ -1,6 +1,7 @@
 //Import modules
 import {default as FarmerModel} from './farmer.model'
-import {Controller} from '@iprotechs/ipromicro'
+import {Controller} from '../mico_sdk/dist/index'
+
 export default class FarmerController extends Controller {
     //Default Constructor
     constructor() {

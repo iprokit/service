@@ -4,59 +4,60 @@ import {Sequelize} from 'sequelize';
 //Local Imports
 import DockerUtility from './docker.utility';
 
+var host: any;
+var name: string;
+var dialect: any;
+var auth: boolean;
+var force: boolean;
+var operatorsAliases: any = false;
+
 export default class SequelizeConnection {
-    host: any;
-    name: string;
-    dialect: any;
-    auth: boolean;
-    force: boolean;
-    operatorsAliases: any = false;
     docker: DockerUtility;
     sequelize: Sequelize
 
     //Default Constructor
     constructor(dbConfig: any) {
         this.docker = new DockerUtility();
-        this.dialect = dbConfig.dialect;
-        this.name = dbConfig.name;
+        dialect = dbConfig.dialect;
+        name = dbConfig.name;
 
         if (!dbConfig.hasOwnProperty('host') || dbConfig.host === '') {
-            this.host = this.docker.getHostIP();
+            host = this.docker.getHostIP();
         } else {
-            this.host = dbConfig.host;
+            host = dbConfig.host;
         }
 
         if (!dbConfig.hasOwnProperty('auth') || dbConfig.auth === '') {
-            this.auth = true;
+            auth = true;
         } else {
-            this.auth = dbConfig.auth;
+            auth = dbConfig.auth;
         }
 
         if (!dbConfig.hasOwnProperty('force') || dbConfig.force === '') {
-            this.force = false;
+            force = false;
         } else {
-            this.force = dbConfig.force;
+            force = dbConfig.force;
         }
-        this.sequelize = new Sequelize(this.name, dbConfig.username, dbConfig.password, {
-            host: this.host,
-            dialect: this.dialect,
-            operatorsAliases: this.operatorsAliases,
+        this.sequelize = new Sequelize(name, dbConfig.username, dbConfig.password, {
+            host: host,
+            dialect: dialect,
+            operatorsAliases: operatorsAliases,
             timezone: dbConfig.timezone
         });
     }
 
     start() {
-        if (this.auth) {
+        if (auth) {
             this.authentication();
         } else {
-            this.synchronization(this.force);
+            this.synchronization(force);
         }
     }
 
     authentication() {
         this.sequelize.authenticate()
             .then(() => {
-                console.log('Connected to %s://%s/%s', this.dialect, this.host, this.name);
+                console.log('Connected to %s://%s/%s', dialect, host, name);
             })
             .catch((error: any) => {
                 console.error('Unable to connect to the database:', error);
@@ -66,7 +67,7 @@ export default class SequelizeConnection {
     synchronization(force: boolean) { //Should be exposed to service
         this.sequelize.sync({force})
             .then(() => {
-                console.log('Database & tables created on %s://%s/%s', this.dialect, this.host, this.name);
+                console.log('Database & tables created on %s://%s/%s', dialect, host, name);
             })
             .catch((error: any) => {
                 console.log('Table creation failed:', error);

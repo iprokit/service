@@ -22,7 +22,7 @@ export default class SequelizeModel extends Model {
     }
 
     static getModelByName(name: string) {
-        if (sequelize.models[name] != undefined) {
+        if (sequelize.models[name] !== undefined) {
             return sequelize.models[name];
         } else {
             throw new Error('Model not available');

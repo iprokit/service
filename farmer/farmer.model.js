@@ -1,6 +1,6 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import {Model}from '@iprotechs/ipromicro'
+import {Model} from '../mico_sdk/dist/index'
 
 export default class FarmerModel extends Model {
     static init() {
