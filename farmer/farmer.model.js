@@ -1,6 +1,5 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-
 import Model from '../mico_sdk/dist/sequelize.model'
 
 export default class FarmerModel extends Model {

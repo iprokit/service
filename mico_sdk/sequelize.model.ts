@@ -1,28 +1,29 @@
 //Import Local
 import {sequelize} from './app'
-
-var name: string;
-var schema: any;
+import {Model} from 'sequelize';
 
 export default class SequelizeModel{
+    name: string;
+    schema: any;
+
     //Default Constructor
     constructor(dataTypes: any, _name: string) {
         //Getting class name and setting it as the model name.
-        name = _name || this.constructor.name.toLowerCase().replace('model', '');
+        this.name = _name || this.constructor.name.toLowerCase().replace('model', '');
 
         //Setting up schema object
         if(sequelize !== undefined){
-            schema = sequelize.define(name, dataTypes);
+            this.schema = sequelize.define(this.name, dataTypes);
         }else{
             throw new Error("Sequelize connection undefined.");
         }
     }
 
     getSchema() {
-        return schema;
+        return this.schema;
     }
 
     getName() {
-        return name;
+        return this.name;
     }
 }

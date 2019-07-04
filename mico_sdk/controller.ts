@@ -1,6 +1,7 @@
 //Import modules
 import Model from './sequelize.model';
 import httpStatus from 'http-status-codes';
+import { Request, Response } from 'express';
 
 //Init variables
 var model: Model;
@@ -11,7 +12,7 @@ export default class Controller {
         model = _model;
     }
 
-    selectOneByID(request: any, response: any){
+    selectOneByID(request: Request, response: Response){
         try {
             model.getSchema().findByPk(request.params.id)
                 .then((data: any) => {
@@ -25,7 +26,7 @@ export default class Controller {
         }
     };
 
-    selectAll(request: any, response: any){
+    selectAll(request: Request, response: Response){
         try {
             model.getSchema().findAll()
                 .then((data: any) => {
@@ -39,7 +40,7 @@ export default class Controller {
         }
     };
 
-    selectAllByDesc(request: any, response: any){
+    selectAllByDesc(request: Request, response: Response){
         try {
             model.getSchema().findAll({
                 order: [['createdAt', 'DESC']]
@@ -55,7 +56,7 @@ export default class Controller {
         }
     };
 
-    add(request: any, response: any){
+    add(request: Request, response: Response){
         try {
             model.getSchema().create(request.body)
                 .then(() => {
@@ -69,7 +70,7 @@ export default class Controller {
         }
     };
 
-    update(request: any, response: any){
+    update(request: Request, response: Response){
         try {
             model.getSchema().update(request.body, {where: {id: request.body.id}})
                 .then(() => {
@@ -83,7 +84,7 @@ export default class Controller {
         }
     };
 
-    deleteOneByID(request: any, response: any){
+    deleteOneByID(request: Request, response: Response){
         try {
             model.getSchema().destroy({where: {id: request.params.id}})
                 .then(() => {
