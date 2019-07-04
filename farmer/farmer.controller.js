@@ -1,11 +1,8 @@
 //Import modules
-import MicroSDK from '@iprotechs/ipromicro'
+import Controller from '../mico_sdk/dist/controller'
 
-let Controller = MicroSDK.controller;
-
-class FarmerController extends Controller {
+export default class FarmerController extends Controller {
     //Default Constructor
-
     constructor(farmerModel) {
         super(farmerModel);
     }
@@ -17,9 +14,11 @@ class FarmerController extends Controller {
     selectAll(request, response) {
         super.selectAll(request, response);
     }
+
     selectAllByDesc(request, response) {
         super.selectAllByDesc(request, response);
     }
+
     add(request, response) {
         super.add(request, response);
     }
@@ -32,5 +31,3 @@ class FarmerController extends Controller {
         super.deleteOneByID(request, response);
     }
 }
-
-export default FarmerController;

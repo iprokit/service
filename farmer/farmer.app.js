@@ -1,10 +1,10 @@
 //Import modules
-import MicroSDK from '@iprotechs/ipromicro'
-//Import Models
-let MicroService = MicroSDK.microService;
+import MicroService from '../mico_sdk/dist/app'
+
+//Import Local
 import FarmerModel from './farmer.model'
-//Import Controllers
 import FarmerController from './farmer.controller'
+
 //Init & start service
 var microService = new MicroService({
     name: "aqu",
@@ -16,9 +16,9 @@ var microService = new MicroService({
     }
 });
 
-var sequelizeConnection = microService.getSequelize();
-var farmerModel = new FarmerModel(sequelizeConnection);
+var farmerModel = new FarmerModel();
 var farmerController = new FarmerController(farmerModel);
+
 microService.createCRUD(farmerModel, farmerController);
 
 //Start the service.

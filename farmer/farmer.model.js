@@ -1,11 +1,11 @@
 //Import modules
 import {DataTypes} from 'sequelize'
-import MicroSDK from '@iprotechs/ipromicro'
-let Model = MicroSDK.model;
 
-class FarmerModel extends Model {
+import Model from '../mico_sdk/dist/sequelize.model'
+
+export default class FarmerModel extends Model {
     //Default Constructor
-    constructor(sequelizeConnection) {
+    constructor() {
         super({
             id: {
                 type: DataTypes.INTEGER(6),
@@ -20,15 +20,11 @@ class FarmerModel extends Model {
                 type: DataTypes.STRING(20),
                 allowNull: true
             }
-        }, sequelizeConnection);
+        });
 
     }
 
     association() {
-        super.association();
-        // association logic
-
+        this.schema.hasMany(this.sequelizeConnection.models.aqu_enduser, { foreignKey: 'customer_id', targetKey: 'customer_id' })
     }
 }
-
-export default FarmerModel;

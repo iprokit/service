@@ -1,20 +1,19 @@
 //Import modules
-import Model from './model';
+import Model from './sequelize.model';
 import httpStatus from 'http-status-codes';
 
 //Init variables
+var model: Model;
 
-class Controller {
-    _model: Model;
-
+export default class Controller {
     //Default Constructor
-    constructor(model: Model) {
-        this._model = model;
+    constructor(_model: Model) {
+        model = _model;
     }
 
-    selectOneByID = (request: any, response: any) => {
+    selectOneByID(request: any, response: any){
         try {
-            this._model.getSchema().findByPk(request.params.id)
+            model.getSchema().findByPk(request.params.id)
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -26,9 +25,9 @@ class Controller {
         }
     };
 
-    selectAll = (request: any, response: any) => {
+    selectAll(request: any, response: any){
         try {
-            this._model.getSchema().findAll()
+            model.getSchema().findAll()
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({status: true, data: data});
                 })
@@ -39,9 +38,10 @@ class Controller {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
     };
-    selectAllByDesc = (request: any, response: any) => {
+
+    selectAllByDesc(request: any, response: any){
         try {
-            this._model.getSchema().findAll({
+            model.getSchema().findAll({
                 order: [['createdAt', 'DESC']]
             })
                 .then((data: any) => {
@@ -55,9 +55,9 @@ class Controller {
         }
     };
 
-    add = (request: any, response: any) => {
+    add(request: any, response: any){
         try {
-            this._model.getSchema().create(request.body)
+            model.getSchema().create(request.body)
                 .then(() => {
                     response.status(httpStatus.CREATED).send({status: true, message: 'Created!'});
                 })
@@ -69,9 +69,9 @@ class Controller {
         }
     };
 
-    update = (request: any, response: any) => {
+    update(request: any, response: any){
         try {
-            this._model.getSchema().update(request.body, {where: {id: request.body.id}})
+            model.getSchema().update(request.body, {where: {id: request.body.id}})
                 .then(() => {
                     response.status(httpStatus.OK).send({status: true, data: {affectedRows: 1}});
                 })
@@ -83,9 +83,9 @@ class Controller {
         }
     };
 
-    deleteOneByID = (request: any, response: any) => {
+    deleteOneByID(request: any, response: any){
         try {
-            this._model.getSchema().destroy({where: {id: request.params.id}})
+            model.getSchema().destroy({where: {id: request.params.id}})
                 .then(() => {
                     response.status(httpStatus.OK).send({status: true, message: 'Deleted!'});
                 })
@@ -97,5 +97,3 @@ class Controller {
         }
     };
 }
-
-export default Controller;

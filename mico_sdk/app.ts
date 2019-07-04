@@ -3,27 +3,31 @@ import express from 'express';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
+import {Sequelize} from 'sequelize'
 
 //Local Imports
-import Model from './model';
+import Model from './sequelize.model';
 import Controller from './controller';
+import SequelizeConnection from './sequelize.connection';
 import DockerUtility from './docker.utility';
-import SequelizeConnection from './db.sequelize.connection';
 
 //Init variables
-const app = express();
-const router = express.Router();
+var app = express();
+var router = express.Router();
+
+//Export variables
+export var sequelize: Sequelize;
 
 class MicroService {
-    dbConfig: any;
+    serviceID: string;
+    serviceName: string;
+    serviceVersion: string;
     serviceType: string;
     servicePort: number;
     serviceIP: string;
-    serviceName: string;
-    docker: any;
-    serviceVersion: string;
-    serviceID: string;
-    sequelizeConnection: any;
+    dbConfig: any;
+    sequelizeConnection: SequelizeConnection
+    docker: DockerUtility;
 
     //Default Constructor
     constructor(config: any) {
@@ -41,23 +45,32 @@ class MicroService {
         this.servicePort = config.port || 3000;
         this.serviceIP = this.docker.getContainerIP();
 
-        this._initExpressServer();
-
         //Load sequelize
         if (config.hasOwnProperty('mysql')) {
-            let mysql = config.mysql;
-
-            mysql.dialect = 'mysql';
-            this.sequelizeConnection = new SequelizeConnection(mysql);
-            this.sequelizeConnection.start();
-
-            this.dbConfig = mysql;
-            this.dbConfig.username = 'xxxxxxxxxx';
-            this.dbConfig.password = 'xxxxxxxxxx';
+            this.initSequelizeConnection(config.mysql)
         }
+
+        //Load express and router
+        this.initExpressServer();
+
+        //Load health services
+        this.createHealthServices();
     }
 
-    _initExpressServer() {
+    initSequelizeConnection(mysql: any){
+        mysql.dialect = 'mysql';
+        this.sequelizeConnection = new SequelizeConnection(mysql);
+        this.sequelizeConnection.start();
+
+        this.dbConfig = mysql;
+        this.dbConfig.username = 'xxxxxxxxxx';
+        this.dbConfig.password = 'xxxxxxxxxx';
+
+        //Setting in variable can be used by calling getSequelizeConnection();
+        sequelize = this.sequelizeConnection.getConnection();
+    }
+
+    initExpressServer() {
         //Setup Express
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
@@ -77,7 +90,7 @@ class MicroService {
             res.status(err.status || 500).send(err.message);
         });
 
-        //Terminate DB connection on end
+        //Add listeners to terminate DB connection on end
     }
 
     startService() {
@@ -117,6 +130,8 @@ class MicroService {
     createCRUD(model: Model, controller: Controller) {
         let baseURL = '/' + model.getName();
         let baseURL_ID = baseURL + '/:id';
+
+        //Adding routes
         this.get(baseURL_ID, controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
         this.get(baseURL+"/latest", controller.selectAllByDesc);
@@ -128,7 +143,7 @@ class MicroService {
     /////////////////////////
     ///////Health Services
     /////////////////////////
-    _createHealth() {
+    createHealthServices() {
         this.get('/health', function(request: any, response: any) {
             try {
                 response.status(httpStatus.OK).send({status: true});
@@ -176,13 +191,12 @@ class MicroService {
     }
 }
 
-class IMicroService extends MicroService {
+export default class IMicroService extends MicroService {
     constructor(config: any) {
         super(config);
     }
 
     startService() {
-        this._createHealth();
         super.startService();
     }
 
@@ -205,14 +219,4 @@ class IMicroService extends MicroService {
     createCRUD(model: Model, controller: Controller) {
         super.createCRUD(model, controller);
     }
-
-    getSequelize() {
-        if (this.sequelizeConnection != null) {
-            return this.sequelizeConnection.getSequelize();
-        } else {
-            throw new Error('Sequelize connection object does not exist.');
-        }
-    }
 }
-
-export default IMicroService;

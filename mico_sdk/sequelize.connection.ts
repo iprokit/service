@@ -1,25 +1,22 @@
 //Import modules
 import {Sequelize} from 'sequelize';
+
 //Local Imports
 import DockerUtility from './docker.utility';
 
-//Init variables
-// var docker = new DockerUtility();
-
-class SequelizeConnection {
-    docker: any;
-    dialect: any;
-    name: string;
+export default class SequelizeConnection {
     host: any;
+    name: string;
+    dialect: any;
     auth: boolean;
     force: boolean;
-    sequelize: any;
     operatorsAliases: any = false;
+    docker: DockerUtility;
+    sequelize: Sequelize
 
     //Default Constructor
     constructor(dbConfig: any) {
         this.docker = new DockerUtility();
-
         this.dialect = dbConfig.dialect;
         this.name = dbConfig.name;
 
@@ -46,7 +43,6 @@ class SequelizeConnection {
             operatorsAliases: this.operatorsAliases,
             timezone: dbConfig.timezone
         });
-
     }
 
     start() {
@@ -77,9 +73,7 @@ class SequelizeConnection {
             });
     }
 
-    getSequelize() {
+    getConnection(){
         return this.sequelize;
     }
 }
-
-export default SequelizeConnection;

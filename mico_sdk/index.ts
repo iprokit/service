@@ -1,6 +1,6 @@
 import MicroService from './app';
 import Controller from './controller';
-import Model from './model';
+import Model from './sequelize.model';
 
 module.exports = {
     microService:  MicroService,
