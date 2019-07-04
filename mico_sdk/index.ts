@@ -3,7 +3,7 @@ import Controller from './controller';
 import Model from './sequelize.model';
 
 module.exports = {
-    MicroService:  MicroService,
-    Controller: Controller,
-    Model: Model
+    microService:  MicroService,
+    controller: Controller,
+    model: Model
 };

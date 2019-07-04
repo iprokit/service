@@ -1,6 +1,6 @@
 //Import modules
 import MicroSDK from '@iprotechs/ipromicro'
-let MicroService = MicroSDK.MicroService;
+let MicroService = MicroSDK.microService;
 //Import Local
 import {default as FarmerModel} from './farmer.model'
 import FarmerController from './farmer.controller'
