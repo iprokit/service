@@ -24,8 +24,8 @@ export default class FarmerModel extends Model {
     static associate() {
         try {
             this.belongsTo(this.getModelByName('farmer'), {foreignKey: 'customer_id'});
-        } catch (e) {
-            console.log(e)
+        } catch (error) {
+            console.log(error)
         }
         //this.hasMany(this.getModel().farmer, { foreignKey: 'customer_id', targetKey: 'customer_id' });
         super.associate();

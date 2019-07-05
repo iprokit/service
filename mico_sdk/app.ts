@@ -65,6 +65,7 @@ class MicroService {
         this.sequelizeConnection.start();
         
         dbConfig = mysql;
+        //Securing sensitive information
         dbConfig.username = 'xxxxxxxxxx';
         dbConfig.password = 'xxxxxxxxxx';
 
