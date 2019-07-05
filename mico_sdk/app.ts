@@ -62,7 +62,7 @@ class MicroService {
     initSequelizeConnection(mysql: any){
         mysql.dialect = 'mysql';
         this.sequelizeConnection = new SequelizeConnection(mysql);
-        this.sequelizeConnection.start();
+        this.sequelizeConnection.connect();
         
         dbConfig = mysql;
         //Securing sensitive information

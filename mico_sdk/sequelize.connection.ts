@@ -1,5 +1,5 @@
 //Import modules
-import {Sequelize, Dialect} from 'sequelize';
+import {Sequelize} from 'sequelize';
 
 //Local Imports
 import DockerUtility from './docker.utility';
@@ -14,10 +14,8 @@ export default class SequelizeConnection {
 
         //Init variables.
         this.options.host = typeof this.options.host !== 'undefined' ? this.options.host: DockerUtility.getHostIP();
-        this.options.auth = typeof this.options.auth !== 'undefined' ? this.options.auth: true;
-        this.options.force = typeof this.options.force !== 'undefined' ? this.options.force: false;
-        this.options.operatorsAliases = typeof this.options.operatorsAliases !== 'undefined' ? this.options.operatorsAliases: false;
         this.options.timezone = typeof this.options.timezone !== 'undefined' ? this.options.timezone: '+00:00';
+        this.options.operatorsAliases = typeof this.options.operatorsAliases !== 'undefined' ? this.options.operatorsAliases: false;
 
         this.sequelize = new Sequelize(this.options.name, this.options.username, this.options.password, {
             host: this.options.host,
@@ -27,15 +25,7 @@ export default class SequelizeConnection {
         });
     }
 
-    start() {
-        if (this.options.auth) {
-            this.authentication();
-        } else {
-            this.synchronization(this.options.force);
-        }
-    }
-
-    authentication() {
+    connect() {
         this.sequelize.authenticate()
             .then(() => {
                 console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -43,6 +33,20 @@ export default class SequelizeConnection {
             .catch((error: any) => {
                 console.error('Unable to connect to the database:', error);
             });
+
+        if(this.options.force !== undefined){
+            this.synchronization(this.options.force);
+        }
+    }
+
+    disconnect(){
+        this.sequelize.close()
+        .then(() => {
+            console.log('Disconnected from database.');
+        })
+        .catch((error: any) => {
+            console.error('Unable to disconnect from the database:', error);
+        });
     }
 
     synchronization(force: boolean) { //Should be exposed to service
