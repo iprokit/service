@@ -1,15 +1,16 @@
-//Import Local
-import {sequelize, serviceName} from './app';
+//Import modules
 import {Model} from 'sequelize';
+
+//Local Imports
+import {sequelize, name as serviceName} from './app';
 
 export default class SequelizeModel extends Model {
     static modelName: string;
     static tableName: string;
 
-    static init(attributes: any, name: any) {
+    static init(attributes: any, tableName: any) {
         this.modelName = this.name.toLowerCase().replace('model', '');
-
-        this.tableName = name || serviceName + '_' + this.modelName;
+        this.tableName = typeof tableName !== 'undefined' ? tableName: serviceName + '_' + this.modelName;
 
         return super.init(attributes, {modelName: this.modelName, tableName: this.tableName, sequelize});
     }
@@ -25,7 +26,7 @@ export default class SequelizeModel extends Model {
         if (sequelize.models[name] !== undefined) {
             return sequelize.models[name];
         } else {
-            throw new Error('Model not available');
+            throw new Error('Model does not exist!');
         }
     }
 }

@@ -1,6 +1,8 @@
 //Import modules
-import {default as FarmerModel} from './farmer.model'
 import {Controller} from '../mico_sdk/dist/index'
+
+//Import Local
+import {default as FarmerModel} from './farmer.model'
 
 export default class FarmerController extends Controller {
     //Default Constructor

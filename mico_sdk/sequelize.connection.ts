@@ -23,9 +23,13 @@ export default class SequelizeConnection {
             operatorsAliases: this.options.operatorsAliases,
             timezone: this.options.timezone
         });
+
+        //Securing sensitive information.
+        this.options.username = 'xxxxxxxxxx';
+        this.options.password = 'xxxxxxxxxx';
     }
 
-    connect() {
+    connect(): Sequelize {
         this.sequelize.authenticate()
             .then(() => {
                 console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -34,9 +38,11 @@ export default class SequelizeConnection {
                 console.error('Unable to connect to the database:', error);
             });
 
-        if(this.options.force !== undefined){
+        if(this.options.force !== undefined){//TODO: Have to remove this from here once the synchronization() is moved to service
             this.synchronization(this.options.force);
         }
+
+        return this.sequelize;
     }
 
     disconnect(){
@@ -49,7 +55,7 @@ export default class SequelizeConnection {
         });
     }
 
-    synchronization(force: boolean) { //Should be exposed to service
+    synchronization(force: boolean) { //TODO: Should be exposed to service
         this.sequelize.sync({force})
             .then(() => {
                 console.log('Database & tables created on %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -57,9 +63,5 @@ export default class SequelizeConnection {
             .catch((error: any) => {
                 console.log('Table creation failed:', error);
             });
-    }
-
-    getConnection(){
-        return this.sequelize;
     }
 }

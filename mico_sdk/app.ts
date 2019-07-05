@@ -6,50 +6,47 @@ import uuid from 'uuid/v1';
 import {Sequelize} from 'sequelize'
 
 //Local Imports
-import Controller from './controller';
+import DockerUtility from './docker.utility';
 import SequelizeModel from './sequelize.model';
 import SequelizeConnection from './sequelize.connection';
-import DockerUtility from './docker.utility';
+import Controller from './controller';
 
 //Init variables
 var app = express();
 var router = express.Router();
 
 //Export variables
-export var serviceName: string;
+export var name: string; //Service Name
 export var sequelize: Sequelize;
 
-//Init null variables
-var serviceID: string;
-var serviceVersion: string;
-var serviceType: string;
-var servicePort: number;
-var serviceIP: string;
-var dbConfig: any;
-var sequelizeModels: Array<typeof SequelizeModel>;
-
 class MicroService {
-    sequelizeConnection: SequelizeConnection;
+    options: any;
+    sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
-    constructor(config: any) {
-        if (!config.hasOwnProperty('name') || config.name == '') {
+    constructor(options: any) {
+        this.options = options;
+
+        //First check if the name exists.
+        //TODO: Get the default file name.
+        if(this.options.name === undefined){
             throw new Error('Service name required');
-        } else {
-            serviceName = config.name;
         }
-
-        serviceID = uuid();
-        serviceVersion = config.version || '1.0';
-        serviceType = config.type || 'api';
-        servicePort = config.port || 3000;
-        serviceIP = DockerUtility.getContainerIP();
-
-        sequelizeModels = new Array<typeof SequelizeModel>();
+        name = this.options.name;
+        
+        //Init service variables.
+        this.options.id = uuid();
+        this.options.version = typeof this.options.version !== 'undefined' ? this.options.version: '1.0';
+        this.options.type = typeof this.options.type !== 'undefined' ? this.options.type: 'api';
+        this.options.port = typeof this.options.port !== 'undefined' ? this.options.port: 3000;
+        this.options.ip = DockerUtility.getContainerIP();
 
         //Load sequelize
-        if (config.hasOwnProperty('mysql')) {
-            this.initSequelizeConnection(config.mysql)
+        this.sequelizeModels = new Array<typeof SequelizeModel>();
+        if (options.hasOwnProperty('mysql')) {
+            options.mysql.dialect = 'mysql';
+            let sequelizeConnection = new SequelizeConnection(options.mysql);
+            sequelize = sequelizeConnection.connect();
         }
 
         //Load express and router
@@ -59,25 +56,13 @@ class MicroService {
         this.createHealthServices();
     }
 
-    initSequelizeConnection(mysql: any){
-        mysql.dialect = 'mysql';
-        this.sequelizeConnection = new SequelizeConnection(mysql);
-        this.sequelizeConnection.connect();
-        
-        dbConfig = mysql;
-        //Securing sensitive information
-        dbConfig.username = 'xxxxxxxxxx';
-        dbConfig.password = 'xxxxxxxxxx';
-
-        sequelize = this.sequelizeConnection.getConnection();
-    }
-
     initExpressServer() {
         //Setup Express
+        //TODO: Add CROS
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
 
-        let url = '/' + serviceType + '/' + serviceName;
+        let url = '/' + this.options.type + '/' + this.options.name;
         app.use(url, router);
 
         // Error handler for 404
@@ -92,22 +77,22 @@ class MicroService {
             res.status(err.status || 500).send(err.message);
         });
 
-        //Add listeners to terminate DB connection on end
+        //TODO: Add listeners to terminate DB connection on end
     }
 
     startService() {
         //Assign associates to all models.
-        sequelizeModels.forEach(sequelizeModel => {
+        this.sequelizeModels.forEach(sequelizeModel => {
             sequelizeModel.associate();
         });
         
         // Start server.
-        app.listen(servicePort, () => {
-            console.log('%s micro service running on %s:%s', serviceName, serviceIP, servicePort);
-            console.log('%s : %o', serviceName, {
-                id: serviceID,
-                version: serviceVersion,
-                type: serviceType
+        app.listen(this.options.port, () => {
+            console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
+            console.log('%s : %o', this.options.name, {
+                id: this.options.id,
+                version: this.options.version,
+                type: this.options.type
             });
         });
     }
@@ -140,7 +125,7 @@ class MicroService {
         model.init();
 
         //Adding model to Array.
-        sequelizeModels.push(model);
+        this.sequelizeModels.push(model);
 
         //Getting URL from controller name and Setting up routes
         let baseURL = '/' + controller.getName();
@@ -158,6 +143,8 @@ class MicroService {
     ///////Health Services
     /////////////////////////
     createHealthServices() {
+        let _options = this.options;
+
         this.get('/health', function(request: any, response: any) {
             try {
                 response.status(httpStatus.OK).send({status: true});
@@ -165,16 +152,6 @@ class MicroService {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
-
-        let serviceObject = {
-            id: serviceID,
-            name: serviceName,
-            version: serviceVersion,
-            type: serviceType,
-            port: servicePort,
-            ip: serviceIP,
-            host: DockerUtility.getHostIP()
-        };
 
         this.get('/health/report', function(request: any, response: any) {
             try {
@@ -189,9 +166,8 @@ class MicroService {
                 });
 
                 let data = {
-                    service: serviceObject,
-                    routes: routesArray,
-                    db: dbConfig
+                    service: _options,
+                    routes: routesArray
                 };
 
                 response.status(httpStatus.OK).send({status: true, data});
