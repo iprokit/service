@@ -7,6 +7,7 @@ import {Sequelize} from 'sequelize'
 
 //Local Imports
 import Controller from './controller';
+import SequelizeModel from './sequelize.model';
 import SequelizeConnection from './sequelize.connection';
 import DockerUtility from './docker.utility';
 
@@ -15,8 +16,8 @@ var app = express();
 var router = express.Router();
 
 //Export variables
-export var sequelize: Sequelize;
 export var serviceName: string;
+export var sequelize: Sequelize;
 
 //Init null variables
 var serviceID: string;
@@ -25,15 +26,13 @@ var serviceType: string;
 var servicePort: number;
 var serviceIP: string;
 var dbConfig: any;
+var sequelizeModels: Array<typeof SequelizeModel>;
 
 class MicroService {
-    sequelizeConnection: SequelizeConnection
-    docker: DockerUtility;
+    sequelizeConnection: SequelizeConnection;
 
     //Default Constructor
     constructor(config: any) {
-        this.docker = new DockerUtility();
-
         if (!config.hasOwnProperty('name') || config.name == '') {
             throw new Error('Service name required');
         } else {
@@ -44,7 +43,9 @@ class MicroService {
         serviceVersion = config.version || '1.0';
         serviceType = config.type || 'api';
         servicePort = config.port || 3000;
-        serviceIP = this.docker.getContainerIP();
+        serviceIP = DockerUtility.getContainerIP();
+
+        sequelizeModels = new Array<typeof SequelizeModel>();
 
         //Load sequelize
         if (config.hasOwnProperty('mysql')) {
@@ -62,12 +63,11 @@ class MicroService {
         mysql.dialect = 'mysql';
         this.sequelizeConnection = new SequelizeConnection(mysql);
         this.sequelizeConnection.start();
-
+        
         dbConfig = mysql;
         dbConfig.username = 'xxxxxxxxxx';
         dbConfig.password = 'xxxxxxxxxx';
 
-        //Setting in variable can be used by calling getSequelizeConnection();
         sequelize = this.sequelizeConnection.getConnection();
     }
 
@@ -95,6 +95,11 @@ class MicroService {
     }
 
     startService() {
+        //Assign associates to all models.
+        sequelizeModels.forEach(sequelizeModel => {
+            sequelizeModel.associate();
+        });
+        
         // Start server.
         app.listen(servicePort, () => {
             console.log('%s micro service running on %s:%s', serviceName, serviceIP, servicePort);
@@ -126,15 +131,23 @@ class MicroService {
     }
 
     /////////////////////////
-    ///////CRUD Services
+    ///////Controller Services
     /////////////////////////
-    createCRUD(controller: Controller) {
+    createDefaultServices(controller: Controller) {
+        //Getting model from the controller and initializing.
+        let model: any = controller.getModel();
+        model.init();
+
+        //Adding model to Array.
+        sequelizeModels.push(model);
+
+        //Getting URL from controller name and Setting up routes
         let baseURL = '/' + controller.getName();
 
-        //Adding routes
+        //Setting up routes
         this.get(baseURL + '/:id', controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
-        this.get(baseURL + "/order/new", controller.selectAllAndOrderByCreatedAt);
+        this.get(baseURL + "/orderBy/new", controller.selectAllAndOrderByCreatedAt);
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
@@ -159,10 +172,8 @@ class MicroService {
             type: serviceType,
             port: servicePort,
             ip: serviceIP,
-            host: this.docker.getHostIP()
+            host: DockerUtility.getHostIP()
         };
-
-        let dbObject = dbConfig;
 
         this.get('/health/report', function(request: any, response: any) {
             try {
@@ -179,7 +190,7 @@ class MicroService {
                 let data = {
                     service: serviceObject,
                     routes: routesArray,
-                    db: dbObject
+                    db: dbConfig
                 };
 
                 response.status(httpStatus.OK).send({status: true, data});
@@ -216,7 +227,7 @@ export default class IMicroService extends MicroService {
         super.delete(url, fn);
     }
 
-    createCRUD(controller: Controller) {
-        super.createCRUD(controller);
+    createDefaultServices(controller: Controller) {
+        super.createDefaultServices(controller);
     }
 }

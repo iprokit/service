@@ -1,28 +1,26 @@
 //Import modules
-import {Sequelize} from 'sequelize';
+import {Sequelize, Dialect} from 'sequelize';
 
 //Local Imports
 import DockerUtility from './docker.utility';
 
-var host: any;
+var host: string;
 var name: string;
-var dialect: any;
+var dialect: Dialect;
 var auth: boolean;
 var force: boolean;
 var operatorsAliases: any = false;
 
 export default class SequelizeConnection {
-    docker: DockerUtility;
     sequelize: Sequelize
 
     //Default Constructor
     constructor(dbConfig: any) {
-        this.docker = new DockerUtility();
         dialect = dbConfig.dialect;
         name = dbConfig.name;
 
         if (!dbConfig.hasOwnProperty('host') || dbConfig.host === '') {
-            host = this.docker.getHostIP();
+            host = DockerUtility.getHostIP();
         } else {
             host = dbConfig.host;
         }
@@ -38,6 +36,7 @@ export default class SequelizeConnection {
         } else {
             force = dbConfig.force;
         }
+
         this.sequelize = new Sequelize(name, dbConfig.username, dbConfig.password, {
             host: host,
             dialect: dialect,

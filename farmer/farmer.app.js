@@ -2,7 +2,6 @@
 import {MicroService} from '../mico_sdk/dist/index'
 
 //Import Local
-import {default as FarmerModel} from './farmer.model'
 import FarmerController from './farmer.controller'
 
 //Init & start service
@@ -16,17 +15,8 @@ var microService = new MicroService({
     }
 });
 
-//Load Models by calling init
-FarmerModel.init();
-
-//After all init's of models
-FarmerModel.associate();
-
-//Init Controllers
-var farmerController = new FarmerController();
-
-//Forward controller to CRUD
-microService.createCRUD(farmerController);
+//Adding controller to microService.
+microService.createDefaultServices(new FarmerController());
 
 //Start the service.
 microService.startService();
