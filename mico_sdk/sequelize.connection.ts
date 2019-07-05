@@ -13,9 +13,9 @@ export default class SequelizeConnection {
         this.options = options;
 
         //Init variables.
-        this.options.host = typeof this.options.host !== 'undefined' ? this.options.host: DockerUtility.getHostIP();
-        this.options.timezone = typeof this.options.timezone !== 'undefined' ? this.options.timezone: '+00:00';
-        this.options.operatorsAliases = typeof this.options.operatorsAliases !== 'undefined' ? this.options.operatorsAliases: false;
+        this.options.host = this.options.host !== undefined ? this.options.host: DockerUtility.getHostIP();
+        this.options.timezone = this.options.timezone !== undefined ? this.options.timezone: '+00:00';
+        this.options.operatorsAliases = this.options.operatorsAliases !== undefined ? this.options.operatorsAliases: false;
 
         this.sequelize = new Sequelize(this.options.name, this.options.username, this.options.password, {
             host: this.options.host,

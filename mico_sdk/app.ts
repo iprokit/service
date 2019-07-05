@@ -36,9 +36,9 @@ class MicroService {
         
         //Init service variables.
         this.options.id = uuid();
-        this.options.version = typeof this.options.version !== 'undefined' ? this.options.version: '1.0';
-        this.options.type = typeof this.options.type !== 'undefined' ? this.options.type: 'api';
-        this.options.port = typeof this.options.port !== 'undefined' ? this.options.port: 3000;
+        this.options.version = this.options.version !== undefined ? this.options.version: '1.0';
+        this.options.type = this.options.type !== undefined ? this.options.type: 'api';
+        this.options.port = this.options.port !== undefined ? this.options.port: 3000;
         this.options.ip = DockerUtility.getContainerIP();
 
         //Load sequelize

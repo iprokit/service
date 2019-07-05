@@ -10,7 +10,7 @@ export default class SequelizeModel extends Model {
 
     static init(attributes: any, tableName: any) {
         this.modelName = this.name.toLowerCase().replace('model', '');
-        this.tableName = typeof tableName !== 'undefined' ? tableName: serviceName + '_' + this.modelName;
+        this.tableName = tableName !== undefined ? tableName: serviceName + '_' + this.modelName;
 
         return super.init(attributes, {modelName: this.modelName, tableName: this.tableName, sequelize});
     }
