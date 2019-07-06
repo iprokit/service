@@ -3,12 +3,13 @@ import express from 'express';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
-import {Sequelize, Model} from 'sequelize'
+import {Sequelize} from 'sequelize'
 
 //Local Imports
 import DockerUtility from './docker.utility';
 import SequelizeConnection from './sequelize.connection';
 import Controller from './controller';
+import SequelizeModel from './sequelize.model';
 
 //Init variables
 var app = express();
@@ -20,7 +21,7 @@ export var sequelize: Sequelize;
 
 class MicroService {
     options: any;
-    sequelizeModels: Array<typeof Model>;
+    sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
     constructor(options: any) {
@@ -41,7 +42,7 @@ class MicroService {
         this.options.ip = DockerUtility.getContainerIP();
 
         //Load sequelize
-        this.sequelizeModels = new Array<typeof Model>();
+        this.sequelizeModels = new Array<typeof SequelizeModel>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
             let sequelizeConnection = new SequelizeConnection(options.mysql);
@@ -80,13 +81,12 @@ class MicroService {
     }
 
     startService() {
-        //TODO: Fix associates
-        //Assign associates to all models.
-        // if(this.sequelizeModels !== undefined){
-        //     this.sequelizeModels.forEach(sequelizeModel => {
-        //         sequelizeModel.associate();
-        //     });
-        // }
+        //Call associate's from all the models
+        if(this.sequelizeModels !== undefined){
+            this.sequelizeModels.forEach(sequelizeModel => {
+                sequelizeModel.associate(sequelize.models);
+            });
+        }
         
         // Start server.
         app.listen(this.options.port, () => {
@@ -121,8 +121,18 @@ class MicroService {
     /////////////////////////
     ///////Add functions
     /////////////////////////
-    addModel(model: any){
-        model.init(sequelize);
+    addModel(model: typeof SequelizeModel){
+        //TODO: add an if statement to validate if the sequelizeConnection is available.
+        //Getting given table name, if not available create one and assign it back to the model.
+        let tableName = model.getTableName();
+        if(tableName === undefined){
+            tableName = String(this.options.name + '_' + model.name).toLowerCase();
+            model.setTableName(tableName);
+        }
+
+        //Init the model object.
+        model.init(model.fields(), {tableName: tableName, sequelize})
+        this.sequelizeModels.push(model);
     }
 
     /////////////////////////
