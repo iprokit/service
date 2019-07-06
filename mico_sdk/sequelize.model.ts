@@ -12,6 +12,7 @@ export default class SequelizeModel extends Model {
     /////////////////////////
     ///////Setters/Getters
     /////////////////////////
+    //TODO: Remove getters and setters from this.
     static setTableName(name: string){
         this.tableName = name;
     }
