@@ -3,44 +3,38 @@ import httpStatus from 'http-status-codes';
 import {Controller} from '../mico_sdk/dist/index'
 
 //Import Local
-//import EndUserModel from './endUserModel';
-import CustomerModel from './customerModel'
+import {sequelize} from '../mico_sdk/dist/app';
 
 export default class CustomerController extends Controller {
-    //Default Constructor
-    constructor() {
-        super(CustomerModel);
-    }
-
     selectOneByID(request, response) {
-        super.selectOneByID(request, response);
+        super.selectOneByID(sequelize.models.Customer, request, response);
     }
 
     selectAll(request, response) {
-        super.selectAll(request, response);
+        super.selectAll(sequelize.models.Customer, request, response);
     }
 
     selectAllAndOrderByCreatedAt(request, response) {
-        super.selectAllAndOrderByCreatedAt(request, response);
+        super.selectAllAndOrderByCreatedAt(sequelize.models.Customer, request, response);
     }
 
     add(request, response) {
-        super.add(request, response);
+        super.add(sequelize.models.Customer, request, response);
     }
 
     update(request, response) {
-        super.update(request, response);
+        super.update(sequelize.models.Customer, request, response);
     }
 
     deleteOneByID(request, response) {
-        super.deleteOneByID(request, response);
+        super.deleteOneByID(sequelize.models.Customer, request, response);
     }
     
     findAllFarmers(request, response) {
         try {
-            CustomerModel.findAll({
+            sequelize.models.Customer.findAll({
                 include: [{
-                    model: CustomerModel.getModelByName('enduser')
+                    model: sequelize.models.EndUser
                 }]
             }).then(data => {
                 response.status(httpStatus.OK).send({ status: true, data: data })

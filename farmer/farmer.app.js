@@ -23,17 +23,14 @@ var microService = new MicroService({
 microService.addModel(EndUserModel);
 microService.addModel(CustomerModel);
 
-// let customerModel = new CustomerModel()
-//customerModel.create()
-
 //Adding controller to microService.
-// let endUserController = new EndUserController();
-// microService.createDefaultServices(endUserController);
+let endUserController = new EndUserController();
+microService.createDefaultEndpoints(endUserController);
 
-// let customerController = new CustomerController();
-// microService.createDefaultServices(customerController);
+let customerController = new CustomerController();
+microService.createDefaultEndpoints(customerController);
 
-// microService.get('/farmerDetails', customerController.findAllFarmers)
+microService.get('/farmerDetails', customerController.findAllFarmers)
 
 //Start the service.
 microService.startService();

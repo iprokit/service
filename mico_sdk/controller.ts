@@ -3,19 +3,13 @@ import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Import
-import { sequelize } from './app';
+import SequelizeModel from './sequelize.model';
+import { Model } from 'sequelize';
 
-//var model:any
 export default class Controller {
-    //Default Constructor
-    // constructor(_model: any) {
-    //     model = _model;
-    // }
-
-    selectOneByID(request: Request, response: Response) {
-        console.log("this.getModel()", this.getModel())
+    selectOneByID(model: any, request: Request, response: Response) {
         try {
-            this.getModel().findByPk(request.params.id)
+            model.findByPk(request.params.id)
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({ status: true, data: data });
                 })
@@ -27,9 +21,9 @@ export default class Controller {
         }
     };
 
-    selectAll(request: Request, response: Response) {
+    selectAll(model: any, request: Request, response: Response) {
         try {
-            this.getModel().findAll()
+            model.findAll()
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({ status: true, data: data });
                 })
@@ -41,9 +35,9 @@ export default class Controller {
         }
     };
 
-    selectAllAndOrderByCreatedAt(request: Request, response: Response) {
+    selectAllAndOrderByCreatedAt(model: any, request: Request, response: Response) {
         try {
-            this.getModel().findAll({
+            model.findAll({
                 order: [['createdAt', 'DESC']]
             })
                 .then((data: any) => {
@@ -57,9 +51,9 @@ export default class Controller {
         }
     };
 
-    add(request: Request, response: Response) {
+    add(model: any, request: Request, response: Response) {
         try {
-            this.getModel().create(request.body)
+            model.create(request.body)
                 .then(() => {
                     response.status(httpStatus.CREATED).send({ status: true, message: 'Created!' });
                 })
@@ -71,9 +65,9 @@ export default class Controller {
         }
     };
 
-    update(request: Request, response: Response) {
+    update(model: any, request: Request, response: Response) {
         try {
-            this.getModel().update(request.body, { where: { id: request.body.id } })
+            model.update(request.body, { where: { id: request.body.id } })
                 .then(() => {
                     response.status(httpStatus.OK).send({ status: true, data: { affectedRows: 1 } });
                 })
@@ -85,9 +79,9 @@ export default class Controller {
         }
     };
 
-    deleteOneByID(request: Request, response: Response) {
+    deleteOneByID(model: any, request: Request, response: Response) {
         try {
-            this.getModel().destroy({ where: { id: request.params.id } })
+            model.destroy({ where: { id: request.params.id } })
                 .then(() => {
                     response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
                 })
@@ -98,16 +92,4 @@ export default class Controller {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     };
-
-    getModel(): any {
-        var models: any = []
-        models.push(sequelize.models)
-        let classname = this.constructor.name.slice(0, -10)
-        //need to validate classname and models 
-        return classname
-       }
-
-    getName() {
-        return this.getModel();
-    }
 }

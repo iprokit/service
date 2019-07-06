@@ -1,7 +1,7 @@
 import {SequelizeModel} from '../mico_sdk/dist/index'
 import {DataTypes, Model} from 'sequelize'
 
-export default class Customer extends SequelizeModel {
+export default class CustomerModel extends SequelizeModel {
     static fields() {
         this.tableName = 'aqu_customer';
         return {

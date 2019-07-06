@@ -124,22 +124,27 @@ class MicroService {
         //TODO: check if fields is null then throw exception as needed.
         let fields = model.fields();
 
+        let modelName = model.name;
+        modelName = modelName.replace('Model', '')
+
         //Getting given table name, if not available create one and assign it back to the model.
-        if(model.tableName === undefined){
-            model.tableName = String(this.options.name + '_' + model.name).toLowerCase();
+        let tableName = model.tableName;
+        if(tableName === undefined){
+            //TODO: Append _ before each captial letter of the name
+            tableName = String(this.options.name + '_' + modelName).toLowerCase();
         }
 
         //Init the model object.
-        model.init(fields, {tableName: model.tableName, sequelize})
+        model.init(fields, {tableName: tableName, modelName: modelName, sequelize})
         this.sequelizeModels.push(model);
     }
 
     /////////////////////////
     ///////Controller Services
     /////////////////////////
-    createDefaultServices(controller: Controller) {
+    createDefaultEndpoints(controller: Controller) {
         //Getting URL from controller name and Setting up routes
-        let baseURL = '/' + controller.getName().toLowerCase();
+        let baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
 
         //Setting up routes
         this.get(baseURL + '/:id', controller.selectOneByID);
@@ -215,7 +220,7 @@ export default class IMicroService extends MicroService {
         super.delete(path, handlers);
     }
 
-    createDefaultServices(controller: Controller) {
-        super.createDefaultServices(controller);
+    createDefaultEndpoints(controller: Controller) {
+        super.createDefaultEndpoints(controller);
     }
 }
