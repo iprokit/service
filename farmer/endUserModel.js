@@ -1,5 +1,9 @@
+//Import modules
 import {SequelizeModel} from '../mico_sdk/dist/index'
-import {DataTypes, Model} from 'sequelize'
+import {DataTypes} from 'sequelize'
+
+//Import Local
+import CustomerModel from './customerModel';
 
 export default class EndUserModel extends SequelizeModel {
     static fields() {
@@ -51,7 +55,7 @@ export default class EndUserModel extends SequelizeModel {
         };
     }
 
-    static associate(models) {
-        this.belongsTo(models.Customer, { foreignKey: 'customer_id'})
+    static associate() {
+        this.belongsTo(CustomerModel, { foreignKey: 'customer_id'})
     }
 }

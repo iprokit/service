@@ -7,5 +7,5 @@ export default class SequelizeModel extends Model {
         return null;
     }
 
-    static associate(models: {[key: string]: typeof Model}) {}
+    static associate() {}
 }

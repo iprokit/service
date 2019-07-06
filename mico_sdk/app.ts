@@ -15,11 +15,9 @@ import SequelizeModel from './sequelize.model';
 var app = express();
 var router = express.Router();
 
-//Export variables
-export var sequelize: Sequelize;
-
 class MicroService {
     options: any;
+    sequelize: Sequelize;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
@@ -44,7 +42,7 @@ class MicroService {
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
             let sequelizeConnection = new SequelizeConnection(options.mysql);
-            sequelize = sequelizeConnection.connect();
+            this.sequelize = sequelizeConnection.connect();
         }
 
         //Load express and router
@@ -82,7 +80,7 @@ class MicroService {
         //Call associate's from all the models
         if(this.sequelizeModels !== undefined){
             this.sequelizeModels.forEach(sequelizeModel => {
-                sequelizeModel.associate(sequelize.models);
+                sequelizeModel.associate();
             });
         }
         
@@ -135,7 +133,7 @@ class MicroService {
         }
 
         //Init the model object.
-        model.init(fields, {tableName: tableName, modelName: modelName, sequelize})
+        model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize})
         this.sequelizeModels.push(model);
     }
 
