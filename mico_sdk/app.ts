@@ -121,15 +121,16 @@ class MicroService {
     /////////////////////////
     addModel(model: typeof SequelizeModel){
         //TODO: add an if statement to validate if the sequelizeConnection is available.
+        //TODO: check if fields is null then throw exception as needed.
+        let fields = model.fields();
+
         //Getting given table name, if not available create one and assign it back to the model.
-        let tableName = model.getTableName();
-        if(tableName === undefined){
-            tableName = String(this.options.name + '_' + model.name).toLowerCase();
-            model.setTableName(tableName);
+        if(model.tableName === undefined){
+            model.tableName = String(this.options.name + '_' + model.name).toLowerCase();
         }
 
         //Init the model object.
-        model.init(model.fields(), {tableName: tableName, sequelize})
+        model.init(fields, {tableName: model.tableName, sequelize})
         this.sequelizeModels.push(model);
     }
 
@@ -138,12 +139,12 @@ class MicroService {
     /////////////////////////
     createDefaultServices(controller: Controller) {
         //Getting URL from controller name and Setting up routes
-        let baseURL = '/' + controller.getName();
+        let baseURL = '/' + controller.getName().toLowerCase();
 
         //Setting up routes
         this.get(baseURL + '/:id', controller.selectOneByID);
         this.get(baseURL, controller.selectAll);
-        this.get(baseURL + "/orderBy/new", controller.selectAllAndOrderByCreatedAt);
+        this.get(baseURL + "/orderby/new", controller.selectAllAndOrderByCreatedAt);
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
         this.delete(baseURL + '/:id', controller.deleteOneByID);

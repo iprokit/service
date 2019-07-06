@@ -23,14 +23,6 @@ var microService = new MicroService({
 microService.addModel(EndUserModel);
 microService.addModel(CustomerModel);
 
-console.log("EndUserModel.findAll()",EndUserModel.findAll())
-EndUserModel.create({
-    first_name:"abc",
-    last_name: "sga",
-    phone1:"9999999999"
-    
-})
-
 // let customerModel = new CustomerModel()
 //customerModel.create()
 

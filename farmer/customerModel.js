@@ -3,7 +3,7 @@ import {DataTypes, Model} from 'sequelize'
 
 export default class Customer extends SequelizeModel {
     static fields() {
-        this.setTableName('aqu_customer');
+        this.tableName = 'aqu_customer';
         return {
             id: {
                 type: DataTypes.INTEGER(6),

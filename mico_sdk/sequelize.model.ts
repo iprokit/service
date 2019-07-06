@@ -1,4 +1,4 @@
-import {Sequelize, Model, ModelAttributes} from 'sequelize'
+import {Model, ModelAttributes} from 'sequelize'
 
 export default class SequelizeModel extends Model {
     static tableName: string;
@@ -8,16 +8,4 @@ export default class SequelizeModel extends Model {
     }
 
     static associate(models: {[key: string]: typeof Model}) {}
-
-    /////////////////////////
-    ///////Setters/Getters
-    /////////////////////////
-    //TODO: Remove getters and setters from this.
-    static setTableName(name: string){
-        this.tableName = name;
-    }
-
-    static getTableName(): string{
-        return this.tableName;
-    }
 }
