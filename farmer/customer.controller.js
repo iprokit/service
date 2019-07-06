@@ -3,8 +3,8 @@ import httpStatus from 'http-status-codes';
 import {Controller} from '../mico_sdk/dist/index'
 
 //Import Local
-import CustomerModel from './customerModel';
-import EndUserModel from './endUserModel';
+import CustomerModel from './customer.model';
+import EndUserModel from './endUser.model';
 
 export default class CustomerController extends Controller {
     selectOneByID(request, response) {

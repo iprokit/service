@@ -4,8 +4,8 @@ import {MicroService} from '../mico_sdk/dist/index'
 //Import Local
 import CustomerController from './customer.controller'
 import EndUserController from './endUser.controller'
-import EndUserModel from './endUserModel';
-import CustomerModel from './customerModel';
+import EndUserModel from './endUser.model';
+import CustomerModel from './customer.model';
 
 //Init & start service
 var microService = new MicroService({

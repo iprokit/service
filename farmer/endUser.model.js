@@ -3,7 +3,7 @@ import {SequelizeModel} from '../mico_sdk/dist/index'
 import {DataTypes} from 'sequelize'
 
 //Import Local
-import CustomerModel from './customerModel';
+import CustomerModel from './customer.model';
 
 export default class EndUserModel extends SequelizeModel {
     static fields() {

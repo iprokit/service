@@ -1,9 +1,9 @@
 {
-  "name": "farmer",
+  "name": "aqu",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "babel-node farmer.app.js --presets es2015"
+    "start": "babel-node aqu.app.js --presets es2015"
   },
   "dependencies": {
     "babel-preset-env": "^1.7.0",

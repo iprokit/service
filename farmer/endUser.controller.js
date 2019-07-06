@@ -2,7 +2,7 @@
 import {Controller} from '../mico_sdk/dist/index'
 
 //Import Local
-import EndUserModel from './endUserModel';
+import EndUserModel from './endUser.model';
 
 export default class EndUserController extends Controller {
     selectOneByID(request, response) {
