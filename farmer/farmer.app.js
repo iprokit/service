@@ -15,12 +15,24 @@ var microService = new MicroService({
         username: 'varaaqu',
         password: 'ipro2019',
         host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
-        timezone: '+5:30'
+        timezone: '+5:30',
+        //force:true
     }
 });
 
 microService.addModel(EndUserModel);
 microService.addModel(CustomerModel);
+
+console.log("EndUserModel.findAll()",EndUserModel.findAll())
+EndUserModel.create({
+    first_name:"abc",
+    last_name: "sga",
+    phone1:"9999999999"
+    
+})
+
+// let customerModel = new CustomerModel()
+//customerModel.create()
 
 //Adding controller to microService.
 // let endUserController = new EndUserController();

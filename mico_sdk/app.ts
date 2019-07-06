@@ -16,7 +16,6 @@ var app = express();
 var router = express.Router();
 
 //Export variables
-export var name: string; //Service Name
 export var sequelize: Sequelize;
 
 class MicroService {
@@ -32,7 +31,6 @@ class MicroService {
         if(this.options.name === undefined){
             throw new Error('Service name required');
         }
-        name = this.options.name;
         
         //Init service variables.
         this.options.id = uuid();
@@ -139,13 +137,6 @@ class MicroService {
     ///////Controller Services
     /////////////////////////
     createDefaultServices(controller: Controller) {
-        //Getting model from the controller and initializing.
-        let model: any = controller.getModel();
-        model.init();
-
-        //Adding model to Array.
-        this.sequelizeModels.push(model);
-
         //Getting URL from controller name and Setting up routes
         let baseURL = '/' + controller.getName();
 
