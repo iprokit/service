@@ -4,10 +4,9 @@ import { Request, Response } from 'express';
 
 //Local Import
 import SequelizeModel from './sequelize.model';
-import { Model } from 'sequelize';
 
 export default class Controller {
-    selectOneByID(model: any, request: Request, response: Response) {
+    selectOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findByPk(request.params.id)
                 .then((data: any) => {
@@ -21,7 +20,7 @@ export default class Controller {
         }
     };
 
-    selectAll(model: any, request: Request, response: Response) {
+    selectAll(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findAll()
                 .then((data: any) => {
@@ -35,7 +34,7 @@ export default class Controller {
         }
     };
 
-    selectAllAndOrderByCreatedAt(model: any, request: Request, response: Response) {
+    selectAllAndOrderByCreatedAt(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findAll({
                 order: [['createdAt', 'DESC']]
@@ -51,7 +50,7 @@ export default class Controller {
         }
     };
 
-    add(model: any, request: Request, response: Response) {
+    add(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.create(request.body)
                 .then(() => {
@@ -65,7 +64,7 @@ export default class Controller {
         }
     };
 
-    update(model: any, request: Request, response: Response) {
+    update(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.update(request.body, { where: { id: request.body.id } })
                 .then(() => {
@@ -79,7 +78,7 @@ export default class Controller {
         }
     };
 
-    deleteOneByID(model: any, request: Request, response: Response) {
+    deleteOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.destroy({ where: { id: request.params.id } })
                 .then(() => {
