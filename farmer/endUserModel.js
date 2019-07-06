@@ -1,10 +1,8 @@
-import {DataTypes} from 'sequelize'
+import {DataTypes, Model} from 'sequelize'
 
-import {Model} from '../mico_sdk/dist/index'
-
-export default class EndUserModel extends Model {
-    static init() {
-        super.init({
+export default class EndUser extends Model {
+    static init(sequelize) {
+        return super.init({
             id: {
                 type: DataTypes.INTEGER(6),
                 primaryKey: true,
@@ -48,14 +46,14 @@ export default class EndUserModel extends Model {
                 allowNull: true,
                 default: 1
             }
-        });
+        }, {tableName: 'aqu_enduser', sequelize});
     }
-    static associate() {
+
+    static associate(models) {
         try {
-            this.belongsTo(this.getModelByName('customer'), { foreignKey: 'customer_id'})
+            this.belongsTo(models.Customer, { foreignKey: 'customer_id'})
         } catch (error) {
             console.log(error)
         }
-        super.associate()
     }
 }

@@ -3,11 +3,10 @@ import express from 'express';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
-import {Sequelize} from 'sequelize'
+import {Sequelize, Model} from 'sequelize'
 
 //Local Imports
 import DockerUtility from './docker.utility';
-import SequelizeModel from './sequelize.model';
 import SequelizeConnection from './sequelize.connection';
 import Controller from './controller';
 
@@ -21,7 +20,7 @@ export var sequelize: Sequelize;
 
 class MicroService {
     options: any;
-    sequelizeModels: Array<typeof SequelizeModel>;
+    sequelizeModels: Array<typeof Model>;
 
     //Default Constructor
     constructor(options: any) {
@@ -42,7 +41,7 @@ class MicroService {
         this.options.ip = DockerUtility.getContainerIP();
 
         //Load sequelize
-        this.sequelizeModels = new Array<typeof SequelizeModel>();
+        this.sequelizeModels = new Array<typeof Model>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
             let sequelizeConnection = new SequelizeConnection(options.mysql);
@@ -81,10 +80,13 @@ class MicroService {
     }
 
     startService() {
+        //TODO: Fix associates
         //Assign associates to all models.
-        this.sequelizeModels.forEach(sequelizeModel => {
-            sequelizeModel.associate();
-        });
+        // if(this.sequelizeModels !== undefined){
+        //     this.sequelizeModels.forEach(sequelizeModel => {
+        //         sequelizeModel.associate();
+        //     });
+        // }
         
         // Start server.
         app.listen(this.options.port, () => {
@@ -100,20 +102,27 @@ class MicroService {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    get(url: string, fn: any) {
-        router.get(url, fn);
+    get(path: string, handlers: any) {
+        router.get(path, handlers);
     }
 
-    post(url: string, fn: any) {
-        router.post(url, fn);
+    post(path: string, handlers: any) {
+        router.post(path, handlers);
     }
 
-    put(url: string, fn: any) {
-        router.put(url, fn);
+    put(path: string, handlers: any) {
+        router.put(path, handlers);
     }
 
-    delete(url: string, fn: any) {
-        router.delete(url, fn);
+    delete(path: string, handlers: any) {
+        router.delete(path, handlers);
+    }
+
+    /////////////////////////
+    ///////Add functions
+    /////////////////////////
+    addModel(model: any){
+        model.init(sequelize);
     }
 
     /////////////////////////
@@ -180,28 +189,28 @@ class MicroService {
 }
 
 export default class IMicroService extends MicroService {
-    constructor(config: any) {
-        super(config);
+    constructor(options: any) {
+        super(options);
     }
 
     startService() {
         super.startService();
     }
 
-    get(url: string, fn: any) {
-        super.get(url, fn);
+    get(path: string, handlers: any) {
+        super.get(path, handlers);
     }
 
-    post(url: string, fn: any) {
-        super.post(url, fn);
+    post(path: string, handlers: any) {
+        super.post(path, handlers);
     }
 
-    put(url: string, fn: any) {
-        super.put(url, fn);
+    put(path: string, handlers: any) {
+        super.put(path, handlers);
     }
 
-    delete(url: string, fn: any) {
-        super.delete(url, fn);
+    delete(path: string, handlers: any) {
+        super.delete(path, handlers);
     }
 
     createDefaultServices(controller: Controller) {

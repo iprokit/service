@@ -1,14 +1,13 @@
 //Import modules
-import Model from './sequelize.model';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Init variables
-var model: typeof Model;
+var model: any;
 
 export default class Controller {
     //Default Constructor
-    constructor(_model: typeof Model) {
+    constructor(_model: any) {
         model = _model;
     }
 
