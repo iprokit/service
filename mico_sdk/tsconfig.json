@@ -1,24 +1,17 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "esModuleInterop": true,
     "target": "es5",
-    "noImplicitAny": true,
     "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
     "sourceMap": true,
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "*": [
-        "node_modules/*",
-        "src/types/*"
-      ]
-    },
-    "lib": [
-      "es2015"
-    ]
+    "outDir": "dist"
   },
   "include": [
-    "**/*"
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }
