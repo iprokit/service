@@ -1,38 +1,18 @@
-import { Sequelize, Model, DataTypes } from 'sequelize';
-import customer from './customer';
-import endUser from './enduser'
+import { Sequelize, DataTypes } from 'sequelize';
+import Customer from './customer';
+import EndUser from './enduser';
 
-export const sequelize = new Sequelize('CUSTOMER_DB', 'varaaqu', 'ipro2019', {
+const sequelize = new Sequelize('CUSTOMER_DB', 'varaaqu', 'ipro2019', {
     host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
     dialect: 'mysql',
-    operatorsAliases: false,
     timezone: '+5:30'
 });
 
-var enduserFields = endUser.fields();
-var enduserModel = Model.init(enduserFields, { sequelize, modelName: 'Enduser', tableName: 'aqu_enduser' })
+Customer.init(Customer.fields(), {sequelize, tableName: 'aqu_customer', modelName: 'Customer'});
+EndUser.init(EndUser.fields(), {sequelize, tableName: 'aqu_enduser', modelName: 'EndUser'})
 
-enduserModel.findAll()
-    .then((data) => {
-        console.log("enduserdata", data)
-    })
-    .catch((error) => {
-        console.log("error", error)
-    });
-
-
-//const customer = require('./customer').default;
-var customerFields = customer.fields();
-var customerModel = Model.init(customerFields, { sequelize, modelName: 'Customer', tableName: 'aqu_customer' });
-//customerModel.associate()
-
-customerModel.findAll()
-    .then((data) => {
-        console.log("customerdata", data)
-    })
-    .catch((error) => {
-        console.log("error", error)
-    });
+Customer.associate();
+EndUser.associate();
     
 sequelize.authenticate()
     .then(() => {
@@ -40,4 +20,20 @@ sequelize.authenticate()
     })
     .catch((error) => {
         console.error('Unable to connect to the database:', error);
+    });
+
+Customer.findAll()
+    .then((data) => {
+        console.log("customerdata", data)
+    })
+    .catch((error) => {
+        console.log("error", error)
+    });
+
+EndUser.findAll()
+    .then((data) => {
+        console.log("enduserdata", data)
+    })
+    .catch((error) => {
+        console.log("error", error)
     });

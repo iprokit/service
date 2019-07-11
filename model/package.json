@@ -6,12 +6,12 @@
     "start": "babel-node app.js"
   },
   "dependencies": {
-    "sequelize": "5.8.9",
-    "mysql2": "1.6.5"
+    "mysql2": "1.6.5",
+    "sequelize": "5.10.0"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",
     "@babel/node": "7.4.5",
-    "@babel/preset-env": "7.4.5"
+    "babel-preset-env": "1.7.0"
   }
 }

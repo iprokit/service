@@ -1,6 +1,7 @@
 import { Model, DataTypes } from "sequelize";
+import Enduser from "./enduser";
 
-export default class Customer extends Model{
+export default class Customer extends Model {
     static fields(){
         return {
             id: {
@@ -36,7 +37,7 @@ export default class Customer extends Model{
             }
         };
     }
-    // static associate() {
-    //     this.belongsTo(CustomerModel, { foreignKey: 'customer_id'})
-    // }
+    static associate() {
+        this.hasMany(Enduser, { foreignKey: 'customer_id', targetKey: 'customer_id' })
+    }
 }

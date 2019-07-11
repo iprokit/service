@@ -1,6 +1,7 @@
-import { Model, DataTypes } from "sequelize";
+import { Model, DataTypes } from 'sequelize';
+import Customer from './customer';
 
-export default class Enduser extends Model{
+export default class Enduser extends Model {
     static fields(){
         return {
             id: {
@@ -23,7 +24,7 @@ export default class Enduser extends Model{
             }
         };
     }
-    // static associate() {
-    //     this.belongsTo(CustomerModel, { foreignKey: 'customer_id'})
-    // }
+    static associate() {
+        this.belongsTo(Customer, { foreignKey: 'customer_id'})
+    }
 }
