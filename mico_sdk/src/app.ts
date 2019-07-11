@@ -78,11 +78,11 @@ class MicroService {
 
     startService() {
         //Call associate's from all the models
-        // if(this.sequelizeModels !== undefined){
-        //     this.sequelizeModels.forEach(sequelizeModel => {
-        //         sequelizeModel.associate();
-        //     });
-        // }
+        if(this.sequelizeModels !== undefined){
+            this.sequelizeModels.forEach(sequelizeModel => {
+                sequelizeModel.associate();
+            });
+        }
         
         // Start server.
         app.listen(this.options.port, () => {
@@ -133,7 +133,7 @@ class MicroService {
         }
 
         //Init the model object.
-        Model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize});
+        model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize});
         
         this.sequelizeModels.push(model);
     }

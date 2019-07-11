@@ -2,10 +2,10 @@
 import {MicroService} from '../mico_sdk/dist/index'
 
 //Import Local
-import CustomerController from './customer.controller'
-import EndUserController from './endUser.controller'
-import EndUserModel from './endUser.model';
+// import CustomerController from './customer.controller'
+// import EndUserController from './endUser.controller'
 import CustomerModel from './customer.model';
+import EndUserModel from './endUser.model';
 
 //Init & start service
 var microService = new MicroService({
@@ -20,8 +20,8 @@ var microService = new MicroService({
     }
 });
 
-microService.addModel(EndUserModel);
 microService.addModel(CustomerModel);
+microService.addModel(EndUserModel);
 
 // CustomerModel.findAll()
 //     .then((data) => {
@@ -31,14 +31,22 @@ microService.addModel(CustomerModel);
 //         console.log("error", error)
 //     });
 
+CustomerModel.findAll()
+    .then((data) => {
+        console.log("data", data)
+    })
+    .catch((error) => {
+        console.log("error", error)
+    });
+
 //Adding controller to microService.
-let endUserController = new EndUserController();
-microService.createDefaultEndpoints(endUserController);
+// let endUserController = new EndUserController();
+// microService.createDefaultEndpoints(endUserController);
 
-let customerController = new CustomerController();
-microService.createDefaultEndpoints(customerController);
+// let customerController = new CustomerController();
+// microService.createDefaultEndpoints(customerController);
 
-microService.get('/farmerDetails', customerController.findAllFarmers)
+// microService.get('/farmerDetails', customerController.findAllFarmers)
 
 //Start the service.
 microService.startService();

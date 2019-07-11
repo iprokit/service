@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es5",
+    "target": "es6",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "noImplicitAny": true,
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "typeRoots": [
+      "../node_modules/@types"
+    ]
   },
   "include": [
     "src/**/*.ts"
