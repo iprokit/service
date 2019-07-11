@@ -15,9 +15,12 @@ import SequelizeModel from './sequelize.model';
 var app = express();
 var router = express.Router();
 
+//Export variables
+export var serviceName: string;
+
 class MicroService {
     options: any;
-    sequelize: Sequelize;
+    sequelizeConnection: SequelizeConnection;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
@@ -29,11 +32,12 @@ class MicroService {
         if(this.options.name === undefined){
             throw new Error('Service name required');
         }
+        serviceName = this.options.name;
         
         //Init service variables.
         this.options.id = uuid();
         this.options.version = this.options.version !== undefined ? this.options.version: '1.0';
-        this.options.type = this.options.type !== undefined ? this.options.type: 'api';
+        this.options.type = this.options.type !== undefined ? this.options.type: 'API';
         this.options.port = this.options.port !== undefined ? this.options.port: 3000;
         this.options.ip = DockerUtility.getContainerIP();
 
@@ -41,8 +45,7 @@ class MicroService {
         this.sequelizeModels = new Array<typeof SequelizeModel>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
-            let sequelizeConnection = new SequelizeConnection(options.mysql);
-            this.sequelize = sequelizeConnection.connect();
+            this.sequelizeConnection = new SequelizeConnection(options.mysql);
         }
 
         //Load express and router
@@ -58,7 +61,7 @@ class MicroService {
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
 
-        let url = '/' + this.options.type + '/' + this.options.name;
+        let url = ('/' + this.options.name).toLowerCase();
         app.use(url, router);
 
         // Error handler for 404
@@ -78,11 +81,9 @@ class MicroService {
 
     startService() {
         //Call associate's from all the models
-        if(this.sequelizeModels !== undefined){
-            this.sequelizeModels.forEach(sequelizeModel => {
-                sequelizeModel.associate();
-            });
-        }
+        this.sequelizeModels.forEach(sequelizeModel => {
+            sequelizeModel.associate();
+        });
         
         // Start server.
         app.listen(this.options.port, () => {
@@ -92,6 +93,7 @@ class MicroService {
                 version: this.options.version,
                 type: this.options.type
             });
+            this.sequelizeConnection.connect();
         });
     }
 
@@ -119,12 +121,8 @@ class MicroService {
     /////////////////////////
     addModel(model: typeof SequelizeModel){
         //TODO: add an if statement to validate if the sequelizeConnection is available.
-        let fields = model.fields();
-        let modelName = model._modelName();
-        let tableName = this.options.name + '_' + model._tableName();
-
         //Init the model object and push to array of sequelizeModels.
-        model.init(fields, {sequelize: this.sequelize, tableName: tableName, modelName: modelName});
+        model.init(model.fields(), {sequelize: this.sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
         this.sequelizeModels.push(model);
     }
 

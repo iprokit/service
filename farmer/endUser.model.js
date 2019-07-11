@@ -30,18 +30,6 @@ export default class EndUserModel extends SequelizeModel {
                 allowNull: false,
                 unique: true
             },
-            email: {
-                type: DataTypes.STRING(30),
-                allowNull: true
-            },
-            username: {
-                type: DataTypes.STRING(30),
-                allowNull: true
-            },
-            password: {
-                type: DataTypes.STRING(50),
-                allowNull: false
-            },
             customer_id: {
                 type: DataTypes.INTEGER(6),
                 references: {
@@ -49,11 +37,6 @@ export default class EndUserModel extends SequelizeModel {
                     key: 'id'
                 },
                 allowNull: false
-            },
-            isActive: {
-                type: DataTypes.BOOLEAN,
-                allowNull: true,
-                default: 1
             }
         };
     }

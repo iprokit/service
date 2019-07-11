@@ -27,7 +27,7 @@ export default class SequelizeConnection {
         this.options.password = 'xxxxxxxxxx';
     }
 
-    connect(): Sequelize {
+    connect(){
         this.sequelize.authenticate()
             .then(() => {
                 console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -36,11 +36,10 @@ export default class SequelizeConnection {
                 console.error('Unable to connect to the database:', error);
             });
 
-        if(this.options.force !== undefined){//TODO: Have to remove this from here once the synchronization() is moved to service
+        //TODO: Have to remove this from here once the synchronization() is moved to service
+        if(this.options.force !== undefined){
             this.synchronization(this.options.force);
         }
-
-        return this.sequelize;
     }
 
     disconnect(){
@@ -53,7 +52,8 @@ export default class SequelizeConnection {
         });
     }
 
-    synchronization(force: boolean) { //TODO: Should be exposed to service
+    //TODO: Should be exposed to service
+    synchronization(force: boolean) {
         this.sequelize.sync({force})
             .then(() => {
                 console.log('Database & tables created on %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
