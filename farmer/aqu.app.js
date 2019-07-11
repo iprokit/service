@@ -23,22 +23,6 @@ var microService = new MicroService({
 microService.addModel(CustomerModel);
 microService.addModel(EndUserModel);
 
-// CustomerModel.findAll()
-//     .then((data) => {
-//         console.log("data", data)
-//     })
-//     .catch((error) => {
-//         console.log("error", error)
-//     });
-
-CustomerModel.findAll()
-    .then((data) => {
-        console.log("data", data)
-    })
-    .catch((error) => {
-        console.log("error", error)
-    });
-
 //Adding controller to microService.
 // let endUserController = new EndUserController();
 // microService.createDefaultEndpoints(endUserController);

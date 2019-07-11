@@ -119,22 +119,12 @@ class MicroService {
     /////////////////////////
     addModel(model: typeof SequelizeModel){
         //TODO: add an if statement to validate if the sequelizeConnection is available.
-        //TODO: check if fields is null then throw exception as needed.
         let fields = model.fields();
+        let modelName = model._modelName();
+        let tableName = this.options.name + '_' + model._tableName();
 
-        let modelName = model.name;
-        modelName = modelName.replace('Model', '')
-
-        //Getting given table name, if not available create one and assign it back to the model.
-        let tableName = model.tableName;
-        if(tableName === undefined){
-            //TODO: Append _ before each captial letter of the name
-            tableName = String(this.options.name + '_' + modelName).toLowerCase();
-        }
-
-        //Init the model object.
-        model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize});
-        
+        //Init the model object and push to array of sequelizeModels.
+        model.init(fields, {sequelize: this.sequelize, tableName: tableName, modelName: modelName});
         this.sequelizeModels.push(model);
     }
 

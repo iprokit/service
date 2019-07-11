@@ -7,7 +7,6 @@ import EndUserModel from './endUser.model';
 
 export default class CustomerModel extends SequelizeModel {
     static fields() {
-        this.tableName = 'aqu_customer';
         return {
             id: {
                 type: DataTypes.INTEGER(6),
