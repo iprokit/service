@@ -6,6 +6,12 @@ import { Request, Response } from 'express';
 import SequelizeModel from './sequelize.model';
 
 export default class Controller {
+    model: typeof SequelizeModel;
+
+    constructor(model: typeof SequelizeModel){
+        this.model = model;
+    }
+
     selectOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findByPk(request.params.id)

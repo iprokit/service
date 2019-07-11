@@ -1,10 +1,6 @@
 //Import modules
 import {MicroService} from '../mico_sdk/dist/index'
 
-//Import Models
-import CustomerModel from './customer.model';
-import EndUserModel from './endUser.model';
-
 //Import Controllers
 import CustomerController from './customer.controller'
 import EndUserController from './endUser.controller'
@@ -21,9 +17,6 @@ var microService = new MicroService({
         //force:true
     }
 });
-
-microService.addModel(CustomerModel);
-microService.addModel(EndUserModel);
 
 //Adding controller to microService.
 let endUserController = new EndUserController();

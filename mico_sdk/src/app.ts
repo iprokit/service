@@ -130,6 +130,9 @@ class MicroService {
     ///////Controller Services
     /////////////////////////
     createDefaultEndpoints(controller: Controller) {
+        //Setup model first
+        this.addModel(controller.model);
+        
         //Getting URL from controller name and Setting up routes
         let baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
 

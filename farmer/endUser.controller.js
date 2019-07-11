@@ -5,6 +5,10 @@ import {Controller} from '../mico_sdk/dist/index'
 import EndUserModel from './endUser.model';
 
 export default class EndUserController extends Controller {
+    constructor(){
+        super(EndUserModel);
+    }
+
     selectOneByID(request, response) {
         super.selectOneByID(EndUserModel, request, response);
     }

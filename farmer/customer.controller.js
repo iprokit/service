@@ -7,6 +7,10 @@ import CustomerModel from './customer.model';
 import EndUserModel from './endUser.model';
 
 export default class CustomerController extends Controller {
+    constructor(){
+        super(CustomerModel);
+    }
+
     selectOneByID(request, response) {
         super.selectOneByID(CustomerModel, request, response);
     }
