@@ -3,7 +3,7 @@ import express from 'express';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
-import {Sequelize} from 'sequelize'
+import {Sequelize, Model} from 'sequelize'
 
 //Local Imports
 import DockerUtility from './docker.utility';
@@ -78,11 +78,11 @@ class MicroService {
 
     startService() {
         //Call associate's from all the models
-        if(this.sequelizeModels !== undefined){
-            this.sequelizeModels.forEach(sequelizeModel => {
-                sequelizeModel.associate();
-            });
-        }
+        // if(this.sequelizeModels !== undefined){
+        //     this.sequelizeModels.forEach(sequelizeModel => {
+        //         sequelizeModel.associate();
+        //     });
+        // }
         
         // Start server.
         app.listen(this.options.port, () => {
@@ -133,7 +133,8 @@ class MicroService {
         }
 
         //Init the model object.
-        model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize})
+        Model.init(fields, {tableName: tableName, modelName: modelName, sequelize: this.sequelize});
+        
         this.sequelizeModels.push(model);
     }
 
