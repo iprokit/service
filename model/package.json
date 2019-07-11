@@ -1,0 +1,17 @@
+{
+  "name": "model-test",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "babel-node app.js"
+  },
+  "dependencies": {
+    "sequelize": "5.8.9",
+    "mysql2": "1.6.5"
+  },
+  "devDependencies": {
+    "@babel/core": "7.4.5",
+    "@babel/node": "7.4.5",
+    "@babel/preset-env": "7.4.5"
+  }
+}
