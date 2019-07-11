@@ -1,6 +1,6 @@
 import { Model, DataTypes } from "sequelize";
 
-export default class Customer extends Model{
+export default class Enduser extends Model{
     static fields(){
         return {
             id: {
@@ -16,22 +16,9 @@ export default class Customer extends Model{
                 type: DataTypes.STRING(30),
                 allowNull: true
             },
-            contract_start_date: {
-                type: DataTypes.DATE,
-                allowNull: true
-            },
-            contract_end_date: {
-                type: DataTypes.DATE,
-                allowNull: true
-            },
             phone1: {
                 type: DataTypes.STRING(15),
                 allowNull: false,
-                unique: true
-            },
-            email: {
-                type: DataTypes.STRING(40),
-                allowNull: true,
                 unique: true
             }
         };
