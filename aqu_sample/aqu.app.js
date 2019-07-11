@@ -2,8 +2,8 @@
 import {MicroService} from '../mico_sdk/dist/index'
 
 //Import Controllers
-import CustomerController from './customer.controller'
-import EndUserController from './endUser.controller'
+import CustomerController from '../aqu_sample/aqu_endpoints/customer/customer.controller'
+import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.controller'
 
 //Init & start service
 var microService = new MicroService({
@@ -24,7 +24,7 @@ microService.createDefaultEndpoints(endUserController);
 
 let customerController = new CustomerController();
 microService.createDefaultEndpoints(customerController);
-microService.get('/farmerDetails', customerController.findAllFarmers)
+microService.get('/customer/farmer/details', customerController.findAllFarmers);
 
 //Start the service.
 microService.startService();

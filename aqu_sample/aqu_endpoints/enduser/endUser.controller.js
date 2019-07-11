@@ -1,5 +1,5 @@
 //Import modules
-import {Controller} from '../mico_sdk/dist/index'
+import {Controller} from '../../../mico_sdk/dist/index'
 
 //Import Local
 import EndUserModel from './endUser.model';

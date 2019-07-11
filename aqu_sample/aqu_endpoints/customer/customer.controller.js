@@ -1,10 +1,10 @@
 //Import modules
+import {Controller} from '../../../mico_sdk/dist/index'
 import httpStatus from 'http-status-codes';
-import {Controller} from '../mico_sdk/dist/index'
 
 //Import Local
 import CustomerModel from './customer.model';
-import EndUserModel from './endUser.model';
+import EndUserModel from '../enduser/endUser.model';
 
 export default class CustomerController extends Controller {
     constructor(){

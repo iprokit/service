@@ -1,9 +1,9 @@
 //Import modules
-import {SequelizeModel} from '../mico_sdk/dist/index'
+import {SequelizeModel} from '../../../mico_sdk/dist/index'
 import {DataTypes} from 'sequelize'
 
 //Import Local
-import CustomerModel from './customer.model';
+import CustomerModel from '../customer/customer.model';
 
 export default class EndUserModel extends SequelizeModel {
     static _tableName(){
