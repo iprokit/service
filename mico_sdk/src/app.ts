@@ -1,6 +1,7 @@
 //Import modules
 import express from 'express';
 import { Request, Response, NextFunction } from 'express';
+import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
@@ -22,7 +23,6 @@ export var serviceName: string;
 
 class MicroService {
     options: any;
-    dbOptions: any;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
@@ -47,7 +47,6 @@ class MicroService {
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
             sequelizeConnection = new SequelizeConnection(options.mysql);
-            this.dbOptions = options.mysql;
         }
 
         //Load express and router
@@ -63,23 +62,22 @@ class MicroService {
         app.use(cors());
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
+        //TODO: Add logging.
 
         let url = ('/' + this.options.name).toLowerCase();
         app.use(url, router);
 
         // Error handler for 404
-        app.use(function(request: Request, response: Response, next: NextFunction) {
+        app.use((request: Request, response: Response, next: NextFunction) => {
             next(createError(404));
         });
 
         // Default error handler
-        app.use(function(error: any, request: Request, response: Response, next: NextFunction) {
+        app.use((error: any, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
         });
-
-        //TODO: Add listeners to terminate DB connection on end
     }
 
     startService() {
@@ -89,7 +87,7 @@ class MicroService {
         });
         
         // Start server.
-        app.listen(this.options.port, () => {
+        let server = app.listen(this.options.port, () => {
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
             console.log('%s : %o', this.options.name, {
                 id: this.options.id,
@@ -97,15 +95,12 @@ class MicroService {
                 type: this.options.type
             });
 
-            //Database connection.
-            sequelizeConnection.connect()
-            .then(() => {
-                console.log('Connected to %s://%s/%s', this.dbOptions.dialect, this.dbOptions.host, this.dbOptions.name);
-            })
-            .catch((error: any) => {
-                console.error('Unable to connect to the database:', error);
-            });
+            //Starting database connection.
+            sequelizeConnection.connect();
         });
+
+        //Adding process listeners to stop server gracefully.
+        this.addProcessListeners(server);
     }
 
     /////////////////////////
@@ -137,11 +132,31 @@ class MicroService {
         this.sequelizeModels.push(model);
     }
 
+    addProcessListeners(server: Server){
+        let name = this.options.name;
+        process.on('SIGTERM', () => {
+            console.log('Recived SIGTERM!');
+            server.close(() => {
+                sequelizeConnection.disconnect();
+                console.log('Micro service %s shutdown complete.', name);
+                process.exit(0);
+            });
+        });
+        process.on('SIGINT', () => {
+            console.log('Recived SIGINT!');
+            server.close(() => {
+                sequelizeConnection.disconnect();
+                console.log('Micro service %s shutdown complete.', name);
+                process.exit(0);
+            });
+        });
+    }
+
     /////////////////////////
     ///////Endpoints
     /////////////////////////
     createDatabaseEndpoints(){
-        this.post('/database/sync', function(request: Request, response: Response){
+        this.post('/database/sync', (request: Request, response: Response) => {
             try {
                 sequelizeConnection.sync(request.body.force)
                 .then(() => {
@@ -159,7 +174,7 @@ class MicroService {
     createHealthEndpoints() {
         let _options = this.options;
 
-        this.get('/health', function(request: Request, response: Response) {
+        this.get('/health', (request: Request, response: Response) => {
             try {
                 response.status(httpStatus.OK).send({status: true});
             } catch (error) {
@@ -167,7 +182,7 @@ class MicroService {
             }
         });
 
-        this.get('/health/report', function(request: Request, response: Response) {
+        this.get('/health/report', (request: Request, response: Response) => {
             try {
                 let routesArray: any = [];
                 let baseURL = request.baseUrl;

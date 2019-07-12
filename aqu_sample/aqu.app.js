@@ -6,6 +6,7 @@ import CustomerController from '../aqu_sample/aqu_endpoints/customer/customer.co
 import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.controller'
 
 //Init & start service
+//TODO: read this from dotenv.
 var microService = new MicroService({
     name: "AQU",
     mysql: {

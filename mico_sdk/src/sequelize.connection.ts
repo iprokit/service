@@ -28,11 +28,23 @@ export default class SequelizeConnection {
     }
 
     connect(){
-        return this.sequelize.authenticate();
+        this.sequelize.authenticate()
+            .then(() => {
+                console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
+            })
+            .catch((error: any) => {
+                console.error('Unable to connect to the database:', error);
+            });
     }
 
     disconnect(){
-        return this.sequelize.close();
+        this.sequelize.close()
+            .then(() => {
+                console.log('Disconnected from %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
+            })
+            .catch((error: any) => {
+                console.error('Unable to disconnect the database:', error);
+            });
     }
 
     sync(force: boolean) {
