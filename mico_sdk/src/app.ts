@@ -1,6 +1,7 @@
 //Import modules
 import express from 'express';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
@@ -29,7 +30,6 @@ class MicroService {
         this.options = options;
 
         //First check if the name exists.
-        //TODO: Get the default file name.
         if(this.options.name === undefined){
             throw new Error('Service name required');
         }
@@ -60,7 +60,7 @@ class MicroService {
 
     initExpressServer() {
         //Setup Express
-        //TODO: Add CROS
+        app.use(cors());
         app.use(express.json());
         app.use(express.urlencoded({extended: false}));
 
@@ -68,15 +68,15 @@ class MicroService {
         app.use(url, router);
 
         // Error handler for 404
-        app.use(function(req, res, next) {
+        app.use(function(request: Request, response: Response, next: NextFunction) {
             next(createError(404));
         });
 
         // Default error handler
-        app.use(function(err: any, req: any, res: any, next: any) {
-            res.locals.message = err.message;
-            res.locals.error = req.app.get('env') === 'development' ? err : {};
-            res.status(err.status || 500).send(err.message);
+        app.use(function(error: any, request: Request, response: Response, next: NextFunction) {
+            response.locals.message = error.message;
+            response.locals.error = request.app.get('env') === 'development' ? error : {};
+            response.status(error.status || 500).send(error.message);
         });
 
         //TODO: Add listeners to terminate DB connection on end
