@@ -8,7 +8,7 @@ import SequelizeModel from './sequelize.model';
 export default class Controller {
     model: typeof SequelizeModel;
 
-    constructor(model: typeof SequelizeModel){
+    constructor(model: typeof SequelizeModel) {
         this.model = model;
     }
 
@@ -72,13 +72,24 @@ export default class Controller {
 
     update(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
-            model.update(request.body, { where: { id: request.body.id } })
-                .then(() => {
-                    response.status(httpStatus.OK).send({ status: true, data: { affectedRows: 1 } });
+            model.findByPk(request.body.id)
+                .then(data => {
+                    if (data) {
+                        model.update(request.body, { where: { id: request.body.id } })
+                            .then(() => {
+                                response.status(httpStatus.OK).send({ status: true, message: "Updated Successfully" });
+                            })
+                            .catch((error: any) => {
+                                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                            });
+                    }
+                    else {
+                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: "Id doesn't exist" });
+                    }
                 })
                 .catch((error: any) => {
                     response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                });
+                })
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
@@ -86,13 +97,24 @@ export default class Controller {
 
     deleteOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
-            model.destroy({ where: { id: request.params.id } })
-                .then(() => {
-                    response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
+            model.findByPk(request.params.id)
+                .then(data => {
+                    if (data) {
+                        model.destroy({ where: { id: request.params.id } })
+                            .then(() => {
+                                response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
+                            })
+                            .catch((error: any) => {
+                                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                            });
+                    }
+                    else {
+                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: "Invalid id" })
+                    }
                 })
                 .catch((error: any) => {
                     response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                });
+                })
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }

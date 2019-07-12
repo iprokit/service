@@ -1,8 +1,10 @@
 //Import modules
 import {Controller} from '../../../mico_sdk/dist/index'
+import httpStatus from 'http-status-codes';
 
 //Import Local
 import EndUserModel from './endUser.model';
+import CustomerModel from '../customer/customer.model';
 
 export default class EndUserController extends Controller {
     constructor(){
@@ -31,5 +33,19 @@ export default class EndUserController extends Controller {
 
     deleteOneByID(request, response) {
         super.deleteOneByID(EndUserModel, request, response);
+    }
+
+    customerDetailsByID(request, response) {
+        try {
+            EndUserModel.findAll({
+                include: [{
+                    model: CustomerModel
+                }]
+            }).then(data => {
+                response.status(httpStatus.OK).send({ status: true, data: data })
+            })
+        } catch (error) {
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message })
+        }
     }
 }

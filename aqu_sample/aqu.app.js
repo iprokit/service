@@ -20,6 +20,7 @@ const microService = new MicroService({
 //Adding controller to microService.
 const endUserController = new EndUserController();
 microService.createDefaultEndpoints(endUserController);
+microService.get('/farmer/customer/details', endUserController.customerDetailsByID);
 
 const customerController = new CustomerController();
 microService.createDefaultEndpoints(customerController);
