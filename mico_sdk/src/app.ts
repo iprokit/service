@@ -15,15 +15,15 @@ import Controller from './controller';
 import SequelizeModel from './sequelize.model';
 
 //Init variables
-var app = express();
-var router = express.Router();
-var sequelizeConnection: SequelizeConnection;
+const app = express();
+const router = express.Router();
 
 //Export variables
-export var serviceName: string;
+export let serviceName: string;
 
 class MicroService {
     options: any;
+    sequelizeConnection: SequelizeConnection;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
@@ -47,7 +47,7 @@ class MicroService {
         this.sequelizeModels = new Array<typeof SequelizeModel>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
-            sequelizeConnection = new SequelizeConnection(options.mysql);
+            this.sequelizeConnection = new SequelizeConnection(options.mysql);
         }
 
         //Load express and router
@@ -67,7 +67,7 @@ class MicroService {
         app.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
-        let url = ('/' + this.options.name).toLowerCase();
+        const url = ('/' + this.options.name).toLowerCase();
         app.use(url, router);
 
         // Error handler for 404
@@ -90,7 +90,7 @@ class MicroService {
         });
         
         // Start server.
-        let server = app.listen(this.options.port, () => {
+        const server = app.listen(this.options.port, () => {
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
             console.log('%s : %o', this.options.name, {
                 id: this.options.id,
@@ -99,7 +99,7 @@ class MicroService {
             });
 
             //Starting database connection.
-            sequelizeConnection.connect();
+            this.sequelizeConnection.connect();
         });
 
         //Adding process listeners to stop server gracefully.
@@ -130,12 +130,14 @@ class MicroService {
     /////////////////////////
     addModel(model: typeof SequelizeModel){
         //Init the model object and push to array of sequelizeModels.
-        model.init(model.fields(DataTypes), {sequelize: sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
+        model.init(model.fields(DataTypes), {sequelize: this.sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
         this.sequelizeModels.push(model);
     }
 
     addProcessListeners(server: Server){
-        let name = this.options.name;
+        const name = this.options.name;
+        const sequelizeConnection = this.sequelizeConnection;
+
         process.on('SIGTERM', () => {
             console.log('Recived SIGTERM!');
             server.close(() => {
@@ -144,6 +146,7 @@ class MicroService {
                 process.exit(0);
             });
         });
+
         process.on('SIGINT', () => {
             console.log('Recived SIGINT!');
             server.close(() => {
@@ -158,6 +161,8 @@ class MicroService {
     ///////Endpoints
     /////////////////////////
     createDatabaseEndpoints(){
+        const sequelizeConnection = this.sequelizeConnection;
+
         this.post('/database/sync', (request: Request, response: Response) => {
             try {
                 sequelizeConnection.sync(request.body.force)
@@ -174,7 +179,7 @@ class MicroService {
     }
 
     createHealthEndpoints() {
-        let _options = this.options;
+        const _options = this.options;
 
         this.get('/health', (request: Request, response: Response) => {
             try {
@@ -186,17 +191,17 @@ class MicroService {
 
         this.get('/health/report', (request: Request, response: Response) => {
             try {
-                let routesArray: any = [];
-                let baseURL = request.baseUrl;
+                const routesArray: any = [];
+                const baseURL = request.baseUrl;
 
                 //Getting all registered routes from router
                 router.stack.forEach((item) => {
-                    let method = item.route.stack[0].method;
-                    let url = baseURL + item.route.path;
+                    const method = item.route.stack[0].method;
+                    const url = baseURL + item.route.path;
                     routesArray.push({method, url});
                 });
 
-                let data = {
+                const data = {
                     service: _options,
                     routes: routesArray
                 };
@@ -214,7 +219,7 @@ class MicroService {
         this.addModel(controller.model);
         
         //Getting URL from controller name and Setting up routes
-        let baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
+        const baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
 
         //Setting up routes
         this.get(baseURL + '/:id', controller.selectOneByID);

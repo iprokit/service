@@ -6,7 +6,7 @@ import CustomerController from '../aqu_sample/aqu_endpoints/customer/customer.co
 import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.controller'
 
 //Init & start service
-var microService = new MicroService({
+const microService = new MicroService({
     name: "AQU",
     mysql: {
         name: 'CUSTOMER_DB',
@@ -18,10 +18,10 @@ var microService = new MicroService({
 });
 
 //Adding controller to microService.
-let endUserController = new EndUserController();
+const endUserController = new EndUserController();
 microService.createDefaultEndpoints(endUserController);
 
-let customerController = new CustomerController();
+const customerController = new CustomerController();
 microService.createDefaultEndpoints(customerController);
 microService.get('/customer/farmer/details', customerController.findAllFarmers);
 
