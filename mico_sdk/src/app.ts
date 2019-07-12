@@ -56,6 +56,8 @@ class MicroService {
         //Load Endpoints
         this.createDatabaseEndpoints();
         this.createHealthEndpoints();
+
+        //TODO: Read dotenv from the project root.
     }
 
     initExpressServer() {
@@ -127,7 +129,6 @@ class MicroService {
     ///////Add functions
     /////////////////////////
     addModel(model: typeof SequelizeModel){
-        //TODO: add an if statement to validate if the sequelizeConnection is available.
         //Init the model object and push to array of sequelizeModels.
         model.init(model.fields(DataTypes), {sequelize: sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
         this.sequelizeModels.push(model);

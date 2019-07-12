@@ -29,9 +29,7 @@
     "@types/cors": "2.8.4",
     "cors": "2.8.5",
     "mysql2": "1.6.5",
-    "sequelize": "5.10.0",
-    "get-docker-host": "1.0.3",
-    "is-in-docker": "0.1.2"
+    "sequelize": "5.10.0"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",

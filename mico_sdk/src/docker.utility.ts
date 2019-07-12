@@ -6,6 +6,6 @@ export default class DockerUtility{
         return ip.address();
     }
     static getHostIP(){
-        return '13.126.182.141'; //TODO: This should become dynamic
+        return ''; //TODO: This should become dynamic
     }
 }
