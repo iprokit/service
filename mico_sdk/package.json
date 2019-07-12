@@ -1,9 +1,12 @@
 {
   "name": "@iprotechs/ipromicro",
   "version": "1.1.1",
+  "license": "iProtechs",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "tsc": "tsc"
+    "prepublish": "tsc",
+    "build": "tsc"
   },
   "keywords": [
     "Micro SDK",

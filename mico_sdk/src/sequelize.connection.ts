@@ -48,6 +48,15 @@ export default class SequelizeConnection {
     }
 
     sync(force: boolean) {
-        return this.sequelize.sync({force});
+        const sequelize = this.sequelize;
+        return new Promise(function(resolve, reject){
+            sequelize.sync({force})
+            .then(() => {
+                resolve();
+            })
+            .catch((error: any) => {
+                reject(error);
+            });
+        })
     }
 }
