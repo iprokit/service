@@ -13,8 +13,7 @@ var microService = new MicroService({
         username: 'varaaqu',
         password: 'ipro2019',
         host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
-        timezone: '+5:30',
-        //force:true
+        timezone: '+5:30'
     }
 });
 

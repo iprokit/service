@@ -28,38 +28,14 @@ export default class SequelizeConnection {
     }
 
     connect(){
-        this.sequelize.authenticate()
-            .then(() => {
-                console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
-            })
-            .catch((error: any) => {
-                console.error('Unable to connect to the database:', error);
-            });
-
-        //TODO: Have to remove this from here once the synchronization() is moved to service
-        if(this.options.force !== undefined){
-            this.synchronization(this.options.force);
-        }
+        return this.sequelize.authenticate();
     }
 
     disconnect(){
-        this.sequelize.close()
-        .then(() => {
-            console.log('Disconnected from database.');
-        })
-        .catch((error: any) => {
-            console.error('Unable to disconnect from the database:', error);
-        });
+        return this.sequelize.close();
     }
 
-    //TODO: Should be exposed to service
-    synchronization(force: boolean) {
-        this.sequelize.sync({force})
-            .then(() => {
-                console.log('Database & tables created on %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
-            })
-            .catch((error: any) => {
-                console.log('Table creation failed:', error);
-            });
+    sync(force: boolean) {
+        return this.sequelize.sync({force});
     }
 }

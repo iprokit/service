@@ -1,9 +1,9 @@
 //Import modules
 import express from 'express';
+import { Request, Response } from 'express';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
-import {Sequelize, Model} from 'sequelize'
 
 //Local Imports
 import DockerUtility from './docker.utility';
@@ -14,13 +14,14 @@ import SequelizeModel from './sequelize.model';
 //Init variables
 var app = express();
 var router = express.Router();
+var sequelizeConnection: SequelizeConnection;
 
 //Export variables
 export var serviceName: string;
 
 class MicroService {
     options: any;
-    sequelizeConnection: SequelizeConnection;
+    dbOptions: any;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
@@ -45,14 +46,16 @@ class MicroService {
         this.sequelizeModels = new Array<typeof SequelizeModel>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
-            this.sequelizeConnection = new SequelizeConnection(options.mysql);
+            sequelizeConnection = new SequelizeConnection(options.mysql);
+            this.dbOptions = options.mysql;
         }
 
         //Load express and router
         this.initExpressServer();
 
-        //Load health services
-        this.createHealthServices();
+        //Load Endpoints
+        this.createDatabaseEndpoints();
+        this.createHealthEndpoints();
     }
 
     initExpressServer() {
@@ -93,7 +96,15 @@ class MicroService {
                 version: this.options.version,
                 type: this.options.type
             });
-            this.sequelizeConnection.connect();
+
+            //Database connection.
+            sequelizeConnection.connect()
+            .then(() => {
+                console.log('Connected to %s://%s/%s', this.dbOptions.dialect, this.dbOptions.host, this.dbOptions.name);
+            })
+            .catch((error: any) => {
+                console.error('Unable to connect to the database:', error);
+            });
         });
     }
 
@@ -122,36 +133,33 @@ class MicroService {
     addModel(model: typeof SequelizeModel){
         //TODO: add an if statement to validate if the sequelizeConnection is available.
         //Init the model object and push to array of sequelizeModels.
-        model.init(model.fields(), {sequelize: this.sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
+        model.init(model.fields(), {sequelize: sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
         this.sequelizeModels.push(model);
     }
 
     /////////////////////////
-    ///////Controller Services
+    ///////Endpoints
     /////////////////////////
-    createDefaultEndpoints(controller: Controller) {
-        //Setup model first
-        this.addModel(controller.model);
-        
-        //Getting URL from controller name and Setting up routes
-        let baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
-
-        //Setting up routes
-        this.get(baseURL + '/:id', controller.selectOneByID);
-        this.get(baseURL, controller.selectAll);
-        this.get(baseURL + "/orderby/new", controller.selectAllAndOrderByCreatedAt);
-        this.post(baseURL, controller.add);
-        this.put(baseURL, controller.update);
-        this.delete(baseURL + '/:id', controller.deleteOneByID);
+    createDatabaseEndpoints(){
+        this.post('/database/sync', function(request: Request, response: Response){
+            try {
+                sequelizeConnection.sync(request.body.force)
+                .then(() => {
+                    response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
+                })
+                .catch((error: any) => {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                });
+            } catch (error) {
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+            }
+        });
     }
 
-    /////////////////////////
-    ///////Health Services
-    /////////////////////////
-    createHealthServices() {
+    createHealthEndpoints() {
         let _options = this.options;
 
-        this.get('/health', function(request: any, response: any) {
+        this.get('/health', function(request: Request, response: Response) {
             try {
                 response.status(httpStatus.OK).send({status: true});
             } catch (error) {
@@ -159,7 +167,7 @@ class MicroService {
             }
         });
 
-        this.get('/health/report', function(request: any, response: any) {
+        this.get('/health/report', function(request: Request, response: Response) {
             try {
                 let routesArray: any = [];
                 let baseURL = request.baseUrl;
@@ -182,6 +190,22 @@ class MicroService {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
+    }
+
+    createDefaultEndpoints(controller: Controller) {
+        //Setup model first
+        this.addModel(controller.model);
+        
+        //Getting URL from controller name and Setting up routes
+        let baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
+
+        //Setting up routes
+        this.get(baseURL + '/:id', controller.selectOneByID);
+        this.get(baseURL, controller.selectAll);
+        this.get(baseURL + "/orderby/new", controller.selectAllAndOrderByCreatedAt);
+        this.post(baseURL, controller.add);
+        this.put(baseURL, controller.update);
+        this.delete(baseURL + '/:id', controller.deleteOneByID);
     }
 }
 
