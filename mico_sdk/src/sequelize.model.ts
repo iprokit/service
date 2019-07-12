@@ -1,5 +1,5 @@
 //Import modules
-import {Model, ModelAttributes} from 'sequelize'
+import {Model, ModelAttributes, DataTypes} from 'sequelize'
 
 //Local Imports
 import { serviceName } from './app';
@@ -14,7 +14,7 @@ export default class SequelizeModel extends Model {
         return (serviceName + '_' + this.name.replace('Model', '')).toLowerCase();
     }
 
-    static fields(): ModelAttributes {
+    static fields(dataTypes: typeof DataTypes): ModelAttributes {
         return null;
     }
 

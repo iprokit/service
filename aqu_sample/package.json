@@ -6,8 +6,7 @@
     "start": "babel-node aqu.app.js"
   },
   "dependencies": {
-    "http-status-codes": "1.3.2",
-    "sequelize": "5.10.0"
+    "http-status-codes": "1.3.2"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",

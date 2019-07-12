@@ -1,12 +1,11 @@
 //Import modules
 import {SequelizeModel} from '../../../mico_sdk/dist/index'
-import {DataTypes} from 'sequelize'
 
 //Import Local
 import EndUserModel from '../enduser/endUser.model';
 
 export default class CustomerModel extends SequelizeModel {
-    static fields() {
+    static fields(DataTypes) {
         return {
             id: {
                 type: DataTypes.INTEGER(6),
