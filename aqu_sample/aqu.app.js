@@ -7,15 +7,7 @@ import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.contr
 
 class AQUApp extends MicroService{
     constructor(){
-        super({
-            mysql: {
-                name: 'CUSTOMER_DB',
-                username: 'varaaqu',
-                password: 'ipro2019',
-                host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
-                timezone: '+5:30'
-            }
-        });
+        super();
     }
 
     init(){

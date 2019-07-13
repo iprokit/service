@@ -1,67 +1,85 @@
 //Import modules
-import express from 'express';
-import { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
 import uuid from 'uuid/v1';
-import { DataTypes } from 'sequelize';
+import path from 'path';
+import dotenv from 'dotenv';
+import fs from 'fs';
 
 //Local Imports
 import DockerUtility from './docker.utility';
-import SequelizeConnection from './sequelize.connection';
+import SequelizeConnection, { InvalidSequelizeOptions } from './sequelize.connection';
 import Controller from './controller';
-import SequelizeModel from './sequelize.model';
 
 export default class MicroService {
-    //Init variables.
+    //Server variables.
+    private options: any;
     private app = express();
     private router = express.Router();
 
-    //Init null variables.
-    private options: any;
-    private sequelizeConnection: SequelizeConnection;
-
-    //Init constructors.
-    private sequelizeModels: Array<typeof SequelizeModel> = new Array<typeof SequelizeModel>();
+    //Sequelize variables.
+    private sequelizeConnection: SequelizeConnection = new SequelizeConnection();
 
     //Default Constructor
-    public constructor(options: any) {
-        //TODO: Read dotenv from the project root.
-        this.options = options;
-        
-        //Init service variables.
-        this.options.id = uuid();
-        this.options.name = this.options.name !== undefined ? this.options.name: this.constructor.name.replace('App', '');
-        this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
-        this.options.type = this.options.type !== undefined ? this.options.type: 'API';
-        this.options.port = this.options.port !== undefined ? this.options.port: 3000;
-        this.options.ip = DockerUtility.getContainerIP();
-
-        //Load sequelize
-        if (options.hasOwnProperty('mysql')) {
-            options.mysql.dialect = 'mysql';
-            this.sequelizeConnection = new SequelizeConnection(options.mysql);
-        }
+    public constructor() {
+        //Load options
+        this.loadDotEnvFile();
+        this.loadServiceOptions();
 
         //Load express and router
         this.initExpressServer();
 
-        //Load Endpoints
-        this.createDatabaseEndpoints();
-        this.createHealthEndpoints();
+        //Load Databases
+        this.initSequelizeConnection();
 
-        //Loading any user level objects.
+        //Create Endpoints
+        this.createHealthEndpoints();
+        this.createDBEndpoints();
+
+        //Loading any user level objects
         this.init();
 
-        //Start the server & DB connections.
+        //Start the server & DB connections
         this.startService();
+    }
+
+    /////////////////////////
+    ///////Load Functions
+    /////////////////////////
+    private loadDotEnvFile(){
+        //TODO: Look for all .env files development, stage, production.
+        const envPath = path.dirname(require.main.filename) + '/.env';
+        if(fs.existsSync(envPath)){
+            dotenv.config({path: envPath});
+        }
+    }
+
+    private loadServiceOptions(){
+        //Try loading options from process.env
+        this.options = {
+            id: uuid(),
+            name: process.env.SERVICE_NAME,
+            version: process.env.SERVICE_VERSION,
+            type: process.env.SERVICE_TYPE,
+            port: process.env.SERVICE_PORT,
+            ip: DockerUtility.getContainerIP()
+        };
+
+        //Loading default options
+        this.options.name = this.options.name !== undefined ? this.options.name: this.constructor.name.replace('App', '');
+        this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
+        this.options.type = this.options.type !== undefined ? this.options.type: 'API';
+        this.options.port = this.options.port !== undefined ? this.options.port: 3000;
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
+    public init(){}//User init
+
     private initExpressServer() {
         //Setup Express
         this.app.use(cors());
@@ -85,15 +103,31 @@ export default class MicroService {
         });
     }
 
-    public init(){}
+    private initSequelizeConnection(){
+        //Try loading sequelize DB
+        if(this.sequelizeConnection.hasSequelizeOptions()){
+            try{
+                this.sequelizeConnection.init(this.options.name);
+                this.options.db = this.sequelizeConnection.getOptions();
+            }catch(error){
+                if(error instanceof InvalidSequelizeOptions){
+                    console.log(error.message);
+                }else{
+                    console.error(error);
+                }
+                console.log('Will continue...');
+            }
+        }else{
+            console.log('No sequelize options were provided.');
+            console.log('Will continue...')
+        }
+    }
 
+    /////////////////////////
+    ///////Service Functions
+    /////////////////////////
     private startService() {
-        //Call associate's from all the models
-        this.sequelizeModels.forEach(sequelizeModel => {
-            sequelizeModel.associate();
-        });
-        
-        // Start server.
+        // Start server
         const server = this.app.listen(this.options.port, () => {
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
             console.log('%s : %o', this.options.name, {
@@ -102,12 +136,50 @@ export default class MicroService {
                 type: this.options.type
             });
 
-            //Starting database connection.
-            this.sequelizeConnection.connect();
-        });
+            //Adding process listeners to stop server gracefully.
+            process.on('SIGTERM', () => {
+                console.log('Recived SIGTERM!');
+                this.stopService(server)
+            });
+    
+            process.on('SIGINT', () => {
+                console.log('Recived SIGINT!');
+                this.stopService(server);
+            });
 
-        //Adding process listeners to stop server gracefully.
-        this.addProcessListeners(server);
+            //Starting database connection.
+            if(this.sequelizeConnection.isReady()){
+                this.sequelizeConnection.connect()
+                .then((dbOptions: any) => {
+                    console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
+                })
+                .catch((error: any) => {
+                    if(error instanceof InvalidSequelizeOptions){
+                        console.log(error.message);
+                    }else{
+                        console.error(error);
+                    }
+                    console.log('Will continue...');
+                });
+            }
+        });
+    }
+
+    private stopService(server: Server){
+        server.close(() => {
+            if(this.sequelizeConnection.isReady()){
+                this.sequelizeConnection.disconnect()
+                .then((dbOptions: any) => {
+                    console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
+                })
+                .catch((error: any) => {
+                    console.error(error);
+                    console.log('Will continue...');
+                });
+            }
+            console.log('Micro service %s shutdown complete.', this.options.name);
+            process.exit(0);
+        });
     }
 
     /////////////////////////
@@ -130,64 +202,31 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////Add functions
+    ///////Endpoints Functions
     /////////////////////////
-    public addModel(model: typeof SequelizeModel){
-        //Init the model object and push to array of sequelizeModels.
-        const fields = model.fields(DataTypes);
-        const sequelize = this.sequelizeConnection.sequelize;
-        const modelName = model._modelName();
-        const tableName = (this.options.name + '_' + model._tableName()).toLowerCase();
-
-        model.init(fields, {sequelize, tableName, modelName});
-        this.sequelizeModels.push(model);
-    }
-
-    private addProcessListeners(server: Server){
-        const name = this.options.name;
+    private createDBEndpoints(){
+        //Sudo objects to pass into promise. As this keyword is not available.
         const sequelizeConnection = this.sequelizeConnection;
 
-        process.on('SIGTERM', () => {
-            console.log('Recived SIGTERM!');
-            server.close(() => {
-                sequelizeConnection.disconnect();
-                console.log('Micro service %s shutdown complete.', name);
-                process.exit(0);
-            });
-        });
-
-        process.on('SIGINT', () => {
-            console.log('Recived SIGINT!');
-            server.close(() => {
-                sequelizeConnection.disconnect();
-                console.log('Micro service %s shutdown complete.', name);
-                process.exit(0);
-            });
-        });
-    }
-
-    /////////////////////////
-    ///////Endpoints
-    /////////////////////////
-    private createDatabaseEndpoints(){
-        const sequelizeConnection = this.sequelizeConnection;
-
-        this.post('/database/sync', (request: Request, response: Response) => {
-            try {
-                sequelizeConnection.sync(request.body.force)
-                .then(() => {
-                    response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
-                })
-                .catch((error: any) => {
+        if(sequelizeConnection.isReady()){
+            this.post('/database/sync', (request: Request, response: Response) => {
+                try {
+                    sequelizeConnection.sync(request.body.force)
+                    .then(() => {
+                        response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
+                    })
+                    .catch((error: any) => {
+                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                    });
+                } catch (error) {
                     response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                });
-            } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-            }
-        });
+                }
+            });
+        }
     }
 
     private createHealthEndpoints() {
+        //Sudo objects to pass into promise. As this keyword is not available.
         const router = this.router;
         const options = this.options;
 
@@ -204,7 +243,7 @@ export default class MicroService {
                 const routesArray: any = [];
                 const baseURL = request.baseUrl;
 
-                //Getting all registered routes from router
+                //Getting all registered routes from router.
                 router.stack.forEach((item) => {
                     const method = item.route.stack[0].method;
                     const url = baseURL + item.route.path;
@@ -225,10 +264,16 @@ export default class MicroService {
     }
 
     public createDefaultEndpoints(controller: Controller) {
-        //Setup model first
-        this.addModel(controller.model);
+        //Try setting up the sequelize model.
+        if(this.sequelizeConnection.isReady()){
+            const model = controller.model;
+            this.sequelizeConnection.initModel(model);
+
+            //Logging the model loaded.
+            console.log('%s model: Mapped to connection.', model.name);
+        }
         
-        //Getting URL from controller name and Setting up routes
+        //Getting URL from controller name and Setting up routes.
         const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
         //Setting up routes
@@ -238,5 +283,8 @@ export default class MicroService {
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
+
+        //Logging the controller loaded.
+        console.log('%s controller: Default endpoints added.', controller.name);
     }
 }

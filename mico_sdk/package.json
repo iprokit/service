@@ -32,7 +32,9 @@
     "@types/cors": "2.8.4",
     "cors": "2.8.5",
     "mysql2": "1.6.5",
-    "sequelize": "5.10.0"
+    "sequelize": "5.10.0",
+    "@types/dotenv": "4.0.3",
+    "dotenv": "8.0.0"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",
