@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import SequelizeModel from './sequelize.model';
 
 export default class Controller {
+    readonly name = this.constructor.name;
     readonly model: typeof SequelizeModel;
 
     public constructor(model: typeof SequelizeModel) {

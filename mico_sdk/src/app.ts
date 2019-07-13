@@ -14,9 +14,6 @@ import SequelizeConnection from './sequelize.connection';
 import Controller from './controller';
 import SequelizeModel from './sequelize.model';
 
-//Export variables
-export let serviceName: string;
-
 export default class MicroService {
     //Init variables.
     private app = express();
@@ -33,16 +30,11 @@ export default class MicroService {
     public constructor(options: any) {
         //TODO: Read dotenv from the project root.
         this.options = options;
-
-        //Setting up microservice name.
-        if(this.options.name === undefined){
-            this.options.name = this.constructor.name.replace('App', '');
-        }
-        serviceName = this.options.name;
         
         //Init service variables.
         this.options.id = uuid();
-        this.options.version = this.options.version !== undefined ? this.options.version: '1.0';
+        this.options.name = this.options.name !== undefined ? this.options.name: this.constructor.name.replace('App', '');
+        this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
         this.options.type = this.options.type !== undefined ? this.options.type: 'API';
         this.options.port = this.options.port !== undefined ? this.options.port: 3000;
         this.options.ip = DockerUtility.getContainerIP();
@@ -142,7 +134,12 @@ export default class MicroService {
     /////////////////////////
     public addModel(model: typeof SequelizeModel){
         //Init the model object and push to array of sequelizeModels.
-        model.init(model.fields(DataTypes), {sequelize: this.sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
+        const fields = model.fields(DataTypes);
+        const sequelize = this.sequelizeConnection.sequelize;
+        const modelName = model._modelName();
+        const tableName = (this.options.name + '_' + model._tableName()).toLowerCase();
+
+        model.init(fields, {sequelize, tableName, modelName});
         this.sequelizeModels.push(model);
     }
 
@@ -232,7 +229,7 @@ export default class MicroService {
         this.addModel(controller.model);
         
         //Getting URL from controller name and Setting up routes
-        const baseURL = '/' + controller.constructor.name.replace('Controller', '').toLowerCase();
+        const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
         //Setting up routes
         this.get(baseURL + '/:id', controller.selectOneByID);

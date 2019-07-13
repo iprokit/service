@@ -6,7 +6,7 @@ import CustomerModel from '../customer/customer.model';
 
 export default class EndUserModel extends SequelizeModel {
     static _tableName(){
-        return 'aqu_enduser';
+        return 'enduser';
     }
 
     static fields(DataTypes) {
