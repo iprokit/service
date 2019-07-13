@@ -14,17 +14,20 @@ import SequelizeConnection from './sequelize.connection';
 import Controller from './controller';
 import SequelizeModel from './sequelize.model';
 
-//Init variables
-const app = express();
-const router = express.Router();
-
 //Export variables
 export let serviceName: string;
 
 export default class MicroService {
-    options: any;
-    sequelizeConnection: SequelizeConnection;
-    sequelizeModels: Array<typeof SequelizeModel>;
+    //Init variables.
+    private app = express();
+    private router = express.Router();
+
+    //Init null variables.
+    private options: any;
+    private sequelizeConnection: SequelizeConnection;
+
+    //Init constructors.
+    private sequelizeModels: Array<typeof SequelizeModel> = new Array<typeof SequelizeModel>();
 
     //Default Constructor
     public constructor(options: any) {
@@ -45,7 +48,6 @@ export default class MicroService {
         this.options.ip = DockerUtility.getContainerIP();
 
         //Load sequelize
-        this.sequelizeModels = new Array<typeof SequelizeModel>();
         if (options.hasOwnProperty('mysql')) {
             options.mysql.dialect = 'mysql';
             this.sequelizeConnection = new SequelizeConnection(options.mysql);
@@ -70,21 +72,21 @@ export default class MicroService {
     /////////////////////////
     private initExpressServer() {
         //Setup Express
-        app.use(cors());
-        app.use(express.json());
-        app.use(express.urlencoded({extended: false}));
+        this.app.use(cors());
+        this.app.use(express.json());
+        this.app.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
         const url = ('/' + this.options.name).toLowerCase();
-        app.use(url, router);
+        this.app.use(url, this.router);
 
         // Error handler for 404
-        app.use((request: Request, response: Response, next: NextFunction) => {
+        this.app.use((request: Request, response: Response, next: NextFunction) => {
             next(createError(404));
         });
 
         // Default error handler
-        app.use((error: any, request: Request, response: Response, next: NextFunction) => {
+        this.app.use((error: any, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
@@ -100,7 +102,7 @@ export default class MicroService {
         });
         
         // Start server.
-        const server = app.listen(this.options.port, () => {
+        const server = this.app.listen(this.options.port, () => {
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
             console.log('%s : %o', this.options.name, {
                 id: this.options.id,
@@ -120,19 +122,19 @@ export default class MicroService {
     ///////Router Functions
     /////////////////////////
     public get(path: string, handlers: any) {
-        router.get(path, handlers);
+        this.router.get(path, handlers);
     }
 
     public post(path: string, handlers: any) {
-        router.post(path, handlers);
+        this.router.post(path, handlers);
     }
 
     public put(path: string, handlers: any) {
-        router.put(path, handlers);
+        this.router.put(path, handlers);
     }
 
     public delete(path: string, handlers: any) {
-        router.delete(path, handlers);
+        this.router.delete(path, handlers);
     }
 
     /////////////////////////
@@ -189,7 +191,8 @@ export default class MicroService {
     }
 
     private createHealthEndpoints() {
-        const _options = this.options;
+        const router = this.router;
+        const options = this.options;
 
         this.get('/health', (request: Request, response: Response) => {
             try {
@@ -212,7 +215,7 @@ export default class MicroService {
                 });
 
                 const data = {
-                    service: _options,
+                    service: options,
                     routes: routesArray
                 };
 

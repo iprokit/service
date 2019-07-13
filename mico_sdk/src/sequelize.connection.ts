@@ -5,8 +5,8 @@ import {Sequelize} from 'sequelize';
 import DockerUtility from './docker.utility';
 
 export default class SequelizeConnection {
-    options: any;
-    sequelize: Sequelize;
+    private options: any;
+    readonly sequelize: Sequelize;
 
     //Default Constructor
     public constructor(options: any) {
@@ -49,6 +49,7 @@ export default class SequelizeConnection {
 
     public sync(force: boolean) {
         const sequelize = this.sequelize;
+        
         return new Promise(function(resolve, reject){
             sequelize.sync({force})
             .then(() => {
