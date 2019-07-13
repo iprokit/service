@@ -23,7 +23,7 @@ export default class SequelizeConnection {
     /////////////////////////
     ///////Load Functions
     /////////////////////////
-    private loadSequelizeOptions(){
+    private loadOptions(){
         //Try loading options from process.env
         this.options = {
             name: process.env.DB_NAME,
@@ -46,7 +46,7 @@ export default class SequelizeConnection {
         this.serviceName = name;
 
         //Load options
-        this.loadSequelizeOptions();
+        this.loadOptions();
 
         if(this.options.name !== undefined){
             try{
@@ -92,7 +92,7 @@ export default class SequelizeConnection {
         return this.ready;
     }
 
-    public hasSequelizeOptions(){
+    public hasOptions(){
         if(process.env.DB_NAME === undefined && process.env.DB_USERNAME === undefined && process.env.DB_PASSWORD === undefined
             && process.env.DB_HOST === undefined && process.env.DB_TYPE === undefined && process.env.DB_TIMEZONE === undefined){
             return false;//No options were loaded.

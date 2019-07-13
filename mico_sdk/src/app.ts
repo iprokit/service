@@ -21,7 +21,7 @@ export default class MicroService {
     private router = express.Router();
 
     //Sequelize variables.
-    private sequelizeConnection: SequelizeConnection = new SequelizeConnection();
+    private sequelize: SequelizeConnection = new SequelizeConnection();
 
     //Default Constructor
     public constructor() {
@@ -33,7 +33,8 @@ export default class MicroService {
         this.initExpressServer();
 
         //Load Databases
-        this.initSequelizeConnection();
+        this.initSequelize();
+        //TODO: Add Mongoose Connection.
 
         //Create Endpoints
         this.createHealthEndpoints();
@@ -64,6 +65,7 @@ export default class MicroService {
             version: process.env.SERVICE_VERSION,
             type: process.env.SERVICE_TYPE,
             port: process.env.SERVICE_PORT,
+            environment: process.env.NODE_ENV,
             ip: DockerUtility.getContainerIP()
         };
 
@@ -72,6 +74,7 @@ export default class MicroService {
         this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
         this.options.type = this.options.type !== undefined ? this.options.type: 'API';
         this.options.port = this.options.port !== undefined ? this.options.port: 3000;
+        this.options.environment = this.options.environment !== undefined ? this.options.environment: 'production';
     }
 
     /////////////////////////
@@ -102,12 +105,12 @@ export default class MicroService {
         });
     }
 
-    private initSequelizeConnection(){
+    private initSequelize(){
         //Try loading sequelize DB
-        if(this.sequelizeConnection.hasSequelizeOptions()){
+        if(this.sequelize.hasOptions()){
             try{
-                this.sequelizeConnection.init(this.options.name);
-                this.options.db = this.sequelizeConnection.getOptions();
+                this.sequelize.init(this.options.name);
+                this.options.db = this.sequelize.getOptions();
             }catch(error){
                 if(error instanceof InvalidSequelizeOptions){
                     console.log(error.message);
@@ -128,6 +131,7 @@ export default class MicroService {
     private startService() {
         // Start server
         const server = this.app.listen(this.options.port, () => {
+            console.log('Environment: %s', this.options.environment);
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
             console.log('%s : %o', this.options.name, {
                 id: this.options.id,
@@ -147,8 +151,8 @@ export default class MicroService {
             });
 
             //Starting database connection.
-            if(this.sequelizeConnection.isReady()){
-                this.sequelizeConnection.connect()
+            if(this.sequelize.isReady()){
+                this.sequelize.connect()
                 .then((dbOptions: any) => {
                     console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
                 })
@@ -166,8 +170,8 @@ export default class MicroService {
 
     private stopService(server: Server){
         server.close(() => {
-            if(this.sequelizeConnection.isReady()){
-                this.sequelizeConnection.disconnect()
+            if(this.sequelize.isReady()){
+                this.sequelize.disconnect()
                 .then((dbOptions: any) => {
                     console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
                 })
@@ -205,12 +209,12 @@ export default class MicroService {
     /////////////////////////
     private createDBEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelizeConnection = this.sequelizeConnection;
+        const sequelize = this.sequelize;
 
-        if(sequelizeConnection.isReady()){
+        if(sequelize.isReady()){
             this.post('/database/sync', (request: Request, response: Response) => {
                 try {
-                    sequelizeConnection.sync(request.body.force)
+                    sequelize.sync(request.body.force)
                     .then(() => {
                         response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
                     })
@@ -264,9 +268,9 @@ export default class MicroService {
 
     public createDefaultEndpoints(controller: Controller) {
         //Try setting up the sequelize model.
-        if(this.sequelizeConnection.isReady()){
+        if(this.sequelize.isReady()){
             const model = controller.model;
-            this.sequelizeConnection.initModel(model);
+            this.sequelize.initModel(model);
 
             //Logging the model loaded.
             console.log('%s model: Mapped to connection.', model.name);
