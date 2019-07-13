@@ -273,7 +273,7 @@ export default class MicroService {
             this.sequelize.initModel(model);
 
             //Logging the model loaded.
-            console.log('%s model: Mapped to connection.', model.name);
+            console.log('%s: Mapped to connection.', model.name);
         }
         
         //Getting URL from controller name and Setting up routes.
@@ -288,6 +288,6 @@ export default class MicroService {
         this.delete(baseURL + '/:id', controller.deleteOneByID);
 
         //Logging the controller loaded.
-        console.log('%s controller: Default endpoints added.', controller.name);
+        console.log('%s: Default endpoints added.', controller.name);
     }
 }
