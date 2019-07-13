@@ -5,11 +5,7 @@ import {MicroService} from '../mico_sdk/dist/index'
 import CustomerController from '../aqu_sample/aqu_endpoints/customer/customer.controller'
 import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.controller'
 
-class AQUApp extends MicroService{
-    constructor(){
-        super();
-    }
-
+new class AQUApp extends MicroService{
     init(){
         const endUserController = new EndUserController();
         this.createDefaultEndpoints(endUserController);
@@ -20,4 +16,3 @@ class AQUApp extends MicroService{
         this.get('/customer/farmer/details', customerController.findAllFarmers);
     }
 }
-const aquApp = new AQUApp();
