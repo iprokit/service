@@ -50,7 +50,6 @@ export default class MicroService {
     ///////Load Functions
     /////////////////////////
     private loadDotEnvFile(){
-        //TODO: Look for all .env files development, stage, production.
         const envPath = path.dirname(require.main.filename) + '/.env';
         if(fs.existsSync(envPath)){
             dotenv.config({path: envPath});
