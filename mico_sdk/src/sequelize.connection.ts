@@ -9,7 +9,7 @@ export default class SequelizeConnection {
     sequelize: Sequelize;
 
     //Default Constructor
-    constructor(options: any) {
+    public constructor(options: any) {
         this.options = options;
 
         //Init variables.
@@ -27,7 +27,7 @@ export default class SequelizeConnection {
         this.options.password = 'xxxxxxxxxx';
     }
 
-    connect(){
+    public connect(){
         this.sequelize.authenticate()
             .then(() => {
                 console.log('Connected to %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -37,7 +37,7 @@ export default class SequelizeConnection {
             });
     }
 
-    disconnect(){
+    public disconnect(){
         this.sequelize.close()
             .then(() => {
                 console.log('Disconnected from %s://%s/%s', this.options.dialect, this.options.host, this.options.name);
@@ -47,7 +47,7 @@ export default class SequelizeConnection {
             });
     }
 
-    sync(force: boolean) {
+    public sync(force: boolean) {
         const sequelize = this.sequelize;
         return new Promise(function(resolve, reject){
             sequelize.sync({force})

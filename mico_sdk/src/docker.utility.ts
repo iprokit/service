@@ -2,10 +2,11 @@
 import ip from 'ip';
 
 export default class DockerUtility{
-    static getContainerIP(){
+    public static getContainerIP(){
         return ip.address();
     }
-    static getHostIP(){
+    
+    public static getHostIP(){
         return ''; //TODO: This should become dynamic
     }
 }

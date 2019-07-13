@@ -21,18 +21,19 @@ const router = express.Router();
 //Export variables
 export let serviceName: string;
 
-class MicroService {
+export default class MicroService {
     options: any;
     sequelizeConnection: SequelizeConnection;
     sequelizeModels: Array<typeof SequelizeModel>;
 
     //Default Constructor
-    constructor(options: any) {
+    public constructor(options: any) {
+        //TODO: Read dotenv from the project root.
         this.options = options;
 
-        //First check if the name exists.
+        //Setting up microservice name.
         if(this.options.name === undefined){
-            throw new Error('Service name required');
+            this.options.name = this.constructor.name.replace('App', '');
         }
         serviceName = this.options.name;
         
@@ -57,10 +58,17 @@ class MicroService {
         this.createDatabaseEndpoints();
         this.createHealthEndpoints();
 
-        //TODO: Read dotenv from the project root.
+        //Loading any user level objects.
+        this.init();
+
+        //Start the server & DB connections.
+        this.startService();
     }
 
-    initExpressServer() {
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
+    private initExpressServer() {
         //Setup Express
         app.use(cors());
         app.use(express.json());
@@ -83,7 +91,9 @@ class MicroService {
         });
     }
 
-    startService() {
+    public init(){}
+
+    private startService() {
         //Call associate's from all the models
         this.sequelizeModels.forEach(sequelizeModel => {
             sequelizeModel.associate();
@@ -109,32 +119,32 @@ class MicroService {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    get(path: string, handlers: any) {
+    public get(path: string, handlers: any) {
         router.get(path, handlers);
     }
 
-    post(path: string, handlers: any) {
+    public post(path: string, handlers: any) {
         router.post(path, handlers);
     }
 
-    put(path: string, handlers: any) {
+    public put(path: string, handlers: any) {
         router.put(path, handlers);
     }
 
-    delete(path: string, handlers: any) {
+    public delete(path: string, handlers: any) {
         router.delete(path, handlers);
     }
 
     /////////////////////////
     ///////Add functions
     /////////////////////////
-    addModel(model: typeof SequelizeModel){
+    public addModel(model: typeof SequelizeModel){
         //Init the model object and push to array of sequelizeModels.
         model.init(model.fields(DataTypes), {sequelize: this.sequelizeConnection.sequelize, tableName: model._tableName(), modelName: model._modelName()});
         this.sequelizeModels.push(model);
     }
 
-    addProcessListeners(server: Server){
+    private addProcessListeners(server: Server){
         const name = this.options.name;
         const sequelizeConnection = this.sequelizeConnection;
 
@@ -160,7 +170,7 @@ class MicroService {
     /////////////////////////
     ///////Endpoints
     /////////////////////////
-    createDatabaseEndpoints(){
+    private createDatabaseEndpoints(){
         const sequelizeConnection = this.sequelizeConnection;
 
         this.post('/database/sync', (request: Request, response: Response) => {
@@ -178,7 +188,7 @@ class MicroService {
         });
     }
 
-    createHealthEndpoints() {
+    private createHealthEndpoints() {
         const _options = this.options;
 
         this.get('/health', (request: Request, response: Response) => {
@@ -214,7 +224,7 @@ class MicroService {
         });
     }
 
-    createDefaultEndpoints(controller: Controller) {
+    public createDefaultEndpoints(controller: Controller) {
         //Setup model first
         this.addModel(controller.model);
         
@@ -228,35 +238,5 @@ class MicroService {
         this.post(baseURL, controller.add);
         this.put(baseURL, controller.update);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
-    }
-}
-
-export default class IMicroService extends MicroService {
-    constructor(options: any) {
-        super(options);
-    }
-
-    startService() {
-        super.startService();
-    }
-
-    get(path: string, handlers: any) {
-        super.get(path, handlers);
-    }
-
-    post(path: string, handlers: any) {
-        super.post(path, handlers);
-    }
-
-    put(path: string, handlers: any) {
-        super.put(path, handlers);
-    }
-
-    delete(path: string, handlers: any) {
-        super.delete(path, handlers);
-    }
-
-    createDefaultEndpoints(controller: Controller) {
-        super.createDefaultEndpoints(controller);
     }
 }

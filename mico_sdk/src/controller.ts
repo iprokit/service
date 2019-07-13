@@ -8,11 +8,11 @@ import SequelizeModel from './sequelize.model';
 export default class Controller {
     model: typeof SequelizeModel;
 
-    constructor(model: typeof SequelizeModel) {
+    public constructor(model: typeof SequelizeModel) {
         this.model = model;
     }
 
-    selectOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
+    public selectOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findByPk(request.params.id)
                 .then((data: any) => {
@@ -26,7 +26,7 @@ export default class Controller {
         }
     };
 
-    selectAll(model: typeof SequelizeModel, request: Request, response: Response) {
+    public selectAll(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findAll()
                 .then((data: any) => {
@@ -40,7 +40,7 @@ export default class Controller {
         }
     };
 
-    selectAllAndOrderByCreatedAt(model: typeof SequelizeModel, request: Request, response: Response) {
+    public selectAllAndOrderByCreatedAt(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findAll({
                 order: [['createdAt', 'DESC']]
@@ -56,7 +56,7 @@ export default class Controller {
         }
     };
 
-    add(model: typeof SequelizeModel, request: Request, response: Response) {
+    public add(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.create(request.body)
                 .then(() => {
@@ -70,7 +70,7 @@ export default class Controller {
         }
     };
 
-    update(model: typeof SequelizeModel, request: Request, response: Response) {
+    public update(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findByPk(request.body.id)
                 .then(data => {
@@ -95,7 +95,7 @@ export default class Controller {
         }
     };
 
-    deleteOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
+    public deleteOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
             model.findByPk(request.params.id)
                 .then(data => {

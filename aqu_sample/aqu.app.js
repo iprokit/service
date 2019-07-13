@@ -5,26 +5,28 @@ import {MicroService} from '../mico_sdk/dist/index'
 import CustomerController from '../aqu_sample/aqu_endpoints/customer/customer.controller'
 import EndUserController from '../aqu_sample/aqu_endpoints/enduser/endUser.controller'
 
-//Init & start service
-const microService = new MicroService({
-    name: "AQU",
-    mysql: {
-        name: 'CUSTOMER_DB',
-        username: 'varaaqu',
-        password: 'ipro2019',
-        host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
-        timezone: '+5:30'
+class AQUApp extends MicroService{
+    constructor(){
+        const options = {
+            mysql: {
+                name: 'CUSTOMER_DB',
+                username: 'varaaqu',
+                password: 'ipro2019',
+                host: 'ec2-13-234-76-76.ap-south-1.compute.amazonaws.com',
+                timezone: '+5:30'
+            }
+        };
+        super(options);
     }
-});
 
-//Adding controller to microService.
-const endUserController = new EndUserController();
-microService.createDefaultEndpoints(endUserController);
-microService.get('/farmer/customer/details', endUserController.customerDetailsByID);
-
-const customerController = new CustomerController();
-microService.createDefaultEndpoints(customerController);
-microService.get('/customer/farmer/details', customerController.findAllFarmers);
-
-//Start the service.
-microService.startService();
+    init(){
+        const endUserController = new EndUserController();
+        this.createDefaultEndpoints(endUserController);
+        this.get('/farmer/customer/details', endUserController.customerDetailsByID);
+        
+        const customerController = new CustomerController();
+        this.createDefaultEndpoints(customerController);
+        this.get('/customer/farmer/details', customerController.findAllFarmers);
+    }
+}
+const aquApp = new AQUApp();
