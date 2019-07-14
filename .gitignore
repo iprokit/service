@@ -1,9 +1,9 @@
+#IDE Files
+.idea
+.vscode
+
 # Node Moudels
 node_modules
 
 #Complied Files
 dist
-
-#IDE Files
-.idea
-.vscode
