@@ -64,8 +64,8 @@ export default class MicroService {
             id: uuid(),
             name: process.env.npm_package_name,
             version: process.env.npm_package_version,
-            type: process.env.npm_package_config_type,
-            port: process.env.npm_package_config_port,
+            type: process.env.npm_package_type,
+            port: process.env.NODE_PORT,
             environment: process.env.NODE_ENV,
             ip: DockerUtility.getContainerIP()
         };

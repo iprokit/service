@@ -1,10 +1,7 @@
 {
   "name": "aqu_sample",
   "version": "1.0.1",
-  "config": {
-    "type": "API",
-    "port": 3000
-  },
+  "type": "API",
   "scripts": {
     "start": "babel-node aqu.app.js"
   },
