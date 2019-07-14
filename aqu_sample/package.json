@@ -1,7 +1,10 @@
 {
-  "name": "aqu",
-  "version": "1.0.0",
-  "private": true,
+  "name": "aqu_sample",
+  "version": "1.0.1",
+  "config": {
+    "type": "API",
+    "port": 3000
+  },
   "scripts": {
     "start": "babel-node aqu.app.js"
   },

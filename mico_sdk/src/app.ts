@@ -62,10 +62,10 @@ export default class MicroService {
         //Try loading options from process.env
         this.options = {
             id: uuid(),
-            name: process.env.SERVICE_NAME,
-            version: process.env.SERVICE_VERSION,
-            type: process.env.SERVICE_TYPE,
-            port: process.env.SERVICE_PORT,
+            name: process.env.npm_package_name,
+            version: process.env.npm_package_version,
+            type: process.env.npm_package_config_type,
+            port: process.env.npm_package_config_port,
             environment: process.env.NODE_ENV,
             ip: DockerUtility.getContainerIP()
         };
