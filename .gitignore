@@ -1,6 +1,12 @@
+# Node Moudels
 node_modules
-package-lock.json
+
+#Complied Files
+dist
+
+# Environment Files
 .env
+
+#IDE Files
 .idea
 .vscode
-dist
