@@ -182,28 +182,9 @@ export default class MicroService {
                     console.log('Will continue...');
                 });
             }
-            console.log('Micro service %s shutdown complete.', this.options.name);
+            console.log('%s micro service shutdown complete.', this.options.name);
             process.exit(0);
         });
-    }
-
-    /////////////////////////
-    ///////Router Functions
-    /////////////////////////
-    public get(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.get(path, ...handlers);
-    }
-
-    public post(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.post(path, ...handlers);
-    }
-
-    public put(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.put(path, ...handlers);
-    }
-
-    public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.delete(path, ...handlers);
     }
 
     /////////////////////////
@@ -293,5 +274,24 @@ export default class MicroService {
 
         //Logging the controller loaded.
         console.log('%s: Default endpoints added.', controller.name);
+    }
+
+    /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public get(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.get(path, ...handlers);
+    }
+
+    public post(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.post(path, ...handlers);
+    }
+
+    public put(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.put(path, ...handlers);
+    }
+
+    public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.delete(path, ...handlers);
     }
 }
