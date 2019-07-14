@@ -4,9 +4,6 @@ node_modules
 #Complied Files
 dist
 
-# Environment Files
-.env
-
 #IDE Files
 .idea
 .vscode
