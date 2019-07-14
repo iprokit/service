@@ -10,6 +10,7 @@ export default class SequelizeConnection {
     private serviceName: string;
     private options: any;
     private ready: boolean = false;
+    private connected: boolean = false;
 
     //Sequelize objects
     private sequelize: Sequelize;
@@ -55,10 +56,6 @@ export default class SequelizeConnection {
                     dialect: this.options.dialect,
                     timezone: this.options.timezone
                 });
-        
-                //Securing sensitive information.
-                this.options.username = 'xxxxxxxxxx';
-                this.options.password = 'xxxxxxxxxx';
 
                 //Set ready flag.
                 this.ready = true;
@@ -92,6 +89,10 @@ export default class SequelizeConnection {
         return this.ready;
     }
 
+    public isConnected(){
+        return this.connected;
+    }
+
     public hasOptions(){
         if(process.env.DB_NAME === undefined && process.env.DB_USERNAME === undefined && process.env.DB_PASSWORD === undefined
             && process.env.DB_HOST === undefined && process.env.DB_TYPE === undefined && process.env.DB_TIMEZONE === undefined){
@@ -111,67 +112,56 @@ export default class SequelizeConnection {
     /////////////////////////
     ///////Sequelize Functions
     /////////////////////////
-    public connect(){
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelize = this.sequelize;
-        const dialect = this.options.dialect;
-        const host = this.options.host;
-        const name = this.options.name;
-
-        //Call associate's from all the models
-        this.sequelizeModels.forEach(sequelizeModel => {
-            sequelizeModel.associate();
-        });
-
-        //Calling authenticate
-        return new Promise(function(resolve, reject){
-            sequelize.authenticate()
-            .then(() => {
-                resolve({name, host, dialect});
-            })
-            .catch((error: any) => {
-                if(error instanceof AccessDeniedError){
-                    reject(new InvalidSequelizeOptions('Invalid Database Credentials provided in .env.'));
-                }else if(error instanceof ConnectionRefusedError){
-                    reject(new InvalidSequelizeOptions('Invalid Database Host provided in .env.'));
-                }else{
-                    reject(new Error(error));//Pass other errors.
-                }
+    public async connect(){
+        try{
+            //Call associate's from all the models
+            this.sequelizeModels.forEach(sequelizeModel => {
+                sequelizeModel.associate();
             });
-        });
-    }
 
-    public disconnect(){
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelize = this.sequelize;
-        const dialect = this.options.dialect;
-        const host = this.options.host;
-        const name = this.options.name;
+            //Calling authenticate
+            await this.sequelize.authenticate();
 
-        return new Promise(function(resolve, reject){
-            sequelize.close()
-            .then(() => {
-                resolve({name, host, dialect});
-            })
-            .catch((error: any) => {
-                reject(new Error(error));
-            });
-        });
-    }
-
-    public sync(force: boolean) {
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelize = this.sequelize;
+            //Set connected flag.
+            this.connected = true;
         
-        return new Promise(function(resolve, reject){
-            sequelize.sync({force})
-            .then(() => {
-                resolve();
-            })
-            .catch((error: any) => {
-                reject(new Error(error));
-            });
-        });
+            //Securing sensitive information.
+            this.options.username = 'xxxxxxxxxx';
+            this.options.password = 'xxxxxxxxxx';
+
+            return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
+        }catch(error){
+            if(error instanceof AccessDeniedError){
+                throw new InvalidSequelizeOptions('Invalid Database Credentials provided in .env.');
+            }else if(error instanceof ConnectionRefusedError){
+                throw new InvalidSequelizeOptions('Invalid Database Host provided in .env.');
+            }else{
+                throw new Error(error);//Pass other errors.
+            }
+        }
+    }
+
+    public async disconnect(){
+        try{
+            //Calling Close
+            await this.sequelize.close();
+
+            //Set connected flag.
+            this.connected = false;
+
+            return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
+        }catch(error){
+            throw new Error(error);
+        }
+    }
+
+    public async sync(force: boolean) {
+        try{
+            //Calling Sync
+            await this.sequelize.sync({force});
+        }catch(error){
+            throw new Error(error);
+        }
     }
 }
 

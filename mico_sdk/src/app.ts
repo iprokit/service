@@ -1,5 +1,6 @@
 //Import modules
 import express, { Request, Response, NextFunction } from 'express';
+import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
@@ -171,7 +172,7 @@ export default class MicroService {
 
     private stopService(server: Server){
         server.close(() => {
-            if(this.sequelize.isReady()){
+            if(this.sequelize.isConnected()){
                 this.sequelize.disconnect()
                 .then((dbOptions: any) => {
                     console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
@@ -189,20 +190,20 @@ export default class MicroService {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public get(path: string, handlers: any) {
-        this.router.get(path, handlers);
+    public get(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.get(path, ...handlers);
     }
 
-    public post(path: string, handlers: any) {
-        this.router.post(path, handlers);
+    public post(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.post(path, ...handlers);
     }
 
-    public put(path: string, handlers: any) {
-        this.router.put(path, handlers);
+    public put(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.put(path, ...handlers);
     }
 
-    public delete(path: string, handlers: any) {
-        this.router.delete(path, handlers);
+    public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
+        this.router.delete(path, ...handlers);
     }
 
     /////////////////////////
