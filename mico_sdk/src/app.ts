@@ -38,6 +38,7 @@ export default class MicroService {
 
         //Create Endpoints
         this.createHealthEndpoints();
+        this.createReportEndpoints();
         this.createDBEndpoints();
 
         //Loading any user level objects
@@ -207,32 +208,7 @@ export default class MicroService {
     /////////////////////////
     ///////Endpoints Functions
     /////////////////////////
-    private createDBEndpoints(){
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelize = this.sequelize;
-
-        if(sequelize.isReady()){
-            this.post('/database/sync', (request: Request, response: Response) => {
-                try {
-                    sequelize.sync(request.body.force)
-                    .then(() => {
-                        response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
-                    })
-                    .catch((error: any) => {
-                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                    });
-                } catch (error) {
-                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                }
-            });
-        }
-    }
-
     private createHealthEndpoints() {
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const router = this.router;
-        const options = this.options;
-
         this.get('/health', (request: Request, response: Response) => {
             try {
                 response.status(httpStatus.OK).send({status: true});
@@ -240,8 +216,14 @@ export default class MicroService {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
+    }
 
-        this.get('/health/report', (request: Request, response: Response) => {
+    private createReportEndpoints(){
+        //Sudo objects to pass into promise. As this keyword is not available.
+        const router = this.router;
+        const options = this.options;
+
+        this.get('/report', (request: Request, response: Response) => {
             try {
                 const routesArray: any = [];
                 const baseURL = request.baseUrl;
@@ -264,6 +246,27 @@ export default class MicroService {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
+    }
+
+    private createDBEndpoints(){
+        //Sudo objects to pass into promise. As this keyword is not available.
+        const sequelize = this.sequelize;
+
+        if(sequelize.isReady()){
+            this.post('/database/sync', (request: Request, response: Response) => {
+                try {
+                    sequelize.sync(request.body.force)
+                    .then(() => {
+                        response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
+                    })
+                    .catch((error: any) => {
+                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                    });
+                } catch (error) {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                }
+            });
+        }
     }
 
     public createDefaultEndpoints(controller: Controller) {
