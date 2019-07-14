@@ -59,7 +59,7 @@ export default class MicroService {
     }
 
     private loadServiceOptions(){
-        //Try loading options from process.env
+        //Try loading options from package.json and process.env
         this.options = {
             id: uuid(),
             name: process.env.npm_package_name,
