@@ -28,14 +28,15 @@
     "Micro Service",
     "CRUD Boilerplate"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": ["lib/**/*"],
   "engines": {
     "node": ">= 6.10.1"
   },
   "scripts": {
-    "prepare": "tsc",
-    "build": "tsc"
+    "build": "tsc",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@types/bluebird": "3.5.27",

@@ -6,4 +6,4 @@
 node_modules
 
 #Compiled Files
-dist
+lib

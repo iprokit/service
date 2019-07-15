@@ -1,10 +1,4 @@
-//Local Import
-import MicroService from './app';
-import Controller from './controller';
-import SequelizeModel from './sequelize.model';
-
-module.exports = {
-    MicroService:  MicroService,
-    Controller: Controller,
-    SequelizeModel: SequelizeModel
-};
+//Exports
+export { default as MicroService } from './app';
+export { default as Controller } from './controller';
+export { default as SequelizeModel } from './sequelize.model';
