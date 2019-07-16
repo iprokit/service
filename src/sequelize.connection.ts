@@ -78,6 +78,10 @@ export default class SequelizeConnection {
         const modelName = model._modelName();
         const tableName = (this.serviceName + '_' + model._tableName()).toLowerCase();
 
+        //Logging the model before
+        console.log('Initiating model: %s', modelName);
+
+        //Calling init.
         model.init(fields, {sequelize, tableName, modelName});
         this.sequelizeModels.push(model);
     }
@@ -116,6 +120,9 @@ export default class SequelizeConnection {
         try{
             //Call associate's from all the models
             this.sequelizeModels.forEach(sequelizeModel => {
+                //Logging the model before
+                console.log('Wiring model: %s', sequelizeModel.name);
+
                 sequelizeModel.associate();
             });
 

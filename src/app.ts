@@ -265,7 +265,7 @@ export default class MicroService {
         this.delete(baseURL + '/:id', controller.deleteOneByID);
 
         //Logging the controller loaded.
-        console.log('%s: Default endpoints added.', controller.name);
+        console.log('Default endpoints added from controller: %s', controller.name);
     }
 
     /////////////////////////
@@ -294,9 +294,6 @@ export default class MicroService {
         //Try setting up the sequelize model.
         if(this.sequelize.isReady()){
             this.sequelize.initModel(model);
-
-            //Logging the model loaded.
-            console.log('%s: Mapped to connection.', model.name);
         }
     }
 }
