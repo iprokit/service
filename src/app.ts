@@ -252,7 +252,7 @@ export default class MicroService {
         }
     }
 
-    public createDefaultEndpoints(controller: Controller) {
+    public createDefaultEndpoints(controller: typeof Controller) {
         //Getting URL from controller name and Setting up routes.
         const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
