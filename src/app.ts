@@ -14,6 +14,7 @@ import fs from 'fs';
 import DockerUtility from './docker.utility';
 import SequelizeConnection, { InvalidSequelizeOptions } from './sequelize.connection';
 import Controller from './controller';
+import SequelizeModel from './sequelize.model';
 
 export default class MicroService {
     //Server variables.
@@ -252,15 +253,6 @@ export default class MicroService {
     }
 
     public createDefaultEndpoints(controller: Controller) {
-        //Try setting up the sequelize model.
-        if(this.sequelize.isReady()){
-            const model = controller.model;
-            this.sequelize.initModel(model);
-
-            //Logging the model loaded.
-            console.log('%s: Mapped to connection.', model.name);
-        }
-        
         //Getting URL from controller name and Setting up routes.
         const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
@@ -293,5 +285,18 @@ export default class MicroService {
 
     public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
         this.router.delete(path, ...handlers);
+    }
+
+    /////////////////////////
+    ///////Sequelize Functions
+    /////////////////////////
+    public wireSequelizeModel(model: typeof SequelizeModel){
+        //Try setting up the sequelize model.
+        if(this.sequelize.isReady()){
+            this.sequelize.initModel(model);
+
+            //Logging the model loaded.
+            console.log('%s: Mapped to connection.', model.name);
+        }
     }
 }
