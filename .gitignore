@@ -1,0 +1,9 @@
+#IDE Files
+.idea
+.vscode
+
+# Node Moudels
+node_modules
+
+#Compiled Files
+lib
