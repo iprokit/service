@@ -63,7 +63,7 @@ export default class SequelizeConnection {
                 if(error.message.includes('Dialect')){
                     throw new InvalidSequelizeOptions('Invalid Database Dialect provided in .env.');
                 }else{
-                    throw new Error(error); //Pass other errors.
+                    throw error; //Pass other errors.
                 }
             }
         }else{
@@ -143,7 +143,7 @@ export default class SequelizeConnection {
             }else if(error instanceof ConnectionRefusedError){
                 throw new InvalidSequelizeOptions('Invalid Database Host provided in .env.');
             }else{
-                throw new Error(error);//Pass other errors.
+                throw error;//Pass other errors.
             }
         }
     }
@@ -158,7 +158,7 @@ export default class SequelizeConnection {
 
             return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
         }catch(error){
-            throw new Error(error);
+            throw error;
         }
     }
 
@@ -167,7 +167,7 @@ export default class SequelizeConnection {
             //Calling Sync
             await this.sequelize.sync({force});
         }catch(error){
-            throw new Error(error);
+            throw error;
         }
     }
 }

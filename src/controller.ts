@@ -36,11 +36,9 @@ export default class Controller {
         }
     };
 
-    public static selectAllAndOrderByCreatedAt(model: typeof SequelizeModel, request: Request, response: Response) {
+    public static orderByCreatedAt(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
-            model.findAll({
-                order: [['createdAt', 'DESC']]
-            })
+            model.orderByCreatedAt(request.params.orderType)
                 .then((data: any) => {
                     response.status(httpStatus.OK).send({ status: true, data: data });
                 })
@@ -68,24 +66,13 @@ export default class Controller {
 
     public static update(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
-            model.findByPk(request.body.id)
-                .then(data => {
-                    if (data) {
-                        model.update(request.body, { where: { id: request.body.id } })
-                            .then(() => {
-                                response.status(httpStatus.OK).send({ status: true, message: "Updated Successfully" });
-                            })
-                            .catch((error: any) => {
-                                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                            });
-                    }
-                    else {
-                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: "Id doesn't exist" });
-                    }
+            model.updateOneByID(request.body)
+                .then(() => {
+                    response.status(httpStatus.OK).send({ status: true, message: 'Updated!' });
                 })
                 .catch((error: any) => {
                     response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                })
+                });
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
@@ -93,24 +80,13 @@ export default class Controller {
 
     public static deleteOneByID(model: typeof SequelizeModel, request: Request, response: Response) {
         try {
-            model.findByPk(request.params.id)
-                .then(data => {
-                    if (data) {
-                        model.destroy({ where: { id: request.params.id } })
-                            .then(() => {
-                                response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
-                            })
-                            .catch((error: any) => {
-                                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                            });
-                    }
-                    else {
-                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: "Invalid id" })
-                    }
+            model.deleteOneByID(request.params.id)
+                .then(() => {
+                    response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
                 })
                 .catch((error: any) => {
                     response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                })
+                });
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
