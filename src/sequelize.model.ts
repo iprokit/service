@@ -8,7 +8,7 @@ export default class SequelizeModel extends Model {
 
     public static _tableName(): string{
         //TODO: For every captital letter add _ before. Ex: EndUser = end_user
-        return this.name.replace('Model', '').toLowerCase();
+        return this.name.replace('Model', '');
     }
 
     public static fields(dataTypes: typeof DataTypes): ModelAttributes {

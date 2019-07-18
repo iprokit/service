@@ -79,7 +79,7 @@ export default class SequelizeConnection {
         const tableName = (this.serviceName + '_' + model._tableName()).toLowerCase();
 
         //Logging the model before
-        console.log('Initiating model: %s', modelName);
+        console.log('Initiating model: %s(%s)', modelName, tableName);
 
         //Calling init.
         model.init(fields, {sequelize, tableName, modelName});
