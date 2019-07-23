@@ -39,6 +39,9 @@ export default class SequelizeModel extends Model {
                     return;
                 }
             })
+            .catch(error => {
+                throw error;
+            });
     }
 
     public static async deleteOneByID(id: any){
@@ -50,5 +53,8 @@ export default class SequelizeModel extends Model {
                     return;
                 }
             })
+            .catch(error => {
+                throw error;
+            });
     }
 }
