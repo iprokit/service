@@ -15,6 +15,8 @@ export default class SequelizeModel extends Model {
         return null;
     }
 
+    public static hooks() {}
+
     public static associate() {}
 
     /////////////////////////
@@ -30,8 +32,8 @@ export default class SequelizeModel extends Model {
         }
     }
 
-    public static async updateOneByID(data: any){
-        await this.update(data, { where: { id: data.id } })
+    public static async updateOne(data: any, where: any){
+        await this.update(data, { where: where, individualHooks: true})
             .then(async affectedRows => {
                 if(affectedRows[0] === 0){
                     throw new Error('ID does not exit!');
@@ -42,6 +44,10 @@ export default class SequelizeModel extends Model {
             .catch(error => {
                 throw error;
             });
+    }
+
+    public static async updateOneByID(data: any){
+        await this.updateOne(data, {id: data.id});
     }
 
     public static async deleteOneByID(id: any){

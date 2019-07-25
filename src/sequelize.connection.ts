@@ -83,6 +83,7 @@ export default class SequelizeConnection {
 
         //Calling init.
         model.init(fields, {sequelize, tableName, modelName});
+        model.hooks();
         this.sequelizeModels.push(model);
     }
 
