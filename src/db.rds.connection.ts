@@ -55,6 +55,8 @@ export default class RDSConnection {
                     timezone: this.options.timezone
                 });
 
+                this.setupModels();
+
                 //Set ready flag.
                 this.ready = true;
             }catch(error){
@@ -67,24 +69,6 @@ export default class RDSConnection {
         }else{
             throw new InvalidRDSOptions('Invalid Database Name provided in .env.');
         }
-    }
-
-    public initModel(model: typeof RDSModel){
-        //Init the model object and push to array of rdsModels.
-        const fields = model.fields(DataTypes);
-        const sequelize = this.sequelize;
-        const modelName = model._modelName();
-        const tableName = (this.serviceName + '_' + model._tableName()).toLowerCase();
-
-        //Logging the model before
-        console.log('Initiating model: %s(%s)', modelName, tableName);
-
-        //Initializing model
-        model.init(fields, {sequelize, tableName, modelName});
-        model.hooks();
-
-        //Add to models array
-        this.rdsModels.push(model);
     }
 
     /////////////////////////
@@ -117,59 +101,95 @@ export default class RDSConnection {
     /////////////////////////
     ///////Sequelize Functions
     /////////////////////////
-    public async connect(){
-        try{
-            //Call associate's from all the models
-            this.rdsModels.forEach(rdsModel => {
-                //Logging the model before
-                console.log('Wiring model: %s', rdsModel.name);
+    public connect(){
+        return new Promise((resolve, reject) => {
+            this.sequelize.authenticate()
+                .then(() => {
+                    //Set connected flag.
+                    this.connected = true;
+                
+                    //Securing sensitive information.
+                    this.options.username = 'xxxxxxxxxx';
+                    this.options.password = 'xxxxxxxxxx';
 
-                rdsModel.associate();
-            });
+                    resolve({dialect: this.options.dialect, host: this.options.host, name: this.options.name});
+                }).catch((error) => {
+                    if(error instanceof AccessDeniedError){
+                        reject(new InvalidRDSOptions('Invalid Database Credentials provided in .env.'));
+                    }else if(error instanceof ConnectionRefusedError){
+                        reject(new InvalidRDSOptions('Invalid Database Host provided in .env.'));
+                    }else{
+                        reject(error);//Pass other errors.
+                    }
+                });
+        });
+    }
 
-            //Calling authenticate
-            await this.sequelize.authenticate();
-
-            //Set connected flag.
-            this.connected = true;
+    public disconnect(){
+        return new Promise((resolve, reject) => {
+            this.sequelize.close()
+                .then(() => {
+                    //Set connected flag.
+                    this.connected = false;
         
-            //Securing sensitive information.
-            this.options.username = 'xxxxxxxxxx';
-            this.options.password = 'xxxxxxxxxx';
-
-            return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
-        }catch(error){
-            if(error instanceof AccessDeniedError){
-                throw new InvalidRDSOptions('Invalid Database Credentials provided in .env.');
-            }else if(error instanceof ConnectionRefusedError){
-                throw new InvalidRDSOptions('Invalid Database Host provided in .env.');
-            }else{
-                throw error;//Pass other errors.
-            }
-        }
+                    resolve({dialect: this.options.dialect, host: this.options.host, name: this.options.name});
+                }).catch((error) => {
+                    reject(error);//Pass other errors.
+                });
+        });
     }
 
-    public async disconnect(){
-        try{
-            //Calling Close
-            await this.sequelize.close();
-
-            //Set connected flag.
-            this.connected = false;
-
-            return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
-        }catch(error){
-            throw error;
-        }
+    public sync(force: boolean) {
+        return new Promise((resolve, reject) => {
+            this.sequelize.sync({force})
+                .then(() => {
+                    resolve();
+                }).catch((error) => {
+                    reject(error);//Pass other errors.
+                });
+        });
     }
 
-    public async sync(force: boolean) {
-        try{
-            //Calling Sync
-            await this.sequelize.sync({force});
-        }catch(error){
-            throw error;
-        }
+    /////////////////////////
+    ///////Model Functions
+    /////////////////////////
+    public addModel(model: typeof RDSModel){
+        this.rdsModels.push(model);
+    }
+
+    private setupModels(){
+        //Initialize models first
+        this.rdsModels.forEach(rdsModel => {
+            this.initModel(rdsModel);
+        });
+
+        //Associate models
+        this.rdsModels.forEach(rdsModel => {
+            this.associateModel(rdsModel);
+        });
+    }
+
+    private initModel(model: typeof RDSModel){
+        //Init the model object and push to array of rdsModels.
+        const fields = model.fields(DataTypes);
+        const sequelize = this.sequelize;
+        const modelName = model._modelName();
+        const tableName = (this.serviceName + '_' + model._tableName()).toLowerCase();
+
+        //Logging the model before
+        console.log('Initiating model: %s(%s)', modelName, tableName);
+
+        //Initializing model + adding hooks
+        model.init(fields, {sequelize, tableName, modelName});
+        model.hooks();
+    }
+
+    private associateModel(model: typeof RDSModel){
+        //Logging the model before
+        console.log('Associating model: %s', model.name);
+
+        //Associating model
+        model.associate();
     }
 }
 

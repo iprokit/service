@@ -34,19 +34,22 @@ export default class MicroService {
         //Load express and router
         this.initExpressServer();
 
+        //Load Models
+        this.initModels();
+
         //Load Databases
         this.initRDS();
-        //TODO: Add Mongoose Connection.
+        this.connectToDatabases();//Bug here. Handle Promise
 
         //Create Endpoints
         this.createHealthEndpoints();
         this.createReportEndpoints();
         this.createDBEndpoints();
 
-        //Loading any user level objects
-        this.init();
+        //Load Default Endpoints from user Controllers
+        this.initControllers();
 
-        //Start the server & DB connections
+        //Start the server
         this.startService();
     }
 
@@ -83,7 +86,8 @@ export default class MicroService {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(){}//User init
+    public initModels(){}
+    public initControllers(){}
 
     private initExpressServer() {
         //Setup Express
@@ -108,6 +112,9 @@ export default class MicroService {
         });
     }
 
+    /////////////////////////
+    ///////DB Functions
+    /////////////////////////
     private initRDS(){
         //Try loading RDS
         if(this.rds.hasOptions()){
@@ -125,6 +132,23 @@ export default class MicroService {
         }else{
             console.log('No RDB options were provided.');
             console.log('Will continue...')
+        }
+    }
+
+    private connectToDatabases(){
+        if(this.rds.isReady()){
+            this.rds.connect()
+                .then((dbOptions: any) => {
+                    console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
+                })
+                .catch((error: any) => {
+                    if(error instanceof InvalidRDSOptions){
+                        console.log(error.message);
+                    }else{
+                        console.error(error);
+                    }
+                    console.log('Will continue...');
+                });
         }
     }
 
@@ -152,22 +176,6 @@ export default class MicroService {
                 console.log('Recived SIGINT!');
                 this.stopService(server);
             });
-
-            //Starting database connection.
-            if(this.rds.isReady()){
-                this.rds.connect()
-                .then((dbOptions: any) => {
-                    console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
-                })
-                .catch((error: any) => {
-                    if(error instanceof InvalidRDSOptions){
-                        console.log(error.message);
-                    }else{
-                        console.error(error);
-                    }
-                    console.log('Will continue...');
-                });
-            }
         });
     }
 
@@ -175,13 +183,13 @@ export default class MicroService {
         server.close(() => {
             if(this.rds.isConnected()){
                 this.rds.disconnect()
-                .then((dbOptions: any) => {
-                    console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
-                })
-                .catch((error: any) => {
-                    console.error(error);
-                    console.log('Will continue...');
-                });
+                    .then((dbOptions: any) => {
+                        console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
+                    })
+                    .catch((error: any) => {
+                        console.error(error);
+                        console.log('Will continue...');
+                    });
             }
             console.log('%s micro service shutdown complete.', this.options.name);
             process.exit(0);
@@ -285,10 +293,7 @@ export default class MicroService {
     /////////////////////////
     ///////DB Functions
     /////////////////////////
-    public wireRDSModel(model: typeof RDSModel){
-        //Try setting up the model.
-        if(this.rds.isReady()){
-            this.rds.initModel(model);
-        }
+    public addRDSModel(model: typeof RDSModel){
+        this.rds.addModel(model);
     }
 }
