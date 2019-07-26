@@ -248,6 +248,9 @@ export default class MicroService {
     }
 
     public createDefaultEndpoints(controller: typeof Controller) {
+        //Logging the controller before
+        console.log('Adding default endpoints from controller: %s', controller.name);
+
         //Getting URL from controller name and Setting up routes.
         const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
@@ -258,9 +261,6 @@ export default class MicroService {
         this.post(baseURL, controller.create);
         this.put(baseURL, controller.updateOneByID);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
-
-        //Logging the controller loaded.
-        console.log('Default endpoints added from controller: %s', controller.name);
     }
 
     /////////////////////////
