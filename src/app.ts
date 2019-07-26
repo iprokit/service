@@ -12,9 +12,9 @@ import fs from 'fs';
 
 //Local Imports
 import DockerUtility from './docker.utility';
-import SequelizeConnection, { InvalidSequelizeOptions } from './sequelize.connection';
 import Controller from './controller';
-import SequelizeModel from './sequelize.model';
+import RDSModel from './db.rds.model';
+import RDSConnection, { InvalidRDSOptions } from './db.rds.connection';
 
 export default class MicroService {
     //Server variables.
@@ -22,8 +22,8 @@ export default class MicroService {
     private app = express();
     private router = express.Router();
 
-    //Sequelize variables.
-    private sequelize: SequelizeConnection = new SequelizeConnection();
+    //DB variables.
+    private rds: RDSConnection = new RDSConnection();
 
     //Default Constructor
     public constructor() {
@@ -35,7 +35,7 @@ export default class MicroService {
         this.initExpressServer();
 
         //Load Databases
-        this.initSequelize();
+        this.initRDS();
         //TODO: Add Mongoose Connection.
 
         //Create Endpoints
@@ -108,14 +108,14 @@ export default class MicroService {
         });
     }
 
-    private initSequelize(){
-        //Try loading sequelize DB
-        if(this.sequelize.hasOptions()){
+    private initRDS(){
+        //Try loading RDS
+        if(this.rds.hasOptions()){
             try{
-                this.sequelize.init(this.options.name);
-                this.options.db = this.sequelize.getOptions();
+                this.rds.init(this.options.name);
+                this.options.db = this.rds.getOptions();
             }catch(error){
-                if(error instanceof InvalidSequelizeOptions){
+                if(error instanceof InvalidRDSOptions){
                     console.log(error.message);
                 }else{
                     console.error(error);
@@ -123,7 +123,7 @@ export default class MicroService {
                 console.log('Will continue...');
             }
         }else{
-            console.log('No sequelize options were provided.');
+            console.log('No RDB options were provided.');
             console.log('Will continue...')
         }
     }
@@ -154,13 +154,13 @@ export default class MicroService {
             });
 
             //Starting database connection.
-            if(this.sequelize.isReady()){
-                this.sequelize.connect()
+            if(this.rds.isReady()){
+                this.rds.connect()
                 .then((dbOptions: any) => {
                     console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
                 })
                 .catch((error: any) => {
-                    if(error instanceof InvalidSequelizeOptions){
+                    if(error instanceof InvalidRDSOptions){
                         console.log(error.message);
                     }else{
                         console.error(error);
@@ -173,8 +173,8 @@ export default class MicroService {
 
     private stopService(server: Server){
         server.close(() => {
-            if(this.sequelize.isConnected()){
-                this.sequelize.disconnect()
+            if(this.rds.isConnected()){
+                this.rds.disconnect()
                 .then((dbOptions: any) => {
                     console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
                 })
@@ -225,7 +225,6 @@ export default class MicroService {
 
                 response.status(httpStatus.OK).send({status: true, data});
             } catch (error) {
-                console.log(error);
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
@@ -233,21 +232,17 @@ export default class MicroService {
 
     private createDBEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
-        const sequelize = this.sequelize;
+        const rds = this.rds;
 
-        if(sequelize.isReady()){
+        if(rds.isReady()){
             this.post('/database/sync', (request: Request, response: Response) => {
-                try {
-                    sequelize.sync(request.body.force)
+                rds.sync(request.body.force)
                     .then(() => {
                         response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
                     })
                     .catch((error: any) => {
                         response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
                     });
-                } catch (error) {
-                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                }
             });
         }
     }
@@ -257,11 +252,10 @@ export default class MicroService {
         const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
 
         //Setting up routes
-        this.get(baseURL + '/:id', controller.selectOneByID);
-        this.get(baseURL, controller.selectAll);
-        this.get(baseURL + "/orderby/:orderType", controller.orderByCreatedAt);
+        this.get(baseURL + '/:id', controller.getOneByID);
+        this.get(baseURL, controller.getAll);
         this.post(baseURL, controller.add);
-        this.put(baseURL, controller.update);
+        this.put(baseURL, controller.updateOneByID);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
 
         //Logging the controller loaded.
@@ -288,12 +282,12 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////Sequelize Functions
+    ///////DB Functions
     /////////////////////////
-    public wireSequelizeModel(model: typeof SequelizeModel){
-        //Try setting up the sequelize model.
-        if(this.sequelize.isReady()){
-            this.sequelize.initModel(model);
+    public wireRDSModel(model: typeof RDSModel){
+        //Try setting up the model.
+        if(this.rds.isReady()){
+            this.rds.initModel(model);
         }
     }
 }

@@ -3,7 +3,7 @@ import {Model, ModelAttributes, DataTypes, Op as Operation} from 'sequelize';
 
 export const Op: typeof Operation = Operation;
 
-export default class SequelizeModel extends Model {
+export default class RDSModel extends Model {
     public static _modelName(): string{
         return this.name.replace('Model', '');
     }
@@ -22,16 +22,14 @@ export default class SequelizeModel extends Model {
     public static associate() {}
 
     /////////////////////////
-    ///////DAO Functions
+    ///////DAO's
     /////////////////////////
-    public static async orderByCreatedAt(orderType: string){
-        if(orderType === 'new'){
-            return await this.findAll({order: [['createdAt', 'DESC']]});
-        }else if(orderType === 'old'){
-            return await this.findAll({order: [['createdAt', 'ASC']]});
-        }else{
-            throw new Error('Invalid Order Type!');
-        }
+    public static async getAll(){
+        return await this.findAll({order: [['createdAt', 'ASC']]})
+    }
+
+    public static async getOneByID(id: any){
+        return await this.findByPk(id);
     }
 
     public static async updateOne(data: any, where: any){

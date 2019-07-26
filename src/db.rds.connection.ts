@@ -3,23 +3,21 @@ import {Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError} from 's
 
 //Local Imports
 import DockerUtility from './docker.utility';
-import SequelizeModel from './sequelize.model';
+import RDSModel from './db.rds.model';
 
-export default class SequelizeConnection {
-    //Sequelize variables
+export default class RDSConnection {
+    //Variables
     private serviceName: string;
     private options: any;
     private ready: boolean = false;
     private connected: boolean = false;
 
-    //Sequelize objects
+    //Objects
     private sequelize: Sequelize;
-    private sequelizeModels: Array<typeof SequelizeModel> = new Array<typeof SequelizeModel>();
+    private rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
 
     //Default Constructor
-    public constructor() {
-        //Do Nothing
-    }
+    public constructor() {}
 
     /////////////////////////
     ///////Load Functions
@@ -61,18 +59,18 @@ export default class SequelizeConnection {
                 this.ready = true;
             }catch(error){
                 if(error.message.includes('Dialect')){
-                    throw new InvalidSequelizeOptions('Invalid Database Dialect provided in .env.');
+                    throw new InvalidRDSOptions('Invalid Database Dialect provided in .env.');
                 }else{
                     throw error; //Pass other errors.
                 }
             }
         }else{
-            throw new InvalidSequelizeOptions('Invalid Database Name provided in .env.');
+            throw new InvalidRDSOptions('Invalid Database Name provided in .env.');
         }
     }
 
-    public initModel(model: typeof SequelizeModel){
-        //Init the model object and push to array of sequelizeModels.
+    public initModel(model: typeof RDSModel){
+        //Init the model object and push to array of rdsModels.
         const fields = model.fields(DataTypes);
         const sequelize = this.sequelize;
         const modelName = model._modelName();
@@ -81,10 +79,12 @@ export default class SequelizeConnection {
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
 
-        //Calling init.
+        //Initializing model
         model.init(fields, {sequelize, tableName, modelName});
         model.hooks();
-        this.sequelizeModels.push(model);
+
+        //Add to models array
+        this.rdsModels.push(model);
     }
 
     /////////////////////////
@@ -120,11 +120,11 @@ export default class SequelizeConnection {
     public async connect(){
         try{
             //Call associate's from all the models
-            this.sequelizeModels.forEach(sequelizeModel => {
+            this.rdsModels.forEach(model => {
                 //Logging the model before
-                console.log('Wiring model: %s', sequelizeModel.name);
+                console.log('Wiring model: %s', model.name);
 
-                sequelizeModel.associate();
+                model.associate();
             });
 
             //Calling authenticate
@@ -140,9 +140,9 @@ export default class SequelizeConnection {
             return {dialect: this.options.dialect, host: this.options.host, name: this.options.name}
         }catch(error){
             if(error instanceof AccessDeniedError){
-                throw new InvalidSequelizeOptions('Invalid Database Credentials provided in .env.');
+                throw new InvalidRDSOptions('Invalid Database Credentials provided in .env.');
             }else if(error instanceof ConnectionRefusedError){
-                throw new InvalidSequelizeOptions('Invalid Database Host provided in .env.');
+                throw new InvalidRDSOptions('Invalid Database Host provided in .env.');
             }else{
                 throw error;//Pass other errors.
             }
@@ -176,7 +176,7 @@ export default class SequelizeConnection {
 /////////////////////////
 ///////Error Classes
 /////////////////////////
-export class InvalidSequelizeOptions extends Error{
+export class InvalidRDSOptions extends Error{
     constructor (message: string) {
         super(message);
         
