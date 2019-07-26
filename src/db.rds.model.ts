@@ -24,8 +24,19 @@ export default class RDSModel extends Model {
     /////////////////////////
     ///////DAO's
     /////////////////////////
+    public static async getAllOrderByCreatedAt(orderType: string){
+        //TODO: convert orderType to enum
+        if(orderType === 'new'){
+            return await this.findAll({order: [['createdAt', 'DESC']]});
+        }else if(orderType === 'old'){
+            return await this.findAll({order: [['createdAt', 'ASC']]});
+        }else{
+            throw new Error('Invalid Order Type!');
+        }
+    }
+
     public static async getAll(){
-        return await this.findAll({order: [['createdAt', 'ASC']]})
+        return await this.findAll();
     }
 
     public static async getOneByID(id: any){
@@ -35,7 +46,7 @@ export default class RDSModel extends Model {
     public static async updateOne(data: any, where: any){
         await this.update(data, { where: where, individualHooks: true})
             .then(async affectedRows => {
-                if(affectedRows[0] === 0){
+                if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
                     throw new Error('ID does not exit!');
                 }else{
                     return;
@@ -46,8 +57,8 @@ export default class RDSModel extends Model {
             });
     }
 
-    public static async updateOneByID(data: any){
-        await this.updateOne(data, {id: data.id});
+    public static async updateOneByID(id: any, data: any){
+        await this.updateOne(data, {id: id});
     }
 
     public static async deleteOneByID(id: any){
@@ -63,4 +74,6 @@ export default class RDSModel extends Model {
                 throw error;
             });
     }
+
+    //TODO: Throw data validation errors in insert and update.
 }

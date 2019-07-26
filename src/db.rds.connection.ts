@@ -120,11 +120,11 @@ export default class RDSConnection {
     public async connect(){
         try{
             //Call associate's from all the models
-            this.rdsModels.forEach(model => {
+            this.rdsModels.forEach(rdsModel => {
                 //Logging the model before
-                console.log('Wiring model: %s', model.name);
+                console.log('Wiring model: %s', rdsModel.name);
 
-                model.associate();
+                rdsModel.associate();
             });
 
             //Calling authenticate

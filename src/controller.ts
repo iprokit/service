@@ -36,7 +36,21 @@ export default class Controller {
         }
     };
 
-    public static add(model: typeof RDSModel, request: Request, response: Response) {
+    public static getAllOrderByCreatedAt(model: typeof RDSModel, request: Request, response: Response) {
+        try {
+            model.getAllOrderByCreatedAt(request.params.orderType)
+                .then((data: any) => {
+                    response.status(httpStatus.OK).send({ status: true, data: data });
+                })
+                .catch((error: any) => {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                });
+        } catch (error) {
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+        }
+    };
+
+    public static create(model: typeof RDSModel, request: Request, response: Response) {
         try {
             model.create(request.body)
                 .then(() => {
@@ -52,7 +66,7 @@ export default class Controller {
 
     public static updateOneByID(model: typeof RDSModel, request: Request, response: Response) {
         try {
-            model.updateOneByID(request.body)
+            model.updateOneByID(request.body.id, request.body)
                 .then(() => {
                     response.status(httpStatus.OK).send({ status: true, message: 'Updated!' });
                 })

@@ -254,7 +254,8 @@ export default class MicroService {
         //Setting up routes
         this.get(baseURL + '/:id', controller.getOneByID);
         this.get(baseURL, controller.getAll);
-        this.post(baseURL, controller.add);
+        this.get(baseURL + "/orderby/:orderType", controller.getAllOrderByCreatedAt);
+        this.post(baseURL, controller.create);
         this.put(baseURL, controller.updateOneByID);
         this.delete(baseURL + '/:id', controller.deleteOneByID);
 
