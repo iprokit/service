@@ -1,5 +1,7 @@
 //Import modules
-import {Model, ModelAttributes, DataTypes} from 'sequelize';
+import {Model, ModelAttributes, DataTypes, Op as Operation} from 'sequelize';
+
+export const Op: typeof Operation = Operation;
 
 export default class SequelizeModel extends Model {
     public static _modelName(): string{
