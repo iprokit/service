@@ -1,7 +1,8 @@
 //Import modules
-import {Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError} from 'sequelize';
+import {Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, Dialect} from 'sequelize';
 
 //Local Imports
+import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import RDSModel from './db.rds.model';
 
@@ -9,7 +10,6 @@ export default class RDSConnection {
     //Variables
     private serviceName: string;
     private options: any;
-    private ready: boolean = false;
     private connected: boolean = false;
 
     //Objects
@@ -17,20 +17,31 @@ export default class RDSConnection {
     private rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
 
     //Default Constructor
-    public constructor() {}
+    public constructor(name: string, options: any) {
+        this.serviceName = name;
+
+        //Load options
+        this.loadOptions(options);
+
+        //Init sequelize
+        this.init();
+
+        //TODO: Continue from here..
+        //this.wireModels(options.autoWireModels);
+    }
 
     /////////////////////////
     ///////Load Functions
     /////////////////////////
-    private loadOptions(){
+    private loadOptions(options: any){
         //Try loading options from process.env
         this.options = {
             name: process.env.DB_NAME,
             username: process.env.DB_USERNAME,
             password: process.env.DB_PASSWORD,
             host: process.env.DB_HOST,
-            dialect: process.env.DB_TYPE,
-            timezone: process.env.DB_TIMEZONE
+            dialect: options.dialect,
+            timezone: options.timezone
         };
 
         //Loading default options
@@ -41,12 +52,7 @@ export default class RDSConnection {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(name: string){
-        this.serviceName = name;
-
-        //Load options
-        this.loadOptions();
-
+    private init(){
         if(this.options.name !== undefined){
             try{
                 this.sequelize = new Sequelize(this.options.name, this.options.username, this.options.password, {
@@ -54,14 +60,9 @@ export default class RDSConnection {
                     dialect: this.options.dialect,
                     timezone: this.options.timezone
                 });
-
-                this.setupModels();
-
-                //Set ready flag.
-                this.ready = true;
             }catch(error){
                 if(error.message.includes('Dialect')){
-                    throw new InvalidRDSOptions('Invalid Database Dialect provided in .env.');
+                    throw new InvalidRDSOptions('Invalid Database Dialect provided.');
                 }else{
                     throw error; //Pass other errors.
                 }
@@ -74,21 +75,8 @@ export default class RDSConnection {
     /////////////////////////
     ///////Boolean Functions
     /////////////////////////
-    public isReady(){
-        return this.ready;
-    }
-
     public isConnected(){
         return this.connected;
-    }
-
-    public hasOptions(){
-        if(process.env.DB_NAME === undefined && process.env.DB_USERNAME === undefined && process.env.DB_PASSWORD === undefined
-            && process.env.DB_HOST === undefined && process.env.DB_TYPE === undefined && process.env.DB_TIMEZONE === undefined){
-            return false;//No options were loaded.
-        }else{
-            return true;//Options were loaded.
-        }
     }
 
     /////////////////////////
@@ -153,21 +141,37 @@ export default class RDSConnection {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public addModel(model: typeof RDSModel){
-        this.rdsModels.push(model);
+    private wireModels(wireOptions?: Array<any>){
+        wireOptions.forEach(wireOption => {
+            const rootPath = wireOption.rootPath !== undefined ? wireOption.rootPath : './';
+            const likeName = wireOption.likeName !== undefined ? wireOption.likeName : 'model.js';
+
+            let modelPaths = FileUtility.getFilePaths(rootPath, likeName); 
+            modelPaths.forEach(modelPath => {
+                const model: typeof RDSModel = require(process.cwd() + modelPath).default;
+                this.initModel(model);
+
+                //Add to Array
+                this.rdsModels.push(model);       
+            });
+        });
     }
 
-    private setupModels(){
-        //Initialize models first
-        this.rdsModels.forEach(rdsModel => {
-            this.initModel(rdsModel);
-        });
+    // private addModel(model: typeof RDSModel){
+    //     this.rdsModels.push(model);
+    // }
 
-        //Associate models
-        this.rdsModels.forEach(rdsModel => {
-            this.associateModel(rdsModel);
-        });
-    }
+    // private wireModels(){
+    //     //Initialize models first
+    //     this.rdsModels.forEach(rdsModel => {
+    //         this.initModel(rdsModel);
+    //     });
+
+    //     //Associate models
+    //     this.rdsModels.forEach(rdsModel => {
+    //         this.associateModel(rdsModel);
+    //     });
+    // }
 
     private initModel(model: typeof RDSModel){
         //Init the model object and push to array of rdsModels.

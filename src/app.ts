@@ -13,7 +13,6 @@ import fs from 'fs';
 //Local Imports
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import RDSModel from './db.rds.model';
 import RDSConnection, { InvalidRDSOptions } from './db.rds.connection';
 
 export default class MicroService {
@@ -23,10 +22,10 @@ export default class MicroService {
     private router = express.Router();
 
     //DB variables.
-    private rds: RDSConnection = new RDSConnection();
+    private rds: RDSConnection;
 
     //Default Constructor
-    public constructor() {
+    public constructor(options?: any) {
         //Load options
         this.loadDotEnvFile();
         this.loadServiceOptions();
@@ -34,20 +33,18 @@ export default class MicroService {
         //Load express and router
         this.initExpressServer();
 
-        //Load Models
-        this.initModels();
-
-        //Load Databases
-        this.initRDS();
-        this.connectToDatabases();//Bug here. Handle Promise
+        //Load RDS
+        if(options.rds !== undefined){
+            this.initRDB(options.rds);
+            this.createRDBEndpoints();
+        }
 
         //Create Endpoints
         this.createHealthEndpoints();
         this.createReportEndpoints();
-        this.createDBEndpoints();
 
-        //Load Default Endpoints from user Controllers
-        this.initControllers();
+        //Load user stuff
+        this.init();
 
         //Start the server
         this.startService();
@@ -69,7 +66,6 @@ export default class MicroService {
             id: uuid(),
             name: process.env.npm_package_name,
             version: process.env.npm_package_version,
-            type: process.env.npm_package_type,
             port: process.env.NODE_PORT,
             environment: process.env.NODE_ENV,
             ip: DockerUtility.getContainerIP()
@@ -78,7 +74,6 @@ export default class MicroService {
         //Loading default options
         this.options.name = this.options.name !== undefined ? this.options.name: this.constructor.name.replace('App', '');
         this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
-        this.options.type = this.options.type !== undefined ? this.options.type: 'API';
         this.options.port = this.options.port !== undefined ? this.options.port: 3000;
         this.options.environment = this.options.environment !== undefined ? this.options.environment: 'production';
     }
@@ -86,8 +81,7 @@ export default class MicroService {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public initModels(){}
-    public initControllers(){}
+    public init(){}
 
     private initExpressServer() {
         //Setup Express
@@ -115,41 +109,36 @@ export default class MicroService {
     /////////////////////////
     ///////DB Functions
     /////////////////////////
-    private initRDS(){
-        //Try loading RDS
-        if(this.rds.hasOptions()){
-            try{
-                this.rds.init(this.options.name);
-                this.options.db = this.rds.getOptions();
-            }catch(error){
+    private initRDB(rdsOptions: any){
+        try{
+            this.rds = new RDSConnection(this.options.name, rdsOptions);
+            this.connectToRDS();//TODO: Bug here. Handle Promise
+            
+            //Get db options.
+            this.options.db = this.rds.getOptions();
+        }catch(error){
+            if(error instanceof InvalidRDSOptions){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
+        }
+    }
+
+    private connectToRDS(){
+        this.rds.connect()
+            .then((dbOptions: any) => {
+                console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
+            })
+            .catch((error: any) => {
                 if(error instanceof InvalidRDSOptions){
                     console.log(error.message);
                 }else{
                     console.error(error);
                 }
                 console.log('Will continue...');
-            }
-        }else{
-            console.log('No RDB options were provided.');
-            console.log('Will continue...')
-        }
-    }
-
-    private connectToDatabases(){
-        if(this.rds.isReady()){
-            this.rds.connect()
-                .then((dbOptions: any) => {
-                    console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
-                })
-                .catch((error: any) => {
-                    if(error instanceof InvalidRDSOptions){
-                        console.log(error.message);
-                    }else{
-                        console.error(error);
-                    }
-                    console.log('Will continue...');
-                });
-        }
+            });
     }
 
     /////////////////////////
@@ -160,11 +149,7 @@ export default class MicroService {
         const server = this.app.listen(this.options.port, () => {
             console.log('Environment: %s', this.options.environment);
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
-            console.log('%s : %o', this.options.name, {
-                id: this.options.id,
-                version: this.options.version,
-                type: this.options.type
-            });
+            console.log('%s : %o', this.options.name, {id: this.options.id, version: this.options.version});
 
             //Adding process listeners to stop server gracefully.
             process.on('SIGTERM', () => {
@@ -238,21 +223,19 @@ export default class MicroService {
         });
     }
 
-    private createDBEndpoints(){
+    private createRDBEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
         const rds = this.rds;
 
-        if(rds.isReady()){
-            this.post('/database/sync', (request: Request, response: Response) => {
-                rds.sync(request.body.force)
-                    .then(() => {
-                        response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
-                    })
-                    .catch((error: any) => {
-                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                    });
-            });
-        }
+        this.post('/database/sync', (request: Request, response: Response) => {
+            rds.sync(request.body.force)
+                .then(() => {
+                    response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
+                })
+                .catch((error: any) => {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                });
+        });
     }
 
     public createDefaultEndpoints(controller: typeof Controller) {
@@ -288,12 +271,5 @@ export default class MicroService {
 
     public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
         this.router.delete(path, ...handlers);
-    }
-
-    /////////////////////////
-    ///////DB Functions
-    /////////////////////////
-    public addRDSModel(model: typeof RDSModel){
-        this.rds.addModel(model);
     }
 }
