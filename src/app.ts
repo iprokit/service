@@ -23,11 +23,11 @@ export default class MicroService {
     private router = express.Router();
 
     //DB variables.
-    private rds: RDSConnection;
+    private rds: RDSConnection = new RDSConnection();
 
     //Default Constructor
     public constructor(options?: any) {
-        const _options = options !== undefined ? options : '';
+        const defaultOptions = options !== undefined ? options : {};
 
         //Load options
         this.loadDotEnvFile();
@@ -39,8 +39,8 @@ export default class MicroService {
         this.init();//Load any user functions
 
         //Load RDS
-        if(_options.rds !== undefined){
-            this.initRDB(_options.rds);
+        if(defaultOptions.rds !== undefined){
+            this.initRDB(defaultOptions.rds);
 
             //Create RDS Endpoints
             this.createRDBEndpoints();
@@ -53,7 +53,7 @@ export default class MicroService {
         this.wireControllers()//Load any user controllers
 
         //Connect to DB's
-        if(this.options.rdb !== undefined){
+        if(this.options.rds !== undefined){
             this.connectToRDS();//TODO: Bug here. Handle Promise
         }
 
@@ -127,10 +127,11 @@ export default class MicroService {
     /////////////////////////
     private initRDB(rdsOptions: any){
         try{
-            this.rds = new RDSConnection(this.options.name, this.options.projectPath, rdsOptions);
+            //Init sequelize
+            this.rds.init(this.options.name, this.options.projectPath, rdsOptions);
 
             //Get db options and load to service options.
-            this.options.rdb = this.rds.getOptions();
+            this.options.rds = this.rds.getOptions();
         }catch(error){
             if(error instanceof InvalidRDSOptions){
                 console.log(error.message);

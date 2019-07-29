@@ -18,21 +18,7 @@ export default class RDSConnection {
     private sequelize: Sequelize;
 
     //Default Constructor
-    public constructor(name: string, projectPath: any, options: any) {
-        this.serviceName = name;
-        this.projectPath = projectPath;
-
-        //Load options
-        this.loadOptions(options);
-
-        //Init sequelize
-        this.init();
-
-        //Auto Wire Models
-        if(this.autoWireOptions !== undefined){
-            this.autoWireModels();
-        }
-    }
+    public constructor() {}
 
     /////////////////////////
     ///////Load Functions
@@ -59,7 +45,14 @@ export default class RDSConnection {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    private init(){
+    public init(name: string, projectPath: any, options: any){
+        this.serviceName = name;
+        this.projectPath = projectPath;
+
+        //Load options
+        this.loadOptions(options);
+
+        //Setup Sequelize
         if(this.options.name !== undefined){
             try{
                 this.sequelize = new Sequelize(this.options.name, this.options.username, this.options.password, {
@@ -76,6 +69,13 @@ export default class RDSConnection {
             }
         }else{
             throw new InvalidRDSOptions('Invalid Database Name provided in .env.');
+        }
+
+        //Auto Wire Models
+        if(this.autoWireOptions !== undefined){
+            this.autoWireModels();
+        }else{
+            throw new InvalidRDSOptions('Invalid auto wire options provided.');
         }
     }
 
@@ -151,16 +151,16 @@ export default class RDSConnection {
     public autoWireModels(){
         const paths = this.autoWireOptions.paths !== undefined ? this.autoWireOptions.paths : ['/'];
         const likeName = this.autoWireOptions.likeName !== undefined ? this.autoWireOptions.likeName : 'model.js';
-        const excluses = this.autoWireOptions.excluses !== undefined ? this.autoWireOptions.excluses : [];
+        const excludes = this.autoWireOptions.excludes !== undefined ? this.autoWireOptions.excludes : [];
 
         //Adding files to Exclude.
-        excluses.push('/node_modules');
+        excludes.push('/node_modules');
 
         //Array of RDS models.
         const rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
 
         paths.forEach((path: string) => {
-            const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excluses);
+            const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model: typeof RDSModel = require(modelFile).default;
                 this.initModel(model);
