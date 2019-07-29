@@ -148,7 +148,7 @@ export default class RDSConnection {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public autoWireModels(){
+    private autoWireModels(){
         const paths = this.autoWireOptions.paths !== undefined ? this.autoWireOptions.paths : ['/'];
         const likeName = this.autoWireOptions.likeName !== undefined ? this.autoWireOptions.likeName : 'model.js';
         const excludes = this.autoWireOptions.excludes !== undefined ? this.autoWireOptions.excludes : [];

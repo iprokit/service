@@ -62,7 +62,7 @@ export default class RDSModel extends Model {
     }
 
     public static async deleteOneByID(id: any){
-        await this.destroy({where: { id: id }})
+        await this.destroy({where: { id: id }, individualHooks: true})
             .then(async affectedRows => {
                 if(affectedRows === 0){
                     throw new Error('ID does not exit!');

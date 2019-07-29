@@ -50,7 +50,7 @@ export default class MicroService {
         this.createHealthEndpoints();
         this.createReportEndpoints();
 
-        this.wireControllers()//Load any user controllers
+        this.wireControllers();//Load any user controllers
 
         //Connect to DB's
         if(this.options.rds !== undefined){
