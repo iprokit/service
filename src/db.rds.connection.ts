@@ -9,16 +9,18 @@ import RDSModel from './db.rds.model';
 export default class RDSConnection {
     //Variables
     private serviceName: string;
+    private projectPath: string;
+    private autoWireOptions: any;
     private options: any;
     private connected: boolean = false;
 
     //Objects
     private sequelize: Sequelize;
-    private rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
 
     //Default Constructor
-    public constructor(name: string, options: any) {
+    public constructor(name: string, projectPath: any, options: any) {
         this.serviceName = name;
+        this.projectPath = projectPath;
 
         //Load options
         this.loadOptions(options);
@@ -26,8 +28,10 @@ export default class RDSConnection {
         //Init sequelize
         this.init();
 
-        //TODO: Continue from here..
-        //this.wireModels(options.autoWireModels);
+        //Auto Wire Models
+        if(this.autoWireOptions !== undefined){
+            this.autoWireModels();
+        }
     }
 
     /////////////////////////
@@ -47,6 +51,9 @@ export default class RDSConnection {
         //Loading default options
         this.options.host = this.options.host !== undefined ? this.options.host: DockerUtility.getHostIP();
         this.options.timezone = this.options.timezone !== undefined ? this.options.timezone: '+00:00';
+
+        //Auto Wire Options
+        this.autoWireOptions = options.autoWireModels;
     }
 
     /////////////////////////
@@ -141,37 +148,33 @@ export default class RDSConnection {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    private wireModels(wireOptions?: Array<any>){
-        wireOptions.forEach(wireOption => {
-            const rootPath = wireOption.rootPath !== undefined ? wireOption.rootPath : './';
-            const likeName = wireOption.likeName !== undefined ? wireOption.likeName : 'model.js';
+    public autoWireModels(){
+        const paths = this.autoWireOptions.paths !== undefined ? this.autoWireOptions.paths : ['/'];
+        const likeName = this.autoWireOptions.likeName !== undefined ? this.autoWireOptions.likeName : 'model.js';
+        const excluses = this.autoWireOptions.excluses !== undefined ? this.autoWireOptions.excluses : [];
 
-            let modelPaths = FileUtility.getFilePaths(rootPath, likeName); 
-            modelPaths.forEach(modelPath => {
-                const model: typeof RDSModel = require(process.cwd() + modelPath).default;
+        //Adding files to Exclude.
+        excluses.push('/node_modules');
+
+        //Array of RDS models.
+        const rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
+
+        paths.forEach((path: string) => {
+            const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excluses);
+            modelFiles.forEach(modelFile => {
+                const model: typeof RDSModel = require(modelFile).default;
                 this.initModel(model);
 
                 //Add to Array
-                this.rdsModels.push(model);       
+                rdsModels.push(model);
             });
         });
+
+        //Associate models
+        rdsModels.forEach(rdsModel => {
+            this.associateModel(rdsModel);
+        });
     }
-
-    // private addModel(model: typeof RDSModel){
-    //     this.rdsModels.push(model);
-    // }
-
-    // private wireModels(){
-    //     //Initialize models first
-    //     this.rdsModels.forEach(rdsModel => {
-    //         this.initModel(rdsModel);
-    //     });
-
-    //     //Associate models
-    //     this.rdsModels.forEach(rdsModel => {
-    //         this.associateModel(rdsModel);
-    //     });
-    // }
 
     private initModel(model: typeof RDSModel){
         //Init the model object and push to array of rdsModels.

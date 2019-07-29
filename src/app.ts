@@ -14,6 +14,7 @@ import fs from 'fs';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import RDSConnection, { InvalidRDSOptions } from './db.rds.connection';
+import RDSModel from './db.rds.model';
 
 export default class MicroService {
     //Server variables.
@@ -26,6 +27,8 @@ export default class MicroService {
 
     //Default Constructor
     public constructor(options?: any) {
+        const _options = options !== undefined ? options : '';
+
         //Load options
         this.loadDotEnvFile();
         this.loadServiceOptions();
@@ -33,9 +36,13 @@ export default class MicroService {
         //Load express and router
         this.initExpressServer();
 
+        this.init();//Load any user functions
+
         //Load RDS
-        if(options.rds !== undefined){
-            this.initRDB(options.rds);
+        if(_options.rds !== undefined){
+            this.initRDB(_options.rds);
+
+            //Create RDS Endpoints
             this.createRDBEndpoints();
         }
 
@@ -43,12 +50,22 @@ export default class MicroService {
         this.createHealthEndpoints();
         this.createReportEndpoints();
 
-        //Load user stuff
-        this.init();
+        this.wireControllers()//Load any user controllers
+
+        //Connect to DB's
+        if(this.options.rdb !== undefined){
+            this.connectToRDS();//TODO: Bug here. Handle Promise
+        }
 
         //Start the server
         this.startService();
     }
+
+    /////////////////////////
+    ///////User Functions
+    /////////////////////////
+    public init(){}
+    public wireControllers(){}
 
     /////////////////////////
     ///////Load Functions
@@ -68,7 +85,8 @@ export default class MicroService {
             version: process.env.npm_package_version,
             port: process.env.NODE_PORT,
             environment: process.env.NODE_ENV,
-            ip: DockerUtility.getContainerIP()
+            ip: DockerUtility.getContainerIP(),
+            projectPath: process.cwd()
         };
 
         //Loading default options
@@ -81,8 +99,6 @@ export default class MicroService {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(){}
-
     private initExpressServer() {
         //Setup Express
         this.app.use(cors());
@@ -111,11 +127,10 @@ export default class MicroService {
     /////////////////////////
     private initRDB(rdsOptions: any){
         try{
-            this.rds = new RDSConnection(this.options.name, rdsOptions);
-            this.connectToRDS();//TODO: Bug here. Handle Promise
-            
-            //Get db options.
-            this.options.db = this.rds.getOptions();
+            this.rds = new RDSConnection(this.options.name, this.options.projectPath, rdsOptions);
+
+            //Get db options and load to service options.
+            this.options.rdb = this.rds.getOptions();
         }catch(error){
             if(error instanceof InvalidRDSOptions){
                 console.log(error.message);
@@ -145,7 +160,7 @@ export default class MicroService {
     ///////Service Functions
     /////////////////////////
     private startService() {
-        // Start server
+        //Start server
         const server = this.app.listen(this.options.port, () => {
             console.log('Environment: %s', this.options.environment);
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);

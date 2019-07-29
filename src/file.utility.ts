@@ -1,22 +1,42 @@
 import fs from 'fs';
+import path from 'path';
 
 export default class FileUtility{
-    public static getFilePaths(rootPath: string, likeName: string) {
-        const allPaths = new Array<string>();
-        const files = fs.readdirSync(rootPath);
-        files.forEach(file => {
-            if (fs.statSync(rootPath + '/' + file).isDirectory()) {
-                let subPaths = this.getFilePaths(rootPath + '/' + file, likeName);
-                subPaths.forEach(subPath => {
-                    allPaths.push(subPath);
+    public static getFilePaths(givenPath: string, likeName: string, excluses: Array<string>) {
+        const allFiles = new Array<string>();
+
+        const filesOrDirectories = fs.readdirSync(givenPath);
+        filesOrDirectories.forEach(fileOrDirectory => {
+            const fileOrDirectoryPath = path.join(givenPath, fileOrDirectory);
+
+            //Validate if the fileOrDirectoryPath is directory or a file.
+            //If its a directory get sub files and add it to allFiles[].
+            //If its a file validate isExcluded() then add it to allFiles[].
+
+            if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                //Getting all files in the sub directory.
+                const subFiles = this.getFilePaths(fileOrDirectoryPath, likeName, excluses);
+                subFiles.forEach(subFile => {
+                    allFiles.push(subFile);
                 })
             } else {
-                if (file.includes(likeName)) {
-                    const filePath = rootPath + '/' + file;
-                    allPaths.push(filePath);
+                if (fileOrDirectory.includes(likeName)) {
+                    if(!this.isExcluded(fileOrDirectoryPath, excluses)){
+                        allFiles.push(fileOrDirectoryPath);
+                    }
                 }
             }
         });
-        return allPaths;
+        return allFiles;
+    }
+
+    private static isExcluded(file: string, excluses: Array<string>){
+        let excluded = false;
+        excluses.forEach(excluse => {
+            if(file.includes(excluse)){
+                excluded = true;
+            }
+        });
+        return excluded;
     }
 }
