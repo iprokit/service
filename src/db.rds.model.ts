@@ -19,6 +19,8 @@ export default class RDSModel extends Model {
 
     public static hooks() {}
 
+    public static validations() {}
+
     public static associate() {}
 
     /////////////////////////

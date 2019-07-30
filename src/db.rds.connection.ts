@@ -189,6 +189,7 @@ export default class RDSConnection {
         //Initializing model + adding hooks
         model.init(fields, {sequelize, tableName, modelName});
         model.hooks();
+        model.validations();
     }
 
     private associateModel(model: typeof RDSModel){

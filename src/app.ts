@@ -11,10 +11,10 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 
 //Local Imports
+import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import RDSConnection, { InvalidRDSOptions } from './db.rds.connection';
-import RDSModel from './db.rds.model';
 
 export default class MicroService {
     //Server variables.
@@ -22,8 +22,9 @@ export default class MicroService {
     private app = express();
     private router = express.Router();
 
-    //DB variables.
+    //Class objects.
     private rds: RDSConnection = new RDSConnection();
+    public controllers: Array<any> = new Array<any>();
 
     //Default Constructor
     public constructor(options?: any) {
@@ -50,7 +51,11 @@ export default class MicroService {
         this.createHealthEndpoints();
         this.createReportEndpoints();
 
-        this.wireControllers();//Load any user controllers
+        //Inject Controllers
+        if(defaultOptions.autoInjectControllers !== undefined){
+            this.autoInjectControllers(defaultOptions.autoInjectControllers);
+        }
+        this.injectEndpoints();//Load any user controllers
 
         //Connect to DB's
         if(this.options.rds !== undefined){
@@ -65,7 +70,8 @@ export default class MicroService {
     ///////User Functions
     /////////////////////////
     public init(){}
-    public wireControllers(){}
+
+    public injectEndpoints(){}
 
     /////////////////////////
     ///////Load Functions
@@ -155,6 +161,30 @@ export default class MicroService {
                 }
                 console.log('Will continue...');
             });
+    }
+
+    /////////////////////////
+    ///////Controller Functions
+    /////////////////////////
+    private autoInjectControllers(autoWireOptions: any){
+        const paths = autoWireOptions.paths !== undefined ? autoWireOptions.paths : ['/'];
+        const likeName = autoWireOptions.likeName !== undefined ? autoWireOptions.likeName : 'controller.js';
+        const excludes = autoWireOptions.excludes !== undefined ? autoWireOptions.excludes : [];
+
+        //Adding files to Exclude.
+        excludes.push('/node_modules');
+
+        paths.forEach((path: string) => {
+            const controllerFiles = FileUtility.getFilePaths(this.options.projectPath + path, likeName, excludes);
+            controllerFiles.forEach(controllerFile => {
+                const controller: typeof Controller = require(controllerFile).default;
+                this.createDefaultEndpoints(controller);
+                
+                //TODO: Building
+                //Add to Array
+                //this.controllers.push({name: controller.name, controller: controller});
+            });
+        });
     }
 
     /////////////////////////
