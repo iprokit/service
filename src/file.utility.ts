@@ -15,11 +15,8 @@ export default class FileUtility{
             //If its a file validate isExcluded() then add it to allFiles[].
 
             if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
-                //Getting all files in the sub directory.
-                const subFiles = this.getFilePaths(fileOrDirectoryPath, likeName, excludes);
-                subFiles.forEach(subFile => {
-                    allFiles.push(subFile);
-                })
+                //Getting all files in the sub directory and adding to allFiles[].
+                Array.prototype.push.apply(allFiles, this.getFilePaths(fileOrDirectoryPath, likeName, excludes));
             } else {
                 if (fileOrDirectory.includes(likeName)) {
                     if(!this.isExcluded(fileOrDirectoryPath, excludes)){

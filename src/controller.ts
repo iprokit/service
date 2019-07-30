@@ -1,6 +1,7 @@
 //Import modules
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
+import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 
 //Local Import
 import RDSModel from './db.rds.model';
@@ -8,6 +9,36 @@ import RDSModel from './db.rds.model';
 export default class Controller {
     readonly name = this.constructor.name;
 
+    /////////////////////////
+    ///////Default Functions
+    /////////////////////////
+    public static baseURL(): PathParams{
+        return ('/' + this.name.replace('Controller', '').toLowerCase());
+    }
+
+    /////////////////////////
+    ///////Map Endpoints
+    /////////////////////////
+    public static mapDefaultEndpoints(): Array<{method: string, url: PathParams, fn: RequestHandlerParams}>{
+        const baseURL = this.baseURL();
+
+        return [
+            {method: 'GET', url: baseURL + '/:id', fn: this.getOneByID},
+            {method: 'GET', url: baseURL, fn: this.getAll},
+            {method: 'GET', url: baseURL + "/orderby/:orderType", fn: this.getAllOrderByCreatedAt},
+            {method: 'POST', url: baseURL, fn: this.create},
+            {method: 'PUT', url: baseURL, fn: this.updateOneByID},
+            {method: 'DELETE', url: baseURL + '/:id', fn: this.deleteOneByID}
+        ]
+    }
+
+    public static mapCustomEndpoints(): Array<{method: string, url: string, fn: RequestHandlerParams}>{
+        return;
+    }
+
+    /////////////////////////
+    ///////Default Endpoints
+    /////////////////////////
     public static getOneByID(model: typeof RDSModel, request: Request, response: Response) {
         try {
             model.getOneByID(request.params.id)

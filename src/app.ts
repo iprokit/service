@@ -24,7 +24,6 @@ export default class MicroService {
 
     //Class objects.
     private rds: RDSConnection = new RDSConnection();
-    public controllers: {[name: string]: typeof Controller} = {};
 
     //Default Constructor
     public constructor(options?: any) {
@@ -178,10 +177,19 @@ export default class MicroService {
             const controllerFiles = FileUtility.getFilePaths(this.options.projectPath + path, likeName, excludes);
             controllerFiles.forEach(controllerFile => {
                 const controller: typeof Controller = require(controllerFile).default;
-                this.createDefaultEndpoints(controller);
 
-                //Add to objects.
-                this.controllers[controller.name] = controller;
+                //Logging the controller before
+                console.log('Adding endpoints from controller: %s', controller.name);
+
+                //Getting all endpoints and merging them
+                const endpoints = new Array<{method: string, url: PathParams, fn: RequestHandlerParams}>();
+                Array.prototype.push.apply(endpoints, controller.mapDefaultEndpoints());
+                Array.prototype.push.apply(endpoints, controller.mapCustomEndpoints());
+
+                //Load endpoints
+                endpoints.forEach(endpoint => {
+                    this.createEndpoint(endpoint.method, endpoint.url, endpoint.fn);
+                });
             });
         });
     }
@@ -283,20 +291,21 @@ export default class MicroService {
         });
     }
 
-    public createDefaultEndpoints(controller: typeof Controller) {
-        //Logging the controller before
-        console.log('Adding default endpoints from controller: %s', controller.name);
-
-        //Getting URL from controller name and Setting up routes.
-        const baseURL = '/' + controller.name.replace('Controller', '').toLowerCase();
-
-        //Setting up routes
-        this.get(baseURL + '/:id', controller.getOneByID);
-        this.get(baseURL, controller.getAll);
-        this.get(baseURL + "/orderby/:orderType", controller.getAllOrderByCreatedAt);
-        this.post(baseURL, controller.create);
-        this.put(baseURL, controller.updateOneByID);
-        this.delete(baseURL + '/:id', controller.deleteOneByID);
+    private createEndpoint(method: string, url: PathParams, fn: RequestHandlerParams){
+        switch(method){
+            case 'GET':
+                this.get(url, fn);
+                break;
+            case 'POST':
+                this.post(url, fn);
+                break;
+            case 'PUT':
+                this.put(url, fn);
+                break;
+            case 'DELETE':
+                this.delete(url, fn);
+                break;
+        }
     }
 
     /////////////////////////
