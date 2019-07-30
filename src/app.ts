@@ -24,7 +24,7 @@ export default class MicroService {
 
     //Class objects.
     private rds: RDSConnection = new RDSConnection();
-    public controllers: Array<any> = new Array<any>();
+    public controllers: {[name: string]: typeof Controller} = {};
 
     //Default Constructor
     public constructor(options?: any) {
@@ -179,10 +179,9 @@ export default class MicroService {
             controllerFiles.forEach(controllerFile => {
                 const controller: typeof Controller = require(controllerFile).default;
                 this.createDefaultEndpoints(controller);
-                
-                //TODO: Building
-                //Add to Array
-                //this.controllers.push({name: controller.name, controller: controller});
+
+                //Add to objects.
+                this.controllers[controller.name] = controller;
             });
         });
     }
