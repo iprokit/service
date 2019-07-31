@@ -27,13 +27,10 @@ export default class RDSModel extends Model {
     ///////DAO's
     /////////////////////////
     public static async getAllOrderByCreatedAt(orderType: 'new' | 'old'){
-        //TODO: convert orderType to enum
         if(orderType === 'new'){
             return await this.findAll({order: [['createdAt', 'DESC']]});
         }else if(orderType === 'old'){
             return await this.findAll({order: [['createdAt', 'ASC']]});
-        }else{
-            throw new Error('Invalid Order Type!');
         }
     }
 

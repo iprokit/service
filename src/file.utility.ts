@@ -3,7 +3,11 @@ import fs from 'fs';
 import path from 'path';
 
 export default class FileUtility{
-    public static getFilePaths(givenPath: string, likeName: string, excludes: Array<string>) {
+    public static getFilePaths(givenPath: string, likeName: string, excludes: Array<string>){
+        return(this._getFilePaths(global.projectPath + givenPath, likeName, excludes));
+    }
+
+    private static _getFilePaths(givenPath: string, likeName: string, excludes: Array<string>) {
         const allFiles = new Array<string>();
 
         const filesOrDirectories = fs.readdirSync(givenPath);
@@ -16,7 +20,7 @@ export default class FileUtility{
 
             if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
                 //Getting all files in the sub directory and adding to allFiles[].
-                Array.prototype.push.apply(allFiles, this.getFilePaths(fileOrDirectoryPath, likeName, excludes));
+                Array.prototype.push.apply(allFiles, this._getFilePaths(fileOrDirectoryPath, likeName, excludes));
             } else {
                 if (fileOrDirectory.includes(likeName)) {
                     if(!this.isExcluded(fileOrDirectoryPath, excludes)){

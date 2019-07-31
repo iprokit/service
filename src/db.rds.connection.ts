@@ -31,16 +31,14 @@ export type RDSConnectionOptions = {
 }
 
 export default class RDSConnection {
-    //Variables
-    private serviceName: string;
-    private projectPath: string;
-    private autoWireOptions: AutoWireModelOptions;
+    //Sequelize variables.
+    private sequelize: Sequelize;
     private options: RDSConnectionOptions;
     private connected: boolean = false;
 
-    //Objects
-    private sequelize: Sequelize;
+    //Models variables.
     private models = new Array<typeof RDSModel>();
+    private autoWireOptions: AutoWireModelOptions;
 
     //Default Constructor
     public constructor() {}
@@ -62,14 +60,10 @@ export default class RDSConnection {
         //Auto Wire Options
         this.autoWireOptions = options.autoWireModels;
     }
-
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(name: string, projectPath: string, options: RDSConnectionInitOptions){
-        this.serviceName = name;
-        this.projectPath = projectPath;
-
+    public init(options: RDSConnectionInitOptions){
         //Load options
         this.loadOptions(options);
 
@@ -182,7 +176,7 @@ export default class RDSConnection {
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excludes);
+            const modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model: typeof RDSModel = require(modelFile).default;
 
@@ -209,7 +203,7 @@ export default class RDSConnection {
         const fields = model.fields(DataTypes);
         const sequelize = this.sequelize;
         const modelName = model._modelName();
-        const tableName = (this.serviceName + '_' + model._tableName()).toLowerCase();
+        const tableName = (global.service.name + '_' + model._tableName()).toLowerCase();
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);

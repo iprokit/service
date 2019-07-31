@@ -10,6 +10,9 @@ import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
+//Adding project path to global before calling local imports.
+global.projectPath = path.dirname(require.main.filename);
+
 //Local Imports
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
@@ -37,14 +40,24 @@ export type MicroServiceOptions = {
     port: string | number,
     environment: string,
     ip: string,
-    projectPath: string,
     rds?: RDSConnectionOptions
 }
 
-export default class MicroService {
-    //Init variables.
-    private projectPath = path.dirname(require.main.filename);
+declare global {
+    namespace NodeJS {
+        interface Global {
+            service: {
+                id: string,
+                name: string,
+                version: string,
+                environment: string
+            }
+            projectPath: string
+        }
+    }
+}
 
+export default class MicroService {
     //Server variables.
     private options: MicroServiceOptions;
     private app = express();
@@ -61,6 +74,7 @@ export default class MicroService {
         //Load options
         this.loadDotEnvFile();
         this.loadServiceOptions();
+        this.loadGlobalOptions();
 
         //Load express and router
         this.initExpressServer();
@@ -112,8 +126,8 @@ export default class MicroService {
     ///////Load Functions
     /////////////////////////
     private loadDotEnvFile(){
-        const envPath = path.join(this.projectPath, '.env');
-
+        //Getting env file.
+        const envPath = path.join(global.projectPath, '.env');
         if(fs.existsSync(envPath)){
             dotenv.config({path: envPath});
         }
@@ -127,9 +141,18 @@ export default class MicroService {
             version: process.env.npm_package_version || '1.0.0',
             port: process.env.NODE_PORT || 3000,
             environment: process.env.NODE_ENV || 'production',
-            ip: DockerUtility.getContainerIP(),
-            projectPath: this.projectPath
+            ip: DockerUtility.getContainerIP()
         };
+    }
+
+    private loadGlobalOptions(){
+        //Adding service variables to global.
+        global.service = {
+            id: this.options.id,
+            name: this.options.name,
+            version: this.options.version,
+            environment: this.options.environment
+        }
     }
 
     /////////////////////////
@@ -164,7 +187,7 @@ export default class MicroService {
     private initRDB(rdsOptions: RDSConnectionInitOptions){
         try{
             //Init sequelize
-            this.rds.init(this.options.name, this.options.projectPath, rdsOptions);
+            this.rds.init(rdsOptions);
 
             //Get db options and load to service options.
             this.options.rds = this.rds.getOptions();
@@ -179,7 +202,7 @@ export default class MicroService {
     }
 
     private connectToRDS(){
-        this.rds.connect()
+        return this.rds.connect()
             .then((dbOptions: any) => {
                 console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
             })
@@ -205,7 +228,7 @@ export default class MicroService {
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            const controllerFiles = FileUtility.getFilePaths(this.options.projectPath + path, likeName, excludes);
+            const controllerFiles = FileUtility.getFilePaths(path, likeName, excludes);
             controllerFiles.forEach(controllerFile => {
                 const controller: typeof Controller = require(controllerFile).default;
 
