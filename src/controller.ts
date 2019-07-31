@@ -4,14 +4,8 @@ import { Request, Response } from 'express';
 import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 
 //Local Import
+import { Endpoint } from './app';
 import RDSModel from './db.rds.model';
-
-//Types: Endpoint
-export type Endpoint = {
-    method: 'get' | 'post' | 'put' | 'delete',
-    url: PathParams,
-    fn: RequestHandlerParams
-}
 
 export default class Controller {
     readonly name = this.constructor.name;

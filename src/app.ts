@@ -16,7 +16,7 @@ global.projectPath = path.dirname(require.main.filename);
 //Local Imports
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
-import Controller, { Endpoint } from './controller';
+import Controller from './controller';
 import RDSConnection, { InvalidRDSOptions, RDSConnectionInitOptions, RDSConnectionOptions } from './db.rds.connection';
 
 //Types: MicroServiceInitOptions
@@ -41,6 +41,13 @@ export type MicroServiceOptions = {
     environment: string,
     ip: string,
     rds?: RDSConnectionOptions
+}
+
+//Types: Endpoint
+export type Endpoint = {
+    method: 'get' | 'post' | 'put' | 'delete',
+    url: PathParams,
+    fn: RequestHandlerParams
 }
 
 declare global {
@@ -330,12 +337,12 @@ export default class MicroService {
                     routesArray.push({method, url});
                 });
 
-                const models = new Array<string>();
+                const models = new Array<{name: string, tableName: string}>();
                 const controllers = new Array<string>();
 
                 if(_models !== undefined){
                     _models.forEach(model => {
-                        models.push(model.name)
+                        models.push({name: model._modelName(), tableName: model._tableName()});
                     });
                 }
 
