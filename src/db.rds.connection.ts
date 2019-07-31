@@ -185,7 +185,13 @@ export default class RDSConnection {
             const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model: typeof RDSModel = require(modelFile).default;
-                this.initModel(model);
+
+                //Try initializing the model.
+                try{
+                    this.initModel(model);
+                }catch(error){
+                    console.error('Could not auto wire model: %s', model.name);
+                }
 
                 //Add to Array
                 this.models.push(model);

@@ -217,14 +217,14 @@ export default class MicroService {
                 Array.prototype.push.apply(endpoints, controller.mapDefaultEndpoints());
                 Array.prototype.push.apply(endpoints, controller.mapCustomEndpoints());
 
-                //Load endpoints
                 endpoints.forEach(endpoint => {
-                    //Adding base URL before creating endpoint.
+                    //Try creating endpoints
                     try{
+                        //Adding base URL before creating endpoint.
                         endpoint.url = controller.baseURL().toString() + endpoint.url.toString();
                         this.createEndpoint(endpoint);
                     }catch(error){
-                        console.error('Could not map endpoint: %o in %s', endpoint, controller.name);
+                        console.error('Could not auto inject endpoint: %o in %s', endpoint, controller.name);
                     }
                 });
 
