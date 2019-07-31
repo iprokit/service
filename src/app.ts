@@ -15,7 +15,6 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller, { Endpoint } from './controller';
 import RDSConnection, { InvalidRDSOptions, RDSConnectionInitOptions, RDSConnectionOptions } from './db.rds.connection';
-import RDSModel from './db.rds.model';
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
@@ -226,6 +225,8 @@ export default class MicroService {
 
                 //Load endpoints
                 endpoints.forEach(endpoint => {
+                    //Adding base URL before creating endpoint.
+                    endpoint.url = controller.baseURL().toString() + endpoint.url.toString();
                     this.createEndpoint(endpoint);
                 });
 

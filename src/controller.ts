@@ -27,15 +27,13 @@ export default class Controller {
     ///////Map Endpoints
     /////////////////////////
     public static mapDefaultEndpoints(): Array<Endpoint>{
-        const baseURL = this.baseURL();
-
         return [
-            {method: 'get', url: baseURL + '/:id', fn: this.getOneByID},
-            {method: 'get', url: baseURL, fn: this.getAll},
-            {method: 'get', url: baseURL + "/orderby/:orderType", fn: this.getAllOrderByCreatedAt},
-            {method: 'post', url: baseURL, fn: this.create},
-            {method: 'put', url: baseURL, fn: this.updateOneByID},
-            {method: 'delete', url: baseURL + '/:id', fn: this.deleteOneByID}
+            {method: 'get', url: '/:id', fn: this.getOneByID},
+            {method: 'get', url: '/', fn: this.getAll},
+            {method: 'get', url: '/orderby/:orderType', fn: this.getAllOrderByCreatedAt},
+            {method: 'post', url: '/', fn: this.create},
+            {method: 'put', url: '/', fn: this.updateOneByID},
+            {method: 'delete', url: '/:id', fn: this.deleteOneByID}
         ]
     }
 
