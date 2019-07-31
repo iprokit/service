@@ -6,6 +6,13 @@ import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 //Local Import
 import RDSModel from './db.rds.model';
 
+//Types: Endpoint
+export type Endpoint = {
+    method: 'get' | 'post' | 'put' | 'delete',
+    url: PathParams,
+    fn: RequestHandlerParams
+}
+
 export default class Controller {
     readonly name = this.constructor.name;
 
@@ -19,20 +26,20 @@ export default class Controller {
     /////////////////////////
     ///////Map Endpoints
     /////////////////////////
-    public static mapDefaultEndpoints(): Array<{method: string, url: PathParams, fn: RequestHandlerParams}>{
+    public static mapDefaultEndpoints(): Array<Endpoint>{
         const baseURL = this.baseURL();
 
         return [
-            {method: 'GET', url: baseURL + '/:id', fn: this.getOneByID},
-            {method: 'GET', url: baseURL, fn: this.getAll},
-            {method: 'GET', url: baseURL + "/orderby/:orderType", fn: this.getAllOrderByCreatedAt},
-            {method: 'POST', url: baseURL, fn: this.create},
-            {method: 'PUT', url: baseURL, fn: this.updateOneByID},
-            {method: 'DELETE', url: baseURL + '/:id', fn: this.deleteOneByID}
+            {method: 'get', url: baseURL + '/:id', fn: this.getOneByID},
+            {method: 'get', url: baseURL, fn: this.getAll},
+            {method: 'get', url: baseURL + "/orderby/:orderType", fn: this.getAllOrderByCreatedAt},
+            {method: 'post', url: baseURL, fn: this.create},
+            {method: 'put', url: baseURL, fn: this.updateOneByID},
+            {method: 'delete', url: baseURL + '/:id', fn: this.deleteOneByID}
         ]
     }
 
-    public static mapCustomEndpoints(): Array<{method: string, url: string, fn: RequestHandlerParams}>{
+    public static mapCustomEndpoints(): Array<Endpoint>{
         return;
     }
 

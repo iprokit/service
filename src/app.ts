@@ -13,20 +13,50 @@ import fs from 'fs';
 //Local Imports
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
-import Controller from './controller';
-import RDSConnection, { InvalidRDSOptions } from './db.rds.connection';
+import Controller, { Endpoint } from './controller';
+import RDSConnection, { InvalidRDSOptions, RDSConnectionInitOptions, RDSConnectionOptions } from './db.rds.connection';
+import RDSModel from './db.rds.model';
+
+//Types: MicroServiceInitOptions
+export type MicroServiceInitOptions = {
+    rds?: RDSConnectionInitOptions,
+    autoInjectControllers?: AutoInjectControllerOptions
+}
+
+//Types: AutoInjectControllerOptions
+export type AutoInjectControllerOptions = {
+    paths?: Array<string>,
+    likeName?: string,
+    excludes?: Array<string>
+};
+
+//Types: MicroServiceOptions
+export type MicroServiceOptions = {
+    id: string,
+    name: string,
+    version: string,
+    port: string | number,
+    environment: string,
+    ip: string,
+    projectPath: string,
+    rds?: RDSConnectionOptions
+}
 
 export default class MicroService {
+    //Init variables.
+    private projectPath = path.dirname(require.main.filename);
+
     //Server variables.
-    private options: any;
+    private options: MicroServiceOptions;
     private app = express();
     private router = express.Router();
 
-    //Class objects.
+    //objects.
     private rds: RDSConnection = new RDSConnection();
+    public readonly controllers = new Array<typeof Controller>();
 
     //Default Constructor
-    public constructor(options?: any) {
+    public constructor(options?: MicroServiceInitOptions) {
         const defaultOptions = options !== undefined ? options : {};
 
         //Load options
@@ -76,9 +106,10 @@ export default class MicroService {
     ///////Load Functions
     /////////////////////////
     private loadDotEnvFile(){
-        const envPath = path.dirname(require.main.filename) + '/.env';
+        const envPath = this.projectPath + '/.env';
+
         if(fs.existsSync(envPath)){
-            dotenv.config({path: envPath});
+            dotenv.config({path: (this.projectPath + '/.env')});
         }
     }
 
@@ -91,7 +122,7 @@ export default class MicroService {
             port: process.env.NODE_PORT,
             environment: process.env.NODE_ENV,
             ip: DockerUtility.getContainerIP(),
-            projectPath: process.cwd()
+            projectPath: this.projectPath
         };
 
         //Loading default options
@@ -130,7 +161,7 @@ export default class MicroService {
     /////////////////////////
     ///////DB Functions
     /////////////////////////
-    private initRDB(rdsOptions: any){
+    private initRDB(rdsOptions: RDSConnectionInitOptions){
         try{
             //Init sequelize
             this.rds.init(this.options.name, this.options.projectPath, rdsOptions);
@@ -165,7 +196,7 @@ export default class MicroService {
     /////////////////////////
     ///////Controller Functions
     /////////////////////////
-    private autoInjectControllers(autoWireOptions: any){
+    private autoInjectControllers(autoWireOptions: AutoInjectControllerOptions){
         const paths = autoWireOptions.paths !== undefined ? autoWireOptions.paths : ['/'];
         const likeName = autoWireOptions.likeName !== undefined ? autoWireOptions.likeName : 'controller.js';
         const excludes = autoWireOptions.excludes !== undefined ? autoWireOptions.excludes : [];
@@ -182,14 +213,17 @@ export default class MicroService {
                 console.log('Adding endpoints from controller: %s', controller.name);
 
                 //Getting all endpoints and merging them
-                const endpoints = new Array<{method: string, url: PathParams, fn: RequestHandlerParams}>();
+                const endpoints = new Array<Endpoint>();
                 Array.prototype.push.apply(endpoints, controller.mapDefaultEndpoints());
                 Array.prototype.push.apply(endpoints, controller.mapCustomEndpoints());
 
                 //Load endpoints
                 endpoints.forEach(endpoint => {
-                    this.createEndpoint(endpoint.method, endpoint.url, endpoint.fn);
+                    this.createEndpoint(endpoint);
                 });
+
+                //Add to Array
+                this.controllers.push(controller);
             });
         });
     }
@@ -249,24 +283,44 @@ export default class MicroService {
 
     private createReportEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
-        const router = this.router;
-        const options = this.options;
+        let _router = this.router;
+        let _options = this.options;
+
+        let _models = this.rds.models;
+        let _controllers = this.controllers;
 
         this.get('/report', (request: Request, response: Response) => {
             try {
-                const routesArray: any = [];
+                const routesArray = new Array<{method: string, url: string}>();
                 const baseURL = request.baseUrl;
 
                 //Getting all registered routes from router.
-                router.stack.forEach((item) => {
+                _router.stack.forEach((item) => {
                     const method = item.route.stack[0].method;
                     const url = baseURL + item.route.path;
                     routesArray.push({method, url});
                 });
 
+                const models = new Array<string>();
+                const controllers = new Array<string>();
+
+                if(_models !== undefined){
+                    _models.forEach(model => {
+                        models.push(model.name)
+                    });
+                }
+
+                if(_controllers !== undefined){
+                    _controllers.forEach(controller => {
+                        controllers.push(controller.name);
+                    });
+                }
+
                 const data = {
-                    service: options,
-                    routes: routesArray
+                    service: _options,
+                    routes: routesArray,
+                    models: models,
+                    controllers: controllers,
                 };
 
                 response.status(httpStatus.OK).send({status: true, data});
@@ -291,19 +345,19 @@ export default class MicroService {
         });
     }
 
-    private createEndpoint(method: string, url: PathParams, fn: RequestHandlerParams){
-        switch(method){
-            case 'GET':
-                this.get(url, fn);
+    private createEndpoint(endpoint: Endpoint){
+        switch(endpoint.method){
+            case 'get':
+                this.get(endpoint.url, endpoint.fn);
                 break;
-            case 'POST':
-                this.post(url, fn);
+            case 'post':
+                this.post(endpoint.url, endpoint.fn);
                 break;
-            case 'PUT':
-                this.put(url, fn);
+            case 'put':
+                this.put(endpoint.url, endpoint.fn);
                 break;
-            case 'DELETE':
-                this.delete(url, fn);
+            case 'delete':
+                this.delete(endpoint.url, endpoint.fn);
                 break;
         }
     }

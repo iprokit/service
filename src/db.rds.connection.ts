@@ -6,16 +6,41 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import RDSModel from './db.rds.model';
 
+//Types: RDSConnectionInitOptions
+export type RDSConnectionInitOptions = {
+    dialect: Dialect,
+    timezone?: string,
+    autoWireModels: AutoWireModelOptions
+};
+
+//Types: AutoWireModelOptions
+export type AutoWireModelOptions = {
+    paths?: Array<string>,
+    likeName?: string,
+    excludes?: Array<string>
+};
+
+//Types: RDSConnectionOptions
+export type RDSConnectionOptions = {
+    name: string,
+    username: string,
+    password: string,
+    host: string,
+    dialect: Dialect,
+    timezone?: string
+}
+
 export default class RDSConnection {
     //Variables
     private serviceName: string;
     private projectPath: string;
-    private autoWireOptions: any;
-    private options: any;
+    private autoWireOptions: AutoWireModelOptions;
+    private options: RDSConnectionOptions;
     private connected: boolean = false;
 
     //Objects
     private sequelize: Sequelize;
+    public readonly models = new Array<typeof RDSModel>();
 
     //Default Constructor
     public constructor() {}
@@ -23,7 +48,7 @@ export default class RDSConnection {
     /////////////////////////
     ///////Load Functions
     /////////////////////////
-    private loadOptions(options: any){
+    private loadOptions(options: RDSConnectionInitOptions){
         //Try loading options from process.env
         this.options = {
             name: process.env.DB_NAME,
@@ -45,7 +70,7 @@ export default class RDSConnection {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(name: string, projectPath: any, options: any){
+    public init(name: string, projectPath: string, options: RDSConnectionInitOptions){
         this.serviceName = name;
         this.projectPath = projectPath;
 
@@ -156,9 +181,6 @@ export default class RDSConnection {
         //Adding files to Exclude.
         excludes.push('/node_modules');
 
-        //Array of RDS models.
-        const rdsModels: Array<typeof RDSModel> = new Array<typeof RDSModel>();
-
         paths.forEach((path: string) => {
             const modelFiles = FileUtility.getFilePaths(this.projectPath + path, likeName, excludes);
             modelFiles.forEach(modelFile => {
@@ -166,13 +188,13 @@ export default class RDSConnection {
                 this.initModel(model);
 
                 //Add to Array
-                rdsModels.push(model);
+                this.models.push(model);
             });
         });
 
         //Associate models
-        rdsModels.forEach(rdsModel => {
-            this.associateModel(rdsModel);
+        this.models.forEach(model => {
+            this.associateModel(model);
         });
     }
 
