@@ -54,14 +54,10 @@ export default class RDSConnection {
             name: process.env.DB_NAME,
             username: process.env.DB_USERNAME,
             password: process.env.DB_PASSWORD,
-            host: process.env.DB_HOST,
+            host: process.env.DB_HOST || DockerUtility.getHostIP(),
             dialect: options.dialect,
-            timezone: options.timezone
+            timezone: options.timezone || '+00:00'
         };
-
-        //Loading default options
-        this.options.host = this.options.host !== undefined ? this.options.host: DockerUtility.getHostIP();
-        this.options.timezone = this.options.timezone !== undefined ? this.options.timezone: '+00:00';
 
         //Auto Wire Options
         this.autoWireOptions = options.autoWireModels;
@@ -178,9 +174,9 @@ export default class RDSConnection {
     ///////Model Functions
     /////////////////////////
     private autoWireModels(){
-        const paths = this.autoWireOptions.paths !== undefined ? this.autoWireOptions.paths : ['/'];
-        const likeName = this.autoWireOptions.likeName !== undefined ? this.autoWireOptions.likeName : 'model.js';
-        const excludes = this.autoWireOptions.excludes !== undefined ? this.autoWireOptions.excludes : [];
+        const paths = this.autoWireOptions.paths || ['/'];
+        const likeName = this.autoWireOptions.likeName || 'model.js';
+        const excludes = this.autoWireOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');

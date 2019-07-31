@@ -56,7 +56,7 @@ export default class MicroService {
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
-        const defaultOptions = options !== undefined ? options : {};
+        const defaultOptions = options || {};
 
         //Load options
         this.loadDotEnvFile();
@@ -112,10 +112,10 @@ export default class MicroService {
     ///////Load Functions
     /////////////////////////
     private loadDotEnvFile(){
-        const envPath = this.projectPath + '/.env';
+        const envPath = path.join(this.projectPath, '.env');
 
         if(fs.existsSync(envPath)){
-            dotenv.config({path: (this.projectPath + '/.env')});
+            dotenv.config({path: envPath});
         }
     }
 
@@ -123,19 +123,13 @@ export default class MicroService {
         //Try loading options from package.json and process.env
         this.options = {
             id: uuid(),
-            name: process.env.npm_package_name,
-            version: process.env.npm_package_version,
-            port: process.env.NODE_PORT,
-            environment: process.env.NODE_ENV,
+            name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
+            version: process.env.npm_package_version || '1.0.0',
+            port: process.env.NODE_PORT || 3000,
+            environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP(),
             projectPath: this.projectPath
         };
-
-        //Loading default options
-        this.options.name = this.options.name !== undefined ? this.options.name: this.constructor.name.replace('App', '');
-        this.options.version = this.options.version !== undefined ? this.options.version: '1.0.0';
-        this.options.port = this.options.port !== undefined ? this.options.port: 3000;
-        this.options.environment = this.options.environment !== undefined ? this.options.environment: 'production';
     }
 
     /////////////////////////
@@ -203,9 +197,9 @@ export default class MicroService {
     ///////Controller Functions
     /////////////////////////
     private autoInjectControllers(autoWireOptions: AutoInjectControllerOptions){
-        const paths = autoWireOptions.paths !== undefined ? autoWireOptions.paths : ['/'];
-        const likeName = autoWireOptions.likeName !== undefined ? autoWireOptions.likeName : 'controller.js';
-        const excludes = autoWireOptions.excludes !== undefined ? autoWireOptions.excludes : [];
+        const paths = autoWireOptions.paths || ['/'];
+        const likeName = autoWireOptions.likeName || 'controller.js';
+        const excludes = autoWireOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');
@@ -226,8 +220,12 @@ export default class MicroService {
                 //Load endpoints
                 endpoints.forEach(endpoint => {
                     //Adding base URL before creating endpoint.
-                    endpoint.url = controller.baseURL().toString() + endpoint.url.toString();
-                    this.createEndpoint(endpoint);
+                    try{
+                        endpoint.url = controller.baseURL().toString() + endpoint.url.toString();
+                        this.createEndpoint(endpoint);
+                    }catch(error){
+                        console.error('Could not map endpoint: %o in %s', endpoint, controller.name);
+                    }
                 });
 
                 //Add to Array
