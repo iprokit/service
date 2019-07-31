@@ -53,7 +53,7 @@ export default class MicroService {
 
     //objects.
     private rds: RDSConnection = new RDSConnection();
-    public readonly controllers = new Array<typeof Controller>();
+    private controllers = new Array<typeof Controller>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -101,6 +101,13 @@ export default class MicroService {
     public init(){}
 
     public injectEndpoints(){}
+
+    /////////////////////////
+    ///////Get/Sets Functions
+    /////////////////////////
+    public getControllers(){
+        return this.controllers;
+    }
 
     /////////////////////////
     ///////Load Functions
@@ -286,8 +293,8 @@ export default class MicroService {
         let _router = this.router;
         let _options = this.options;
 
-        let _models = this.rds.models;
-        let _controllers = this.controllers;
+        let _models = this.rds.getModels();
+        let _controllers = this.getControllers();
 
         this.get('/report', (request: Request, response: Response) => {
             try {

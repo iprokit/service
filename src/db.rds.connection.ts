@@ -40,7 +40,7 @@ export default class RDSConnection {
 
     //Objects
     private sequelize: Sequelize;
-    public readonly models = new Array<typeof RDSModel>();
+    private models = new Array<typeof RDSModel>();
 
     //Default Constructor
     public constructor() {}
@@ -116,6 +116,10 @@ export default class RDSConnection {
     /////////////////////////
     public getOptions(){
         return this.options;
+    }
+
+    public getModels(){
+        return this.models;
     }
 
     /////////////////////////
