@@ -73,7 +73,7 @@ export default class MicroService {
             this.initRDB(defaultOptions.rds);
 
             //Create RDS Endpoints
-            this.createRDBEndpoints();
+            this.createRDSEndpoints();
         }
 
         //Create Endpoints
@@ -330,7 +330,7 @@ export default class MicroService {
         });
     }
 
-    private createRDBEndpoints(){
+    private createRDSEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
         const rds = this.rds;
 
