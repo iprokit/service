@@ -17,7 +17,21 @@ global.projectPath = path.dirname(require.main.filename);
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import DBManager, {DBInitOptions, InvalidConnectionOptions, InvalidDBInitOptions} from './db.manager';
+import DBManager, {DBInitOptions, InvalidConnectionOptions} from './db.manager';
+
+declare global {
+    namespace NodeJS {
+        interface Global {
+            service: {
+                id: string,
+                name: string,
+                version: string,
+                environment: string
+            }
+            projectPath: string
+        }
+    }
+}
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
@@ -49,20 +63,6 @@ export type Endpoint = {
     fn: RequestHandlerParams
 }
 
-declare global {
-    namespace NodeJS {
-        interface Global {
-            service: {
-                id: string,
-                name: string,
-                version: string,
-                environment: string
-            }
-            projectPath: string
-        }
-    }
-}
-
 export default class MicroService {
     //Server variables
     private app = express();
@@ -86,11 +86,14 @@ export default class MicroService {
 
         //Load express and router
         this.initExpressServer();
+        
+        //Load objects
+        this.dbManager = new DBManager();
+        this.controllers = new Array<typeof Controller>();
 
         this.init();//Load any user functions
 
         //Load DB
-        this.dbManager = new DBManager();
         if(options.db !== undefined){
             this.initDB(options.db);
         }
@@ -100,20 +103,10 @@ export default class MicroService {
         this.createReportEndpoints();
 
         //Inject Controllers
-        this.controllers = new Array<typeof Controller>();
         if(options.autoInjectControllers !== undefined){
             this.autoInjectControllers(options.autoInjectControllers);
         }
         this.injectEndpoints();//Load any user controllers
-
-        //Connect to DB.
-        this.dbManager.connect()
-            .then((connection) => {
-                console.log(connection);
-            })
-            .catch((error) => {
-                console.error(error);
-            })
 
         //Start the server
         this.startService();
@@ -202,8 +195,6 @@ export default class MicroService {
         }catch(error){
             if(error instanceof InvalidConnectionOptions){
                 console.log(error.message);
-            }else if(error instanceof InvalidDBInitOptions){
-                console.log(error.message);
             }else{
                 console.error(error);
             }
@@ -256,11 +247,36 @@ export default class MicroService {
     ///////Service Functions
     /////////////////////////
     private startService() {
+        //Connect to DB.
+        this.dbManager.connect()
+            .then((connection) => {
+                if(connection){
+                    console.log('Connected to DB...');
+                }
+            })
+            .catch((error) => {
+                if(error instanceof InvalidConnectionOptions){
+                    console.log(error.message);
+                }else{
+                    console.error(error);
+                }
+                console.log('Will continue...');
+            }).finally(() => {
+                //Starting server here.
+                this.startListening();
+            });
+    }
+
+    private startListening(){
         //Start server
         const server = this.app.listen(this.options.port, () => {
-            console.log('Environment: %s', this.options.environment);
+            const options = {
+                id: this.options.id,
+                version: this.options.version,
+                environment: this.options.environment
+            }
+            console.log('%s : %o', this.options.name, options);
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
-            console.log('%s : %o', this.options.name, {id: this.options.id, version: this.options.version});
 
             //Adding process listeners to stop server gracefully.
             process.on('SIGTERM', () => {
@@ -317,7 +333,6 @@ export default class MicroService {
                     routesArray.push({method, url});
                 });
 
-                const models = new Array<{name: string, tableName: string}>();
                 const controllers = new Array<string>();
 
                 if(_controllers !== undefined){
@@ -329,7 +344,6 @@ export default class MicroService {
                 const data = {
                     service: _options,
                     routes: routesArray,
-                    models: models,
                     controllers: controllers,
                 };
 
