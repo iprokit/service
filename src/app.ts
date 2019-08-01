@@ -17,11 +17,11 @@ global.projectPath = path.dirname(require.main.filename);
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import RDSConnection, { InvalidRDSOptions, RDSConnectionInitOptions, RDSConnectionOptions } from './db.rds.connection';
+import DBManager, {DBInitOptions, InvalidConnectionOptions, InvalidDBInitOptions} from './db.manager';
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
-    rds?: RDSConnectionInitOptions,
+    db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions
 }
 
@@ -39,8 +39,7 @@ export type MicroServiceOptions = {
     version: string,
     port: string | number,
     environment: string,
-    ip: string,
-    rds?: RDSConnectionOptions
+    ip: string
 }
 
 //Types: Endpoint
@@ -65,18 +64,20 @@ declare global {
 }
 
 export default class MicroService {
-    //Server variables.
-    private options: MicroServiceOptions;
+    //Server variables
     private app = express();
     private router = express.Router();
 
-    //objects.
-    private rds: RDSConnection = new RDSConnection();
-    private controllers = new Array<typeof Controller>();
+    //Types
+    private options: MicroServiceOptions;
+
+    //Objects
+    private dbManager: DBManager;
+    private controllers: Array<typeof Controller>;
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
-        const defaultOptions = options || {};
+        options = options || {};
 
         //Load options
         this.loadDotEnvFile();
@@ -88,12 +89,10 @@ export default class MicroService {
 
         this.init();//Load any user functions
 
-        //Load RDS
-        if(defaultOptions.rds !== undefined){
-            this.initRDB(defaultOptions.rds);
-
-            //Create RDS Endpoints
-            this.createRDSEndpoints();
+        //Load DB
+        this.dbManager = new DBManager();
+        if(options.db !== undefined){
+            this.initDB(options.db);
         }
 
         //Create Endpoints
@@ -101,15 +100,20 @@ export default class MicroService {
         this.createReportEndpoints();
 
         //Inject Controllers
-        if(defaultOptions.autoInjectControllers !== undefined){
-            this.autoInjectControllers(defaultOptions.autoInjectControllers);
+        this.controllers = new Array<typeof Controller>();
+        if(options.autoInjectControllers !== undefined){
+            this.autoInjectControllers(options.autoInjectControllers);
         }
         this.injectEndpoints();//Load any user controllers
 
-        //Connect to DB's
-        if(this.options.rds !== undefined){
-            this.connectToRDS();//TODO: Bug here. Handle Promise
-        }
+        //Connect to DB.
+        this.dbManager.connect()
+            .then((connection) => {
+                console.log(connection);
+            })
+            .catch((error) => {
+                console.error(error);
+            })
 
         //Start the server
         this.startService();
@@ -191,36 +195,20 @@ export default class MicroService {
     /////////////////////////
     ///////DB Functions
     /////////////////////////
-    private initRDB(rdsOptions: RDSConnectionInitOptions){
+    private initDB(dbOptions: DBInitOptions){
         try{
             //Init sequelize
-            this.rds.init(rdsOptions);
-
-            //Get db options and load to service options.
-            this.options.rds = this.rds.getOptions();
+            this.dbManager.init(dbOptions);
         }catch(error){
-            if(error instanceof InvalidRDSOptions){
+            if(error instanceof InvalidConnectionOptions){
+                console.log(error.message);
+            }else if(error instanceof InvalidDBInitOptions){
                 console.log(error.message);
             }else{
                 console.error(error);
             }
             console.log('Will continue...');
         }
-    }
-
-    private connectToRDS(){
-        return this.rds.connect()
-            .then((dbOptions: any) => {
-                console.log('Connected to %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
-            })
-            .catch((error: any) => {
-                if(error instanceof InvalidRDSOptions){
-                    console.log(error.message);
-                }else{
-                    console.error(error);
-                }
-                console.log('Will continue...');
-            });
     }
 
     /////////////////////////
@@ -288,17 +276,10 @@ export default class MicroService {
     }
 
     private stopService(server: Server){
+        //Disconnection from DB.
+        this.dbManager.disconnect();
+
         server.close(() => {
-            if(this.rds.isConnected()){
-                this.rds.disconnect()
-                    .then((dbOptions: any) => {
-                        console.log('Disconnected from %s://%s/%s', dbOptions.dialect, dbOptions.host, dbOptions.name);
-                    })
-                    .catch((error: any) => {
-                        console.error(error);
-                        console.log('Will continue...');
-                    });
-            }
             console.log('%s micro service shutdown complete.', this.options.name);
             process.exit(0);
         });
@@ -322,7 +303,6 @@ export default class MicroService {
         let _router = this.router;
         let _options = this.options;
 
-        let _models = this.rds.getModels();
         let _controllers = this.getControllers();
 
         this.get('/report', (request: Request, response: Response) => {
@@ -339,12 +319,6 @@ export default class MicroService {
 
                 const models = new Array<{name: string, tableName: string}>();
                 const controllers = new Array<string>();
-
-                if(_models !== undefined){
-                    _models.forEach(model => {
-                        models.push({name: model._modelName(), tableName: model._tableName()});
-                    });
-                }
 
                 if(_controllers !== undefined){
                     _controllers.forEach(controller => {
@@ -363,21 +337,6 @@ export default class MicroService {
             } catch (error) {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
-        });
-    }
-
-    private createRDSEndpoints(){
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const rds = this.rds;
-
-        this.post('/database/sync', (request: Request, response: Response) => {
-            rds.sync(request.body.force)
-                .then(() => {
-                    response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
-                })
-                .catch((error: any) => {
-                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                });
         });
     }
 

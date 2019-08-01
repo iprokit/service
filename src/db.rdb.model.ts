@@ -3,7 +3,7 @@ import {Model, ModelAttributes, DataTypes, Op as Operation} from 'sequelize';
 
 export const Op: typeof Operation = Operation;
 
-export default class RDSModel extends Model {
+export default class RDBModel extends Model {
     public static _modelName(): string{
         return this.name.replace('Model', '');
     }

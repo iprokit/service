@@ -5,7 +5,7 @@ import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 
 //Local Import
 import { Endpoint } from './app';
-import RDSModel from './db.rds.model';
+import RDBModel from './db.rdb.model';
 
 export default class Controller {
     readonly name = this.constructor.name;
@@ -38,7 +38,7 @@ export default class Controller {
     /////////////////////////
     ///////Default Endpoints
     /////////////////////////
-    public static getOneByID(model: typeof RDSModel, request: Request, response: Response) {
+    public static getOneByID(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.getOneByID(request.params.id)
                 .then((data: any) => {
@@ -52,7 +52,7 @@ export default class Controller {
         }
     };
 
-    public static getAll(model: typeof RDSModel, request: Request, response: Response) {
+    public static getAll(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.getAll()
                 .then((data: any) => {
@@ -66,7 +66,7 @@ export default class Controller {
         }
     };
 
-    public static getAllOrderByCreatedAt(model: typeof RDSModel, request: Request, response: Response) {
+    public static getAllOrderByCreatedAt(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.getAllOrderByCreatedAt(request.params.orderType)
                 .then((data: any) => {
@@ -80,7 +80,7 @@ export default class Controller {
         }
     };
 
-    public static create(model: typeof RDSModel, request: Request, response: Response) {
+    public static create(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.create(request.body)
                 .then(() => {
@@ -94,7 +94,7 @@ export default class Controller {
         }
     };
 
-    public static updateOneByID(model: typeof RDSModel, request: Request, response: Response) {
+    public static updateOneByID(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.updateOneByID(request.body.id, request.body)
                 .then(() => {
@@ -108,7 +108,7 @@ export default class Controller {
         }
     };
 
-    public static deleteOneByID(model: typeof RDSModel, request: Request, response: Response) {
+    public static deleteOneByID(model: typeof RDBModel, request: Request, response: Response) {
         try {
             model.deleteOneByID(request.params.id)
                 .then(() => {

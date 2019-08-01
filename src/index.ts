@@ -2,10 +2,10 @@
 import MicroService from './app';
 
 //Exports
-export { default as Controller } from './controller';
-export { default as RDSModel, Op } from './db.rds.model';
 export { default as FileUtility } from './file.utility';
 export { default as DockerUtility } from './docker.utility';
+export { default as Controller } from './controller';
+export { default as RDBModel, Op } from './db.rdb.model';
 
 //Default Export
 export default MicroService;
