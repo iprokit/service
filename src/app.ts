@@ -73,23 +73,28 @@ export default class MicroService {
 
     //Objects
     private dbManager: DBManager;
-    private controllers: Array<typeof Controller>;
+    public readonly controllers: Array<typeof Controller>;
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
+        //Load options from constructor
         options = options || {};
 
         //Load options
         this.loadDotEnvFile();
         this.loadServiceOptions();
         this.loadGlobalOptions();
-
-        //Load express and router
-        this.initExpressServer();
         
         //Load objects
         this.dbManager = new DBManager();
         this.controllers = new Array<typeof Controller>();
+
+        //Load express and router
+        this.initExpressServer();
+
+        //Create Endpoints
+        this.createHealthEndpoints();
+        this.createReportEndpoints();
 
         this.init();//Load any user functions
 
@@ -97,10 +102,6 @@ export default class MicroService {
         if(options.db !== undefined){
             this.initDB(options.db);
         }
-
-        //Create Endpoints
-        this.createHealthEndpoints();
-        this.createReportEndpoints();
 
         //Inject Controllers
         if(options.autoInjectControllers !== undefined){
@@ -118,13 +119,6 @@ export default class MicroService {
     public init(){}
 
     public injectEndpoints(){}
-
-    /////////////////////////
-    ///////Get/Sets Functions
-    /////////////////////////
-    public getControllers(){
-        return this.controllers;
-    }
 
     /////////////////////////
     ///////Load Functions
@@ -185,13 +179,13 @@ export default class MicroService {
         });
     }
 
-    /////////////////////////
-    ///////DB Functions
-    /////////////////////////
     private initDB(dbOptions: DBInitOptions){
         try{
             //Init sequelize
             this.dbManager.init(dbOptions);
+            this.dbManager.endpoints.forEach((endpoint) => {
+                this.createEndpoint(endpoint);
+            });
         }catch(error){
             if(error instanceof InvalidConnectionOptions){
                 console.log(error.message);
@@ -247,12 +241,11 @@ export default class MicroService {
     ///////Service Functions
     /////////////////////////
     private startService() {
+        console.log('Starting micro service...');
         //Connect to DB.
         this.dbManager.connect()
-            .then((connection) => {
-                if(connection){
-                    console.log('Connected to DB...');
-                }
+            .then((dbOptions: any) => {
+                console.log('Connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
             })
             .catch((error) => {
                 if(error instanceof InvalidConnectionOptions){
@@ -293,7 +286,14 @@ export default class MicroService {
 
     private stopService(server: Server){
         //Disconnection from DB.
-        this.dbManager.disconnect();
+        this.dbManager.disconnect()
+            .then((dbOptions: any) => {
+                console.log('Disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
+            })
+            .catch((error: any) => {
+                console.error(error);
+                console.log('Will continue...');
+            });
 
         server.close(() => {
             console.log('%s micro service shutdown complete.', this.options.name);
@@ -319,7 +319,7 @@ export default class MicroService {
         let _router = this.router;
         let _options = this.options;
 
-        let _controllers = this.getControllers();
+        let _controllers = this.controllers;
 
         this.get('/report', (request: Request, response: Response) => {
             try {

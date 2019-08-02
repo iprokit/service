@@ -1,10 +1,13 @@
 //Import modules
 import { Sequelize, Dialect, AccessDeniedError, ConnectionRefusedError, DataTypes, HostNotFoundError, ConnectionError } from 'sequelize';
+import httpStatus from 'http-status-codes';
+import { Request, Response } from 'express';
 
 //Local Imports
+import { Endpoint } from './app';
+import RDBModel from './db.rdb.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
-import RDBModel from './db.rdb.model';
 
 //SQL Types.
 const MYSQL = 'mysql'
@@ -45,7 +48,8 @@ export default class DBManager{
     private db: Sequelize;
 
     //Models
-    private models = new Array<typeof RDBModel>();
+    public readonly models = new Array<typeof RDBModel>();
+    public readonly endpoints = new Array<Endpoint>();
     
     //Default Constructor
     public constructor(){
@@ -65,8 +69,82 @@ export default class DBManager{
             host: process.env.DB_HOST || DockerUtility.getHostIP()
         };
     }
-    
-    private loadModels(autoWireModels: AutoWireOptions){
+
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
+    public init(initOptions: DBInitOptions){
+        //Load init options.
+        this.initOptions = initOptions;
+        this.initOptions.timezone = this.initOptions.timezone || '+00:00';
+        this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
+
+        //Try loading a db based on type.
+        if(this.initOptions.type === MYSQL){
+            this.loadRDBConnection(this.initOptions.type);
+            this.autoWireRDBModels(this.initOptions.autoWireModels);
+
+            //Adding custom endpoints.
+            this.endpoints.push({method: 'get', url: '/db/report', fn: getRDBOptions});
+            this.endpoints.push({method: 'post', url: '/db/sync', fn: syncRDB});
+
+            //Sudo objects to pass into promise. As this keyword is not available.
+            const dbOptions = {
+                name: this.connectionOptions.name,
+                host: this.connectionOptions.host,
+                type: this.initOptions.type,
+                timezone: this.initOptions.timezone
+            }
+            const db = this.db;
+            const models = this.models;
+
+            //Endpoint functions.
+            //TODO: move this to a controller.
+            function getRDBOptions(request: Request, response: Response) {
+                const _models = new Array<{[modelName: string]: string}>();
+
+                models.forEach((model) => {
+                    _models.push({[model.name]: model.getTableName().toString()});
+                });
+                response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: _models });
+            };
+
+            function syncRDB(request: Request, response: Response) {
+                db.sync({force: request.body.force})
+                    .then(() => {
+                        response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
+                    }).catch((error: any) => {
+                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                    });
+            };
+        }else if(this.initOptions.type === MONGO){
+            this.loadNoSQLConnection(this.initOptions.type);
+        }else {
+            throw new InvalidConnectionOptions('Invalid Database type provided.')
+        }
+    }
+
+    /////////////////////////
+    ///////RDB Functions
+    /////////////////////////
+    private loadRDBConnection(dialect: SQL){
+        if(this.connectionOptions.name !== undefined){
+            try{
+                //Load Sequelize
+                this.db = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
+                    host: this.connectionOptions.host,
+                    dialect: dialect,
+                    timezone: this.initOptions.timezone
+                });
+            }catch(error){
+                throw error; //Pass other errors.
+            }
+        }else{
+            throw new InvalidConnectionOptions('Invalid Database Name provided in .env.');
+        }
+    }
+
+    private autoWireRDBModels(autoWireModels: AutoWireOptions){
         const paths = autoWireModels.paths || ['/'];
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
@@ -79,71 +157,20 @@ export default class DBManager{
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
-                //TODO: Move init here for faster loops.
+                this.setupRDBModel(model);
 
                 //Add to Array
                 this.models.push(model);
             });
         });
+
+        //Associate models
+        this.models.forEach(model => {
+            this.associateRDBModel(model);
+        });
     }
 
-    /////////////////////////
-    ///////init Functions
-    /////////////////////////
-    public init(initOptions: DBInitOptions){
-        //Load init options.
-        this.initOptions = initOptions;
-        this.initOptions.timezone = this.initOptions.timezone || '+00:00';
-        this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
-
-        //Load Models
-        this.loadModels(this.initOptions.autoWireModels);
-
-        //Try loading a db based on type.
-        if(this.initOptions.type === MYSQL){
-            this.loadRDBConnection(this.initOptions.type);
-        }else if(this.initOptions.type === MONGO){
-            this.loadNoSQLConnection(this.initOptions.type);
-        }else {
-            throw new InvalidConnectionOptions('Invalid Database type provided.')
-        }
-    }
-
-    /////////////////////////
-    ///////RDB Fucntions
-    /////////////////////////
-    private loadRDBConnection(dialect: SQL){
-        if(this.connectionOptions.name !== undefined){
-            try{
-                //Load Sequelize
-                this.db = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
-                    host: this.connectionOptions.host,
-                    dialect: dialect,
-                    timezone: this.initOptions.timezone
-                });
-
-                //Initializing the model.
-                this.models.forEach(model => {
-                    try{
-                        this.initRDBModel(model);
-                    }catch(error){
-                        console.error('Could not auto wire model: %s', model.name);
-                    }
-                });
-
-                //Associate models
-                this.models.forEach(model => {
-                    this.associateRDBModel(model);
-                });
-            }catch(error){
-                throw error; //Pass other errors.
-            }
-        }else{
-            throw new InvalidConnectionOptions('Invalid Database Name provided in .env.');
-        }
-    }
-
-    private initRDBModel(model: typeof RDBModel){
+    private setupRDBModel(model: typeof RDBModel){
         //Init the model object and push to array of rdbModels.
         const fields = model.fields(DataTypes);
         const sequelize = this.db;
@@ -168,7 +195,7 @@ export default class DBManager{
     }
 
     /////////////////////////
-    ///////NoSQL Fucntions
+    ///////NoSQL Functions
     /////////////////////////
     private loadNoSQLConnection(type: NoSQL){
         console.log('Mongo to be implemented.');
@@ -182,8 +209,7 @@ export default class DBManager{
             if(this.db !== undefined){
                 this.db.authenticate()
                     .then(() => {
-                        //TODO: Add return options.
-                        resolve(true);
+                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
                         if(error instanceof AccessDeniedError){
                             reject(new InvalidConnectionOptions('Access denied to the database.'));
@@ -207,26 +233,14 @@ export default class DBManager{
         return new Promise((resolve, reject) => {
             if(this.db !== undefined){
                 this.db.close()
-                    //TODO: Add return options.
                     .then(() => {
-                        resolve(true);
+                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
             }else{
                 resolve(null);
             }
-        });
-    }
-
-    private sync(force: boolean) {
-        return new Promise((resolve, reject) => {
-            this.db.sync({force})
-                .then(() => {
-                    resolve();
-                }).catch((error) => {
-                    reject(error);//Pass other errors.
-                });
         });
     }
 }
@@ -245,18 +259,3 @@ export class InvalidConnectionOptions extends Error{
         Error.captureStackTrace(this, this.constructor);
       }
 }
-
-// private createRDSEndpoints(){
-//     //Sudo objects to pass into promise. As this keyword is not available.
-//     const rds = this.rds;
-
-//     this.post('/database/sync', (request: Request, response: Response) => {
-//         rds.sync(request.body.force)
-//             .then(() => {
-//                 response.status(httpStatus.OK).send({status: true, message: 'Database & tables synced!'});
-//             })
-//             .catch((error: any) => {
-//                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-//             });
-//     });
-// }
