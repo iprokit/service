@@ -1,5 +1,5 @@
 //Import modules
-import { Sequelize, Dialect, AccessDeniedError, ConnectionRefusedError, DataTypes, HostNotFoundError, ConnectionError } from 'sequelize';
+import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
