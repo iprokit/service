@@ -93,8 +93,7 @@ export default class MicroService {
         this.initExpressServer();
 
         //Create Endpoints
-        this.createHealthEndpoints();
-        this.createReportEndpoints();
+        this.mapServiceEndpoints();
 
         this.init();//Load any user functions
 
@@ -304,30 +303,28 @@ export default class MicroService {
     /////////////////////////
     ///////Endpoints Functions
     /////////////////////////
-    private createHealthEndpoints() {
-        this.get('/health', (request: Request, response: Response) => {
-            try {
-                response.status(httpStatus.OK).send({status: true});
-            } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-            }
-        });
-    }
+    private mapServiceEndpoints(){
+        //Adding endpoints.
+        this.createEndpoint({method: 'get', url: '/health', fn: getHealth});
+        this.createEndpoint({method: 'get', url: '/report', fn: getReport});
 
-    private createReportEndpoints(){
         //Sudo objects to pass into promise. As this keyword is not available.
-        let _router = this.router;
-        let _options = this.options;
+        const _router = this.router;
+        const _options = this.options;
+        const _controllers = this.controllers;
 
-        let _controllers = this.controllers;
+        //Endpoint functions.
+        function getHealth(request: Request, response: Response) {
+            response.status(httpStatus.OK).send({status: true});
+        }
 
-        this.get('/report', (request: Request, response: Response) => {
+        function getReport(request: Request, response: Response){
             try {
                 const routesArray = new Array<{method: string, url: string}>();
                 const baseURL = request.baseUrl;
 
                 //Getting all registered routes from router.
-                _router.stack.forEach((item) => {
+                _router.stack.forEach((item: any) => {
                     const method = item.route.stack[0].method;
                     const url = baseURL + item.route.path;
                     routesArray.push({method, url});
@@ -336,7 +333,7 @@ export default class MicroService {
                 const controllers = new Array<string>();
 
                 if(_controllers !== undefined){
-                    _controllers.forEach(controller => {
+                    _controllers.forEach((controller: Controller) => {
                         controllers.push(controller.name);
                     });
                 }
@@ -351,7 +348,7 @@ export default class MicroService {
             } catch (error) {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
-        });
+        }
     }
 
     private createEndpoint(endpoint: Endpoint){

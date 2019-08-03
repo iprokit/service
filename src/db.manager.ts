@@ -81,42 +81,14 @@ export default class DBManager{
 
         //Try loading a db based on type.
         if(this.initOptions.type === MYSQL){
+            //Load Connection
             this.loadRDBConnection(this.initOptions.type);
+
+            //Load models
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
-            //Adding custom endpoints.
-            this.endpoints.push({method: 'get', url: '/db/report', fn: getRDBOptions});
-            this.endpoints.push({method: 'post', url: '/db/sync', fn: syncRDB});
-
-            //Sudo objects to pass into promise. As this keyword is not available.
-            const dbOptions = {
-                name: this.connectionOptions.name,
-                host: this.connectionOptions.host,
-                type: this.initOptions.type,
-                timezone: this.initOptions.timezone
-            }
-            const db = this.db;
-            const models = this.models;
-
-            //Endpoint functions.
-            //TODO: move this to a controller.
-            function getRDBOptions(request: Request, response: Response) {
-                const _models = new Array<{[modelName: string]: string}>();
-
-                models.forEach((model) => {
-                    _models.push({[model.name]: model.getTableName().toString()});
-                });
-                response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: _models });
-            };
-
-            function syncRDB(request: Request, response: Response) {
-                db.sync({force: request.body.force})
-                    .then(() => {
-                        response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
-                    }).catch((error: any) => {
-                        response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                    });
-            };
+            //Map endpoints
+            this.mapRDBEndpoints();
         }else if(this.initOptions.type === MONGO){
             this.loadNoSQLConnection(this.initOptions.type);
         }else {
@@ -166,7 +138,11 @@ export default class DBManager{
 
         //Associate models
         this.models.forEach(model => {
-            this.associateRDBModel(model);
+            //Logging the model before
+            console.log('Associating model: %s', model.name);
+    
+            //Associating model
+            model.associate();
         });
     }
 
@@ -186,12 +162,39 @@ export default class DBManager{
         model.validations();
     }
 
-    private associateRDBModel(model: typeof RDBModel){
-        //Logging the model before
-        console.log('Associating model: %s', model.name);
+    private mapRDBEndpoints(){
+        //Adding endpoints.
+        this.endpoints.push({method: 'get', url: '/db/report', fn: getRDBOptions});
+        this.endpoints.push({method: 'post', url: '/db/sync', fn: syncRDB});
 
-        //Associating model
-        model.associate();
+        //Sudo objects to pass into promise. As this keyword is not available.
+        const dbOptions = {
+            name: this.connectionOptions.name,
+            host: this.connectionOptions.host,
+            type: this.initOptions.type,
+            timezone: this.initOptions.timezone
+        }
+        const db = this.db;
+        const models = this.models;
+
+        //Endpoint functions.
+        function getRDBOptions(request: Request, response: Response) {
+            const _models = new Array<{[modelName: string]: string}>();
+
+            models.forEach((model) => {
+                _models.push({[model.name]: model.getTableName().toString()});
+            });
+            response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: _models });
+        };
+
+        function syncRDB(request: Request, response: Response) {
+            db.sync({force: request.body.force})
+                .then(() => {
+                    response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
+                }).catch((error: any) => {
+                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                });
+        };
     }
 
     /////////////////////////
