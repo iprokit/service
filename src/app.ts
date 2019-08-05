@@ -292,12 +292,13 @@ export default class MicroService {
             .catch((error: any) => {
                 console.error(error);
                 console.log('Will continue...');
+            }).finally(() => {
+                //Stop Server
+                server.close(() => {
+                    console.log('%s micro service shutdown complete.', this.options.name);
+                    process.exit(0);
+                });
             });
-
-        server.close(() => {
-            console.log('%s micro service shutdown complete.', this.options.name);
-            process.exit(0);
-        });
     }
 
     /////////////////////////
