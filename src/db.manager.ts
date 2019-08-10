@@ -151,7 +151,7 @@ export default class DBManager{
         const fields = model.fields(DataTypes);
         const sequelize = this.db;
         const modelName = model._modelName();
-        const tableName = (global.service.name + '_' + model._tableName()).toLowerCase();
+        const tableName = model._tableName();
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);

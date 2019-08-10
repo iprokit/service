@@ -8,9 +8,9 @@ export default class RDBModel extends Model {
         return this.name.replace('Model', '');
     }
 
-    public static _tableName(): string{
+    public static _tableName(): string {
         //TODO: For every captital letter add _ before. Ex: EndUser = end_user
-        return this.name.replace('Model', '');
+        return this.name.replace('Model', '').toLowerCase();
     }
 
     public static fields(dataTypes: typeof DataTypes): ModelAttributes {
