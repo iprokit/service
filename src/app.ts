@@ -65,8 +65,8 @@ export type Endpoint = {
 
 export default class MicroService {
     //Server variables
-    private app = express();
-    private router = express.Router();
+    private expressApp = express();
+    private expressRouter = express.Router();
 
     //Types
     private options: MicroServiceOptions;
@@ -157,20 +157,20 @@ export default class MicroService {
     /////////////////////////
     private initExpressServer() {
         //Setup Express
-        this.app.use(cors());
-        this.app.use(express.json());
-        this.app.use(express.urlencoded({extended: false}));
+        this.expressApp.use(cors());
+        this.expressApp.use(express.json());
+        this.expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
-        this.app.use(this.router);
+        this.expressApp.use(this.expressRouter);
 
         // Error handler for 404
-        this.app.use((request: Request, response: Response, next: NextFunction) => {
+        this.expressApp.use((request: Request, response: Response, next: NextFunction) => {
             next(createError(404));
         });
 
         // Default error handler
-        this.app.use((error: any, request: Request, response: Response, next: NextFunction) => {
+        this.expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
@@ -260,7 +260,7 @@ export default class MicroService {
 
     private startListening(){
         //Start server
-        const server = this.app.listen(this.options.port, () => {
+        const server = this.expressApp.listen(this.options.port, () => {
             const options = {
                 id: this.options.id,
                 version: this.options.version,
@@ -309,7 +309,7 @@ export default class MicroService {
         this.createEndpoint({method: 'get', url: '/report', fn: getReport});
 
         //Sudo objects to pass into promise. As this keyword is not available.
-        const _router = this.router;
+        const _router = this.expressRouter;
         const _options = this.options;
         const _controllers = this.controllers;
 
@@ -372,18 +372,18 @@ export default class MicroService {
     ///////Router Functions
     /////////////////////////
     public get(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.get(path, ...handlers);
+        this.expressRouter.get(path, ...handlers);
     }
 
     public post(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.post(path, ...handlers);
+        this.expressRouter.post(path, ...handlers);
     }
 
     public put(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.put(path, ...handlers);
+        this.expressRouter.put(path, ...handlers);
     }
 
     public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.router.delete(path, ...handlers);
+        this.expressRouter.delete(path, ...handlers);
     }
 }
