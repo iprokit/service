@@ -227,7 +227,7 @@ export default class DBManager{
                         }
                     });
             }else{
-                resolve(null);
+                resolve();
             }
         });
     }
@@ -242,7 +242,7 @@ export default class DBManager{
                         reject(error);//Pass other errors.
                     });
             }else{
-                resolve(null);
+                resolve();
             }
         });
     }

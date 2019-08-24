@@ -243,10 +243,8 @@ export default class MicroService {
         //Connect to DB.
         this.dbManager.connect()
             .then((dbOptions: any) => {
-                if(dbOptions !== null){
+                if(dbOptions !== undefined){
                     console.log('Connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
-                }else{
-                    console.log('No Database connected.');
                 }
             })
             .catch((error) => {
@@ -290,7 +288,7 @@ export default class MicroService {
         //Disconnection from DB.
         this.dbManager.disconnect()
             .then((dbOptions: any) => {
-                if(dbOptions !== null){
+                if(dbOptions !== undefined){
                     console.log('Disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
