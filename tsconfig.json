@@ -8,6 +8,7 @@
     "sourceMap": true,
     "declaration": true,
     "outDir": "lib",
+    "experimentalDecorators": true,
     "typeRoots": [
       "../node_modules/@types"
     ]

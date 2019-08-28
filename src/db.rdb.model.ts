@@ -26,7 +26,7 @@ export default class RDBModel extends Model {
     /////////////////////////
     ///////DAO's
     /////////////////////////
-    public static async getAllOrderByCreatedAt(orderType: 'new' | 'old'){
+    public static async getAllOrderByCreatedAt(orderType: string){
         if(orderType === 'new'){
             return await this.findAll({order: [['createdAt', 'DESC']]});
         }else if(orderType === 'old'){

@@ -4,10 +4,10 @@ import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Imports
-import { Endpoint } from './app';
 import RDBModel from './db.rdb.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
+import { Get, Post } from './app';
 
 //SQL Types.
 const MYSQL = 'mysql'
@@ -39,6 +39,9 @@ export type AutoWireOptions = {
     excludes?: Array<string>
 };
 
+//Alternative for this.
+var that: DBManager;
+
 export default class DBManager{
     //Options
     private connectionOptions: DBConnectionOptions;
@@ -46,15 +49,33 @@ export default class DBManager{
     
     //Connection Object
     private db: Sequelize;
+    public dbController: typeof RDBController;
 
     //Models
     public readonly models = new Array<typeof RDBModel>();
-    public readonly endpoints = new Array<Endpoint>();
     
     //Default Constructor
     public constructor(){
+        //Setting that as this.
+        that = this
+
         //Load options
         this.loadOptions();
+    }
+
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public getConnectionOptions(){
+        return this.connectionOptions;
+    }
+
+    public getInitOptions(){
+        return this.initOptions;
+    }
+
+    public getConnection(){
+        return this.db;
     }
 
     /////////////////////////
@@ -87,12 +108,12 @@ export default class DBManager{
             //Load models
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
-            //Map endpoints
-            this.mapRDBEndpoints();
+            //Set Controller
+            new RDBController();
         }else if(this.initOptions.type === MONGO){
             this.loadNoSQLConnection(this.initOptions.type);
         }else {
-            throw new InvalidConnectionOptions('Invalid Database type provided.')
+            throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
     }
 
@@ -112,7 +133,7 @@ export default class DBManager{
                 throw error; //Pass other errors.
             }
         }else{
-            throw new InvalidConnectionOptions('Invalid Database Name provided in .env.');
+            throw new InvalidConnectionOptionsError('Invalid Database Name provided in .env.');
         }
     }
 
@@ -162,41 +183,6 @@ export default class DBManager{
         model.validations();
     }
 
-    private mapRDBEndpoints(){
-        //Adding endpoints.
-        this.endpoints.push({method: 'get', url: '/db/report', fn: getRDBOptions});
-        this.endpoints.push({method: 'post', url: '/db/sync', fn: syncRDB});
-
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const dbOptions = {
-            name: this.connectionOptions.name,
-            host: this.connectionOptions.host,
-            type: this.initOptions.type,
-            timezone: this.initOptions.timezone
-        }
-        const db = this.db;
-        const models = this.models;
-
-        //Endpoint functions.
-        function getRDBOptions(request: Request, response: Response) {
-            const _models = new Array<{[modelName: string]: string}>();
-
-            models.forEach((model) => {
-                _models.push({[model.name]: model.getTableName().toString()});
-            });
-            response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: _models });
-        };
-
-        function syncRDB(request: Request, response: Response) {
-            db.sync({force: request.body.force})
-                .then(() => {
-                    response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
-                }).catch((error: any) => {
-                    response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                });
-        };
-    }
-
     /////////////////////////
     ///////NoSQL Functions
     /////////////////////////
@@ -215,13 +201,13 @@ export default class DBManager{
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
                         if(error instanceof AccessDeniedError){
-                            reject(new InvalidConnectionOptions('Access denied to the database.'));
+                            reject(new InvalidConnectionOptionsError('Access denied to the database.'));
                         }else if(error instanceof ConnectionRefusedError){
-                            reject(new InvalidConnectionOptions('Connection refused to the database.'));
+                            reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
                         }else if(error instanceof HostNotFoundError){
-                            reject(new InvalidConnectionOptions('Invalid database host.'));
+                            reject(new InvalidConnectionOptionsError('Invalid database host.'));
                         }else if(error instanceof ConnectionError){
-                            reject(new InvalidConnectionOptions('Could not connect to the database due to unknown connection issue.'));
+                            reject(new InvalidConnectionOptionsError('Could not connect to the database due to unknown connection issue.'));
                         }else{
                             reject(error);//Pass other errors.
                         }
@@ -251,7 +237,7 @@ export default class DBManager{
 /////////////////////////
 ///////Error Classes
 /////////////////////////
-export class InvalidConnectionOptions extends Error{
+export class InvalidConnectionOptionsError extends Error{
     constructor (message: string) {
         super(message);
         
@@ -261,4 +247,42 @@ export class InvalidConnectionOptions extends Error{
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
       }
+}
+
+/////////////////////////
+///////RDBController
+/////////////////////////
+class RDBController{
+    //TODO: @Get('/db/report')
+    public getRDBOptions(request: Request, response: Response) {
+        const _models = that.models;
+        const models = new Array<{[modelName: string]: string}>();
+
+        const connectionOptions = that.getConnectionOptions();
+        const initOptions = that.getInitOptions();
+
+        const dbOptions = {
+            name: connectionOptions.name,
+            host: connectionOptions.host,
+            type: initOptions.type,
+            timezone: initOptions.timezone
+        }
+
+        _models.forEach((model) => {
+            models.push({[model.name]: model.getTableName().toString()});
+        });
+        response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: models });
+    };
+
+    //TODO: @Post('/db/sync')
+    public syncRDB(request: Request, response: Response) {
+        const db = that.getConnection();
+
+        db.sync({force: request.body.force})
+            .then(() => {
+                response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
+            }).catch((error: any) => {
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+            });
+    };
 }

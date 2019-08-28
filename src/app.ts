@@ -17,7 +17,7 @@ global.projectPath = path.dirname(require.main.filename);
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import DBManager, {DBInitOptions, InvalidConnectionOptions} from './db.manager';
+import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
     namespace NodeJS {
@@ -36,11 +36,11 @@ declare global {
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
-    autoMapRoutes?: AutoMapRoutesOptions
+    autoInjectControllers?: AutoInjectControllersOptions
 }
 
-//Types: AutoMapRoutesOptions
-export type AutoMapRoutesOptions = {
+//Types: AutoInjectControllersOptions
+export type AutoInjectControllersOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
@@ -56,18 +56,14 @@ export type MicroServiceOptions = {
     ip: string
 }
 
-//Types: Endpoint
-export type Endpoint = {
-    method: 'get' | 'post' | 'put' | 'delete',
-    url: PathParams,
-    fn: RequestHandlerParams
-}
+//Server variables
+const expressApp = express();
+const expressRouter = express.Router();
+
+//Alternative for this.
+var that: MicroService;
 
 export default class MicroService {
-    //Server variables
-    private expressApp = express();
-    private expressRouter = express.Router();
-
     //Types
     private options: MicroServiceOptions;
 
@@ -77,6 +73,9 @@ export default class MicroService {
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
+        //Setting that as this.
+        that = this
+
         //Load options from constructor
         options = options || {};
 
@@ -92,8 +91,8 @@ export default class MicroService {
         //Load express and router
         this.initExpressServer();
 
-        //Create Endpoints
-        this.mapServiceEndpoints();
+        //Create App Endpoints
+        new AppController();
 
         this.init();//Load any user functions
 
@@ -102,14 +101,21 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
-        //Map Routes
-        if(options.autoMapRoutes !== undefined){
-            this.autoMapRoutes(options.autoMapRoutes);
+        //Inject Controllers
+        if(options.autoInjectControllers !== undefined){
+            this.autoInjectControllers(options.autoInjectControllers);
         }
         this.injectEndpoints();//Load any user controllers
 
         //Start the server
         this.startService();
+    }
+
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public getOptions(){
+        return this.options;
     }
 
     /////////////////////////
@@ -157,20 +163,20 @@ export default class MicroService {
     /////////////////////////
     private initExpressServer() {
         //Setup Express
-        this.expressApp.use(cors());
-        this.expressApp.use(express.json());
-        this.expressApp.use(express.urlencoded({extended: false}));
+        expressApp.use(cors());
+        expressApp.use(express.json());
+        expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
-        this.expressApp.use(this.expressRouter);
+        expressApp.use(expressRouter);
 
         // Error handler for 404
-        this.expressApp.use((request: Request, response: Response, next: NextFunction) => {
+        expressApp.use((request: Request, response: Response, next: NextFunction) => {
             next(createError(404));
         });
 
         // Default error handler
-        this.expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
+        expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
@@ -181,11 +187,8 @@ export default class MicroService {
         try{
             //Init sequelize
             this.dbManager.init(dbOptions);
-            this.dbManager.endpoints.forEach((endpoint) => {
-                this.createEndpoint(endpoint);
-            });
         }catch(error){
-            if(error instanceof InvalidConnectionOptions){
+            if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
             }else{
                 console.error(error);
@@ -195,12 +198,12 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////Map Functions
+    ///////Controller Functions
     /////////////////////////
-    private autoMapRoutes(mapRoutesOptions: AutoMapRoutesOptions){
-        const paths = mapRoutesOptions.paths || ['/'];
-        const likeName = mapRoutesOptions.likeName || 'controller.js';
-        const excludes = mapRoutesOptions.excludes || [];
+    private autoInjectControllers(autoInjectOptions: AutoInjectControllersOptions){
+        const paths = autoInjectOptions.paths || ['/'];
+        const likeName = autoInjectOptions.likeName || 'controller.js';
+        const excludes = autoInjectOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');
@@ -208,29 +211,11 @@ export default class MicroService {
         paths.forEach((path: string) => {
             const controllerPaths = FileUtility.getFilePaths(path, likeName, excludes);
             controllerPaths.forEach(controllerPath => {
-                const Routes = require(controllerPath).default;
-
-                const routes = new Routes();
-                const controller = routes.controller;
+                const Controller = require(controllerPath).default;
+                const controller = new Controller();
 
                 //Logging the controller before
                 console.log('Adding endpoints from controller: %s', controller.constructor.name);
-
-                //Getting all endpoints and merging them
-                const endpoints = new Array<Endpoint>();
-                Array.prototype.push.apply(endpoints, routes.mapDefaultEndpoints());
-                Array.prototype.push.apply(endpoints, routes.mapCustomEndpoints());
-
-                endpoints.forEach(endpoint => {
-                    //Try creating endpoints
-                    try{
-                        //Adding base URL before creating endpoint.
-                        endpoint.url = routes.baseURL + endpoint.url.toString();
-                        this.createEndpoint(endpoint);
-                    }catch(error){
-                        console.error('Could not auto map endpoint: %o in %s', endpoint, controller.name);
-                    }
-                });
 
                 //Add to Array
                 this.controllers.push(controller);
@@ -251,7 +236,7 @@ export default class MicroService {
                 }
             })
             .catch((error) => {
-                if(error instanceof InvalidConnectionOptions){
+                if(error instanceof InvalidConnectionOptionsError){
                     console.log(error.message);
                 }else{
                     console.error(error);
@@ -265,7 +250,7 @@ export default class MicroService {
 
     private startListening(){
         //Start server
-        const server = this.expressApp.listen(this.options.port, () => {
+        const server = expressApp.listen(this.options.port, () => {
             const options = {
                 id: this.options.id,
                 version: this.options.version,
@@ -306,91 +291,88 @@ export default class MicroService {
                 });
             });
     }
+}
 
-    /////////////////////////
-    ///////Endpoints Functions
-    /////////////////////////
-    private mapServiceEndpoints(){
-        //Adding endpoints.
-        this.createEndpoint({method: 'get', url: '/health', fn: getHealth});
-        this.createEndpoint({method: 'get', url: '/report', fn: getReport});
+/////////////////////////
+///////Router Decorators
+/////////////////////////
+export function Get(path: PathParams) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+        const url = getURL(path, target);
+        expressRouter.get(url, descriptor.value);
+    }
+}
 
-        //Sudo objects to pass into promise. As this keyword is not available.
-        const _router = this.expressRouter;
-        const _options = this.options;
-        const _controllers = this.controllers;
+export function Post(path: PathParams) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+        const url = getURL(path, target);
+        expressRouter.post(url, descriptor.value);
+    }
+}
 
-        //Endpoint functions.
-        function getHealth(request: Request, response: Response) {
-            response.status(httpStatus.OK).send({status: true});
-        }
+export function Put(path: PathParams) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+        const url = getURL(path, target);
+        expressRouter.put(url, descriptor.value);
+    }
+}
 
-        function getReport(request: Request, response: Response){
-            try {
-                const routesArray = new Array<{method: string, url: string}>();
-                const baseURL = request.baseUrl;
+export function Delete(path: PathParams) {
+    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+        const url = getURL(path, target);
+        expressRouter.delete(url, descriptor.value);
+    }
+}
 
-                //Getting all registered routes from router.
-                _router.stack.forEach((item: any) => {
-                    const method = item.route.stack[0].method;
-                    const url = baseURL + item.route.path;
-                    routesArray.push({method, url});
+function getURL(path: PathParams, target: any){
+    if(target instanceof Controller){
+        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+        return ('/' + controllerName + path);
+    }else{
+        return path;
+    }
+}
+
+/////////////////////////
+///////App Controller
+/////////////////////////
+class AppController{
+    @Get('/health')
+    public getHealth(request: Request, response: Response) {
+        response.status(httpStatus.OK).send({status: true});
+    }
+
+    @Get('/report')
+    public getReport(request: Request, response: Response){
+        try {
+            const baseURL = request.baseUrl;
+            const routes = new Array<{method: string, url: string}>();
+
+            //Getting all registered routes from router.
+            expressRouter.stack.forEach((item: any) => {
+                const method = item.route.stack[0].method;
+                const url = baseURL + item.route.path;
+                routes.push({method, url});
+            });
+
+            const _controllers = that.controllers;
+            const controllers = new Array<string>();
+
+            if(_controllers !== undefined){
+                _controllers.forEach((controller) => {
+                    controllers.push(controller.constructor.name);
                 });
-
-                const controllers = new Array<string>();
-
-                if(_controllers !== undefined){
-                    _controllers.forEach((controller) => {
-                        controllers.push(controller.name);
-                    });
-                }
-
-                const data = {
-                    service: _options,
-                    routes: routesArray,
-                    controllers: controllers,
-                };
-
-                response.status(httpStatus.OK).send({status: true, data});
-            } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
+
+            const data = {
+                service: that.getOptions(),
+                routes: routes,
+                controllers: controllers,
+            };
+
+            response.status(httpStatus.OK).send({status: true, data});
+        } catch (error) {
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }
-    }
-
-    private createEndpoint(endpoint: Endpoint){
-        switch(endpoint.method){
-            case 'get':
-                this.get(endpoint.url, endpoint.fn);
-                break;
-            case 'post':
-                this.post(endpoint.url, endpoint.fn);
-                break;
-            case 'put':
-                this.put(endpoint.url, endpoint.fn);
-                break;
-            case 'delete':
-                this.delete(endpoint.url, endpoint.fn);
-                break;
-        }
-    }
-
-    /////////////////////////
-    ///////Router Functions
-    /////////////////////////
-    public get(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.expressRouter.get(path, ...handlers);
-    }
-
-    public post(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.expressRouter.post(path, ...handlers);
-    }
-
-    public put(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.expressRouter.put(path, ...handlers);
-    }
-
-    public delete(path: PathParams, ...handlers: RequestHandlerParams[]) {
-        this.expressRouter.delete(path, ...handlers);
     }
 }

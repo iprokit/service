@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import RDBModel from './db.rdb.model';
 
 export default class Controller {
+    //Default Constructor
     public constructor(){}
 
     public getOneByID(model: typeof RDBModel, request: Request, response: Response) {
