@@ -36,11 +36,11 @@ declare global {
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
-    autoInjectControllers?: AutoInjectControllerOptions
+    autoMapRoutes?: AutoMapRoutesOptions
 }
 
-//Types: AutoInjectControllerOptions
-export type AutoInjectControllerOptions = {
+//Types: AutoMapRoutesOptions
+export type AutoMapRoutesOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
@@ -102,9 +102,9 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
-        //Inject Controllers
-        if(options.autoInjectControllers !== undefined){
-            this.autoInjectControllers(options.autoInjectControllers);
+        //Map Routes
+        if(options.autoMapRoutes !== undefined){
+            this.autoMapRoutes(options.autoMapRoutes);
         }
         this.injectEndpoints();//Load any user controllers
 
@@ -195,37 +195,40 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////Controller Functions
+    ///////Map Functions
     /////////////////////////
-    private autoInjectControllers(autoWireOptions: AutoInjectControllerOptions){
-        const paths = autoWireOptions.paths || ['/'];
-        const likeName = autoWireOptions.likeName || 'controller.js';
-        const excludes = autoWireOptions.excludes || [];
+    private autoMapRoutes(mapRoutesOptions: AutoMapRoutesOptions){
+        const paths = mapRoutesOptions.paths || ['/'];
+        const likeName = mapRoutesOptions.likeName || 'controller.js';
+        const excludes = mapRoutesOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            const controllerFiles = FileUtility.getFilePaths(path, likeName, excludes);
-            controllerFiles.forEach(controllerFile => {
-                const controller: typeof Controller = require(controllerFile).default;
+            const controllerPaths = FileUtility.getFilePaths(path, likeName, excludes);
+            controllerPaths.forEach(controllerPath => {
+                const Routes = require(controllerPath).default;
+
+                const routes = new Routes();
+                const controller = routes.controller;
 
                 //Logging the controller before
-                console.log('Adding endpoints from controller: %s', controller.name);
+                console.log('Adding endpoints from controller: %s', controller.constructor.name);
 
                 //Getting all endpoints and merging them
                 const endpoints = new Array<Endpoint>();
-                Array.prototype.push.apply(endpoints, controller.mapDefaultEndpoints());
-                Array.prototype.push.apply(endpoints, controller.mapCustomEndpoints());
+                Array.prototype.push.apply(endpoints, routes.mapDefaultEndpoints());
+                Array.prototype.push.apply(endpoints, routes.mapCustomEndpoints());
 
                 endpoints.forEach(endpoint => {
                     //Try creating endpoints
                     try{
                         //Adding base URL before creating endpoint.
-                        endpoint.url = controller.baseURL().toString() + endpoint.url.toString();
+                        endpoint.url = routes.baseURL + endpoint.url.toString();
                         this.createEndpoint(endpoint);
                     }catch(error){
-                        console.error('Could not auto inject endpoint: %o in %s', endpoint, controller.name);
+                        console.error('Could not auto map endpoint: %o in %s', endpoint, controller.name);
                     }
                 });
 
@@ -337,7 +340,7 @@ export default class MicroService {
                 const controllers = new Array<string>();
 
                 if(_controllers !== undefined){
-                    _controllers.forEach((controller: Controller) => {
+                    _controllers.forEach((controller) => {
                         controllers.push(controller.name);
                     });
                 }
