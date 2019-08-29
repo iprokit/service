@@ -69,7 +69,7 @@ export default class MicroService {
 
     //Objects
     private dbManager: DBManager;
-    public readonly controllers: Array<typeof Controller>;
+    public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -83,15 +83,14 @@ export default class MicroService {
         this.loadDotEnvFile();
         this.loadServiceOptions();
         this.loadGlobalOptions();
-        
+
         //Load objects
         this.dbManager = new DBManager();
-        this.controllers = new Array<typeof Controller>();
 
         //Load express and router
         this.initExpressServer();
 
-        //Create App Endpoints
+        //Auto call, to create app endpoints.
         new AppController();
 
         this.init();//Load any user functions
@@ -318,11 +317,9 @@ class AppController {
             const _controllers = that.controllers;
             let controllers = new Array<string>();
 
-            if(_controllers !== undefined){
-                _controllers.forEach((controller) => {
-                    controllers.push(controller.constructor.name);
-                });
-            }
+            _controllers.forEach((controller) => {
+                controllers.push(controller.constructor.name);
+            });
 
             const data = {
                 service: that.getOptions(),

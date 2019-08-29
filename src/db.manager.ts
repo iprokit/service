@@ -107,7 +107,7 @@ export default class DBManager{
             //Load models
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
-            //Set Controller
+            //Auto call, to create rdb endpoints.
             new RDBController();
         }else if(this.initOptions.type === MONGO){
             this.loadNoSQLConnection(this.initOptions.type);
