@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 import RDBModel from './db.rdb.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
-import { Get, Post } from './app';
+import { Report, Execute } from './routes';
 
 //SQL Types.
 const MYSQL = 'mysql'
@@ -49,7 +49,6 @@ export default class DBManager{
     
     //Connection Object
     private db: Sequelize;
-    public dbController: typeof RDBController;
 
     //Models
     public readonly models = new Array<typeof RDBModel>();
@@ -138,7 +137,7 @@ export default class DBManager{
     }
 
     private autoWireRDBModels(autoWireModels: AutoWireOptions){
-        const paths = autoWireModels.paths || ['/'];
+        let paths = autoWireModels.paths || ['/'];
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
 
@@ -146,7 +145,7 @@ export default class DBManager{
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            const modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
+            let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
@@ -253,10 +252,10 @@ export class InvalidConnectionOptionsError extends Error{
 ///////RDBController
 /////////////////////////
 class RDBController{
-    //TODO: @Get('/db/report')
+    @Report('/db/report')
     public getRDBOptions(request: Request, response: Response) {
         const _models = that.models;
-        const models = new Array<{[modelName: string]: string}>();
+        let models = new Array<{[modelName: string]: string}>();
 
         const connectionOptions = that.getConnectionOptions();
         const initOptions = that.getInitOptions();
@@ -274,7 +273,7 @@ class RDBController{
         response.status(httpStatus.OK).send({ status: true, db: dbOptions, models: models });
     };
 
-    //TODO: @Post('/db/sync')
+    @Execute('/db/sync')
     public syncRDB(request: Request, response: Response) {
         const db = that.getConnection();
 

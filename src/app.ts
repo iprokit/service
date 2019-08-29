@@ -1,6 +1,5 @@
 //Import modules
 import express, { Request, Response, NextFunction } from 'express';
-import { PathParams, RequestHandlerParams } from 'express-serve-static-core';
 import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
@@ -10,13 +9,18 @@ import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
-//Adding project path to global before calling local imports.
+//Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);
+
+//Server variables
+var expressApp = express();
+export var expressRouter = express.Router();
 
 //Local Imports
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
+import { Report } from './routes';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -55,10 +59,6 @@ export type MicroServiceOptions = {
     environment: string,
     ip: string
 }
-
-//Server variables
-const expressApp = express();
-const expressRouter = express.Router();
 
 //Alternative for this.
 var that: MicroService;
@@ -201,7 +201,7 @@ export default class MicroService {
     ///////Controller Functions
     /////////////////////////
     private autoInjectControllers(autoInjectOptions: AutoInjectControllersOptions){
-        const paths = autoInjectOptions.paths || ['/'];
+        let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'controller.js';
         const excludes = autoInjectOptions.excludes || [];
 
@@ -209,7 +209,7 @@ export default class MicroService {
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            const controllerPaths = FileUtility.getFilePaths(path, likeName, excludes);
+            let controllerPaths = FileUtility.getFilePaths(path, likeName, excludes);
             controllerPaths.forEach(controllerPath => {
                 const Controller = require(controllerPath).default;
                 const controller = new Controller();
@@ -294,59 +294,19 @@ export default class MicroService {
 }
 
 /////////////////////////
-///////Router Decorators
-/////////////////////////
-export function Get(path: PathParams) {
-    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-        const url = getURL(path, target);
-        expressRouter.get(url, descriptor.value);
-    }
-}
-
-export function Post(path: PathParams) {
-    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-        const url = getURL(path, target);
-        expressRouter.post(url, descriptor.value);
-    }
-}
-
-export function Put(path: PathParams) {
-    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-        const url = getURL(path, target);
-        expressRouter.put(url, descriptor.value);
-    }
-}
-
-export function Delete(path: PathParams) {
-    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-        const url = getURL(path, target);
-        expressRouter.delete(url, descriptor.value);
-    }
-}
-
-function getURL(path: PathParams, target: any){
-    if(target instanceof Controller){
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-        return ('/' + controllerName + path);
-    }else{
-        return path;
-    }
-}
-
-/////////////////////////
 ///////App Controller
 /////////////////////////
-class AppController{
-    @Get('/health')
+class AppController {
+    @Report('/health')
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});
     }
 
-    @Get('/report')
+    @Report('/report')
     public getReport(request: Request, response: Response){
         try {
             const baseURL = request.baseUrl;
-            const routes = new Array<{method: string, url: string}>();
+            let routes = new Array<{method: string, url: string}>();
 
             //Getting all registered routes from router.
             expressRouter.stack.forEach((item: any) => {
@@ -356,7 +316,7 @@ class AppController{
             });
 
             const _controllers = that.controllers;
-            const controllers = new Array<string>();
+            let controllers = new Array<string>();
 
             if(_controllers !== undefined){
                 _controllers.forEach((controller) => {
