@@ -188,7 +188,7 @@ export default class MicroService {
     }
 
     private initMQTTServer(){
-        var options = {
+        let options = {
             id: 'AQU_MQTT',
             port: Number(process.env.NODE_PORT) || 1883,
             keepalive: 30,
@@ -233,9 +233,9 @@ export default class MicroService {
         // });
         
         // mqttApp.on('published', (packet, client: Client) => {
-        //     var topic = packet.topic;
+        //     let topic = packet.topic;
         //     if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-        //         var payload = packet.payload.toString();
+        //         let payload = packet.payload.toString();
         //         console.log('Server: %s published a message: %o on topic: %s', client.id, payload, topic)
         //     }
         // });

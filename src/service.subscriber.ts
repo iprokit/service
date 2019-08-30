@@ -10,8 +10,6 @@ import ServiceUtility from './service.utility';
 var that: ServiceSubscriber;
 export default class ServiceSubscriber {
     private client: mqtt.MqttClient;
-    public classTree = new Array();
-    public Subscibers = class {}
 
     constructor(serviceName: string){
         that = this;
@@ -32,35 +30,39 @@ export default class ServiceSubscriber {
 
                 ///Assume we got array of topics from topic: /
                 const topics = ['/Customer/getCustomer', '/EndUser/get', '/EndUser/put' , '/Customer/getCustomers'];
-                this.generateSubscribeFunctions(topics);
+                this.generateSubscribes(topics);
                 resolve();
             });
         });
     }
 
-    private generateSubscribeFunctions(topics: Array<string>){
-        const classes = new Array();
+    private generateSubscribes(topics: Array<string>){
+        let subscriberClasses = Array();
+
+        //Getting all topics and breaking them into classes.
         topics.forEach(topic => {
+            //Break topic into subscriber name and function
             const converter = ServiceUtility.convertToFunction(topic);
 
-            //Pushing unique classNames to classTree
-            if(classes.indexOf(converter.className) === -1) {
-                classes.push(converter.className);
+            //Adding unique sbuscriber objects into array.
+            if(subscriberClasses.indexOf(converter.className) === -1){
+                subscriberClasses.push(converter.className);
             }
         });
 
-        //Adding functions to class objects.
-        classes.forEach(_class => {
+        subscriberClasses.forEach(subscriberClass => {
+            const subscriber = new Subscriber(subscriberClass);
             topics.forEach(topic => {
                 const converter = ServiceUtility.convertToFunction(topic);
-                if(_class === converter.className){
-                    this.constructor.prototype[converter.functionName] = function(parms?: any) {
-                        return this.executeSubscribeFunction(topic, parms);
+                if(subscriberClass === converter.className){
+                    const fn = function(parms?: any) {
+                        return that.executeSubscribeFunction(topic, parms);
                     }
+                    Object.defineProperty(subscriber, converter.functionName, {value: fn});
                 }
             });
+            this.constructor.prototype[subscriberClass] = subscriber;
         });
-        console.log(this.constructor.prototype);
     }
 
     private executeSubscribeFunction(topic: string, parms?: any) {
@@ -114,5 +116,13 @@ export default class ServiceSubscriber {
 
     public get(){
         //return all functions of the service.
+    }
+}
+
+class Subscriber {
+    name: string;
+
+    constructor(name: string){
+        this.name = name;
     }
 }
