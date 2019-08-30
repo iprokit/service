@@ -5,16 +5,12 @@ import { Client } from 'mosca';
 import { mqttApp } from './app';
 import ServiceUtility from './service.utility';
 
-export default class ServicePublisher {
-
-}
+export default class ServicePublisher {}
 
 export function Publish() {
     return function (target: typeof ServicePublisher, propertyKey: string, descriptor: PropertyDescriptor) {
         const topic = ServiceUtility.convertToTopic(target, propertyKey);
-
-        console.log(topic);
-
+        
         mqttApp.on('subscribed', (topic, client: Client) => {
             console.log('Server: %s subscribed to topic: %s', client.id, topic);
         });
@@ -26,13 +22,13 @@ export function Publish() {
 
                 payload = JSON.parse(payload)
                 if(payload.request !== undefined){
-                    const returnValue = descriptor.value(payload.request);
+                    const returnValue = descriptor.value(payload);
 
                     const message = {
                         topic: topic,
-                        payload: JSON.stringify({response: returnValue}), // or a Buffer
-                        qos: 0, // 0, 1, or 2
-                        retain: false // or true
+                        payload: JSON.stringify({response: returnValue}),
+                        qos: 0,
+                        retain: false
                       };
                       
                     mqttApp.publish(message, (object, packet) => {
@@ -41,6 +37,5 @@ export function Publish() {
                 }
             }
         });
-        //TODO: Work from here.
     }
 }

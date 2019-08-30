@@ -11,6 +11,7 @@ var that: ServiceSubscriber;
 export default class ServiceSubscriber {
     private client: mqtt.MqttClient;
     public classTree = new Array();
+    public Subscibers = class {}
 
     constructor(serviceName: string){
         that = this;
@@ -30,17 +31,15 @@ export default class ServiceSubscriber {
                 console.log('Client: Connected to MQTT broker');
 
                 ///Assume we got array of topics from topic: /
-                const topics = ['/Customer/getCustomer', '/EndUser/get', '/Customer/getCustomers'];
-                this.createClassTree(topics);
+                const topics = ['/Customer/getCustomer', '/EndUser/get', '/EndUser/put' , '/Customer/getCustomers'];
+                this.generateSubscribeFunctions(topics);
                 resolve();
             });
         });
     }
 
-    private createClassTree(topics: Array<string>){
+    private generateSubscribeFunctions(topics: Array<string>){
         const classes = new Array();
-
-        //Creating class objects.
         topics.forEach(topic => {
             const converter = ServiceUtility.convertToFunction(topic);
 
@@ -52,94 +51,30 @@ export default class ServiceSubscriber {
 
         //Adding functions to class objects.
         classes.forEach(_class => {
-            const functions = new Array();
-
             topics.forEach(topic => {
                 const converter = ServiceUtility.convertToFunction(topic);
                 if(_class === converter.className){
-                    //Creating function
-                    functions.push(this.createFunction(converter.functionName, topic));
+                    this.constructor.prototype[converter.functionName] = function(parms?: any) {
+                        return this.executeSubscribeFunction(topic, parms);
+                    }
                 }
-            })
-            ///Creating object
-            const treeObject = {
-                [_class]: functions
-            }
-            this.classTree.push(treeObject);
-        })
+            });
+        });
+        console.log(this.constructor.prototype);
     }
 
-    private createClass(serviceName: string, functions: Array<string>){
-        const _class = {
-
-        }
-        //Object.create();
-        Object.defineProperty(that, serviceName, {value: 42, writable: true, enumerable: false, configurable: true});
-    }
-
-    private createFunction(functionName: string, topic: string){
-        let fn = {
-            [functionName]: function(parms?: any) {
-                return new Promise((resolve, reject) => {
-                    that.client.subscribe(topic, (error: any) => {
-                        if (!error) {
-                            console.log('Client: Subscribed to topic: %s', topic);
-        
-                            let payload = JSON.stringify({request: parms});
-                            //Publish to Topic.
-                            that.client.publish(topic, payload, (error: any) => {
-                                if (!error) {
-                                    console.log('Client: message: %o published on topic: %s', payload, topic);
-                                } else {
-                                    reject(error);
-                                }
-                            });
-        
-                            //Receive from Topic.
-                            that.client.on('packetreceive', (packet: any) => {
-                                let payload = packet.payload;
-
-                                try {
-                                    payload = JSON.parse(payload.toString());
-                                    if (payload.response != null) {
-                                        console.log('Client: message: %o received on topic: %s', payload, packet.topic);
-                                        resolve(payload.response);
-                                    } else {
-                                        console.log('Client: payload data is null');
-                                        //When reconnect this condition is called after subscribe
-                                        //Ignoring the message returing back
-                                    }
-                                } catch (error) {
-                                    if (error instanceof TypeError) {
-                                        console.log('Client: Does not contain payload, Waiting...');
-                                    } else {
-                                        console.log('Client: Some other issue', error);
-                                        //Might need to reject and send callback
-                                    }
-                                }
-                            })
-                        } else {
-                            reject(error);
-                        }
-                    });
-                });
-            }
-        }
-        return fn;
-    }
-
-    //const topic = '/customer/getCustomers';
-    private executeTopic(topic: string, parms?: any) {
+    private executeSubscribeFunction(topic: string, parms?: any) {
         return new Promise((resolve, reject) => {
-            that.client.subscribe(topic, (error, granted) => {
+            that.client.subscribe(topic, (error: any) => {
                 if (!error) {
                     console.log('Client: Subscribed to topic: %s', topic);
 
-                    const message = {request: parms}
-                    let payload = JSON.stringify(message);
-
+                    if(parms === undefined){
+                        parms = true;
+                    }
+                    let payload = JSON.stringify({request: parms});
                     //Publish to Topic.
-                    that.client.publish(topic, payload, (error) => {
+                    that.client.publish(topic, payload, (error: any) => {
                         if (!error) {
                             console.log('Client: message: %o published on topic: %s', payload, topic);
                         } else {
@@ -148,8 +83,27 @@ export default class ServiceSubscriber {
                     });
 
                     //Receive from Topic.
-                    that.client.on('packetreceive', (packet) => {
-                        resolve(packet);
+                    that.client.on('packetreceive', (packet: any) => {
+                        let payload = packet.payload;
+
+                        try {
+                            payload = JSON.parse(payload.toString());
+                            if (payload.response != null) {
+                                console.log('Client: message: %o received on topic: %s', payload, packet.topic);
+                                resolve(payload.response);
+                            } else {
+                                console.log('Client: payload data is null');
+                                //When reconnect this condition is called after subscribe
+                                //Ignoring the message returing back
+                            }
+                        } catch (error) {
+                            if (error instanceof TypeError) {
+                                console.log('Client: Does not contain payload, Waiting...');
+                            } else {
+                                console.log('Client: Some other issue', error);
+                                //Might need to reject and send callback
+                            }
+                        }
                     })
                 } else {
                     reject(error);
