@@ -15,14 +15,15 @@ export function Publish() {
             console.log('Server: %s subscribed to topic: %s', client.id, topic);
         });
 
+        //TODO: Work from here, issue with payload
         mqttApp.on('published', (packet, client) => {
             if(packet.topic === topic){
-                let payload = packet.payload.toString();
+                const payload = packet.payload.toString();
                 console.log('Server: Recived a message: %o on topic: %s', payload, topic);
 
-                payload = JSON.parse(payload)
-                if(payload.request !== undefined){
-                    const returnValue = descriptor.value(payload);
+                const _payload = JSON.parse(payload)
+                if(_payload.request !== undefined){
+                    const returnValue = descriptor.value(_payload);
 
                     const message = {
                         topic: topic,

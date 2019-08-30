@@ -37,31 +37,26 @@ export default class ServiceSubscriber {
     }
 
     private generateSubscribes(topics: Array<string>){
-        let subscriberClasses = Array();
-
-        //Getting all topics and breaking them into classes.
+        //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
-            //Break topic into subscriber name and function
             const converter = ServiceUtility.convertToFunction(topic);
 
-            //Adding unique sbuscriber objects into array.
-            if(subscriberClasses.indexOf(converter.className) === -1){
-                subscriberClasses.push(converter.className);
+            let subscriber;
+            //Validate and grenrate a subscriber object or get it from this class object.
+            if(this.constructor.prototype[converter.className] === undefined){
+                subscriber = new Subscriber(converter.className);
+            }else{
+                subscriber = this.constructor.prototype[converter.className];
             }
-        });
 
-        subscriberClasses.forEach(subscriberClass => {
-            const subscriber = new Subscriber(subscriberClass);
-            topics.forEach(topic => {
-                const converter = ServiceUtility.convertToFunction(topic);
-                if(subscriberClass === converter.className){
-                    const fn = function(parms?: any) {
-                        return that.executeSubscribeFunction(topic, parms);
-                    }
-                    Object.defineProperty(subscriber, converter.functionName, {value: fn});
-                }
-            });
-            this.constructor.prototype[subscriberClass] = subscriber;
+            //Generate dynamic funcations and add it to subscriber object.
+            const fn = function(parms?: any) {
+                return that.executeSubscribeFunction(topic, parms);
+            }
+            Object.defineProperty(subscriber, converter.functionName, {value: fn});
+
+            //Adding the subscriber object to this class object.
+            this.constructor.prototype[converter.className] = subscriber;
         });
     }
 
@@ -74,7 +69,7 @@ export default class ServiceSubscriber {
                     if(parms === undefined){
                         parms = true;
                     }
-                    let payload = JSON.stringify({request: parms});
+                    const payload = JSON.stringify({request: parms});
                     //Publish to Topic.
                     that.client.publish(topic, payload, (error: any) => {
                         if (!error) {
