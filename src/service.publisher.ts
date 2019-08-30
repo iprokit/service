@@ -2,21 +2,28 @@
 import { Client } from 'mosca';
 
 //Local Imports
-import { mqttApp } from './app';
+import { moscaApp } from './app';
 import ServiceUtility from './service.utility';
 
-export default class ServicePublisher {}
+export default class ServicePublisher {
+    private getTopics(){
 
+    }
+}
+
+/////////////////////////
+///////Decorators
+/////////////////////////
 export function Publish() {
     return function (target: typeof ServicePublisher, propertyKey: string, descriptor: PropertyDescriptor) {
         const topic = ServiceUtility.convertToTopic(target, propertyKey);
         
-        mqttApp.on('subscribed', (topic, client: Client) => {
+        moscaApp.on('subscribed', (topic, client: Client) => {
             console.log('Server: %s subscribed to topic: %s', client.id, topic);
         });
 
         //TODO: Work from here, issue with payload
-        mqttApp.on('published', (packet, client) => {
+        moscaApp.on('published', (packet, client) => {
             if(packet.topic === topic){
                 const payload = packet.payload.toString();
                 console.log('Server: Recived a message: %o on topic: %s', payload, topic);
@@ -32,11 +39,15 @@ export function Publish() {
                         retain: false
                       };
                       
-                    mqttApp.publish(message, (object, packet) => {
+                    moscaApp.publish(message, (object, packet) => {
                         console.log('Server: published a message: %o ', message);
                     });
                 }
             }
         });
     }
+}
+
+function send(){
+
 }

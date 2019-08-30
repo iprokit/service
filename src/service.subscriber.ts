@@ -1,21 +1,22 @@
 //Import modules
-import mqtt, { Packet } from 'mqtt'
+import mqtt from 'mqtt'
 
 //Local Imports
 import ServiceUtility from './service.utility';
-
-
-///Should be treated like a model and created from app.ts
 
 var that: ServiceSubscriber;
 export default class ServiceSubscriber {
     private client: mqtt.MqttClient;
 
+    //Default Constructor
     constructor(serviceName: string){
         that = this;
         //Convert serviceName to url
     }
 
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
     public init(){
         return new Promise((resolve, reject) => {
             const url = 'mqtt://10.0.0.179:1883'
@@ -36,6 +37,9 @@ export default class ServiceSubscriber {
         });
     }
 
+    /////////////////////////
+    ///////Other Functions
+    /////////////////////////
     private generateSubscribes(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
@@ -114,6 +118,9 @@ export default class ServiceSubscriber {
     }
 }
 
+/////////////////////////
+///////Subscriber
+/////////////////////////
 class Subscriber {
     name: string;
 
