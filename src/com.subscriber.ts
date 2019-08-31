@@ -43,6 +43,7 @@ export default class ComSubscriber {
                 const topics = ['/Customer/getAll', '/Customer/getOne', '/Customer/post', '/Customer/put', '/Customer/delete', '/EndUser/get', '/EndUser/put'];
                 this.generateSubscribes(topics);
                 resolve();
+                //TODO: Continue from here.
             });
         });
     }

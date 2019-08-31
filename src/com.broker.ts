@@ -1,5 +1,5 @@
 //Import modules
-import mosca, { Packet, Message } from 'mosca';
+import mosca, { Packet } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Interface: IMessage
@@ -15,7 +15,7 @@ interface IReply {
 }
 
 //Types: PublishHandler
-type PublishHandler = (message: IMessage, reply: IReply) => void;
+export type PublishHandler = (message: IMessage, reply: IReply) => void;
 
 //Alternative for this.
 var that: ComBroker;
@@ -57,6 +57,8 @@ export default class ComBroker {
                     //Do nothing.
                 }
             }
+
+            //TODO: Add report url to add to / topic.
         });
     }
 
@@ -74,8 +76,8 @@ export default class ComBroker {
         const payload = JSON.parse(packet.payload.toString());
 
         //Creating new parms and adding to message Emitter.
-        const message = new ComMessage(packet.topic, payload.message.body);
-        const reply = new ComReply(packet.topic);
+        const message = new Message(packet.topic, payload.message.body);
+        const reply = new Reply(packet.topic);
         this.messageHandler.emit(packet.topic, message, reply);
     }
 
@@ -101,9 +103,9 @@ export default class ComBroker {
 }
 
 /////////////////////////
-///////ComMessage
+///////Message
 /////////////////////////
-class ComMessage implements IMessage{
+class Message implements IMessage{
     readonly path: string;
     readonly body: any;
 
@@ -114,9 +116,9 @@ class ComMessage implements IMessage{
 }
 
 /////////////////////////
-///////ComReply
+///////Reply
 /////////////////////////
-class ComReply implements IReply{
+class Reply implements IReply{
     readonly path: string;
 
     constructor(path: string){

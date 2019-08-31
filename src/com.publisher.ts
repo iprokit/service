@@ -2,11 +2,7 @@
 import { comBroker } from './app';
 import ComUtility from './com.utility';
 
-export default class ComPublisher {
-    private getTopics(){
-
-    }
-}
+export default class ComPublisher {}
 
 /////////////////////////
 ///////Decorators
