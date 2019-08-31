@@ -1,30 +1,33 @@
 //Import modules
 import mosca from 'mosca';
-import Events from 'events';
+import { EventEmitter } from 'events';
 
-//Interface: Message
-interface Message {
+//Interface: IMessage
+interface IMessage {
     body: string;
 }
 
-//Interface: Reply
-interface Reply {
+//Interface: IReply
+interface IReply {
     body: PublishHandlerReply;
+    send(body: PublishHandlerReply): void;
 }
 
 //Interface: PublishHandlerReply
 interface PublishHandlerReply {}
 
 //Types: PublishHandler
-type PublishHandler = (message: Message) => PublishHandlerReply;
+type PublishHandler = (message: IMessage, reply: IReply) => void;
 
 export default class ComBroker {
     private mosca: mosca.Server;
-
-    private publishHandlers = new Array<{path: string, handler: PublishHandler}>();
+    private messageHandler: EventEmitter;
 
     //Default Constructor
-    constructor(){}
+    constructor(){
+        //Load message emitter.
+        this.messageHandler = new EventEmitter();
+    }
 
     /////////////////////////
     ///////Start/Stop Functions
@@ -44,9 +47,11 @@ export default class ComBroker {
         this.mosca.on('published', (packet, client) => {
             const topic = packet.topic;
             if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                const payload = JSON.parse(packet.payload.toString());
-                //TODO: Need to check if this is a message from server or client.
-                this.onMessage(topic, payload.message);
+
+                //creating new parms and adding to message Emitter.
+                const message = new Message();
+                const reply = new Reply();
+                this.messageHandler.emit(topic, message, reply);
             }
         });
     }
@@ -60,16 +65,31 @@ export default class ComBroker {
     /////////////////////////
     ///////Listener Functions
     /////////////////////////
-    public onMessage(path: string, message: Message){
-        this.publishHandlers.forEach(publishHandler => {
-            if(path === publishHandler.path){
-                const publishHandlerReply = publishHandler.handler(message);
-                this.sendReply(path, {body: publishHandlerReply});
-            }
-        });
+    public publish(path: string, handler: PublishHandler){
+        this.messageHandler.on(path, handler);
+    }
+}
+
+class Message implements IMessage{
+    body: string;
+
+    constructor(){
+        //const message: IMessage = JSON.parse(packet.payload.toString());
+    }
+}
+
+class Reply implements IReply{
+    body: PublishHandlerReply;
+
+    constructor(){
+
     }
 
-    public sendReply(path: string, reply: Reply){
+    send(body: PublishHandlerReply): void {
+        console.log('body', body);
+    }
+
+    private sendReply(path: string, reply: IReply){
         const message = {
             topic: path,
             payload: JSON.stringify({reply: reply}),
@@ -83,15 +103,4 @@ export default class ComBroker {
         //     console.log('Server: published a message: %o ', message);
         // });
     }
-
-    public publish(path: string, handler: PublishHandler){
-        if(this.publishHandlers.indexOf({path, handler}) === -1){
-            this.publishHandlers.push({path, handler});
-        }
-    }
 }
-
-/////////////////////////
-///////Message Emitter
-/////////////////////////
-class MessageEmitter extends Events {}
