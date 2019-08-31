@@ -1,8 +1,8 @@
 //Local Imports
-import ServicePublisher from "./service.publisher";
+import ComPublisher from "./com.publisher";
 
-export default class ServiceUtility{
-    public static convertToTopic(className: typeof ServicePublisher, functionName: string){
+export default class ComUtility{
+    public static convertToTopic(className: typeof ComPublisher, functionName: string){
         const publisherName = className.constructor.name.replace('Publisher', '');
         const topic = ('/' + publisherName + '/' + functionName);
         return topic;

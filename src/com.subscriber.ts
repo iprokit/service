@@ -2,10 +2,10 @@
 import mqtt from 'mqtt'
 
 //Local Imports
-import ServiceUtility from './service.utility';
+import ComUtility from './com.utility';
 
-var that: ServiceSubscriber;
-export default class ServiceSubscriber {
+var that: ComSubscriber;
+export default class ComSubscriber {
     private client: mqtt.MqttClient;
 
     //Default Constructor
@@ -43,7 +43,7 @@ export default class ServiceSubscriber {
     private generateSubscribes(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
-            const converter = ServiceUtility.convertToFunction(topic);
+            const converter = ComUtility.convertToFunction(topic);
 
             let subscriber;
             //Validate and grenrate a subscriber object or get it from this class object.

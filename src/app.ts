@@ -8,7 +8,6 @@ import uuid from 'uuid/v1';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import mosca from 'mosca';
 
 //Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);
@@ -17,15 +16,14 @@ global.projectPath = path.dirname(require.main.filename);
 var expressApp = express();
 export var expressRouter = express.Router();
 
-//Mosca server variables
-export var moscaApp: mosca.Server;
-
 //Local Imports
 import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import ServicePublisher from './service.publisher';
 import { Report } from './routes';
+import ComBroker from './com.broker';
+import ComRouter from './com.router';
+import ComPublisher from './com.publisher';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -69,10 +67,14 @@ export type MicroServiceOptions = {
     name: string,
     version: string,
     expressPort: string | number,
-    moscaPort: string | number,
+    comPort: string | number,
     environment: string,
     ip: string
 }
+
+//Com broker variables
+var comBroker = new ComBroker();
+export var comRouter = new ComRouter();
 
 //Alternative for this.
 var that: MicroService;
@@ -84,7 +86,7 @@ export default class MicroService {
     //Objects
     private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
-    public readonly publishers: Array<typeof ServicePublisher> = new Array<typeof ServicePublisher>();
+    public readonly publishers: Array<typeof ComPublisher> = new Array<typeof ComPublisher>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -102,8 +104,11 @@ export default class MicroService {
         //Load objects
         this.dbManager = new DBManager();
 
-        //Load express and router
+        //Load express server, router
         this.initExpressServer();
+
+        //Load com broker
+        this.initComBroker();
 
         //Auto call, to create default/app endpoints.
         new AppController();
@@ -121,8 +126,7 @@ export default class MicroService {
         }
         this.injectEndpoints();//Load any user controllers
 
-        //Start mosca server and inject Publishers
-        this.startMoscaServer();
+        //Start inject Publishers
         if(options.autoInjectPublishers !== undefined){
             this.autoInjectPublishers(options.autoInjectPublishers);
         }
@@ -163,7 +167,7 @@ export default class MicroService {
             name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
             version: process.env.npm_package_version || '1.0.0',
             expressPort: process.env.EXPRESS_PORT || 3000,
-            moscaPort: process.env.MOSCA_PORT || 1883,
+            comPort: process.env.COM_PORT || 1883,
             environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP()
         };
@@ -202,6 +206,11 @@ export default class MicroService {
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
         });
+    }
+
+    private initComBroker(){
+        //Setup Com
+        comBroker.use(comRouter);
     }
 
     private initDB(dbOptions: DBInitOptions){
@@ -268,21 +277,15 @@ export default class MicroService {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    private startMoscaServer(){
-        const options = {
-            id: this.options.name,
-            port: this.options.moscaPort
-        }
-        
-        moscaApp = new mosca.Server(options);
-
-        moscaApp.on('ready', () => {
-            console.log('Mosca server running on %s', this.options.moscaPort);
-        });
-    }
-
     private startService() {
+        const options = {
+            id: this.options.id,
+            version: this.options.version,
+            environment: this.options.environment
+        }
+        console.log('%s : %o', this.options.name, options);
         console.log('Starting micro service...');
+
         //Connect to DB.
         this.dbManager.connect()
             .then((dbOptions: any) => {
@@ -298,20 +301,18 @@ export default class MicroService {
                 }
                 console.log('Will continue...');
             }).finally(() => {
-                //Starting server here.
-                this.startListening();
+                //Start com broker
+                comBroker.listen(this.options.comPort, () => {
+                    console.log('%s com broker running on %s:%s', this.options.name, this.options.ip, this.options.comPort);
+
+                    //Start express server
+                    this.startExpressListening();
+                });
             });
     }
 
-    private startListening(){
-        //Start server
+    private startExpressListening(){
         const server = expressApp.listen(this.options.expressPort, () => {
-            const options = {
-                id: this.options.id,
-                version: this.options.version,
-                environment: this.options.environment
-            }
-            console.log('%s : %o', this.options.name, options);
             console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.expressPort);
 
             //Adding process listeners to stop server gracefully.
@@ -339,10 +340,10 @@ export default class MicroService {
                 console.error(error);
                 console.log('Will continue...');
             }).finally(() => {
-                //Stop mosca server.
-                moscaApp.close(() => {
-                    console.log('Mosca server shutdown complete.');
-                    //Stop http Server
+                //Stop com broker
+                comBroker.stop(() => {
+                    console.log('Com broker shutdown complete.');
+                    //Stop Server
                     server.close(() => {
                         console.log('%s micro service shutdown complete.', this.options.name);
                         process.exit(0);
