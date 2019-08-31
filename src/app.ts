@@ -22,7 +22,6 @@ import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
 import ComBroker from './com.broker';
-import ComRouter from './com.router';
 import ComPublisher from './com.publisher';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
@@ -73,8 +72,7 @@ export type MicroServiceOptions = {
 }
 
 //Com broker variables
-var comBroker = new ComBroker();
-export var comRouter = comBroker.router;
+export var comBroker = new ComBroker();
 
 //Alternative for this.
 var that: MicroService;
@@ -333,7 +331,7 @@ export default class MicroService {
                 console.log('Will continue...');
             }).finally(() => {
                 //Stop com broker
-                comBroker.stop(() => {
+                comBroker.close(() => {
                     console.log('Com broker shutdown complete.');
                     //Stop Server
                     server.close(() => {
