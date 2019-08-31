@@ -4,6 +4,14 @@ import mqtt from 'mqtt'
 //Local Imports
 import ComUtility from './com.utility';
 
+//Types: SubscriberHandler
+type SubscriberHandler = (reply: Reply) => void; //TODO: Convert void to Promise or custom
+
+//Interface: Reply
+interface Reply {
+    body: string;
+}
+
 var that: ComSubscriber;
 export default class ComSubscriber {
     private client: mqtt.MqttClient;
@@ -12,6 +20,8 @@ export default class ComSubscriber {
     constructor(serviceName: string){
         that = this;
         //Convert serviceName to url
+
+        this.init();
     }
 
     /////////////////////////
@@ -30,7 +40,7 @@ export default class ComSubscriber {
                 console.log('Client: Connected to MQTT broker');
 
                 ///Assume we got array of topics from topic: /
-                const topics = ['/Customer/getCustomer', '/EndUser/get', '/EndUser/put' , '/Customer/getCustomers'];
+                const topics = ['/Customer/getAll', '/Customer/getOne', '/Customer/post', '/Customer/put', '/Customer/delete', '/EndUser/get', '/EndUser/put'];
                 this.generateSubscribes(topics);
                 resolve();
             });
@@ -54,8 +64,8 @@ export default class ComSubscriber {
             }
 
             //Generate dynamic funcations and add it to subscriber object.
-            const subscribe = function(reply?: any) {
-                return that.executeSubscribeFunction(topic, reply);
+            const subscribe = function(body?: any) {
+                return that.executeSubscribeFunction(topic, body);
             }
             Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
 
@@ -64,17 +74,17 @@ export default class ComSubscriber {
         });
     }
 
-    private executeSubscribeFunction(topic: string, reply?: any) {
+    private executeSubscribeFunction(topic: string, body?: any) {
         //TODO: convert to custom function.
         return new Promise((resolve, reject) => {
             that.client.subscribe(topic, (error: any) => {
                 if (!error) {
                     console.log('Client: Subscribed to topic: %s', topic);
 
-                    if(reply === undefined){
-                        reply = true;
-                    }
-                    const payload = JSON.stringify({request: reply});
+                    body = body || {}
+                    //console.log(body);
+                    const payload = JSON.stringify({message: {body: body}});
+                    //console.log(payload);
                     //Publish to Topic.
                     that.client.publish(topic, payload, (error: any) => {
                         if (!error) {

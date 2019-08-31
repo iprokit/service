@@ -10,12 +10,16 @@ export default class ComBroker {
 
     //Default Constructor
     constructor(){
-        //Do nothing
+        this.comRouter = new ComRouter();
     }
 
-    public use(comRouter: ComRouter){
-        this.comRouter = comRouter;
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public get router() {
+        return this.comRouter;
     }
+    
 
     /////////////////////////
     ///////Start/Stop Functions
@@ -35,10 +39,26 @@ export default class ComBroker {
         this.mosca.on('published', (packet, client) => {
             const topic = packet.topic;
             if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                var payload = packet.payload.toString();
-                console.log('%s published a message: %o on topic: %s', client.id, payload, topic)
+                const payload = JSON.parse(packet.payload.toString());
+                //TODO: Need to check if this is a message from server or client.
+                this.comRouter.onMessage(topic, payload.message);
             }
         });
+    }
+
+    public reply(path: any, reply: any){
+        const message = {
+            topic: path,
+            payload: JSON.stringify({reply: reply}),
+            qos: 0,
+            retain: false
+        };
+
+        console.log('message', message);
+            
+        // moscaApp.publish(message, (object, packet) => {
+        //     console.log('Server: published a message: %o ', message);
+        // });
     }
 
     public stop(fn: Function){

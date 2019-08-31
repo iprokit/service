@@ -74,7 +74,7 @@ export type MicroServiceOptions = {
 
 //Com broker variables
 var comBroker = new ComBroker();
-export var comRouter = new ComRouter();
+export var comRouter = comBroker.router;
 
 //Alternative for this.
 var that: MicroService;
@@ -106,9 +106,6 @@ export default class MicroService {
 
         //Load express server, router
         this.initExpressServer();
-
-        //Load com broker
-        this.initComBroker();
 
         //Auto call, to create default/app endpoints.
         new AppController();
@@ -206,11 +203,6 @@ export default class MicroService {
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
         });
-    }
-
-    private initComBroker(){
-        //Setup Com
-        comBroker.use(comRouter);
     }
 
     private initDB(dbOptions: DBInitOptions){

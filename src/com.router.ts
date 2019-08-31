@@ -1,48 +1,46 @@
-interface Message {}
-interface Reply {}
+//Import modules
+import Events from 'events';
 
-type MessageHandler = (message: Message) => Reply;
-type ReplyHandler = (reply: Reply) => void;
+//Interface: Message
+interface Message {
+    body: string;
+}
+
+//Interface: Reply
+interface Reply {
+    body: PublishHandlerReply;
+}
+
+//Interface: PublishHandlerReply
+interface PublishHandlerReply {}
+
+//Types: PublishHandler
+type PublishHandler = (message: Message) => PublishHandlerReply;
 
 export default class ComRouter {
-    private messageHandlers = new Array<{path: string, messageHandler: MessageHandler}>();
+    private publishHandlers = new Array<{path: string, handler: PublishHandler}>();
 
     //Default Constructor
     constructor(){
-        //Do nothing
     }
 
-    //TODO: on listen call function.
+    public onMessage(path: string, message: Message){
+        this.publishHandlers.forEach(publishHandler => {
+            if(path === publishHandler.path){
+                const publishHandlerReply = publishHandler.handler(message);
+                //this.sendReply(path, {body: publishHandlerReply});
+            }
+        });
+    }
 
-    public publish(path: string, messageHandler: MessageHandler){
-        this.messageHandlers.push({path, messageHandler});
+    public publish(path: string, handler: PublishHandler){
+        if(this.publishHandlers.indexOf({path, handler}) === -1){
+            this.publishHandlers.push({path, handler});
+        }
     }
 }
 
-// moscaApp.on('subscribed', (topic, client: Client) => {
-//     console.log('Server: %s subscribed to topic: %s', client.id, topic);
-// });
-
-// //TODO: Issue with payload
-// moscaApp.on('published', (packet, client) => {
-//     if(packet.topic === topic){
-//         const payload = packet.payload.toString();
-//         console.log('Server: Recived a message: %o on topic: %s', payload, topic);
-
-//         const _payload = JSON.parse(payload)
-//         if(_payload.request !== undefined){
-//             const returnValue = descriptor.value(_payload);
-
-//             const message = {
-//                 topic: topic,
-//                 payload: JSON.stringify({response: returnValue}),
-//                 qos: 0,
-//                 retain: false
-//               };
-                
-//             moscaApp.publish(message, (object, packet) => {
-//                 console.log('Server: published a message: %o ', message);
-//             });
-//         }
-//     }
-// });
+/////////////////////////
+///////Message Emitter
+/////////////////////////
+class MessageEmitter extends Events {}
