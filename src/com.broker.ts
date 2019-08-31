@@ -11,7 +11,6 @@ interface IMessage {
 //Interface: IReply
 interface IReply {
     readonly path: string;
-    body: any;
     send(body: any): void;
 }
 
@@ -119,15 +118,13 @@ class ComMessage implements IMessage{
 /////////////////////////
 class ComReply implements IReply{
     readonly path: string;
-    body: any;
 
     constructor(path: string){
         this.path = path;
     }
 
     send(body: any): void {
-        this.body = body;
         //TODO: need to handle this in a differnt way.
-        that.prepareReplyHandler(this.path, this.body);
+        that.prepareReplyHandler(this.path, body);
     }
 }
