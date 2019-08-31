@@ -13,7 +13,7 @@ export default class ComPublisher {
 /////////////////////////
 export function Publish() {
     return function (target: typeof ComPublisher, propertyKey: string, descriptor: PropertyDescriptor) {
-        const topic = ComUtility.convertToTopic(target, propertyKey);
-        comRouter.publish(topic, descriptor.value);
+        const path = ComUtility.convertToPath(target, propertyKey);
+        comRouter.publish(path, descriptor.value);
     }
 }

@@ -54,10 +54,10 @@ export default class ComSubscriber {
             }
 
             //Generate dynamic funcations and add it to subscriber object.
-            const fn = function(reply?: any) {
+            const subscribe = function(reply?: any) {
                 return that.executeSubscribeFunction(topic, reply);
             }
-            Object.defineProperty(subscriber, converter.functionName, {value: fn});
+            Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
 
             //Adding the subscriber object to this class object.
             this.constructor.prototype[converter.className] = subscriber;
@@ -65,6 +65,7 @@ export default class ComSubscriber {
     }
 
     private executeSubscribeFunction(topic: string, reply?: any) {
+        //TODO: convert to custom function.
         return new Promise((resolve, reject) => {
             that.client.subscribe(topic, (error: any) => {
                 if (!error) {

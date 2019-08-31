@@ -2,14 +2,14 @@
 import ComPublisher from "./com.publisher";
 
 export default class ComUtility{
-    public static convertToTopic(className: typeof ComPublisher, functionName: string){
+    public static convertToPath(className: typeof ComPublisher, functionName: string){
         const publisherName = className.constructor.name.replace('Publisher', '');
-        const topic = ('/' + publisherName + '/' + functionName);
-        return topic;
+        const path = ('/' + publisherName + '/' + functionName);
+        return path;
     }
 
-    public static convertToFunction(topic: string){
-        const topicLevels = topic.split('/');
+    public static convertToFunction(path: string){
+        const topicLevels = path.split('/');
 
         let className = topicLevels[1];
         let functionName = topicLevels[2];
