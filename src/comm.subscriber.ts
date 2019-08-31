@@ -14,6 +14,7 @@ interface IMessage {
 interface IReply {
     readonly topic: string;
     readonly body: any;
+    readonly error: any;
 }
 
 var that: CommSubscriber;
@@ -48,8 +49,8 @@ class CommSubscriber {
         this.client = mqtt.connect(url, options);
         this.client.on('connect', () => {
             this.executeSubscribeFunction('/', {})
-                .then((topics: any) => {
-                    this.generateSubscribes(topics);
+                .then((reply: Reply) => {
+                    this.generateSubscribes(reply.body);
                 })
         });
     }
@@ -81,49 +82,24 @@ class CommSubscriber {
         });
     }
 
-    private executeSubscribeFunction(topic: string, body?: any) {
-        //TODO: convert to custom function.
+    private executeSubscribeFunction(topic: string, parms?: any) {
         return new Promise((resolve, reject) => {
+            //TODO: Move client creating here.
             that.client.subscribe(topic, (error: any) => {
                 if (!error) {
-                    console.log('Client: Subscribed to topic: %s', topic);
-
-                    //TODO: Continue from here.
-
-                    body = body || {}
-                    //console.log(body);
-                    const payload = JSON.stringify({message: {body: body}});
-                    //console.log(payload);
-                    //Publish to Topic.
-                    that.client.publish(topic, payload, (error: any) => {
-                        if (!error) {
-                            console.log('Client: message: %o published on topic: %s', payload, topic);
-                        } else {
-                            reject(error);
-                        }
-                    });
+                    this.handleMessage(topic, parms);
 
                     //Receive from Topic.
                     that.client.on('packetreceive', (packet: any) => {
-                        let payload = packet.payload;
-
-                        try {
-                            payload = JSON.parse(payload.toString());
-                            if (payload.response != null) {
-                                console.log('Client: message: %o received on topic: %s', payload, packet.topic);
-                                resolve(payload.response);
-                            } else {
-                                console.log('Client: payload data is null');
-                                //When reconnect this condition is called after subscribe
-                                //Ignoring the message returing back
+                        try{
+                            const reply = this.handleReply(packet);
+                            if(reply.body){
+                                resolve(reply.body);
+                            }else if(reply.error){
+                                reject(reply.error);
                             }
                         } catch (error) {
-                            if (error instanceof TypeError) {
-                                console.log('Client: Does not contain payload, Waiting...');
-                            } else {
-                                console.log('Client: Some other issue', error);
-                                //Might need to reject and send callback
-                            }
+                            //console.log('Client: Does not contain payload, Waiting...');
                         }
                     })
                 } else {
@@ -136,12 +112,35 @@ class CommSubscriber {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    private handleMessage(){
+    private handleMessage(topic: string, parms: any){
+        //creating message parms.
+        const message = new Message(topic, parms);
 
+        //Covert Json to string.
+        const payload = JSON.stringify({ message: message });
+
+        //Publish message on broker
+        this.client.publish(topic, payload, () => {
+            //Logging Message
+            console.log('Client: published a message on topic: %s', topic);
+        });
     }
 
-    private handleReply(){
+    private handleReply(packet: any){
+        //Convert string to Json.
+        const payload = JSON.parse(packet.payload.toString());
 
+        //Validate if the payload is from the publisher(broker) or subscriber(client).
+        if(!payload.reply !== undefined && payload.message === undefined){
+            //creating reply parms.
+            const reply = new Reply(packet.topic, payload.reply, payload.error);
+
+            //Logging Message
+            console.log('Client: published a reply on topic: %s', packet.topic);
+
+            //creating reply parms.
+            return reply;
+        }
     }
 }
 
@@ -175,8 +174,11 @@ class Message implements IMessage{
 class Reply implements IReply{
     readonly topic: string;
     readonly body: any;
+    readonly error: any;
 
-    constructor(topic: string){
+    constructor(topic: string, body: any, error: any){
         this.topic = topic;
+        this.body = body;
+        this.error = error;
     }
 }

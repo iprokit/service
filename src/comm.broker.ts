@@ -15,8 +15,8 @@ interface IReply {
     error(error: any): void;
 }
 
-//Types: PublishHandler
-export type PublishHandler = (message: Message, reply: Reply) => void;
+//Types: PublishCallback
+export declare type PublishCallback = (message: Message, reply: Reply) => void;
 
 //Alternative for this.
 var that: CommBroker;
@@ -25,7 +25,7 @@ export default class CommBroker {
     private mosca: mosca.Server;
 
     private topics: Array<string>;
-    private messageHandler: EventEmitter;
+    private publishCallbackHandler: EventEmitter;
 
     //Default Constructor
     constructor(){
@@ -35,8 +35,8 @@ export default class CommBroker {
         //Array of topics
         this.topics = new Array<string>();
 
-        //Load message emitter.
-        this.messageHandler = new EventEmitter();
+        //Load publish callback emitter.
+        this.publishCallbackHandler = new EventEmitter();
 
         //Create report publish.
         this.publish('/', function(message: Message, reply: Reply){
@@ -80,13 +80,13 @@ export default class CommBroker {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public publish(topic: string, handler: PublishHandler){
+    public publish(topic: string, publishCallback: PublishCallback){
         if(this.topics.indexOf(topic) === -1){
             //Add topic to array
             this.topics.push(topic);
     
-            //Add event listener.
-            this.messageHandler.on(topic, handler);
+            //Add publish callback listener.
+            this.publishCallbackHandler.on(topic, publishCallback);
         }
     }
 
@@ -98,16 +98,16 @@ export default class CommBroker {
         const payload = JSON.parse(packet.payload.toString());
 
         //Validate if the payload is from the publisher(broker) or subscriber(client).
-        if(payload.message !== undefined && payload.reply === undefined){
+        if(!payload.message !== undefined && payload.reply === undefined){
             //Logging Message
-            console.log('Broker: received a message: %o', payload.message);
+            console.log('Broker: received a message on topic: %s', packet.topic);
 
-            //New parms.
+            //creating new parms.
             const message = new Message(packet.topic, payload.message.parms);
             const reply = new Reply(packet.topic);
 
-            //Passing parms to message Emitter
-            this.messageHandler.emit(packet.topic, message, reply);
+            //Passing parms to publish callback Emitter
+            this.publishCallbackHandler.emit(packet.topic, message, reply);
         }
     }
 
@@ -115,7 +115,7 @@ export default class CommBroker {
         //Covert Json to string.
         const packet = {
             topic: topic,
-            payload: JSON.stringify({reply: reply}),
+            payload: JSON.stringify({ reply: reply }),
             qos: 0,
             retain: false
         };
@@ -123,7 +123,7 @@ export default class CommBroker {
         //Publish message on broker
         this.mosca.publish(packet, () => {
             //Logging Reply
-            console.log('Broker: published a reply: %o ', reply);
+            console.log('Broker: published a reply on topic: %s', topic);
         });
     }
 }
