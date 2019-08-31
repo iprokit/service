@@ -4,11 +4,22 @@ import mqtt from 'mqtt'
 //Local Imports
 import CommUtility from './comm.utility';
 
+//Interface: IMessage
+interface IMessage {
+    readonly topic: string;
+    readonly parms: any;
+}
+
+//Interface: IReply
+interface IReply {
+    readonly topic: string;
+    readonly body: any;
+}
+
 var that: CommSubscriber;
 
 export function service(serviceName: string){
     return new CommSubscriber(serviceName);
-    //TODO: Continue from here.
 }
 
 class CommSubscriber {
@@ -19,32 +30,27 @@ class CommSubscriber {
         that = this;
         //Convert serviceName to url
 
-        this.init();
+        const ip = '10.0.0.179';
+        const port = global.service.comPort;
+        const url = 'mqtt://' + ip + ':' + port;
+        this.connect(url);
     }
 
     /////////////////////////
-    ///////init Functions
+    ///////Connection Management
     /////////////////////////
-    private init(){
-        return new Promise((resolve, reject) => {
-            const url = 'mqtt://10.0.0.179:1883'
-            const options = {
-                clientId: global.service.name,
-                keepalive: 30
-            }
+    private connect(url: string){
+        const options = {
+            clientId: global.service.name,
+            keepalive: 30
+        }
 
-            this.client = mqtt.connect(url, options);
-            this.client.on('connect', () => {
-                console.log('Client: Connected to MQTT broker');
-
-                ///Assume we got array of topics from topic: /
-                this.executeSubscribeFunction('/', {})
-                    .then((topics: any) => {
-                        console.log(topics);
-                        this.generateSubscribes(topics);
-                        resolve();
-                    })
-            });
+        this.client = mqtt.connect(url, options);
+        this.client.on('connect', () => {
+            this.executeSubscribeFunction('/', {})
+                .then((topics: any) => {
+                    this.generateSubscribes(topics);
+                })
         });
     }
 
@@ -81,6 +87,8 @@ class CommSubscriber {
             that.client.subscribe(topic, (error: any) => {
                 if (!error) {
                     console.log('Client: Subscribed to topic: %s', topic);
+
+                    //TODO: Continue from here.
 
                     body = body || {}
                     //console.log(body);
@@ -124,6 +132,17 @@ class CommSubscriber {
             });
         });
     }
+
+    /////////////////////////
+    ///////Handle Functions
+    /////////////////////////
+    private handleMessage(){
+
+    }
+
+    private handleReply(){
+
+    }
 }
 
 /////////////////////////
@@ -134,5 +153,30 @@ class Subscriber {
 
     constructor(name: string){
         this.name = name;
+    }
+}
+
+/////////////////////////
+///////Message
+/////////////////////////
+class Message implements IMessage{
+    readonly topic: string;
+    readonly parms: any;
+
+    constructor(topic: string, parms: any){
+        this.topic = topic;
+        this.parms = parms;
+    }
+}
+
+/////////////////////////
+///////Reply
+/////////////////////////
+class Reply implements IReply{
+    readonly topic: string;
+    readonly body: any;
+
+    constructor(topic: string){
+        this.topic = topic;
     }
 }

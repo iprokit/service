@@ -5,7 +5,6 @@ import { EventEmitter } from 'events';
 //Interface: IMessage
 interface IMessage {
     readonly topic: string;
-    readonly body: any;
     readonly parms: any;
 }
 
@@ -13,6 +12,7 @@ interface IMessage {
 interface IReply {
     readonly topic: string;
     send(body: any): void;
+    error(error: any): void;
 }
 
 //Types: PublishHandler
@@ -63,7 +63,7 @@ export default class CommBroker {
             const topic = packet.topic;
             if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                 try{
-                    this.prepareMessageHandler(packet);
+                    this.handleMessage(packet);
                 }catch(error){
                     //Do nothing.
                 }
@@ -80,30 +80,30 @@ export default class CommBroker {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public publish(path: string, handler: PublishHandler){
-        if(this.topics.indexOf(path) === -1){
-            //Add path to array
-            this.topics.push(path);
+    public publish(topic: string, handler: PublishHandler){
+        if(this.topics.indexOf(topic) === -1){
+            //Add topic to array
+            this.topics.push(topic);
     
-            //Add listener to path.
-            this.messageHandler.on(path, handler);
+            //Add event listener.
+            this.messageHandler.on(topic, handler);
         }
     }
 
     /////////////////////////
-    ///////Prepare Functions
+    ///////Handle Functions
     /////////////////////////
-    private prepareMessageHandler(packet: Packet){
+    private handleMessage(packet: Packet){
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
         //Validate if the payload is from the publisher(broker) or subscriber(client).
         if(payload.message !== undefined && payload.reply === undefined){
             //Logging Message
-            console.log('Server: received a message: %o', payload.message);
+            console.log('Broker: received a message: %o', payload.message);
 
             //New parms.
-            const message = new Message(packet.topic, payload.message.body, payload.message.parms);
+            const message = new Message(packet.topic, payload.message.parms);
             const reply = new Reply(packet.topic);
 
             //Passing parms to message Emitter
@@ -111,13 +111,10 @@ export default class CommBroker {
         }
     }
 
-    public prepareReplyHandler(path: string, body: any){
-        const reply = {
-            body: body
-        }
+    public handleReply(topic: string, reply: any){
         //Covert Json to string.
         const packet = {
-            topic: path,
+            topic: topic,
             payload: JSON.stringify({reply: reply}),
             qos: 0,
             retain: false
@@ -126,7 +123,7 @@ export default class CommBroker {
         //Publish message on broker
         this.mosca.publish(packet, () => {
             //Logging Reply
-            console.log('Server: published a reply: %o ', reply);
+            console.log('Broker: published a reply: %o ', reply);
         });
     }
 }
@@ -136,12 +133,10 @@ export default class CommBroker {
 /////////////////////////
 class Message implements IMessage{
     readonly topic: string;
-    readonly body: any;
     readonly parms: any;
 
-    constructor(topic: string, body: any, parms: any){
+    constructor(topic: string, parms: any){
         this.topic = topic;
-        this.body = body;
         this.parms = parms;
     }
 }
@@ -157,6 +152,10 @@ class Reply implements IReply{
     }
 
     send(body: any): void {
-        that.prepareReplyHandler(this.topic, body);
+        that.handleReply(this.topic, { body: body });
+    }
+
+    error(error: any): void {
+        that.handleReply(this.topic, { error: error });
     }
 }
