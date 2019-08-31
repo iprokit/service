@@ -21,8 +21,8 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
-import ComBroker from './com.broker';
-import ComPublisher from './com.publisher';
+import CommBroker from './comm.broker';
+import CommPublisher from './comm.publisher';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -42,19 +42,19 @@ declare global {
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
-    autoInjectControllers?: AutoInjectControllersOptions,
-    autoInjectPublishers?: AutoInjectPublishersOptions
+    autoInjectControllers?: AutoInjectControllerOptions,
+    autoMapPublishers?: AutoMapPublisherOptions
 }
 
-//Types: AutoInjectControllersOptions
-export type AutoInjectControllersOptions = {
+//Types: AutoInjectControllerOptions
+export type AutoInjectControllerOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
 };
 
-//Types: AutoInjectPublishersOptions
-export type AutoInjectPublishersOptions = {
+//Types: AutoMapPublisherOptions
+export type AutoMapPublisherOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
@@ -71,8 +71,8 @@ export type MicroServiceOptions = {
     ip: string
 }
 
-//Com broker variables
-export var comBroker = new ComBroker();
+//Comm broker variables
+export var commBroker = new CommBroker();
 
 //Alternative for this.
 var that: MicroService;
@@ -84,7 +84,7 @@ export default class MicroService {
     //Objects
     private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
-    public readonly publishers: Array<typeof ComPublisher> = new Array<typeof ComPublisher>();
+    public readonly publishers: Array<typeof CommPublisher> = new Array<typeof CommPublisher>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -106,7 +106,7 @@ export default class MicroService {
         this.initExpressServer();
 
         //Auto call, to create default/app endpoints.
-        new AppController();
+        new MicroServiceController();
 
         this.init();//Load any user functions
 
@@ -115,9 +115,9 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
-        //Start inject Publishers
-        if(options.autoInjectPublishers !== undefined){
-            this.autoInjectPublishers(options.autoInjectPublishers);
+        //Map Publishers
+        if(options.autoMapPublishers !== undefined){
+            this.autoMapPublishers(options.autoMapPublishers);
         }
 
         //Inject Controllers
@@ -220,7 +220,7 @@ export default class MicroService {
     /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    private autoInjectControllers(autoInjectOptions: AutoInjectControllersOptions){
+    private autoInjectControllers(autoInjectOptions: AutoInjectControllerOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'controller.js';
         const excludes = autoInjectOptions.excludes || [];
@@ -242,10 +242,10 @@ export default class MicroService {
         });
     }
     
-    private autoInjectPublishers(autoInjectOptions: AutoInjectPublishersOptions){
-        let paths = autoInjectOptions.paths || ['/'];
-        const likeName = autoInjectOptions.likeName || 'publisher.js';
-        const excludes = autoInjectOptions.excludes || [];
+    private autoMapPublishers(autoMapOptions: AutoMapPublisherOptions){
+        let paths = autoMapOptions.paths || ['/'];
+        const likeName = autoMapOptions.likeName || 'publisher.js';
+        const excludes = autoMapOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');
@@ -291,8 +291,8 @@ export default class MicroService {
                 }
                 console.log('Will continue...');
             }).finally(() => {
-                //Start com broker
-                comBroker.listen(this.options.comPort, () => {
+                //Start comm broker
+                commBroker.listen(this.options.comPort, () => {
                     console.log('%s com broker running on %s:%s', this.options.name, this.options.ip, this.options.comPort);
 
                     //Start express server
@@ -330,8 +330,8 @@ export default class MicroService {
                 console.error(error);
                 console.log('Will continue...');
             }).finally(() => {
-                //Stop com broker
-                comBroker.close(() => {
+                //Stop comm broker
+                commBroker.close(() => {
                     console.log('Com broker shutdown complete.');
                     //Stop Server
                     server.close(() => {
@@ -344,9 +344,9 @@ export default class MicroService {
 }
 
 /////////////////////////
-///////App Controller
+///////MicroService Controller
 /////////////////////////
-class AppController {
+class MicroServiceController {
     @Report('/health')
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});

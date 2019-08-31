@@ -5,8 +5,9 @@ import MicroService from './app';
 export { default as Controller } from './controller';
 export { default as RDBModel, Op } from './db.rdb.model';
 export { Get, Post, Put, Delete } from './routes';
-export { default as ComPublisher, Publish } from './com.publisher';
-export { default as ComSubscriber } from './com.subscriber';
+export { Publish } from './comm.route';
+export { default as CommPublisher } from './comm.publisher';
+export { default as CommSubscriber } from './comm.subscriber';
 
 //Default Export
 export default MicroService;

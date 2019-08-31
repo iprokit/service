@@ -40,6 +40,9 @@ export function Delete(path: PathParams) {
     }
 }
 
+/////////////////////////
+///////App Decorators
+/////////////////////////
 export function Report(path: PathParams) {
     return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
         expressRouter.get(path, descriptor.value);

@@ -1,8 +1,8 @@
 //Local Imports
-import ComPublisher from "./com.publisher";
+import CommPublisher from "./comm.publisher";
 
-export default class ComUtility{
-    public static convertToPath(className: typeof ComPublisher, functionName: string){
+export default class CommUtility {
+    public static convertToPath(className: typeof CommPublisher, functionName: string){
         const publisherName = className.constructor.name.replace('Publisher', '');
         const path = ('/' + publisherName + '/' + functionName);
         return path;

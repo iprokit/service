@@ -4,24 +4,26 @@ import { EventEmitter } from 'events';
 
 //Interface: IMessage
 interface IMessage {
-    readonly path: string;
+    readonly topic: string;
     readonly body: any;
 }
 
 //Interface: IReply
 interface IReply {
-    readonly path: string;
+    readonly topic: string;
     send(body: any): void;
 }
 
 //Types: PublishHandler
-export type PublishHandler = (message: IMessage, reply: IReply) => void;
+export type PublishHandler = (message: Message, reply: Reply) => void;
 
 //Alternative for this.
-var that: ComBroker;
+var that: CommBroker;
 
-export default class ComBroker {
+export default class CommBroker {
     private mosca: mosca.Server;
+
+    private topics: Array<string>;
     private messageHandler: EventEmitter;
 
     //Default Constructor
@@ -29,8 +31,16 @@ export default class ComBroker {
         //Setting that as this.
         that = this
 
+        //Array of topics
+        this.topics = new Array<string>();
+
         //Load message emitter.
         this.messageHandler = new EventEmitter();
+
+        //Create report publish.
+        this.publish('/', function(message: Message, reply: Reply){
+            reply.send(that.topics);
+        });
     }
 
     /////////////////////////
@@ -57,8 +67,6 @@ export default class ComBroker {
                     //Do nothing.
                 }
             }
-
-            //TODO: Add report url to add to / topic.
         });
     }
 
@@ -69,36 +77,46 @@ export default class ComBroker {
     }
 
     /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public publish(path: string, handler: PublishHandler){
+        if(this.topics.indexOf(path) === -1){
+            //Add path to array
+            this.topics.push(path);
+    
+            //Add listener to path.
+            this.messageHandler.on(path, handler);
+        }
+    }
+
+    /////////////////////////
     ///////Prepare Functions
     /////////////////////////
     private prepareMessageHandler(packet: Packet){
-        //Convert string to json.
+        //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Creating new parms and adding to message Emitter.
+        //New parms.
         const message = new Message(packet.topic, payload.message.body);
         const reply = new Reply(packet.topic);
+
+        //Passing parms to message Emitter
         this.messageHandler.emit(packet.topic, message, reply);
     }
 
     public prepareReplyHandler(path: string, body: any){
+        //Covert Json to string.
         const message = {
             topic: path,
             payload: JSON.stringify({reply: body}),
             qos: 0,
             retain: false
         };
-            
+
+        //Publish message on broker
         this.mosca.publish(message, (object, packet) => {
             console.log('Server: published a message: %o ', message);
         });
-    }
-
-    /////////////////////////
-    ///////Listener Functions
-    /////////////////////////
-    public publish(path: string, handler: PublishHandler){
-        this.messageHandler.on(path, handler);
     }
 }
 
@@ -106,11 +124,11 @@ export default class ComBroker {
 ///////Message
 /////////////////////////
 class Message implements IMessage{
-    readonly path: string;
+    readonly topic: string;
     readonly body: any;
 
-    constructor(path: string, body: JSON){
-        this.path = path;
+    constructor(topic: string, body: JSON){
+        this.topic = topic;
         this.body = body;
     }
 }
@@ -119,14 +137,13 @@ class Message implements IMessage{
 ///////Reply
 /////////////////////////
 class Reply implements IReply{
-    readonly path: string;
+    readonly topic: string;
 
-    constructor(path: string){
-        this.path = path;
+    constructor(topic: string){
+        this.topic = topic;
     }
 
     send(body: any): void {
-        //TODO: need to handle this in a differnt way.
-        that.prepareReplyHandler(this.path, body);
+        that.prepareReplyHandler(this.topic, body);
     }
 }

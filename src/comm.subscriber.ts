@@ -2,18 +2,10 @@
 import mqtt from 'mqtt'
 
 //Local Imports
-import ComUtility from './com.utility';
+import CommUtility from './comm.utility';
 
-//Types: SubscriberHandler
-type SubscriberHandler = (reply: Reply) => void; //TODO: Convert void to Promise or custom
-
-//Interface: Reply
-interface Reply {
-    body: string;
-}
-
-var that: ComSubscriber;
-export default class ComSubscriber {
+var that: CommSubscriber;
+export default class CommSubscriber {
     private client: mqtt.MqttClient;
 
     //Default Constructor
@@ -40,9 +32,12 @@ export default class ComSubscriber {
                 console.log('Client: Connected to MQTT broker');
 
                 ///Assume we got array of topics from topic: /
-                const topics = ['/Customer/getAll', '/Customer/getOne', '/Customer/post', '/Customer/put', '/Customer/delete', '/EndUser/get', '/EndUser/put'];
-                this.generateSubscribes(topics);
-                resolve();
+                this.executeSubscribeFunction('/', {})
+                    .then((topics: any) => {
+                        console.log(topics);
+                        this.generateSubscribes(topics);
+                        resolve();
+                    })
                 //TODO: Continue from here.
             });
         });
@@ -54,7 +49,7 @@ export default class ComSubscriber {
     private generateSubscribes(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
-            const converter = ComUtility.convertToFunction(topic);
+            const converter = CommUtility.convertToFunction(topic);
 
             let subscriber;
             //Validate and grenrate a subscriber object or get it from this class object.
