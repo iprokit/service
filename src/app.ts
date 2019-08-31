@@ -32,6 +32,8 @@ declare global {
                 id: string,
                 name: string,
                 version: string,
+                expressPort: string | number,
+                comPort: string | number,
                 environment: string
             }
             projectPath: string
@@ -174,6 +176,8 @@ export default class MicroService {
             id: this.options.id,
             name: this.options.name,
             version: this.options.version,
+            expressPort: this.options.expressPort,
+            comPort: this.options.comPort,
             environment: this.options.environment
         }
     }

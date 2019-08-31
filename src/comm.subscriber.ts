@@ -5,7 +5,13 @@ import mqtt from 'mqtt'
 import CommUtility from './comm.utility';
 
 var that: CommSubscriber;
-export default class CommSubscriber {
+
+export function service(serviceName: string){
+    return new CommSubscriber(serviceName);
+    //TODO: Continue from here.
+}
+
+class CommSubscriber {
     private client: mqtt.MqttClient;
 
     //Default Constructor
@@ -38,7 +44,6 @@ export default class CommSubscriber {
                         this.generateSubscribes(topics);
                         resolve();
                     })
-                //TODO: Continue from here.
             });
         });
     }
