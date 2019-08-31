@@ -54,8 +54,8 @@ export default class ComSubscriber {
             }
 
             //Generate dynamic funcations and add it to subscriber object.
-            const fn = function(parms?: any) {
-                return that.executeSubscribeFunction(topic, parms);
+            const fn = function(reply?: any) {
+                return that.executeSubscribeFunction(topic, reply);
             }
             Object.defineProperty(subscriber, converter.functionName, {value: fn});
 
@@ -64,16 +64,16 @@ export default class ComSubscriber {
         });
     }
 
-    private executeSubscribeFunction(topic: string, parms?: any) {
+    private executeSubscribeFunction(topic: string, reply?: any) {
         return new Promise((resolve, reject) => {
             that.client.subscribe(topic, (error: any) => {
                 if (!error) {
                     console.log('Client: Subscribed to topic: %s', topic);
 
-                    if(parms === undefined){
-                        parms = true;
+                    if(reply === undefined){
+                        reply = true;
                     }
-                    const payload = JSON.stringify({request: parms});
+                    const payload = JSON.stringify({request: reply});
                     //Publish to Topic.
                     that.client.publish(topic, payload, (error: any) => {
                         if (!error) {

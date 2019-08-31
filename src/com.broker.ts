@@ -5,7 +5,7 @@ import mosca from 'mosca';
 import ComRouter from './com.router';
 
 export default class ComBroker {
-    private router: ComRouter;
+    private comRouter: ComRouter;
     private mosca: mosca.Server;
 
     //Default Constructor
@@ -13,8 +13,8 @@ export default class ComBroker {
         //Do nothing
     }
 
-    public use(router: ComRouter){
-        this.router = router;
+    public use(comRouter: ComRouter){
+        this.comRouter = comRouter;
     }
 
     /////////////////////////
@@ -30,6 +30,14 @@ export default class ComBroker {
 
         this.mosca.on('ready', () => {
             fn();
+        });
+
+        this.mosca.on('published', (packet, client) => {
+            var topic = packet.topic;
+            if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
+                var payload = packet.payload.toString();
+                console.log('%s published a message: %o on topic: %s', client.id, payload, topic)
+            }
         });
     }
 
