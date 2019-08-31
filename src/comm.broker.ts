@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 interface IMessage {
     readonly topic: string;
     readonly body: any;
+    readonly parms: any;
 }
 
 //Interface: IReply
@@ -96,26 +97,36 @@ export default class CommBroker {
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //New parms.
-        const message = new Message(packet.topic, payload.message.body);
-        const reply = new Reply(packet.topic);
+        //Validate if the payload is from the publisher(broker) or subscriber(client).
+        if(payload.message !== undefined && payload.reply === undefined){
+            //Logging Message
+            console.log('Server: received a message: %o', payload.message);
 
-        //Passing parms to message Emitter
-        this.messageHandler.emit(packet.topic, message, reply);
+            //New parms.
+            const message = new Message(packet.topic, payload.message.body, payload.message.parms);
+            const reply = new Reply(packet.topic);
+
+            //Passing parms to message Emitter
+            this.messageHandler.emit(packet.topic, message, reply);
+        }
     }
 
     public prepareReplyHandler(path: string, body: any){
+        const reply = {
+            body: body
+        }
         //Covert Json to string.
-        const message = {
+        const packet = {
             topic: path,
-            payload: JSON.stringify({reply: body}),
+            payload: JSON.stringify({reply: reply}),
             qos: 0,
             retain: false
         };
 
         //Publish message on broker
-        this.mosca.publish(message, (object, packet) => {
-            console.log('Server: published a message: %o ', message);
+        this.mosca.publish(packet, () => {
+            //Logging Reply
+            console.log('Server: published a reply: %o ', reply);
         });
     }
 }
@@ -126,10 +137,12 @@ export default class CommBroker {
 class Message implements IMessage{
     readonly topic: string;
     readonly body: any;
+    readonly parms: any;
 
-    constructor(topic: string, body: JSON){
+    constructor(topic: string, body: any, parms: any){
         this.topic = topic;
         this.body = body;
+        this.parms = parms;
     }
 }
 

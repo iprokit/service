@@ -6,7 +6,7 @@ export { default as Controller } from './controller';
 export { default as RDBModel, Op } from './db.rdb.model';
 export { Get, Post, Put, Delete } from './routes';
 export { Publish } from './comm.route';
-export { default as CommPublisher } from './comm.publisher';
+export { default as Publisher } from './comm.publisher';
 export { service } from './comm.subscriber';
 
 //Default Export

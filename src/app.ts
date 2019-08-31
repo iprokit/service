@@ -297,7 +297,7 @@ export default class MicroService {
             }).finally(() => {
                 //Start comm broker
                 commBroker.listen(this.options.comPort, () => {
-                    console.log('%s com broker running on %s:%s', this.options.name, this.options.ip, this.options.comPort);
+                    console.log('Comm broker running on %s:%s', this.options.ip, this.options.comPort);
 
                     //Start express server
                     this.startExpressListening();
@@ -336,7 +336,7 @@ export default class MicroService {
             }).finally(() => {
                 //Stop comm broker
                 commBroker.close(() => {
-                    console.log('Com broker shutdown complete.');
+                    console.log('Comm broker shutdown complete.');
                     //Stop Server
                     server.close(() => {
                         console.log('%s micro service shutdown complete.', this.options.name);

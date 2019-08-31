@@ -25,7 +25,7 @@ class CommSubscriber {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(){
+    private init(){
         return new Promise((resolve, reject) => {
             const url = 'mqtt://10.0.0.179:1883'
             const options = {
@@ -123,10 +123,6 @@ class CommSubscriber {
                 }
             });
         });
-    }
-
-    public get(){
-        //return all functions of the service.
     }
 }
 
