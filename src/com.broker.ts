@@ -1,23 +1,25 @@
 //Import modules
-import mosca from 'mosca';
+import mosca, { Packet, Message } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Interface: IMessage
 interface IMessage {
-    body: string;
+    readonly path: string;
+    readonly body: any;
 }
 
 //Interface: IReply
 interface IReply {
-    body: PublishHandlerReply;
-    send(body: PublishHandlerReply): void;
+    readonly path: string;
+    body: any;
+    send(body: any): void;
 }
-
-//Interface: PublishHandlerReply
-interface PublishHandlerReply {}
 
 //Types: PublishHandler
 type PublishHandler = (message: IMessage, reply: IReply) => void;
+
+//Alternative for this.
+var that: ComBroker;
 
 export default class ComBroker {
     private mosca: mosca.Server;
@@ -25,6 +27,9 @@ export default class ComBroker {
 
     //Default Constructor
     constructor(){
+        //Setting that as this.
+        that = this
+
         //Load message emitter.
         this.messageHandler = new EventEmitter();
     }
@@ -47,11 +52,11 @@ export default class ComBroker {
         this.mosca.on('published', (packet, client) => {
             const topic = packet.topic;
             if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-
-                //creating new parms and adding to message Emitter.
-                const message = new Message();
-                const reply = new Reply();
-                this.messageHandler.emit(topic, message, reply);
+                try{
+                    this.prepareMessageHandler(packet);
+                }catch(error){
+                    //Do nothing.
+                }
             }
         });
     }
@@ -63,6 +68,32 @@ export default class ComBroker {
     }
 
     /////////////////////////
+    ///////Prepare Functions
+    /////////////////////////
+    private prepareMessageHandler(packet: Packet){
+        //Convert string to json.
+        const payload = JSON.parse(packet.payload.toString());
+
+        //Creating new parms and adding to message Emitter.
+        const message = new ComMessage(packet.topic, payload.message.body);
+        const reply = new ComReply(packet.topic);
+        this.messageHandler.emit(packet.topic, message, reply);
+    }
+
+    public prepareReplyHandler(path: string, body: any){
+        const message = {
+            topic: path,
+            payload: JSON.stringify({reply: body}),
+            qos: 0,
+            retain: false
+        };
+            
+        this.mosca.publish(message, (object, packet) => {
+            console.log('Server: published a message: %o ', message);
+        });
+    }
+
+    /////////////////////////
     ///////Listener Functions
     /////////////////////////
     public publish(path: string, handler: PublishHandler){
@@ -70,37 +101,33 @@ export default class ComBroker {
     }
 }
 
-class Message implements IMessage{
-    body: string;
+/////////////////////////
+///////ComMessage
+/////////////////////////
+class ComMessage implements IMessage{
+    readonly path: string;
+    readonly body: any;
 
-    constructor(){
-        //const message: IMessage = JSON.parse(packet.payload.toString());
+    constructor(path: string, body: JSON){
+        this.path = path;
+        this.body = body;
     }
 }
 
-class Reply implements IReply{
-    body: PublishHandlerReply;
+/////////////////////////
+///////ComReply
+/////////////////////////
+class ComReply implements IReply{
+    readonly path: string;
+    body: any;
 
-    constructor(){
-
+    constructor(path: string){
+        this.path = path;
     }
 
-    send(body: PublishHandlerReply): void {
-        console.log('body', body);
-    }
-
-    private sendReply(path: string, reply: IReply){
-        const message = {
-            topic: path,
-            payload: JSON.stringify({reply: reply}),
-            qos: 0,
-            retain: false
-        };
-
-        console.log('Message', message);
-            
-        // moscaApp.publish(message, (object, packet) => {
-        //     console.log('Server: published a message: %o ', message);
-        // });
+    send(body: any): void {
+        this.body = body;
+        //TODO: need to handle this in a differnt way.
+        that.prepareReplyHandler(this.path, this.body);
     }
 }
