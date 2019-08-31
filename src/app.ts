@@ -120,16 +120,16 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
+        //Start inject Publishers
+        if(options.autoInjectPublishers !== undefined){
+            this.autoInjectPublishers(options.autoInjectPublishers);
+        }
+
         //Inject Controllers
         if(options.autoInjectControllers !== undefined){
             this.autoInjectControllers(options.autoInjectControllers);
         }
         this.injectEndpoints();//Load any user controllers
-
-        //Start inject Publishers
-        if(options.autoInjectPublishers !== undefined){
-            this.autoInjectPublishers(options.autoInjectPublishers);
-        }
 
         //Start the server
         this.startService();

@@ -33,7 +33,7 @@ export default class ComBroker {
         });
 
         this.mosca.on('published', (packet, client) => {
-            var topic = packet.topic;
+            const topic = packet.topic;
             if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                 var payload = packet.payload.toString();
                 console.log('%s published a message: %o on topic: %s', client.id, payload, topic)
