@@ -15,8 +15,8 @@ interface IReply {
     error(error: any): void;
 }
 
-//Types: PublishCallback
-export declare type PublishCallback = (message: Message, reply: Reply) => void;
+//Types: ReplyCallback
+export declare type ReplyCallback = (message: Message, reply: Reply) => void;
 
 //Alternative for this.
 var that: CommBroker;
@@ -25,7 +25,7 @@ export default class CommBroker {
     private mosca: mosca.Server;
 
     private topics: Array<string>;
-    private publishCallbackHandler: EventEmitter;
+    private replyCallbackEvent: EventEmitter;
 
     //Default Constructor
     constructor(){
@@ -35,11 +35,11 @@ export default class CommBroker {
         //Array of topics
         this.topics = new Array<string>();
 
-        //Load publish callback emitter.
-        this.publishCallbackHandler = new EventEmitter();
+        //Load reply callback emitter.
+        this.replyCallbackEvent = new EventEmitter();
 
-        //Create report publish.
-        this.publish('/', (message: Message, reply: Reply) => {
+        //Create report reply.
+        this.reply('/', (message: Message, reply: Reply) => {
             reply.send(that.topics);
         });
     }
@@ -78,19 +78,6 @@ export default class CommBroker {
     }
 
     /////////////////////////
-    ///////Router Functions
-    /////////////////////////
-    public publish(topic: string, publishCallback: PublishCallback){
-        if(this.topics.indexOf(topic) === -1){
-            //Add topic to array
-            this.topics.push(topic);
-    
-            //Add publish callback listener.
-            this.publishCallbackHandler.on(topic, publishCallback);
-        }
-    }
-
-    /////////////////////////
     ///////Handle Functions
     /////////////////////////
     private handleMessage(packet: Packet){
@@ -106,8 +93,8 @@ export default class CommBroker {
             const message = new Message(packet.topic, payload.message.parms);
             const reply = new Reply(packet.topic);
 
-            //Passing parms to publish callback Emitter
-            this.publishCallbackHandler.emit(packet.topic, message, reply);
+            //Passing parms to reply callback Emitter
+            this.replyCallbackEvent.emit(packet.topic, message, reply);
         }
     }
 
@@ -125,6 +112,19 @@ export default class CommBroker {
             //Logging Reply
             console.log('Broker: published a reply on topic: %s', topic);
         });
+    }
+
+    /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public reply(topic: string, replyCallback: ReplyCallback){
+        if(this.topics.indexOf(topic) === -1){
+            //Add topic to array
+            this.topics.push(topic);
+    
+            //Add reply callback listener.
+            this.replyCallbackEvent.on(topic, replyCallback);
+        }
     }
 }
 

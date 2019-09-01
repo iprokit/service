@@ -1,23 +1,23 @@
 //Local Imports
 import { commBroker } from './app';
-import { PublishCallback } from './comm.broker';
+import { ReplyCallback } from './comm.broker';
 import CommPublisher from './comm.publisher';
 import CommUtility from './comm.utility';
 
-//Interface: PublishFunctionDescriptor
-interface PublishFunctionDescriptor extends PropertyDescriptor {
-    value?: PublishCallback;
+//Interface: ReplyFunctionDescriptor
+interface ReplyFunctionDescriptor extends PropertyDescriptor {
+    value?: ReplyCallback;
 }
 
-//Types: PublishFunction
-export declare type PublishFunction = (target: typeof CommPublisher, propertyKey: string, descriptor: PublishFunctionDescriptor) => void;
+//Types: ReplyFunction
+export declare type ReplyFunction = (target: typeof CommPublisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
 
 /////////////////////////
 ///////Router Decorators
 /////////////////////////
-export function Publish(): PublishFunction {
+export function Reply(): ReplyFunction {
     return function (target, propertyKey, descriptor) {
         const path = CommUtility.convertToPath(target, propertyKey);
-        commBroker.publish(path, descriptor.value);
+        commBroker.reply(path, descriptor.value);
     }
 }
