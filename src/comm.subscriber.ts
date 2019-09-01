@@ -4,6 +4,12 @@ import mqtt from 'mqtt'
 //Local Imports
 import CommUtility from './comm.utility';
 
+//Type: Parms
+declare type Parms = {};
+
+//Type: Body
+declare type Body = {};
+
 //Interface: IMessage
 interface IMessage {
     readonly topic: string;
@@ -13,117 +19,100 @@ interface IMessage {
 //Interface: IReply
 interface IReply {
     readonly topic: string;
-    readonly body: any;
-    readonly error: any;
+    readonly body: string;
+    readonly error: string;
 }
 
-var that: CommSubscriber;
+//Types: SubscribeCallback
+export declare type SubscribeCallback = (parms?: Parms) => Promise<Body>;
 
+/////////////////////////
+///////Setup: service
+/////////////////////////
 export function service(serviceName: string){
-    return new CommSubscriber(serviceName);
+    //TODO: Convert serviceName to url
+    const ip = '10.0.0.179';
+    const port = global.service.comPort;
+    const url = 'mqtt://' + ip + ':' + port;
+
+    //Creating subscriber object.
+    const subscriber = new CommSubscriber();
+    subscriber.connect(url);
+
+    //return subscriber object.
+    return subscriber;
 }
 
 class CommSubscriber {
     private client: mqtt.MqttClient;
 
     //Default Constructor
-    constructor(serviceName: string){
-        that = this;
-        //Convert serviceName to url
-
-        const ip = '10.0.0.179';
-        const port = global.service.comPort;
-        const url = 'mqtt://' + ip + ':' + port;
-        this.connect(url);
-    }
+    constructor(){}
 
     /////////////////////////
-    ///////Connection Management
+    ///////Start/Stop Functions
     /////////////////////////
-    private connect(url: string){
+    public connect(url: string){
         const options = {
             clientId: global.service.name,
             keepalive: 30
         }
 
         this.client = mqtt.connect(url, options);
+
         this.client.on('connect', () => {
-            this.executeSubscribeFunction('/', {})
-                .then((reply: Reply) => {
-                    this.generateSubscribes(reply.body);
+            //Logging Message
+            console.log('Client: Connected to comm broker running on %s', url);
+
+            //Get all topics from comm broker.
+            this.handleMessageReply('/', {})
+                .then((topics: []) => {
+                    this.generateSubscribers(topics);
                 })
-        });
-    }
-
-    /////////////////////////
-    ///////Other Functions
-    /////////////////////////
-    private generateSubscribes(topics: Array<string>){
-        //Convert topics into subscribers with dynamic functions.
-        topics.forEach(topic => {
-            const converter = CommUtility.convertToFunction(topic);
-
-            let subscriber;
-            //Validate and grenrate a subscriber object or get it from this class object.
-            if(this.constructor.prototype[converter.className] === undefined){
-                subscriber = new Subscriber(converter.className);
-            }else{
-                subscriber = this.constructor.prototype[converter.className];
-            }
-
-            //Generate dynamic funcations and add it to subscriber object.
-            const subscribe = function(body?: any) {
-                return that.executeSubscribeFunction(topic, body);
-            }
-            Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
-
-            //Adding the subscriber object to this class object.
-            this.constructor.prototype[converter.className] = subscriber;
-        });
-    }
-
-    private executeSubscribeFunction(topic: string, parms?: any) {
-        return new Promise((resolve, reject) => {
-            //TODO: Move client creating here.
-            that.client.subscribe(topic, (error: any) => {
-                if (!error) {
-                    this.handleMessage(topic, parms);
-
-                    //Receive from Topic.
-                    that.client.on('packetreceive', (packet: any) => {
-                        try{
-                            const reply = this.handleReply(packet);
-                            if(reply.body){
-                                resolve(reply.body);
-                            }else if(reply.error){
-                                reject(reply.error);
-                            }
-                        } catch (error) {
-                            //console.log('Client: Does not contain payload, Waiting...');
-                        }
-                    })
-                } else {
-                    reject(error);
-                }
-            });
+                .catch((error) => {
+                    console.log(error);
+                });
         });
     }
 
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    private handleMessage(topic: string, parms: any){
+    private handleMessageReply(topic: string, parms?: Parms){
+        return new Promise<Body>((resolve, reject) => {
+            //Handle message.
+            this.handleMessage(topic, parms);
+
+            //On message.
+            this.client.on('message', (topic, payload, packet) => {
+                //TODO: Issue here. Work from here.
+                try{
+                    const reply = this.handleReply(packet);
+                    if(reply.body){
+                        resolve(reply.body);
+                    }else if(reply.error){
+                        reject(reply.error);
+                    }
+                } catch (error) {
+                    //console.log('Client: Does not contain payload, Waiting...');
+                }
+            });
+        });
+    }
+
+    private handleMessage(topic: string, parms: Parms){
         //creating message parms.
         const message = new Message(topic, parms);
 
-        //Covert Json to string.
+        //Convert Json to string.
         const payload = JSON.stringify({ message: message });
 
-        //Publish message on broker
-        this.client.publish(topic, payload, () => {
-            //Logging Message
-            console.log('Client: published a message on topic: %s', topic);
-        });
+        //Subscribe & Publish
+        this.client.subscribe(message.topic);
+        this.client.publish(message.topic, payload);
+
+        //Logging Message
+        console.log('Client: published a message on topic: %s', topic);
     }
 
     private handleReply(packet: any){
@@ -133,14 +122,50 @@ class CommSubscriber {
         //Validate if the payload is from the publisher(broker) or subscriber(client).
         if(!payload.reply !== undefined && payload.message === undefined){
             //creating reply parms.
-            const reply = new Reply(packet.topic, payload.reply, payload.error);
+            const reply = new Reply(packet.topic, payload.reply.body, payload.reply.error);
 
-            //Logging Message
-            console.log('Client: published a reply on topic: %s', packet.topic);
+            //Unsubscribe
+            this.client.unsubscribe(packet.topic);
 
-            //creating reply parms.
+            //Logging Reply
+            console.log('Client: received a reply on topic: %s', packet.topic);
+
+            //Return reply object.
             return reply;
         }
+    }
+
+    /////////////////////////
+    ///////Generators Functions
+    /////////////////////////
+    private generateSubscribers(topics: Array<string>){
+        //Convert topics into subscribers with dynamic functions.
+        topics.forEach(topic => {
+            const converter = CommUtility.convertToFunction(topic);
+
+            if(converter){
+                let subscriber;
+
+                //Alternative for this to pass as accessor.
+                var that = this;
+
+                //Validate and generate a subscriber object or get it from this class object.
+                if(this.constructor.prototype[converter.className] === undefined){
+                    subscriber = new Subscriber(converter.className);
+                }else{
+                    subscriber = this.constructor.prototype[converter.className];
+                }
+
+                //Generate dynamic funcations and add it to subscriber object.
+                const subscribe = function(body?: any) {
+                    return that.handleMessageReply(topic, body);
+                }
+                Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
+
+                //Adding the subscriber object to this class object.
+                this.constructor.prototype[converter.className] = subscriber;
+            }
+        });
     }
 }
 

@@ -13,6 +13,11 @@ export default class CommUtility {
 
         let className = topicLevels[1];
         let functionName = topicLevels[2];
-        return {className, functionName};
+
+        if(className || functionName){
+            return {className, functionName};
+        }else{
+            return undefined;
+        }
     }
 }

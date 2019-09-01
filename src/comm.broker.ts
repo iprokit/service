@@ -39,7 +39,7 @@ export default class CommBroker {
         this.publishCallbackHandler = new EventEmitter();
 
         //Create report publish.
-        this.publish('/', function(message: Message, reply: Reply){
+        this.publish('/', (message: Message, reply: Reply) => {
             reply.send(that.topics);
         });
     }
