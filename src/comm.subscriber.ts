@@ -31,7 +31,7 @@ export declare type SubscribeCallback = (parms?: Parms) => Promise<Body>;
 /////////////////////////
 export function service(serviceName: string){
     //TODO: Convert serviceName to url
-    const ip = '10.0.0.179';
+    const ip = '127.0.0.1';
     const port = global.service.comPort;
     const url = 'mqtt://' + ip + ':' + port;
 
@@ -85,7 +85,7 @@ class CommSubscriber {
 
             //On message.
             this.client.on('message', (topic, payload, packet) => {
-                //TODO: Issue here. Work from here.
+                //TODO: Bug(Circular) here this is being called multiple times. Work from here.
                 try{
                     const reply = this.handleReply(packet);
                     if(reply.body){
@@ -157,6 +157,7 @@ class CommSubscriber {
                 }
 
                 //Generate dynamic funcations and add it to subscriber object.
+                //TODO: Bug(Circular)
                 const subscribe = function(body?: any) {
                     return that.handleMessageReply(topic, body);
                 }

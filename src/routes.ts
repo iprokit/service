@@ -5,26 +5,21 @@ import { PathParams, RequestHandler } from "express-serve-static-core";
 import { expressRouter } from "./app";
 import Controller from "./controller";
 
-//Interface: RouterFunctionDescriptor
-interface RouterFunctionDescriptor extends PropertyDescriptor {
+//Interface: RequestResponseFunctionDescriptor
+interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
     value?: RequestHandler;
 }
 
-//Interface: AppFunctionDescriptor
-interface AppFunctionDescriptor extends PropertyDescriptor {
-    value?: RequestHandler;
-}
-
-//Types: RouterFunction
-export declare type RouterFunction = (target: typeof Controller, propertyKey: string, descriptor: RouterFunctionDescriptor) => void;
+//Types: RequestResponseFunction
+export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
 //Types: AppFunction
-export declare type AppFunction = (target: Object, propertyKey: string, descriptor: AppFunctionDescriptor) => void;
+export declare type AppFunction = (target: Object, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
 /////////////////////////
 ///////Router Decorators
 /////////////////////////
-export function Get(path: PathParams): RouterFunction {
+export function Get(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
@@ -32,7 +27,7 @@ export function Get(path: PathParams): RouterFunction {
     }
 }
 
-export function Post(path: PathParams): RouterFunction {
+export function Post(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
@@ -40,7 +35,7 @@ export function Post(path: PathParams): RouterFunction {
     }
 }
 
-export function Put(path: PathParams): RouterFunction {
+export function Put(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
@@ -48,7 +43,7 @@ export function Put(path: PathParams): RouterFunction {
     }
 }
 
-export function Delete(path: PathParams): RouterFunction {
+export function Delete(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
