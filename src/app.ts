@@ -83,6 +83,9 @@ export type MicroServiceOptions = {
 export var commBroker = new CommBroker();
 var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
+//DB connection object
+var dbManager: DBManager;
+
 //Alternative for this.
 var that: MicroService;
 
@@ -96,7 +99,6 @@ export default class MicroService {
     private options: MicroServiceOptions;
 
     //Objects
-    private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
     public readonly publishers: Array<typeof CommPublisher> = new Array<typeof CommPublisher>();
 
@@ -113,9 +115,6 @@ export default class MicroService {
         this.loadServiceOptions();
         this.loadGlobalOptions();
 
-        //Load objects
-        this.dbManager = new DBManager();
-
         //Load express server, router
         this.initExpressServer();
 
@@ -125,6 +124,7 @@ export default class MicroService {
         this.init();//Load any user functions
 
         //Load DB
+        dbManager = new DBManager();
         if(options.db !== undefined){
             this.initDB(options.db);
         }
@@ -223,7 +223,7 @@ export default class MicroService {
     private initDB(dbOptions: DBInitOptions){
         try{
             //Init sequelize
-            this.dbManager.init(dbOptions);
+            dbManager.init(dbOptions);
         }catch(error){
             if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
@@ -319,7 +319,7 @@ export default class MicroService {
         });
 
         //Connect to DB.
-        this.dbManager.connect()
+        dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
                     console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
@@ -338,7 +338,7 @@ export default class MicroService {
     private stopService(server: Server){
         //Chained stopping all the servers and clients.
         //Close DB connection.
-        this.dbManager.disconnect()
+        dbManager.disconnect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
                     console.log('DB client disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);

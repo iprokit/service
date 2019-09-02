@@ -13,14 +13,13 @@ declare type Body = {};
 
 //Interface: IMessage
 interface IMessage {
-    readonly parms: any;
+    parms: any;
 }
 
 //Interface: IReply
 interface IReply {
-    readonly topic: string;
-    readonly body: string;
-    readonly error: string;
+    body: string;
+    error: string;
 }
 
 //Types: MessageCallback
@@ -85,26 +84,9 @@ export default class CommClient {
     ///////Setup/Init Functions
     /////////////////////////
     public setup(){
-        return new Promise((resolve, reject) => {
-            const topic = '/';
-            const parms =  {};
-
-            //Subscribe to topic.
-            this.mqttClient.subscribe(topic);
-
-            const getAllTopics = function(reply: Reply){
-                that.messageCallbackEvent.removeListener(topic, getAllTopics);
-                resolve(reply);
-            }
-
-            //Listen for reply on broker
-            this.messageCallbackEvent.on(topic, getAllTopics);
-
-            //creating new message parm.
-            const message = new Message(parms);
-
-            this.sendMessage(topic, new Message({}));
-        });
+        this.message('/', {});
+        //Subscribe to topic.
+        this.mqttClient.subscribe('/');
     }
 
     /////////////////////////
@@ -133,10 +115,32 @@ export default class CommClient {
             console.log('Client: payload: %o', payload);
 
             //creating new reply parm.
-            const reply = new Reply(packet.topic, payload.reply.body, payload.reply.error);
+            const reply = new Reply(payload.reply.body, payload.reply.error);
 
             this.messageCallbackEvent.emit(packet.topic, reply);
         }
+    }
+
+    /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public message(topic: string, parms: Parms){
+        return new Promise((resolve, reject) => {
+            //Listen for reply on broker
+            this.messageCallbackEvent.once(topic, (reply: Reply) => {
+                if(reply.body !== undefined){
+                    resolve(reply.body);
+                }else{
+                    reject(reply.error);
+                }
+            });
+
+            //creating new message parm.
+            const message = new Message(parms);
+
+            //Sending message
+            this.sendMessage(topic, message);
+        });
     }
 
     // /////////////////////////
@@ -200,12 +204,10 @@ class Message implements IMessage{
 ///////Reply
 /////////////////////////
 class Reply implements IReply{
-    readonly topic: string;
     readonly body: any;
     readonly error: any;
 
-    constructor(topic: string, body: any, error: any){
-        this.topic = topic;
+    constructor(body: any, error: any){
         this.body = body;
         this.error = error;
     }
