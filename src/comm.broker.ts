@@ -47,33 +47,37 @@ export default class CommBroker {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(port: number | string, fn: Function){
-        const options = {
-            id: global.service.name,
-            port: port
-        }
-        
-        this.mosca = new mosca.Server(options);
-
-        this.mosca.on('ready', () => {
-            fn();
-        });
-
-        this.mosca.on('published', (packet, client) => {
-            const topic = packet.topic;
-            if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                try{
-                    this.handleMessage(packet);
-                }catch(error){
-                    //Do nothing.
-                }
+    public listen(port: number | string){
+        return new Promise((resolve, reject) => {
+            const options = {
+                id: global.service.name,
+                port: port
             }
+            
+            this.mosca = new mosca.Server(options);
+    
+            this.mosca.on('ready', () => {
+                resolve();
+            });
+    
+            this.mosca.on('published', (packet, client) => {
+                const topic = packet.topic;
+                if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
+                    try{
+                        this.handleMessage(packet);
+                    }catch(error){
+                        //Do nothing.
+                    }
+                }
+            });
         });
     }
 
-    public close(fn: Function){
-        this.mosca.close(() => {
-            fn();
+    public close(){
+        return new Promise((resolve, reject) => {
+            this.mosca.close(() => {
+                resolve();
+            });
         });
     }
 

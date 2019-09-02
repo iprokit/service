@@ -22,6 +22,7 @@ import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
 import CommBroker from './comm.broker';
+import CommClient from './comm.client';
 import CommPublisher from './comm.publisher';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
@@ -45,7 +46,7 @@ declare global {
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
-    autoMapPublishers?: AutoMapPublisherOptions
+    mesh?: MeshOptions
 }
 
 //Types: AutoInjectControllerOptions
@@ -55,12 +56,17 @@ export type AutoInjectControllerOptions = {
     excludes?: Array<string>
 };
 
-//Types: AutoMapPublisherOptions
-export type AutoMapPublisherOptions = {
+//Types: AutoInjectPublisherOptions
+export type AutoInjectPublisherOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
 };
+
+export type MeshOptions = {
+    autoInjectPublishers?: AutoInjectPublisherOptions,
+    services: Array<string>
+}
 
 //Types: MicroServiceOptions
 export type MicroServiceOptions = {
@@ -79,6 +85,12 @@ export var commBroker = new CommBroker();
 //Alternative for this.
 var that: MicroService;
 
+export function getMicroService(serviceName: string){
+    return new Promise((resolve, reject) => {
+        return that.commClients.find(client => client.name === serviceName);
+    });
+}
+
 export default class MicroService {
     //Types
     private options: MicroServiceOptions;
@@ -87,6 +99,7 @@ export default class MicroService {
     private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
     public readonly publishers: Array<typeof CommPublisher> = new Array<typeof CommPublisher>();
+    public readonly commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -117,9 +130,10 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
-        //Map Publishers
-        if(options.autoMapPublishers !== undefined){
-            this.autoMapPublishers(options.autoMapPublishers);
+        //Map Mesh
+        if(options.mesh !== undefined){
+            this.autoInjectPublishers(options.mesh.autoInjectPublishers);
+            this.mapMesh(options.mesh.services);
         }
 
         //Inject Controllers
@@ -246,10 +260,10 @@ export default class MicroService {
         });
     }
     
-    private autoMapPublishers(autoMapOptions: AutoMapPublisherOptions){
-        let paths = autoMapOptions.paths || ['/'];
-        const likeName = autoMapOptions.likeName || 'publisher.js';
-        const excludes = autoMapOptions.excludes || [];
+    private autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+        let paths = autoInjectOptions.paths || ['/'];
+        const likeName = autoInjectOptions.likeName || 'publisher.js';
+        const excludes = autoInjectOptions.excludes || [];
 
         //Adding files to Exclude.
         excludes.push('/node_modules');
@@ -280,11 +294,36 @@ export default class MicroService {
         console.log('%s : %o', this.options.name, options);
         console.log('Starting micro service...');
 
+        //Parallel starting all the servers and clients.
+
+        //Start express server
+        const server = expressApp.listen(this.options.expressPort, () => {
+            console.log('Express server running on %s:%s', this.options.ip, this.options.expressPort);
+        });
+        this.addExpressListeners(server);
+
+        //Start comm broker
+        commBroker.listen(this.options.comPort)
+            .then(() => {
+                console.log('Comm broker running on %s:%s', this.options.ip, this.options.comPort);
+            });
+
+        //Get all comm clients
+        this.commClients.forEach((commClient) => {
+            const _commClient = commClient.client;
+            //Connect to comm client
+            _commClient.connect()
+                .then((options: any) =>{
+                    console.log('Comm client connected to %s', options.url);
+                    _commClient.setup();
+                });
+        });
+
         //Connect to DB.
         this.dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
-                    console.log('Connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
+                    console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
             .catch((error) => {
@@ -294,56 +333,70 @@ export default class MicroService {
                     console.error(error);
                 }
                 console.log('Will continue...');
-            }).finally(() => {
-                //Start comm broker
-                commBroker.listen(this.options.comPort, () => {
-                    console.log('Comm broker running on %s:%s', this.options.ip, this.options.comPort);
-
-                    //Start express server
-                    this.startExpressListening();
-                });
-            });
-    }
-
-    private startExpressListening(){
-        const server = expressApp.listen(this.options.expressPort, () => {
-            console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.expressPort);
-
-            //Adding process listeners to stop server gracefully.
-            process.on('SIGTERM', () => {
-                console.log('Recived SIGTERM!');
-                this.stopService(server)
-            });
-    
-            process.on('SIGINT', () => {
-                console.log('Recived SIGINT!');
-                this.stopService(server);
-            });
-        });
+            })
     }
 
     private stopService(server: Server){
+        //Chained stopping all the servers and clients.
         //Close DB connection.
         this.dbManager.disconnect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
-                    console.log('Disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
+                    console.log('DB client disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
-            .catch((error: any) => {
-                console.error(error);
-                console.log('Will continue...');
-            }).finally(() => {
-                //Stop comm broker
-                commBroker.close(() => {
-                    console.log('Comm broker shutdown complete.');
-                    //Stop Server
-                    server.close(() => {
-                        console.log('%s micro service shutdown complete.', this.options.name);
-                        process.exit(0);
-                    });
+            .finally(() => {
+                //Close Comm Client connections.
+                this.commClients.forEach((commClient) => {
+                    const _commClient = commClient.client;
+                    _commClient.disconnect()
+                        .then((options: any) =>{
+                            console.log('Comm client disconnected from %s', options.url);
+                        })
+                        .finally(() => {
+                            //Stop comm broker
+                            commBroker.close()
+                                .then(() => {
+                                    console.log('Comm broker shutdown complete.');
+                                })
+                                .finally(() => {
+                                    //Stop Server
+                                    server.close(() => {
+                                        console.log('Express server shutdown complete.');
+                                        process.exit(0);
+                                    });
+                                });
+                        });
                 });
             });
+    }
+
+    /////////////////////////
+    ///////Other Functions
+    /////////////////////////
+    private mapMesh(services: Array<string>){
+        services.forEach(service => {
+            //Creating comm client object.
+            const commClient = new CommClient(service);
+
+            console.log('Mapping mesh: %s', commClient.url);
+
+            //Add to Array
+            this.commClients.push({name: service, client: commClient});
+        });
+    }
+
+    private addExpressListeners(server: Server){
+        //Adding process listeners to stop server gracefully.
+        process.on('SIGTERM', () => {
+            console.log('Recived SIGTERM!');
+            this.stopService(server)
+        });
+
+        process.on('SIGINT', () => {
+            console.log('Recived SIGINT!');
+            this.stopService(server);
+        });
     }
 }
 

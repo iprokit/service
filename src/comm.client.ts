@@ -26,51 +26,56 @@ interface IReply {
 //Types: SubscribeCallback
 export declare type SubscribeCallback = (parms?: Parms) => Promise<Body>;
 
-/////////////////////////
-///////Setup: service
-/////////////////////////
-export function getMicroService(serviceName: string){
-    //TODO: Convert serviceName to url
-    const ip = '127.0.0.1';
-    const port = global.service.comPort;
-    const url = 'mqtt://' + ip + ':' + port;
+export default class CommClient {
+    public readonly url: string;
 
-    //Creating subscriber object.
-    const subscriber = new CommSubscriber();
-    subscriber.connect(url);
-
-    //return subscriber object.
-    return subscriber;
-}
-
-export default class CommSubscriber {
     private mqttClient: mqtt.MqttClient;
 
     //Default Constructor
-    constructor(){}
+    constructor(ip: string){
+        //Creating url from ip and comPort
+        this.url = 'mqtt://' + ip + ':' + global.service.comPort;
+    }
 
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public connect(url: string){
-        const options = {
-            clientId: global.service.name,
-            keepalive: 30
-        }
+    public connect(){
+        return new Promise((resolve, reject) => {
+            const options = {
+                id: global.service.name,
+                keepalive: 30
+            };
+    
+            this.mqttClient = mqtt.connect(this.url, options);
+    
+            this.mqttClient.on('connect', () => {
+                resolve({url: this.url});
+            });
+            //TODO: If connection is not established, retry.
+        });
+    }
 
-        this.mqttClient = mqtt.connect(url, options);
+    public disconnect(){
+        return new Promise((resolve, reject) => {
+            this.mqttClient.end(true, () => {
+                resolve({url: this.url});
+            });
+        });
+    }
 
-        this.mqttClient.on('connect', () => {
-            //Logging Message
-            console.log('Client: Connected to comm broker running on %s', url);
-
-            //Get all topics from comm broker.
+    /////////////////////////
+    ///////Setup/Init Functions
+    /////////////////////////
+    public setup(){
+        return new Promise((resolve, reject) => {
             this.handleMessageReply('/', {})
                 .then((topics: []) => {
                     this.generateSubscribers(topics);
+                    resolve();
                 })
                 .catch((error) => {
-                    console.log(error);
+                    resolve(error);
                 });
         });
     }
