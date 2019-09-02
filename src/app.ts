@@ -86,9 +86,8 @@ export var commBroker = new CommBroker();
 var that: MicroService;
 
 export function getMicroService(serviceName: string){
-    return new Promise((resolve, reject) => {
-        return that.commClients.find(client => client.name === serviceName);
-    });
+    const commClientsObject = that.commClients.find(client => client.name === serviceName);
+    return commClientsObject.client;
 }
 
 export default class MicroService {
