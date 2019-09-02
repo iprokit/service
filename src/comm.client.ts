@@ -1,5 +1,6 @@
 //Import modules
-import mqtt from 'mqtt'
+import mqtt, { Packet } from 'mqtt'
+import { EventEmitter } from 'events';
 
 //Local Imports
 import CommUtility from './comm.utility';
@@ -12,7 +13,6 @@ declare type Body = {};
 
 //Interface: IMessage
 interface IMessage {
-    readonly topic: string;
     readonly parms: any;
 }
 
@@ -23,18 +23,32 @@ interface IReply {
     readonly error: string;
 }
 
-//Types: SubscribeCallback
-export declare type SubscribeCallback = (parms?: Parms) => Promise<Body>;
+//Types: MessageCallback
+export declare type MessageCallback = (parms?: Parms) => Promise<unknown>;
+
+//Alternative for this.
+var that: CommClient;
 
 export default class CommClient {
     public readonly url: string;
 
+    private topics: Array<string>;
     private mqttClient: mqtt.MqttClient;
+    private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
     constructor(ip: string){
+        //Setting that as this.
+        that = this
+
         //Creating url from ip and comPort
         this.url = 'mqtt://' + ip + ':' + global.service.comPort;
+
+        //Array of topics
+        this.topics = new Array<string>();
+
+        //Load message callback emitter.
+        this.messageCallbackEvent = new EventEmitter();
     }
 
     /////////////////////////
@@ -52,8 +66,10 @@ export default class CommClient {
             this.mqttClient.on('connect', () => {
                 resolve({url: this.url});
             });
-            //TODO: If connection is not established, retry.
-            //TODO: If random disconnect, retry.
+            
+            this.mqttClient.on('message', (topic, payload, packet) => {
+                this.receiveReply(packet);
+            });
         });
     }
 
@@ -70,111 +86,92 @@ export default class CommClient {
     /////////////////////////
     public setup(){
         return new Promise((resolve, reject) => {
-            this.handleMessageReply('/', {})
-                .then((topics: []) => {
-                    this.generateSubscribers(topics);
-                    resolve();
-                })
-                .catch((error) => {
-                    resolve(error);
-                });
+            const topic = '/';
+            const parms =  {};
+
+            //Subscribe to topic.
+            this.mqttClient.subscribe(topic);
+
+            const getAllTopics = function(reply: Reply){
+                that.messageCallbackEvent.removeListener(topic, getAllTopics);
+                resolve(reply);
+            }
+
+            //Listen for reply on broker
+            this.messageCallbackEvent.on(topic, getAllTopics);
+
+            //creating new message parm.
+            const message = new Message(parms);
+
+            this.sendMessage(topic, new Message({}));
         });
     }
 
     /////////////////////////
-    ///////Handle Functions
+    ///////Comm Functions 
     /////////////////////////
-    //TODO: Work from here. Move mqtt client logic to connect and add listener.
-    private handleMessageReply(topic: string, parms?: Parms){
-        return new Promise<Body>((resolve, reject) => {
-            //Handle message.
-            this.handleMessage(topic, parms);
+    private sendMessage(topic: string, message: Message){
+        //Convert string to Json.
+        const payload = JSON.stringify({message: message});
 
-            //On message.
-            this.mqttClient.on('message', (topic, payload, packet) => {
-                //TODO: Bug(Circular) here this is being called multiple times. Work from here.
-                try{
-                    const reply = this.handleReply(packet);
-                    if(reply.body){
-                        resolve(reply.body);
-                    }else if(reply.error){
-                        reject(reply.error);
-                    }
-                } catch (error) {
-                    //console.log('Client: Does not contain payload, Waiting...');
-                }
-            });
+        //Publish message on broker
+        this.mqttClient.publish(topic, payload, { qos: 0 }, () => {
+            //Logging Message
+            console.log('Client: published a message on topic: %s', topic);
+            console.log('Client: payload: %o', payload);
         });
     }
 
-    private handleMessage(topic: string, parms: Parms){
-        //creating message parms.
-        const message = new Message(topic, parms);
-
-        //Convert Json to string.
-        const payload = JSON.stringify({ message: message });
-
-        //Subscribe & Publish
-        this.mqttClient.subscribe(message.topic);
-        this.mqttClient.publish(message.topic, payload);
-
-        //Logging Message
-        console.log('Client: published a message on topic: %s', topic);
-    }
-
-    private handleReply(packet: any){
+    private receiveReply(packet: any){
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Validate if the payload is from the publisher(broker) or subscriber(client).
-        if(!payload.reply !== undefined && payload.message === undefined){
-            //creating reply parms.
+        //Validate if the payload is from the broker or client.
+        if(payload.reply !== undefined && payload.message === undefined){
+            //Logging Message
+            console.log('Client: received a reply on topic: %s', packet.topic);
+            console.log('Client: payload: %o', payload);
+
+            //creating new reply parm.
             const reply = new Reply(packet.topic, payload.reply.body, payload.reply.error);
 
-            //Unsubscribe
-            this.mqttClient.unsubscribe(packet.topic);
-
-            //Logging Reply
-            console.log('Client: received a reply on topic: %s', packet.topic);
-
-            //Return reply object.
-            return reply;
+            this.messageCallbackEvent.emit(packet.topic, reply);
         }
     }
 
-    /////////////////////////
-    ///////Generators Functions
-    /////////////////////////
-    private generateSubscribers(topics: Array<string>){
-        //Convert topics into subscribers with dynamic functions.
-        topics.forEach(topic => {
-            const converter = CommUtility.convertToFunction(topic);
+    // /////////////////////////
+    // ///////Generators Functions
+    // /////////////////////////
+    // private generateSubscribers(topics: Array<string>){
+    //     //Convert topics into subscribers with dynamic functions.
+    //     topics.forEach(topic => {
+    //         const converter = CommUtility.convertToFunction(topic);
 
-            if(converter){
-                let subscriber;
+    //         if(converter){
+    //             let subscriber;
 
-                //Alternative for this to pass as accessor.
-                var that = this;
+    //             //Alternative for this to pass as accessor.
+    //             var that = this;
 
-                //Validate and generate a subscriber object or get it from this class object.
-                if(this.constructor.prototype[converter.className] === undefined){
-                    subscriber = new Subscriber(converter.className);
-                }else{
-                    subscriber = this.constructor.prototype[converter.className];
-                }
+    //             //Validate and generate a subscriber object or get it from this class object.
+    //             if(this.constructor.prototype[converter.className] === undefined){
+    //                 subscriber = new Subscriber(converter.className);
+    //             }else{
+    //                 subscriber = this.constructor.prototype[converter.className];
+    //             }
 
-                //Generate dynamic funcations and add it to subscriber object.
-                //TODO: Bug(Circular)
-                const subscribe = function(body?: any) {
-                    return that.handleMessageReply(topic, body);
-                }
-                Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
+    //             //Generate dynamic funcations and add it to subscriber object.
+    //             //TODO: Bug(Circular)
+    //             const subscribe = function(body?: any) {
+    //                 return that.handleMessageReply(topic, body);
+    //             }
+    //             Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
 
-                //Adding the subscriber object to this class object.
-                this.constructor.prototype[converter.className] = subscriber;
-            }
-        });
-    }
+    //             //Adding the subscriber object to this class object.
+    //             this.constructor.prototype[converter.className] = subscriber;
+    //         }
+    //     });
+    // }
 }
 
 /////////////////////////
@@ -192,11 +189,9 @@ class Subscriber {
 ///////Message
 /////////////////////////
 class Message implements IMessage{
-    readonly topic: string;
     readonly parms: any;
 
-    constructor(topic: string, parms: any){
-        this.topic = topic;
+    constructor(parms: any){
         this.parms = parms;
     }
 }

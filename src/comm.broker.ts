@@ -64,7 +64,7 @@ export default class CommBroker {
                 const topic = packet.topic;
                 if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                     try{
-                        this.handleMessage(packet);
+                        this.receiveMessage(packet);
                     }catch(error){
                         //Do nothing.
                     }
@@ -82,16 +82,17 @@ export default class CommBroker {
     }
 
     /////////////////////////
-    ///////Handle Functions
+    ///////Comm Functions 
     /////////////////////////
-    private handleMessage(packet: Packet){
+    private receiveMessage(packet: Packet){
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Validate if the payload is from the publisher(broker) or subscriber(client).
-        if(!payload.message !== undefined && payload.reply === undefined){
+        //Validate if the payload is from the broker or client.
+        if(payload.message !== undefined && payload.reply === undefined){
             //Logging Message
             console.log('Broker: received a message on topic: %s', packet.topic);
+            console.log('Broker: payload: %o', payload);
 
             //creating new parms.
             const message = new Message(packet.topic, payload.message.parms);
@@ -102,7 +103,7 @@ export default class CommBroker {
         }
     }
 
-    public handleReply(topic: string, reply: any){
+    public sendReply(topic: string, reply: any){
         //Covert Json to string.
         const packet = {
             topic: topic,
@@ -115,6 +116,7 @@ export default class CommBroker {
         this.mosca.publish(packet, () => {
             //Logging Reply
             console.log('Broker: published a reply on topic: %s', topic);
+            console.log('Broker: payload: %o', packet.payload);
         });
     }
 
@@ -156,10 +158,10 @@ class Reply implements IReply{
     }
 
     send(body: any): void {
-        that.handleReply(this.topic, { body: body });
+        that.sendReply(this.topic, { body: body });
     }
 
     error(error: any): void {
-        that.handleReply(this.topic, { error: error });
+        that.sendReply(this.topic, { error: error });
     }
 }
