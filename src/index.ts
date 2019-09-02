@@ -2,7 +2,7 @@
 import MicroService from './app';
 
 //Exports
-export { getMicroService } from './app';
+export { getService } from './app';
 export { default as Controller } from './controller';
 export { default as RDBModel, Op } from './db.rdb.model';
 export { Get, Post, Put, Delete } from './routes';

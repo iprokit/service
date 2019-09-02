@@ -53,6 +53,7 @@ export default class CommClient {
                 resolve({url: this.url});
             });
             //TODO: If connection is not established, retry.
+            //TODO: If random disconnect, retry.
         });
     }
 
@@ -83,6 +84,7 @@ export default class CommClient {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
+    //TODO: Work from here. Move mqtt client logic to connect and add listener.
     private handleMessageReply(topic: string, parms?: Parms){
         return new Promise<Body>((resolve, reject) => {
             //Handle message.

@@ -79,14 +79,15 @@ export type MicroServiceOptions = {
     ip: string
 }
 
-//Comm broker variables
+//Comm broker and client objects
 export var commBroker = new CommBroker();
+var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
 //Alternative for this.
 var that: MicroService;
 
-export function getMicroService(serviceName: string){
-    const commClientsObject = that.commClients.find(client => client.name === serviceName);
+export function getService(serviceName: string){
+    const commClientsObject = commClients.find(client => client.name === serviceName);
     return commClientsObject.client;
 }
 
@@ -98,7 +99,6 @@ export default class MicroService {
     private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
     public readonly publishers: Array<typeof CommPublisher> = new Array<typeof CommPublisher>();
-    public readonly commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -308,7 +308,7 @@ export default class MicroService {
             });
 
         //Get all comm clients
-        this.commClients.forEach((commClient) => {
+        commClients.forEach((commClient) => {
             const _commClient = commClient.client;
             //Connect to comm client
             _commClient.connect()
@@ -346,7 +346,7 @@ export default class MicroService {
             })
             .finally(() => {
                 //Close Comm Client connections.
-                this.commClients.forEach((commClient) => {
+                commClients.forEach((commClient) => {
                     const _commClient = commClient.client;
                     _commClient.disconnect()
                         .then((options: any) =>{
@@ -381,7 +381,7 @@ export default class MicroService {
             console.log('Mapping mesh: %s', commClient.url);
 
             //Add to Array
-            this.commClients.push({name: service, client: commClient});
+            commClients.push({name: service, client: commClient});
         });
     }
 
