@@ -5,19 +5,8 @@ import { EventEmitter } from 'events';
 //Local Imports
 import CommUtility from './comm.utility';
 
-//Interface: IMessage
-interface IMessage {
-    parms: any;
-}
-
-//Interface: IReply
-interface IReply {
-    body: any;
-    error: any;
-}
-
-//Types: MessageCallback
-export declare type MessageCallback = (parms?: any) => Promise<unknown>;
+//Alternative for this.
+var that: CommClient;
 
 export default class CommClient {
     public readonly url: string;
@@ -27,6 +16,9 @@ export default class CommClient {
 
     //Default Constructor
     constructor(ip: string){
+        //Setting that as this.
+        that = this;
+
         //Creating url from ip and comPort
         this.url = 'mqtt://' + ip + ':' + global.service.comPort;
 
@@ -72,9 +64,10 @@ export default class CommClient {
         //Subscribe to all topics.
         this.mqttClient.subscribe('/#');
 
+        //Get broadcasted topics.
         this.handleMessage('/', {})
             .then((topics: []) => {
-                console.log(topics);
+                this.generateSubscribers(topics);
             });
     }
 
@@ -131,12 +124,46 @@ export default class CommClient {
             this.sendMessage(topic, message);
         });
     }
+
+    /////////////////////////
+    ///////Generate Functions
+    /////////////////////////
+    private generateSubscribers(topics: Array<string>){
+        //Convert topics into subscribers with dynamic functions.
+        topics.forEach(topic => {
+            const converter = CommUtility.convertToFunction(topic);
+
+            if(converter){
+                let subscriber;
+
+                //Validate and generate a subscriber object or get it from this class object.
+                if(this.constructor.prototype[converter.className] === undefined){
+                    subscriber = new Subscriber(converter.className, topic);
+                }else{
+                    subscriber = this.constructor.prototype[converter.className];
+                }
+
+                //Generate dynamic funcations and add it to subscriber object.
+                const subscribe = function(parms?: any) {
+                    return that.handleMessage(this.topic, parms);
+                }
+                Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
+
+                //Adding the subscriber object to this class object.
+                this.constructor.prototype[converter.className] = subscriber;
+            }
+        });
+    }
 }
 
 /////////////////////////
 ///////Message
 /////////////////////////
-class Message implements IMessage{
+interface IMessage {
+    parms: any;
+}
+
+export class Message implements IMessage{
     readonly parms: any;
 
     constructor(parms: any){
@@ -147,12 +174,30 @@ class Message implements IMessage{
 /////////////////////////
 ///////Reply
 /////////////////////////
-class Reply implements IReply{
+interface IReply {
+    body: any;
+    error: any;
+}
+
+export class Reply implements IReply{
     readonly body: any;
     readonly error: any;
 
     constructor(body: any, error: any){
         this.body = body;
         this.error = error;
+    }
+}
+
+/////////////////////////
+///////Subscriber
+/////////////////////////
+export class Subscriber {
+    name: string;
+    topic: string;
+
+    constructor(name: string, topic: string){
+        this.name = name;
+        this.topic = topic;
     }
 }

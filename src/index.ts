@@ -7,7 +7,7 @@ export { default as Controller } from './controller';
 export { default as RDBModel, Op } from './db.rdb.model';
 export { Get, Post, Put, Delete } from './routes';
 export { Reply } from './comm.routes';
-export { default as Publisher } from './comm.publisher';
+export { Publisher } from './comm.broker';
 
 //Default Export
 export default MicroService;

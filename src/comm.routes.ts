@@ -1,7 +1,6 @@
 //Local Imports
 import { commBroker } from './app';
-import { ReplyCallback } from './comm.broker';
-import CommPublisher from './comm.publisher';
+import { ReplyCallback, Publisher } from './comm.broker';
 import CommUtility from './comm.utility';
 
 //Interface: ReplyFunctionDescriptor
@@ -10,7 +9,7 @@ interface ReplyFunctionDescriptor extends PropertyDescriptor {
 }
 
 //Types: ReplyFunction
-export declare type ReplyFunction = (target: typeof CommPublisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
+export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
 
 /////////////////////////
 ///////Router Decorators

@@ -21,9 +21,8 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
-import CommBroker from './comm.broker';
+import CommBroker, { Publisher } from './comm.broker';
 import CommClient from './comm.client';
-import CommPublisher from './comm.publisher';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -100,12 +99,12 @@ export default class MicroService {
 
     //Objects
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
-    public readonly publishers: Array<typeof CommPublisher> = new Array<typeof CommPublisher>();
+    public readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
         //Setting that as this.
-        that = this
+        that = this;
 
         //Load options from constructor
         options = options || {};

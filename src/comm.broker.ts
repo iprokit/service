@@ -2,19 +2,6 @@
 import mosca, { Packet } from 'mosca';
 import { EventEmitter } from 'events';
 
-//Interface: IMessage
-interface IMessage {
-    parms: any;
-}
-
-//Interface: IReply
-interface IReply {
-    body: any;
-    error: any;
-    send(body: any): void;
-    sendError(error: any): void;
-}
-
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
 
@@ -30,7 +17,7 @@ export default class CommBroker {
     //Default Constructor
     constructor(){
         //Setting that as this.
-        that = this
+        that = this;
 
         //Array of topics
         this.topics = new Array<string>();
@@ -38,7 +25,7 @@ export default class CommBroker {
         //Load reply callback emitter.
         this.replyCallbackEvent = new EventEmitter();
 
-        //Create report reply.
+        //Broadcast topics.
         this.handleReply('/', (message: Message, reply: Reply) => {
             reply.send(that.topics);
         });
@@ -137,7 +124,11 @@ export default class CommBroker {
 /////////////////////////
 ///////Message
 /////////////////////////
-class Message implements IMessage{
+interface IMessage {
+    parms: any;
+}
+
+export class Message implements IMessage{
     public parms: any;
 
     constructor(parms: any){
@@ -148,7 +139,14 @@ class Message implements IMessage{
 /////////////////////////
 ///////Reply
 /////////////////////////
-class Reply implements IReply{
+interface IReply {
+    body: any;
+    error: any;
+    send(body: any): void;
+    sendError(error: any): void;
+}
+
+export class Reply implements IReply{
     private _topic: any;
     public body: any;
     public error: any;
@@ -170,4 +168,11 @@ class Reply implements IReply{
         this.error = error;
         that.sendReply(this);
     }
+}
+
+/////////////////////////
+///////Publisher
+/////////////////////////
+export class Publisher {
+    constructor(){}   
 }

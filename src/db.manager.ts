@@ -56,7 +56,7 @@ export default class DBManager{
     //Default Constructor
     public constructor(){
         //Setting that as this.
-        that = this
+        that = this;
 
         //Load options
         this.loadOptions();
