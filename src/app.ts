@@ -45,7 +45,7 @@ declare global {
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
-    mesh?: MeshOptions
+    comm?: CommOptions
 }
 
 //Types: AutoInjectControllerOptions
@@ -62,7 +62,8 @@ export type AutoInjectPublisherOptions = {
     excludes?: Array<string>
 };
 
-export type MeshOptions = {
+//Types: CommOptions
+export type CommOptions = {
     autoInjectPublishers?: AutoInjectPublisherOptions,
     services: Array<string>
 }
@@ -128,10 +129,10 @@ export default class MicroService {
             this.initDB(options.db);
         }
 
-        //Map Mesh
-        if(options.mesh !== undefined){
-            this.autoInjectPublishers(options.mesh.autoInjectPublishers);
-            this.mapMesh(options.mesh.services);
+        //Load Comm
+        if(options.comm !== undefined){
+            this.autoInjectPublishers(options.comm.autoInjectPublishers);
+            this.mapServices(options.comm.services);
         }
 
         //Inject Controllers
@@ -370,12 +371,12 @@ export default class MicroService {
     /////////////////////////
     ///////Other Functions
     /////////////////////////
-    private mapMesh(services: Array<string>){
+    private mapServices(services: Array<string>){
         services.forEach(service => {
             //Creating comm client object.
             const commClient = new CommClient(service);
 
-            console.log('Mapping mesh: %s', commClient.url);
+            console.log('Mapping service: %s', commClient.url);
 
             //Add to Array
             commClients.push({name: service, client: commClient});
