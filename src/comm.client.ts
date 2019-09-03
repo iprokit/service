@@ -64,6 +64,7 @@ export default class CommClient {
     
             this.mqttClient.on('connect', () => {
                 resolve({url: this.url});
+                this.getAllTopics();
             });
             
             this.mqttClient.on('message', (topic, payload, packet) => {
@@ -81,12 +82,18 @@ export default class CommClient {
     }
 
     /////////////////////////
-    ///////Setup/Init Functions
+    ///////Setup Functions
     /////////////////////////
-    public setup(){
-        this.message('/', {});
-        //Subscribe to topic.
+    private getAllTopics(){
+        //Subscribe to report topic.
         this.mqttClient.subscribe('/');
+
+        this.handleMessage('/', {})
+            .then((topics: []) => {
+                //Subscribe to topic.
+                this.mqttClient.subscribe(topics);
+                console.log(topics);
+            });
     }
 
     /////////////////////////
@@ -122,9 +129,9 @@ export default class CommClient {
     }
 
     /////////////////////////
-    ///////Router Functions
+    ///////Handle Functions
     /////////////////////////
-    public message(topic: string, parms: Parms){
+    public handleMessage(topic: string, parms: Parms){
         return new Promise((resolve, reject) => {
             //Listen for reply on broker
             this.messageCallbackEvent.once(topic, (reply: Reply) => {
@@ -135,7 +142,7 @@ export default class CommClient {
                 }
             });
 
-            //creating new message parm.
+            //Creating new message parm.
             const message = new Message(parms);
 
             //Sending message

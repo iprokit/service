@@ -309,12 +309,10 @@ export default class MicroService {
 
         //Get all comm clients
         commClients.forEach((commClient) => {
-            const _commClient = commClient.client;
             //Connect to comm client
-            _commClient.connect()
+            commClient.client.connect()
                 .then((options: any) =>{
                     console.log('Comm client connected to %s', options.url);
-                    _commClient.setup();
                 });
         });
 

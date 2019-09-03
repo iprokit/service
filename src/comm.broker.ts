@@ -39,7 +39,7 @@ export default class CommBroker {
         this.replyCallbackEvent = new EventEmitter();
 
         //Create report reply.
-        this.reply('/', (message: Message, reply: Reply) => {
+        this.handleReply('/', (message: Message, reply: Reply) => {
             reply.send(that.topics);
         });
     }
@@ -121,9 +121,9 @@ export default class CommBroker {
     }
 
     /////////////////////////
-    ///////Router Functions
+    ///////Handle Functions
     /////////////////////////
-    public reply(topic: string, replyCallback: ReplyCallback){
+    public handleReply(topic: string, replyCallback: ReplyCallback){
         if(this.topics.indexOf(topic) === -1){
             //Add topic to array
             this.topics.push(topic);

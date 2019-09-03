@@ -18,6 +18,6 @@ export declare type ReplyFunction = (target: typeof CommPublisher, propertyKey: 
 export function Reply(): ReplyFunction {
     return function (target, propertyKey, descriptor) {
         const path = CommUtility.convertToPath(target, propertyKey);
-        commBroker.reply(path, descriptor.value);
+        commBroker.handleReply(path, descriptor.value);
     }
 }
