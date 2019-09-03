@@ -5,12 +5,6 @@ import { EventEmitter } from 'events';
 //Local Imports
 import CommUtility from './comm.utility';
 
-//Type: Parms
-declare type Parms = {};
-
-//Type: Body
-declare type Body = {};
-
 //Interface: IMessage
 interface IMessage {
     parms: any;
@@ -18,33 +12,23 @@ interface IMessage {
 
 //Interface: IReply
 interface IReply {
-    body: string;
-    error: string;
+    body: any;
+    error: any;
 }
 
 //Types: MessageCallback
-export declare type MessageCallback = (parms?: Parms) => Promise<unknown>;
-
-//Alternative for this.
-var that: CommClient;
+export declare type MessageCallback = (parms?: any) => Promise<unknown>;
 
 export default class CommClient {
     public readonly url: string;
 
-    private topics: Array<string>;
     private mqttClient: mqtt.MqttClient;
     private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
     constructor(ip: string){
-        //Setting that as this.
-        that = this
-
         //Creating url from ip and comPort
         this.url = 'mqtt://' + ip + ':' + global.service.comPort;
-
-        //Array of topics
-        this.topics = new Array<string>();
 
         //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();
@@ -85,13 +69,11 @@ export default class CommClient {
     ///////Setup Functions
     /////////////////////////
     private getAllTopics(){
-        //Subscribe to report topic.
-        this.mqttClient.subscribe('/');
+        //Subscribe to all topics.
+        this.mqttClient.subscribe('/#');
 
         this.handleMessage('/', {})
             .then((topics: []) => {
-                //Subscribe to topic.
-                this.mqttClient.subscribe(topics);
                 console.log(topics);
             });
     }
@@ -131,7 +113,7 @@ export default class CommClient {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public handleMessage(topic: string, parms: Parms){
+    public handleMessage(topic: string, parms: any){
         return new Promise((resolve, reject) => {
             //Listen for reply on broker
             this.messageCallbackEvent.once(topic, (reply: Reply) => {
@@ -148,51 +130,6 @@ export default class CommClient {
             //Sending message
             this.sendMessage(topic, message);
         });
-    }
-
-    // /////////////////////////
-    // ///////Generators Functions
-    // /////////////////////////
-    // private generateSubscribers(topics: Array<string>){
-    //     //Convert topics into subscribers with dynamic functions.
-    //     topics.forEach(topic => {
-    //         const converter = CommUtility.convertToFunction(topic);
-
-    //         if(converter){
-    //             let subscriber;
-
-    //             //Alternative for this to pass as accessor.
-    //             var that = this;
-
-    //             //Validate and generate a subscriber object or get it from this class object.
-    //             if(this.constructor.prototype[converter.className] === undefined){
-    //                 subscriber = new Subscriber(converter.className);
-    //             }else{
-    //                 subscriber = this.constructor.prototype[converter.className];
-    //             }
-
-    //             //Generate dynamic funcations and add it to subscriber object.
-    //             //TODO: Bug(Circular)
-    //             const subscribe = function(body?: any) {
-    //                 return that.handleMessageReply(topic, body);
-    //             }
-    //             Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
-
-    //             //Adding the subscriber object to this class object.
-    //             this.constructor.prototype[converter.className] = subscriber;
-    //         }
-    //     });
-    // }
-}
-
-/////////////////////////
-///////Subscriber
-/////////////////////////
-class Subscriber {
-    name: string;
-
-    constructor(name: string){
-        this.name = name;
     }
 }
 
