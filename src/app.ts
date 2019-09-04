@@ -22,7 +22,7 @@ import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
 import CommBroker, { AutoInjectPublisherOptions } from './comm.broker';
-import CommClientManager from './comm.client.manager';
+import CommMesh from './comm.mesh';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -33,7 +33,7 @@ declare global {
                 name: string,
                 version: string,
                 expressPort: string | number,
-                comPort: string | number,
+                comBrokerPort: string | number,
                 environment: string
             }
             projectPath: string
@@ -58,7 +58,7 @@ export type AutoInjectControllerOptions = {
 //Types: CommOptions
 export type CommOptions = {
     autoInjectPublishers?: AutoInjectPublisherOptions,
-    services: Array<string>
+    mesh: Array<string>
 }
 
 //Types: MicroServiceOptions
@@ -67,7 +67,7 @@ export type MicroServiceOptions = {
     name: string,
     version: string,
     expressPort: string | number,
-    comPort: string | number,
+    comBrokerPort: string | number,
     environment: string,
     ip: string
 }
@@ -86,7 +86,7 @@ export default class MicroService {
     private readonly dbManager: DBManager;
 
     //Comm Objects
-    private readonly commClientManager: CommClientManager;
+    private readonly commMesh: CommMesh;
 
     //Objects
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
@@ -120,7 +120,7 @@ export default class MicroService {
 
         //Load Comm
         commBroker = new CommBroker();
-        this.commClientManager = new CommClientManager();
+        this.commMesh = new CommMesh();
         this.initComm(options.comm);
 
         //Inject Controllers
@@ -165,7 +165,7 @@ export default class MicroService {
             name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
             version: process.env.npm_package_version || '1.0.0',
             expressPort: process.env.EXPRESS_PORT || 3000,
-            comPort: process.env.COM_PORT || 1883,
+            comBrokerPort: process.env.COM_BROKER_PORT || 1883,
             environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP()
         };
@@ -178,7 +178,7 @@ export default class MicroService {
             name: this.options.name,
             version: this.options.version,
             expressPort: this.options.expressPort,
-            comPort: this.options.comPort,
+            comBrokerPort: this.options.comBrokerPort,
             environment: this.options.environment
         }
     }
@@ -224,7 +224,7 @@ export default class MicroService {
 
     private initComm(commOptions: CommOptions){
         commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
-        this.commClientManager.init({services: commOptions.services});
+        this.commMesh.init({mesh: commOptions.mesh});
     }
 
     /////////////////////////
@@ -275,13 +275,13 @@ export default class MicroService {
         //Start comm broker
         commBroker.listen()
             .then(() => {
-                console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comPort);
+                console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comBrokerPort);
             });
 
-        //Connect comm clients
-        this.commClientManager.connect()
+        //Connect comm Mesh
+        this.commMesh.connect()
             .then((urls: []) => {
-                console.log('Comm clients connected to %o', urls);
+                console.log('Comm mesh connected to %o', urls);
             });
 
         //Connect to DB.
@@ -308,9 +308,9 @@ export default class MicroService {
                 console.log('DB client disconnected.');
             })
             .finally(() => {
-                this.commClientManager.disconnect()
+                this.commMesh.disconnect()
                     .then(() => {
-                        console.log('Comm clients disconnected.');
+                        console.log('Comm mesh disconnected.');
                     })
                     .finally(() => {
                         //Stop comm broker

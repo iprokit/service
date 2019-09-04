@@ -1,5 +1,5 @@
 //Import modules
-import mqtt, { Packet } from 'mqtt'
+import mqtt from 'mqtt'
 import { EventEmitter } from 'events';
 
 //Local Imports
@@ -16,12 +16,12 @@ export default class CommClient {
     private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
-    constructor(ip: string){
+    constructor(host: string){
         //Setting that as this.
         that = this;
 
-        //Creating url from ip and comPort
-        this.url = 'mqtt://' + ip + ':' + global.service.comPort;
+        //Creating url
+        this.url = 'mqtt://' + host;
 
         //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();

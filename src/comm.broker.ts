@@ -93,7 +93,7 @@ export default class CommBroker {
         return new Promise((resolve, reject) => {
             const options = {
                 id: global.service.name,
-                port: global.service.comPort
+                port: global.service.comBrokerPort
             }
             
             this.mosca = new mosca.Server(options);
@@ -135,7 +135,7 @@ export default class CommBroker {
     /////////////////////////
     private sendBroadcast(){
         const reply = new Reply(this.broadcastTopic);
-        reply.send(that.topics);
+        reply.send(this.topics);
     }
 
     /////////////////////////

@@ -3,17 +3,21 @@ import CommClient from './comm.client';
 
 var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
-//Types: CommClientManagerInitOptions
-export type CommClientManagerInitOptions = {
-    services: Array<string>
+//Types: CommMeshInitOptions
+export type CommMeshInitOptions = {
+    mesh: Array<string>
 }
 
-export function getService(serviceName: string){
-    const commClientsObject = commClients.find(client => client.name === serviceName);
-    return commClientsObject.client;
+export function getService(name: string){
+    const commClientObject = commClients.find(client => client.name === name);
+    if(commClientObject !== undefined){
+        return commClientObject.client;
+    }else{
+        throw new Error('Invalid service. Service not defined as mesh at entry point.');
+    }
 }
 
-export default class CommClientManager {
+export default class CommMesh {
     //Default Constructor
     constructor(){
         //Do nothing
@@ -22,24 +26,24 @@ export default class CommClientManager {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(initOptions: CommClientManagerInitOptions){
+    public init(initOptions: CommMeshInitOptions){
         //Load init options.
-        let services = initOptions.services || [];
+        let hosts = initOptions.mesh || [];
 
         //Load Clients
-        this.createCommClients(services);
+        this.createCommClients(hosts);
     }
 
     /////////////////////////
     ///////Map Functions
     /////////////////////////
-    private createCommClients(ips: Array<string>){
-        ips.forEach(ip => {
+    private createCommClients(hosts: Array<string>){
+        hosts.forEach(host => {
             //Creating comm client object.
-            const commClient = new CommClient(ip);
+            const commClient = new CommClient(host);
 
             //Add to Array
-            commClients.push({name: ip, client: commClient});
+            commClients.push({name: host, client: commClient});
         });
     }
 
