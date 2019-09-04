@@ -12,7 +12,7 @@ import fs from 'fs';
 //Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);
 
-//Server variables
+//Express server variables
 var expressApp = express();
 export var expressRouter = express.Router();
 
@@ -21,6 +21,8 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
+import CommBroker, { AutoInjectPublisherOptions } from './comm.broker';
+import CommClientManager from './comm.client.manager';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -30,6 +32,8 @@ declare global {
                 id: string,
                 name: string,
                 version: string,
+                expressPort: string | number,
+                comPort: string | number,
                 environment: string
             }
             projectPath: string
@@ -40,25 +44,36 @@ declare global {
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
     db?: DBInitOptions,
-    autoInjectControllers?: AutoInjectControllersOptions
+    autoInjectControllers?: AutoInjectControllerOptions,
+    comm?: CommOptions
 }
 
-//Types: AutoInjectControllersOptions
-export type AutoInjectControllersOptions = {
+//Types: AutoInjectControllerOptions
+export type AutoInjectControllerOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
 };
+
+//Types: CommOptions
+export type CommOptions = {
+    autoInjectPublishers?: AutoInjectPublisherOptions,
+    services: Array<string>
+}
 
 //Types: MicroServiceOptions
 export type MicroServiceOptions = {
     id: string,
     name: string,
     version: string,
-    port: string | number,
+    expressPort: string | number,
+    comPort: string | number,
     environment: string,
     ip: string
 }
+
+//Comm broker and client objects
+export var commBroker: CommBroker;
 
 //Alternative for this.
 var that: MicroService;
@@ -67,14 +82,19 @@ export default class MicroService {
     //Types
     private options: MicroServiceOptions;
 
+    //DB Objects
+    private readonly dbManager: DBManager;
+
+    //Comm Objects
+    private readonly commClientManager: CommClientManager;
+
     //Objects
-    private dbManager: DBManager;
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
         //Setting that as this.
-        that = this
+        that = this;
 
         //Load options from constructor
         options = options || {};
@@ -84,21 +104,24 @@ export default class MicroService {
         this.loadServiceOptions();
         this.loadGlobalOptions();
 
-        //Load objects
-        this.dbManager = new DBManager();
-
-        //Load express and router
+        //Load express server, router
         this.initExpressServer();
 
-        //Auto call, to create app endpoints.
-        new AppController();
+        //Auto call, to create default/app endpoints.
+        new MicroServiceController();
 
         this.init();//Load any user functions
 
         //Load DB
+        this.dbManager = new DBManager();
         if(options.db !== undefined){
             this.initDB(options.db);
         }
+
+        //Load Comm
+        commBroker = new CommBroker();
+        this.commClientManager = new CommClientManager();
+        this.initComm(options.comm);
 
         //Inject Controllers
         if(options.autoInjectControllers !== undefined){
@@ -141,7 +164,8 @@ export default class MicroService {
             id: uuid(),
             name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
             version: process.env.npm_package_version || '1.0.0',
-            port: process.env.NODE_PORT || 3000,
+            expressPort: process.env.EXPRESS_PORT || 3000,
+            comPort: process.env.COM_PORT || 1883,
             environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP()
         };
@@ -153,6 +177,8 @@ export default class MicroService {
             id: this.options.id,
             name: this.options.name,
             version: this.options.version,
+            expressPort: this.options.expressPort,
+            comPort: this.options.comPort,
             environment: this.options.environment
         }
     }
@@ -196,10 +222,15 @@ export default class MicroService {
         }
     }
 
+    private initComm(commOptions: CommOptions){
+        commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
+        this.commClientManager.init({services: commOptions.services});
+    }
+
     /////////////////////////
-    ///////Controller Functions
+    ///////Inject Functions
     /////////////////////////
-    private autoInjectControllers(autoInjectOptions: AutoInjectControllersOptions){
+    private autoInjectControllers(autoInjectOptions: AutoInjectControllerOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'controller.js';
         const excludes = autoInjectOptions.excludes || [];
@@ -213,7 +244,6 @@ export default class MicroService {
                 const Controller = require(controllerPath).default;
                 const controller = new Controller();
 
-                //Logging the controller before
                 console.log('Adding endpoints from controller: %s', controller.constructor.name);
 
                 //Add to Array
@@ -226,12 +256,39 @@ export default class MicroService {
     ///////Service Functions
     /////////////////////////
     private startService() {
+        const options = {
+            id: this.options.id,
+            version: this.options.version,
+            environment: this.options.environment
+        }
+        console.log('%s : %o', this.options.name, options);
         console.log('Starting micro service...');
+
+        //Parallel starting all the servers and clients.
+
+        //Start express server
+        const server = expressApp.listen(this.options.expressPort, () => {
+            console.log('Express server running on %s:%s', this.options.ip, this.options.expressPort);
+        });
+        this.addExpressListeners(server);
+
+        //Start comm broker
+        commBroker.listen()
+            .then(() => {
+                console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comPort);
+            });
+
+        //Connect comm clients
+        this.commClientManager.connect()
+            .then((urls: []) => {
+                console.log('Comm clients connected to %o', urls);
+            });
+
         //Connect to DB.
         this.dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
-                    console.log('Connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
+                    console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
             .catch((error) => {
@@ -241,61 +298,58 @@ export default class MicroService {
                     console.error(error);
                 }
                 console.log('Will continue...');
-            }).finally(() => {
-                //Starting server here.
-                this.startListening();
-            });
-    }
-
-    private startListening(){
-        //Start server
-        const server = expressApp.listen(this.options.port, () => {
-            const options = {
-                id: this.options.id,
-                version: this.options.version,
-                environment: this.options.environment
-            }
-            console.log('%s : %o', this.options.name, options);
-            console.log('%s micro service running on %s:%s', this.options.name, this.options.ip, this.options.port);
-
-            //Adding process listeners to stop server gracefully.
-            process.on('SIGTERM', () => {
-                console.log('Recived SIGTERM!');
-                this.stopService(server)
-            });
-    
-            process.on('SIGINT', () => {
-                console.log('Recived SIGINT!');
-                this.stopService(server);
-            });
-        });
+            })
     }
 
     private stopService(server: Server){
-        //Disconnection from DB.
+        //Chained stopping all components.
         this.dbManager.disconnect()
-            .then((dbOptions: any) => {
-                if(dbOptions !== undefined){
-                    console.log('Disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
-                }
+            .then(() => {
+                console.log('DB client disconnected.');
             })
-            .catch((error: any) => {
-                console.error(error);
-                console.log('Will continue...');
-            }).finally(() => {
-                //Stop Server
-                server.close(() => {
-                    console.log('%s micro service shutdown complete.', this.options.name);
-                    process.exit(0);
-                });
+            .finally(() => {
+                this.commClientManager.disconnect()
+                    .then(() => {
+                        console.log('Comm clients disconnected.');
+                    })
+                    .finally(() => {
+                        //Stop comm broker
+                        commBroker.close()
+                            .then(() => {
+                                console.log('Comm broker shutdown complete.');
+                            })
+                            .finally(() => {
+                                //Stop Server
+                                server.close(() => {
+                                    console.log('Express server shutdown complete.');
+                                    process.exit(0);
+                                });
+                            });
+                    });
             });
+    }
+
+    /////////////////////////
+    ///////Other Functions
+    /////////////////////////
+    private addExpressListeners(server: Server){
+        //Adding process listeners to stop server gracefully.
+        process.on('SIGTERM', () => {
+            console.log('Recived SIGTERM!');
+            this.stopService(server)
+        });
+
+        process.on('SIGINT', () => {
+            console.log('Recived SIGINT!');
+            this.stopService(server);
+        });
     }
 }
 
 /////////////////////////
-///////App Controller
+///////MicroService Controller
 /////////////////////////
-class AppController {
+class MicroServiceController {
     @Report('/health')
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});

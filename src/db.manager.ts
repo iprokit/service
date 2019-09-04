@@ -56,7 +56,7 @@ export default class DBManager{
     //Default Constructor
     public constructor(){
         //Setting that as this.
-        that = this
+        that = this;
 
         //Load options
         this.loadOptions();
@@ -222,7 +222,7 @@ export default class DBManager{
             if(this.db !== undefined){
                 this.db.close()
                     .then(() => {
-                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                        resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
