@@ -21,7 +21,7 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
-import CommBroker, { Publisher } from './comm.broker';
+import CommBroker, { Publisher, AutoInjectPublisherOptions } from './comm.broker';
 import CommClient from './comm.client';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
@@ -55,13 +55,6 @@ export type AutoInjectControllerOptions = {
     excludes?: Array<string>
 };
 
-//Types: AutoInjectPublisherOptions
-export type AutoInjectPublisherOptions = {
-    paths?: Array<string>,
-    likeName?: string,
-    excludes?: Array<string>
-};
-
 //Types: CommOptions
 export type CommOptions = {
     autoInjectPublishers?: AutoInjectPublisherOptions,
@@ -79,11 +72,8 @@ export type MicroServiceOptions = {
     ip: string
 }
 
-//DB connection object
-var dbManager: DBManager;
-
 //Comm broker and client objects
-export var commBroker = new CommBroker();
+export var commBroker: CommBroker;
 var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
 //Alternative for this.
@@ -98,9 +88,11 @@ export default class MicroService {
     //Types
     private options: MicroServiceOptions;
 
+    //DB Objects
+    private readonly dbManager: DBManager;
+
     //Objects
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
-    public readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
@@ -124,16 +116,14 @@ export default class MicroService {
         this.init();//Load any user functions
 
         //Load DB
-        dbManager = new DBManager();
+        this.dbManager = new DBManager();
         if(options.db !== undefined){
             this.initDB(options.db);
         }
 
         //Load Comm
-        if(options.comm !== undefined){
-            this.autoInjectPublishers(options.comm.autoInjectPublishers);
-            this.mapServices(options.comm.services);
-        }
+        commBroker = new CommBroker();
+        this.initComm(options.comm);
 
         //Inject Controllers
         if(options.autoInjectControllers !== undefined){
@@ -223,7 +213,7 @@ export default class MicroService {
     private initDB(dbOptions: DBInitOptions){
         try{
             //Init sequelize
-            dbManager.init(dbOptions);
+            this.dbManager.init(dbOptions);
         }catch(error){
             if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
@@ -232,6 +222,11 @@ export default class MicroService {
             }
             console.log('Will continue...');
         }
+    }
+
+    private initComm(commOptions: CommOptions){
+        commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
+        this.mapServices(commOptions.services);
     }
 
     /////////////////////////
@@ -255,28 +250,6 @@ export default class MicroService {
 
                 //Add to Array
                 this.controllers.push(controller);
-            });
-        });
-    }
-    
-    private autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
-        let paths = autoInjectOptions.paths || ['/'];
-        const likeName = autoInjectOptions.likeName || 'publisher.js';
-        const excludes = autoInjectOptions.excludes || [];
-
-        //Adding files to Exclude.
-        excludes.push('/node_modules');
-
-        paths.forEach((path: string) => {
-            let publisherPaths = FileUtility.getFilePaths(path, likeName, excludes);
-            publisherPaths.forEach(publisherPath => {
-                const Publisher = require(publisherPath).default;
-                const publisher = new Publisher();
-
-                console.log('Mapping publishers: %s', publisher.constructor.name);
-
-                //Add to Array
-                this.publishers.push(publisher);
             });
         });
     }
@@ -317,7 +290,7 @@ export default class MicroService {
         });
 
         //Connect to DB.
-        dbManager.connect()
+        this.dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
                     console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
@@ -336,7 +309,7 @@ export default class MicroService {
     private stopService(server: Server){
         //Chained stopping all the servers and clients.
         //Close DB connection.
-        dbManager.disconnect()
+        this.dbManager.disconnect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
                     console.log('DB client disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);

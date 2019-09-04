@@ -2,18 +2,40 @@
 import mosca, { Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
+//Local Imports
+import FileUtility from './file.utility';
+
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
+
+//Types: CommBrokerInitOptions
+export type CommBrokerInitOptions = {
+    autoInjectPublishers: AutoInjectPublisherOptions
+};
+
+//Types: AutoInjectPublisherOptions
+export type AutoInjectPublisherOptions = {
+    paths?: Array<string>,
+    likeName?: string,
+    excludes?: Array<string>
+};
 
 //Alternative for this.
 var that: CommBroker;
 
 export default class CommBroker {
+    //Options
+    private initOptions: CommBrokerInitOptions;
+
+
     private mosca: mosca.Server;
 
     private readonly broadcastTopic = '/';
     private topics: Array<string>;
     private replyCallbackEvent: EventEmitter;
+
+    //Publishers
+    public readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
 
     //Default Constructor
     constructor(){
@@ -25,6 +47,43 @@ export default class CommBroker {
 
         //Load reply callback emitter.
         this.replyCallbackEvent = new EventEmitter();     
+    }
+
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
+    public init(initOptions: CommBrokerInitOptions){
+        //Load init options.
+        this.initOptions = initOptions;
+        this.initOptions.autoInjectPublishers = initOptions.autoInjectPublishers || {};
+
+        //Load Publishers
+        this.autoInjectPublishers(this.initOptions.autoInjectPublishers);
+    }
+
+    /////////////////////////
+    ///////Inject Functions
+    /////////////////////////
+    private autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+        let paths = autoInjectOptions.paths || ['/'];
+        const likeName = autoInjectOptions.likeName || 'publisher.js';
+        const excludes = autoInjectOptions.excludes || [];
+
+        //Adding files to Exclude.
+        excludes.push('/node_modules');
+
+        paths.forEach((path: string) => {
+            let publisherPaths = FileUtility.getFilePaths(path, likeName, excludes);
+            publisherPaths.forEach(publisherPath => {
+                const Publisher = require(publisherPath).default;
+                const publisher = new Publisher();
+
+                console.log('Mapping publishers: %s', publisher.constructor.name);
+
+                //Add to Array
+                this.publishers.push(publisher);
+            });
+        });
     }
 
     /////////////////////////
