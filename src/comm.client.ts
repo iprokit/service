@@ -61,7 +61,7 @@ export default class CommClient {
     public disconnect(){
         return new Promise((resolve, reject) => {
             this.mqttClient.end(true, () => {
-                resolve({url: this.url});
+                resolve(this.url);
             });
         });
     }

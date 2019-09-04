@@ -21,8 +21,8 @@ import FileUtility from './file.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import { Report } from './routes';
-import CommBroker, { Publisher, AutoInjectPublisherOptions } from './comm.broker';
-import CommClient from './comm.client';
+import CommBroker, { AutoInjectPublisherOptions } from './comm.broker';
+import CommClientManager from './comm.client.manager';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 declare global {
@@ -74,15 +74,9 @@ export type MicroServiceOptions = {
 
 //Comm broker and client objects
 export var commBroker: CommBroker;
-var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
 
 //Alternative for this.
 var that: MicroService;
-
-export function getService(serviceName: string){
-    const commClientsObject = commClients.find(client => client.name === serviceName);
-    return commClientsObject.client;
-}
 
 export default class MicroService {
     //Types
@@ -90,6 +84,9 @@ export default class MicroService {
 
     //DB Objects
     private readonly dbManager: DBManager;
+
+    //Comm Objects
+    private readonly commClientManager: CommClientManager;
 
     //Objects
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
@@ -123,6 +120,7 @@ export default class MicroService {
 
         //Load Comm
         commBroker = new CommBroker();
+        this.commClientManager = new CommClientManager();
         this.initComm(options.comm);
 
         //Inject Controllers
@@ -226,7 +224,7 @@ export default class MicroService {
 
     private initComm(commOptions: CommOptions){
         commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
-        this.mapServices(commOptions.services);
+        this.commClientManager.init({services: commOptions.services});
     }
 
     /////////////////////////
@@ -275,19 +273,16 @@ export default class MicroService {
         this.addExpressListeners(server);
 
         //Start comm broker
-        commBroker.listen(this.options.comPort)
+        commBroker.listen()
             .then(() => {
                 console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comPort);
             });
 
-        //Get all comm clients
-        commClients.forEach((commClient) => {
-            //Connect to comm client
-            commClient.client.connect()
-                .then((options: any) =>{
-                    console.log('Comm client connected to %s', options.url);
-                });
-        });
+        //Connect comm clients
+        this.commClientManager.connect()
+            .then((urls: []) => {
+                console.log('Comm clients connected to %o', urls);
+            });
 
         //Connect to DB.
         this.dbManager.connect()
@@ -307,55 +302,36 @@ export default class MicroService {
     }
 
     private stopService(server: Server){
-        //Chained stopping all the servers and clients.
-        //Close DB connection.
+        //Chained stopping all components.
         this.dbManager.disconnect()
-            .then((dbOptions: any) => {
-                if(dbOptions !== undefined){
-                    console.log('DB client disconnected from %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
-                }
+            .then(() => {
+                console.log('DB client disconnected.');
             })
             .finally(() => {
-                //Close Comm Client connections.
-                commClients.forEach((commClient) => {
-                    const _commClient = commClient.client;
-                    _commClient.disconnect()
-                        .then((options: any) =>{
-                            console.log('Comm client disconnected from %s', options.url);
-                        })
-                        .finally(() => {
-                            //Stop comm broker
-                            commBroker.close()
-                                .then(() => {
-                                    console.log('Comm broker shutdown complete.');
-                                })
-                                .finally(() => {
-                                    //Stop Server
-                                    server.close(() => {
-                                        console.log('Express server shutdown complete.');
-                                        process.exit(0);
-                                    });
+                this.commClientManager.disconnect()
+                    .then(() => {
+                        console.log('Comm clients disconnected.');
+                    })
+                    .finally(() => {
+                        //Stop comm broker
+                        commBroker.close()
+                            .then(() => {
+                                console.log('Comm broker shutdown complete.');
+                            })
+                            .finally(() => {
+                                //Stop Server
+                                server.close(() => {
+                                    console.log('Express server shutdown complete.');
+                                    process.exit(0);
                                 });
-                        });
-                });
+                            });
+                    });
             });
     }
 
     /////////////////////////
     ///////Other Functions
     /////////////////////////
-    private mapServices(services: Array<string>){
-        services.forEach(service => {
-            //Creating comm client object.
-            const commClient = new CommClient(service);
-
-            console.log('Mapping service: %s', commClient.url);
-
-            //Add to Array
-            commClients.push({name: service, client: commClient});
-        });
-    }
-
     private addExpressListeners(server: Server){
         //Adding process listeners to stop server gracefully.
         process.on('SIGTERM', () => {

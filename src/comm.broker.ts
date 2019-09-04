@@ -89,11 +89,11 @@ export default class CommBroker {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(port: number | string){
+    public listen(){
         return new Promise((resolve, reject) => {
             const options = {
                 id: global.service.name,
-                port: port
+                port: global.service.comPort
             }
             
             this.mosca = new mosca.Server(options);

@@ -222,7 +222,7 @@ export default class DBManager{
             if(this.db !== undefined){
                 this.db.close()
                     .then(() => {
-                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                        resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
