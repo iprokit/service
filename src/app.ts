@@ -79,12 +79,12 @@ export type MicroServiceOptions = {
     ip: string
 }
 
+//DB connection object
+var dbManager: DBManager;
+
 //Comm broker and client objects
 export var commBroker = new CommBroker();
 var commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
-
-//DB connection object
-var dbManager: DBManager;
 
 //Alternative for this.
 var that: MicroService;
@@ -304,7 +304,7 @@ export default class MicroService {
         //Start comm broker
         commBroker.listen(this.options.comPort)
             .then(() => {
-                console.log('Comm broker running on %s:%s', this.options.ip, this.options.comPort);
+                console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comPort);
             });
 
         //Get all comm clients

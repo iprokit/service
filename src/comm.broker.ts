@@ -1,5 +1,5 @@
 //Import modules
-import mosca, { Packet } from 'mosca';
+import mosca, { Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Types: ReplyCallback
@@ -11,6 +11,7 @@ var that: CommBroker;
 export default class CommBroker {
     private mosca: mosca.Server;
 
+    private readonly broadcastTopic = '/';
     private topics: Array<string>;
     private replyCallbackEvent: EventEmitter;
 
@@ -23,12 +24,7 @@ export default class CommBroker {
         this.topics = new Array<string>();
 
         //Load reply callback emitter.
-        this.replyCallbackEvent = new EventEmitter();
-
-        //Broadcast topics.
-        this.handleReply('/', (message: Message, reply: Reply) => {
-            reply.send(that.topics);
-        });
+        this.replyCallbackEvent = new EventEmitter();     
     }
 
     /////////////////////////
@@ -46,8 +42,15 @@ export default class CommBroker {
             this.mosca.on('ready', () => {
                 resolve();
             });
+
+            this.mosca.on('subscribed', (topic: any, client: Client) => {
+                //Broadcast
+                if(topic === this.broadcastTopic){
+                    this.sendBroadcast();
+                }
+            });
     
-            this.mosca.on('published', (packet, client) => {
+            this.mosca.on('published', (packet: Packet, client: Client) => {
                 const topic = packet.topic;
                 if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                     try{
@@ -66,6 +69,14 @@ export default class CommBroker {
                 resolve();
             });
         });
+    }
+
+    /////////////////////////
+    ///////Broadcast Functions
+    /////////////////////////
+    private sendBroadcast(){
+        const reply = new Reply(this.broadcastTopic);
+        reply.send(that.topics);
     }
 
     /////////////////////////

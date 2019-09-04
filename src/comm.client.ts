@@ -9,9 +9,10 @@ import CommUtility from './comm.utility';
 var that: CommClient;
 
 export default class CommClient {
-    public readonly url: string;
-
     private mqttClient: mqtt.MqttClient;
+    public readonly url: string;
+    
+    private readonly broadcastTopic = '/';
     private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
@@ -39,12 +40,20 @@ export default class CommClient {
             this.mqttClient = mqtt.connect(this.url, options);
     
             this.mqttClient.on('connect', () => {
+                //Subscribe to all topics.
+                this.mqttClient.subscribe(this.broadcastTopic);
+
+                //Return.
                 resolve({url: this.url});
-                this.getAllTopics();
             });
             
             this.mqttClient.on('message', (topic, payload, packet) => {
-                this.receiveReply(packet);
+                //Receive broadcast
+                if(topic === this.broadcastTopic){
+                    this.receiveBroadcast(packet);
+                }else{
+                    this.receiveReply(packet);
+                }
             });
         });
     }
@@ -58,17 +67,18 @@ export default class CommClient {
     }
 
     /////////////////////////
-    ///////Setup Functions
+    ///////Broadcast Functions
     /////////////////////////
-    private getAllTopics(){
-        //Subscribe to all topics.
-        this.mqttClient.subscribe('/#');
+    private receiveBroadcast(packet: any){
+        //Add listener then receive reply
+        this.messageCallbackEvent.once(this.broadcastTopic, (reply: Reply) => {
+            if(reply.body !== undefined){
+                this.mqttClient.subscribe(reply.body);
+                this.generateSubscribers(reply.body);
+            }
+        });
 
-        //Get broadcasted topics.
-        this.handleMessage('/', {})
-            .then((topics: []) => {
-                this.generateSubscribers(topics);
-            });
+        this.receiveReply(packet);
     }
 
     /////////////////////////
