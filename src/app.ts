@@ -32,8 +32,8 @@ declare global {
                 id: string,
                 name: string,
                 version: string,
-                expressPort: string | number,
-                comBrokerPort: string | number,
+                expressPort: number,
+                comBrokerPort: number,
                 environment: string
             }
             projectPath: string
@@ -66,8 +66,8 @@ export type MicroServiceOptions = {
     id: string,
     name: string,
     version: string,
-    expressPort: string | number,
-    comBrokerPort: string | number,
+    expressPort: number,
+    comBrokerPort: number,
     environment: string,
     ip: string
 }
@@ -164,8 +164,8 @@ export default class MicroService {
             id: uuid(),
             name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
             version: process.env.npm_package_version || '1.0.0',
-            expressPort: process.env.EXPRESS_PORT || 3000,
-            comBrokerPort: process.env.COM_BROKER_PORT || 1883,
+            expressPort: Number(process.env.EXPRESS_PORT) || 3000,
+            comBrokerPort: Number(process.env.COM_BROKER_PORT) || 1883,
             environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP()
         };
