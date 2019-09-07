@@ -10,9 +10,12 @@ var that: CommClient;
 
 export default class CommClient {
     private mqttClient: mqtt.MqttClient;
-    public readonly url: string;
+    public readonly host: string;
+    private readonly url: string;
+    private connected: boolean = false;
     
-    private readonly broadcastTopic = '/';
+    public readonly broadcastTopic = '/';
+    private topics: Array<string>;
     private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
@@ -20,11 +23,28 @@ export default class CommClient {
         //Setting that as this.
         that = this;
 
+        //Setting host
+        this.host = host;
+
+        //Array of topics
+        this.topics = new Array<string>();
+
         //Creating url
-        this.url = 'mqtt://' + host;
+        this.url = 'mqtt://' + this.host;
 
         //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();
+    }
+
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public isConnected() {
+        return this.connected;
+    }
+
+    public getTopics() {
+        return this.topics;
     }
 
     /////////////////////////
@@ -43,9 +63,14 @@ export default class CommClient {
                 //Subscribe to all topics.
                 this.mqttClient.subscribe(this.broadcastTopic);
 
+                //Set connected boolean
+                this.connected = true;
+
                 //Return.
                 resolve({url: this.url});
             });
+
+            //TODO: Add disconnect event.
             
             this.mqttClient.on('message', (topic, payload, packet) => {
                 //Receive broadcast
@@ -73,6 +98,7 @@ export default class CommClient {
         //Add listener then receive reply
         this.messageCallbackEvent.once(this.broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
+                this.topics = reply.body;
                 this.mqttClient.subscribe(reply.body);
                 this.generateSubscribers(reply.body);
             }

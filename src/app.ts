@@ -368,10 +368,9 @@ class MicroServiceController {
                 routes.push({method, url});
             });
 
-            const _controllers = that.controllers;
             let controllers = new Array<string>();
 
-            _controllers.forEach((controller) => {
+            that.controllers.forEach((controller) => {
                 controllers.push(controller.constructor.name);
             });
 

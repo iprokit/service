@@ -1,9 +1,12 @@
 //Import modules
 import mosca, { Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
+import { Request, Response } from 'express';
+import httpStatus from 'http-status-codes';
 
 //Local Imports
 import FileUtility from './file.utility';
+import { Report } from './routes';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
@@ -27,7 +30,6 @@ export default class CommBroker {
     //Options
     private initOptions: CommBrokerInitOptions;
 
-
     private mosca: mosca.Server;
 
     private readonly broadcastTopic = '/';
@@ -46,7 +48,21 @@ export default class CommBroker {
         this.topics = new Array<string>();
 
         //Load reply callback emitter.
-        this.replyCallbackEvent = new EventEmitter();     
+        this.replyCallbackEvent = new EventEmitter();
+
+        //Auto call, to create broker endpoints.
+        new CommBrokerController();
+    }
+
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public getBroadcastTopic() {
+        return this.broadcastTopic;
+    }
+
+    public getTopics() {
+        return this.topics;
     }
 
     /////////////////////////
@@ -245,4 +261,29 @@ export class Reply implements IReply{
 /////////////////////////
 export class Publisher {
     constructor(){}   
+}
+
+/////////////////////////
+///////CommBroker Controller
+/////////////////////////
+class CommBrokerController {
+    @Report('/comm/broker/report')
+    public getReport(request: Request, response: Response){
+        try {
+            let publishers = new Array<string>();
+            that.publishers.forEach((publisher) => {
+                publishers.push(publisher.constructor.name);
+            });
+
+            const data = {
+                broadcastTopic: that.getBroadcastTopic(),
+                topics: that.getTopics(),
+                publishers: publishers,
+            };
+
+            response.status(httpStatus.OK).send({status: true, data});
+        } catch (error) {
+            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+        }
+    }
 }
