@@ -12,7 +12,6 @@ export default class CommClient {
     private mqttClient: mqtt.MqttClient;
     public readonly host: string;
     private readonly url: string;
-    private connected: boolean = false;
     
     public readonly broadcastTopic = '/';
     private topics: Array<string>;
@@ -40,7 +39,15 @@ export default class CommClient {
     ///////Gets/Sets
     /////////////////////////
     public isConnected() {
-        return this.connected;
+        return this.mqttClient.connected;
+    }
+
+    public isDisconnected() {
+        return this.mqttClient.disconnected;
+    }
+
+    public isReconnecting() {
+        return this.mqttClient.reconnecting;
     }
 
     public getTopics() {
@@ -63,14 +70,9 @@ export default class CommClient {
                 //Subscribe to all topics.
                 this.mqttClient.subscribe(this.broadcastTopic);
 
-                //Set connected boolean
-                this.connected = true;
-
                 //Return.
                 resolve({url: this.url});
             });
-
-            //TODO: Add disconnect event.
             
             this.mqttClient.on('message', (topic, payload, packet) => {
                 //Receive broadcast
@@ -179,11 +181,13 @@ export default class CommClient {
                     subscriber = this.constructor.prototype[converter.className];
                 }
 
-                //Generate dynamic funcations and add it to subscriber object.
-                const subscribe = function(parms?: any) {
-                    return that.handleMessage(this.topic, parms);
+                //Validate and generate dynamic funcation and add it to subscriber object.
+                if(subscriber[converter.functionName] === undefined){
+                    const subscribe = function(parms?: any) {
+                        return that.handleMessage(this.topic, parms);
+                    }
+                    Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
-                Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
 
                 //Adding the subscriber object to this class object.
                 this.constructor.prototype[converter.className] = subscriber;

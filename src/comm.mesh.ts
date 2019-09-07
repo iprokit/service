@@ -100,13 +100,22 @@ class CommMeshController {
     @Report('/comm/mesh/report')
     public getReport(request: Request, response: Response){
         try {
-            let clients = new Array<{host: string, broadcastTopic: string, connected: boolean, topics: Array<string>}>();
+            let clients = new Array<{
+                host: string,
+                broadcastTopic:
+                string,
+                connected: boolean,
+                disconnected: boolean,
+                reconnecting: boolean,
+                topics: Array<string>}>();
             that.commClients.forEach((client) => {
                 let commClient = client.client;
                 clients.push({
                     host: commClient.host,
                     broadcastTopic: commClient.broadcastTopic,
                     connected: commClient.isConnected(),
+                    disconnected: commClient.isDisconnected(),
+                    reconnecting: commClient.isReconnecting(),
                     topics: commClient.getTopics()
                 });
             });
