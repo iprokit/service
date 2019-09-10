@@ -39,7 +39,17 @@ export default class RDBModel extends Model {
     }
 
     public static async getOneByID(id: any){
-        return await this.findByPk(id);
+        await this.findByPk(id)
+            .then(async data => {
+                if(data){
+                    return data
+                }else{
+                    throw new Error('ID does not exit!');
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
     }
 
     public static async updateOne(data: any, where: any){

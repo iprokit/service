@@ -165,7 +165,6 @@ export default class CommBroker {
         if(payload.message !== undefined && payload.reply === undefined){
             //Logging Message
             console.log('Broker: received a message on topic: %s', packet.topic);
-            console.log('Broker: payload: %o', payload);
 
             //creating new parms.
             const message = new Message(payload.message.parms);
@@ -189,7 +188,6 @@ export default class CommBroker {
         this.mosca.publish(packet, () => {
             //Logging Reply
             console.log('Broker: published a reply on topic: %s', reply.topic);
-            console.log('Broker: payload: %o', packet.payload);
         });
     }
 
@@ -236,6 +234,8 @@ export class Reply implements IReply{
     private _topic: any;
     public body: any;
     public error: any;
+
+    //TODO: Validate send count.
 
     constructor(topic: any){
         this._topic = topic;

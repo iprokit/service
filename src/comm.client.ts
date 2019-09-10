@@ -132,7 +132,6 @@ export default class CommClient {
         this.mqttClient.publish(topic, payload, { qos: 0 }, () => {
             //Logging Message
             console.log('Client: published a message on topic: %s', topic);
-            console.log('Client: payload: %o', payload);
         });
     }
 
@@ -144,7 +143,6 @@ export default class CommClient {
         if(payload.reply !== undefined && payload.message === undefined){
             //Logging Message
             console.log('Client: received a reply on topic: %s', packet.topic);
-            console.log('Client: payload: %o', payload);
 
             //creating new reply parm.
             const reply = new Reply(payload.reply.body, payload.reply.error);
