@@ -110,9 +110,11 @@ export default class CommClient {
         //Add listener then receive reply
         this.messageCallbackEvent.once(this.broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
-                this.topics = reply.body;
-                this.mqttClient.subscribe(reply.body);
-                this.generateSubscribers(reply.body);
+                this.service.name = reply.body.name;
+                this.topics = reply.body.topics;
+
+                this.mqttClient.subscribe(this.topics);
+                this.generateService(this.topics);
             }
         });
 
@@ -180,7 +182,7 @@ export default class CommClient {
     /////////////////////////
     ///////Generate Functions
     /////////////////////////
-    private generateSubscribers(topics: Array<string>){
+    private generateService(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
             const converter = CommUtility.convertToFunction(topic);
@@ -259,7 +261,9 @@ export class Subscriber {
 /////////////////////////
 ///////Service
 /////////////////////////
-export class Service {}
+export class Service {
+    name: string;
+}
 
 /////////////////////////
 ///////Error Classes

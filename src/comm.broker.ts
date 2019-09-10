@@ -151,7 +151,7 @@ export default class CommBroker {
     /////////////////////////
     private sendBroadcast(){
         const reply = new Reply(this.broadcastTopic);
-        reply.send(this.topics);
+        reply.send({name: global.service.name, topics: this.topics});
     }
 
     /////////////////////////
