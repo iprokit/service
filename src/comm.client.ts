@@ -15,6 +15,9 @@ export default class CommClient {
     
     public readonly broadcastTopic = '/';
     private topics: Array<string>;
+
+    private service: Service;
+
     private messageCallbackEvent: EventEmitter;
 
     //Default Constructor
@@ -30,6 +33,9 @@ export default class CommClient {
 
         //Creating url
         this.url = 'mqtt://' + this.host;
+
+        //Create service object
+        this.service = new Service();
 
         //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();
@@ -52,6 +58,10 @@ export default class CommClient {
 
     public getTopics() {
         return this.topics;
+    }
+
+    public getService(){
+        return this.service;
     }
 
     /////////////////////////
@@ -146,20 +156,24 @@ export default class CommClient {
     /////////////////////////
     public handleMessage(topic: string, parms: any){
         return new Promise((resolve, reject) => {
-            //Listen for reply on broker
-            this.messageCallbackEvent.once(topic, (reply: Reply) => {
-                if(reply.body !== undefined){
-                    resolve(reply.body);
-                }else{
-                    reject(reply.error);
-                }
-            });
+            if(this.mqttClient.connected){
+                //Listen for reply on broker
+                this.messageCallbackEvent.once(topic, (reply: Reply) => {
+                    if(reply.body !== undefined){
+                        resolve(reply.body);
+                    }else{
+                        reject(reply.error);
+                    }
+                });
 
-            //Creating new message parm.
-            const message = new Message(parms);
+                //Creating new message parm.
+                const message = new Message(parms);
 
-            //Sending message
-            this.sendMessage(topic, message);
+                //Sending message
+                this.sendMessage(topic, message);
+            }else{
+                reject(new ServiceUnavailableError(this.host));
+            }
         });
     }
 
@@ -174,11 +188,11 @@ export default class CommClient {
             if(converter){
                 let subscriber;
 
-                //Validate and generate a subscriber object or get it from this class object.
-                if(this.constructor.prototype[converter.className] === undefined){
+                //Validate and generate a subscriber object or get it from service class object.
+                if(this.service.constructor.prototype[converter.className] === undefined){
                     subscriber = new Subscriber(converter.className, topic);
                 }else{
-                    subscriber = this.constructor.prototype[converter.className];
+                    subscriber = this.service.constructor.prototype[converter.className];
                 }
 
                 //Validate and generate dynamic funcation and add it to subscriber object.
@@ -189,8 +203,8 @@ export default class CommClient {
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
 
-                //Adding the subscriber object to this class object.
-                this.constructor.prototype[converter.className] = subscriber;
+                //Adding the subscriber object to service class object.
+                this.service.constructor.prototype[converter.className] = subscriber;
             }
         });
     }
@@ -240,4 +254,24 @@ export class Subscriber {
         this.name = name;
         this.topic = topic;
     }
+}
+
+/////////////////////////
+///////Service
+/////////////////////////
+export class Service {}
+
+/////////////////////////
+///////Error Classes
+/////////////////////////
+export class ServiceUnavailableError extends Error{
+    constructor (name: string) {
+        super(name + ' service is unavailable.');
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
 }

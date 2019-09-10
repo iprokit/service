@@ -14,9 +14,7 @@ export type CommMeshInitOptions = {
 export function getService(name: string){
     const commClientObject = that.commClients.find(client => client.name === name);
     if(commClientObject !== undefined){
-        //TODO: return Subscription.
-        //Subscription: A set of subscribes as a class.
-        return commClientObject.client;
+        return commClientObject.client.getService();
     }else{
         throw new Error('Invalid service. Service not defined as mesh at entry point.');
     }
