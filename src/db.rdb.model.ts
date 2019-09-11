@@ -9,7 +9,6 @@ export default class RDBModel extends Model {
     }
 
     public static _tableName(): string {
-        //TODO: For every captital letter add _ before. Ex: EndUser = end_user
         return this.name.replace('Model', '').toLowerCase();
     }
 
@@ -83,6 +82,4 @@ export default class RDBModel extends Model {
                 throw error;
             });
     }
-
-    //TODO: Throw data validation errors in insert and update.
 }

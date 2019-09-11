@@ -12,7 +12,7 @@ export type CommMeshInitOptions = {
 }
 
 export function getService(name: string){
-    const commClientObject = that.commClients.find(client => client.name === name);
+    const commClientObject = that.commClients.find(client => client.host === name);
     if(commClientObject !== undefined){
         return commClientObject.client.getService();
     }else{
@@ -25,7 +25,7 @@ var that: CommMesh;
 
 export default class CommMesh {
     //Clients
-    public readonly commClients: Array<{name: string, client: CommClient}> = new Array<{name: string, client: CommClient}>();
+    public readonly commClients: Array<{host: string, client: CommClient}> = new Array<{host: string, client: CommClient}>();
 
     //Default Constructor
     constructor(){
@@ -56,7 +56,7 @@ export default class CommMesh {
             const commClient = new CommClient(host);
 
             //Add to Array
-            this.commClients.push({name: host, client: commClient});
+            this.commClients.push({host: host, client: commClient});
         });
     }
 
