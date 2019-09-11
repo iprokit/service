@@ -39,7 +39,7 @@ export default class RDBModel extends Model {
     }
 
     public static async getOneByID(id: any){
-        await this.findByPk(id)
+        return await this.findByPk(id)
             .then(async data => {
                 if(data){
                     return data
@@ -53,12 +53,12 @@ export default class RDBModel extends Model {
     }
 
     public static async updateOne(data: any, where: any){
-        await this.update(data, { where: where, individualHooks: true})
+        return await this.update(data, { where: where, individualHooks: true})
             .then(async affectedRows => {
                 if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
                     throw new Error('ID does not exit!');
                 }else{
-                    return;
+                    return true;
                 }
             })
             .catch(error => {
@@ -67,16 +67,16 @@ export default class RDBModel extends Model {
     }
 
     public static async updateOneByID(id: any, data: any){
-        await this.updateOne(data, {id: id});
+        return await this.updateOne(data, {id: id});
     }
 
     public static async deleteOneByID(id: any){
-        await this.destroy({where: { id: id }, individualHooks: true})
+        return await this.destroy({where: { id: id }, individualHooks: true})
             .then(async affectedRows => {
                 if(affectedRows === 0){
                     throw new Error('ID does not exit!');
                 }else{
-                    return;
+                    return true;
                 }
             })
             .catch(error => {

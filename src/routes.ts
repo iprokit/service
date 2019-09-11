@@ -21,7 +21,7 @@ export declare type AppFunction = (target: Object, propertyKey: string, descript
 /////////////////////////
 export function Get(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.get(url, descriptor.value);
     }
@@ -29,7 +29,7 @@ export function Get(path: PathParams): RequestResponseFunction {
 
 export function Post(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.post(url, descriptor.value);
     }
@@ -37,7 +37,7 @@ export function Post(path: PathParams): RequestResponseFunction {
 
 export function Put(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.put(url, descriptor.value);
     }
@@ -45,7 +45,7 @@ export function Put(path: PathParams): RequestResponseFunction {
 
 export function Delete(path: PathParams): RequestResponseFunction {
     return function (target, propertyKey, descriptor) {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.delete(url, descriptor.value);
     }
