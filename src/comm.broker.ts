@@ -131,6 +131,9 @@ export default class CommBroker {
                     try{
                         this.receiveMessage(packet);
                     }catch(error){
+                        if(error instanceof ReplySentWarning){
+                            console.error(error);
+                        }
                         //Do nothing.
                     }
                 }
@@ -234,8 +237,7 @@ export class Reply implements IReply{
     private _topic: any;
     public body: any;
     public error: any;
-
-    //TODO: Validate send count.
+    private sendCount: number = 0;
 
     constructor(topic: any){
         this._topic = topic;
@@ -246,13 +248,25 @@ export class Reply implements IReply{
     }
 
     send(body: any): void {
-        this.body = body;
-        that.sendReply(this);
+        //Ensure the reply is sent only once.
+        if(this.sendCount === 0){
+            this.sendCount = 1;
+            this.body = body;
+            that.sendReply(this);
+        }else{
+            throw new ReplySentWarning();
+        }
     }
 
     sendError(error: any): void {
-        this.error = error;
-        that.sendReply(this);
+        //Ensure the reply is sent only once.
+        if(this.sendCount === 0){
+            this.sendCount = 1;
+            this.error = error;
+            that.sendReply(this);
+        }else{
+            throw new ReplySentWarning();
+        }
     }
 }
 
@@ -261,6 +275,21 @@ export class Reply implements IReply{
 /////////////////////////
 export class Publisher {
     constructor(){}   
+}
+
+/////////////////////////
+///////Error Classes
+/////////////////////////
+class ReplySentWarning extends Error{
+    constructor () {
+        super('Reply already sent.');
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
 }
 
 /////////////////////////
