@@ -193,7 +193,8 @@ export default class MicroService {
         expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
-        expressApp.use(expressRouter);
+        const baseURL = '/' + this.options.name;
+        expressApp.use(baseURL.toLowerCase(), expressRouter);
 
         // Error handler for 404
         expressApp.use((request: Request, response: Response, next: NextFunction) => {
