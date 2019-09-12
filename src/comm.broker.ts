@@ -16,6 +16,12 @@ export type CommBrokerInitOptions = {
     autoInjectPublishers: AutoInjectPublisherOptions
 };
 
+//Types: ConnectionOptions
+export type ConnectionOptions = {
+    name: string,
+    port: number
+};
+
 //Types: AutoInjectPublisherOptions
 export type AutoInjectPublisherOptions = {
     paths?: Array<string>,
@@ -29,9 +35,12 @@ var that: CommBroker;
 export default class CommBroker {
     //Options
     private initOptions: CommBrokerInitOptions;
+    private connectionOptions: ConnectionOptions;
 
+    //Mosca Server
     private mosca: mosca.Server;
 
+    //Topic Objects
     private readonly broadcastTopic = '/';
     private topics: Array<string>;
     private replyCallbackEvent: EventEmitter;
@@ -43,6 +52,12 @@ export default class CommBroker {
     constructor(){
         //Setting that as this.
         that = this;
+
+        //Load connection options.
+        this.connectionOptions = {
+            name: global.service.name,
+            port: global.service.comBrokerPort
+        }
 
         //Array of topics
         this.topics = new Array<string>();
@@ -70,8 +85,9 @@ export default class CommBroker {
     /////////////////////////
     public init(initOptions: CommBrokerInitOptions){
         //Load init options.
-        this.initOptions = initOptions;
-        this.initOptions.autoInjectPublishers = initOptions.autoInjectPublishers || {};
+        this.initOptions = {
+            autoInjectPublishers: initOptions.autoInjectPublishers || {}
+        }
 
         //Load Publishers
         this.autoInjectPublishers(this.initOptions.autoInjectPublishers);
@@ -107,11 +123,13 @@ export default class CommBroker {
     /////////////////////////
     public listen(){
         return new Promise((resolve, reject) => {
+            //Set options
             const options = {
-                id: global.service.name,
-                port: global.service.comBrokerPort
+                id: this.connectionOptions.name,
+                port: this.connectionOptions.port
             }
-            
+
+            //Init Server object
             this.mosca = new mosca.Server(options);
     
             this.mosca.on('ready', () => {
@@ -154,7 +172,7 @@ export default class CommBroker {
     /////////////////////////
     private sendBroadcast(){
         const reply = new Reply(this.broadcastTopic);
-        reply.send({name: global.service.name, topics: this.topics});
+        reply.send({name: this.connectionOptions.name, topics: this.topics});
     }
 
     /////////////////////////

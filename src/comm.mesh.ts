@@ -111,7 +111,7 @@ class CommMeshController {
             that.commClients.forEach((client) => {
                 let commClient = client.client;
                 clients.push({
-                    host: commClient.host,
+                    host: commClient.getHost(),
                     broadcastTopic: commClient.broadcastTopic,
                     connected: commClient.isConnected(),
                     disconnected: commClient.isDisconnected(),

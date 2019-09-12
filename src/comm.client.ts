@@ -5,34 +5,44 @@ import { EventEmitter } from 'events';
 //Local Imports
 import CommUtility from './comm.utility';
 
+//Types: ConnectionOptions
+export type ConnectionOptions = {
+    name: string,
+    host: string,
+    url: string
+};
+
 //Alternative for this.
 var that: CommClient;
 
 export default class CommClient {
+    //Options
+    private connectionOptions: ConnectionOptions;
+
+    //MQTT Client
     private mqttClient: mqtt.MqttClient;
-    public readonly host: string;
-    private readonly url: string;
     
+    //Topic Objects
     public readonly broadcastTopic = '/';
     private topics: Array<string>;
-
-    private service: Service;
-
     private messageCallbackEvent: EventEmitter;
+
+    //Service
+    private service: Service;
 
     //Default Constructor
     constructor(host: string){
         //Setting that as this.
         that = this;
 
-        //Setting host
-        this.host = host;
+        this.connectionOptions = {
+            name: global.service.name,
+            host: host,
+            url: 'mqtt://' + host,
+        }
 
         //Array of topics
         this.topics = new Array<string>();
-
-        //Creating url
-        this.url = 'mqtt://' + this.host;
 
         //Create service object
         this.service = new Service();
@@ -64,24 +74,30 @@ export default class CommClient {
         return this.service;
     }
 
+    public getHost(){
+        return this.connectionOptions.host;
+    }
+
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
+            //Set options
             const options = {
-                id: global.service.name,
+                id: this.connectionOptions.name,
                 keepalive: 30
             };
-    
-            this.mqttClient = mqtt.connect(this.url, options);
+
+            //Init Connection object
+            this.mqttClient = mqtt.connect(this.connectionOptions.url, options);
     
             this.mqttClient.on('connect', () => {
                 //Subscribe to all topics.
                 this.mqttClient.subscribe(this.broadcastTopic);
 
                 //Return.
-                resolve({url: this.url});
+                resolve({url: this.connectionOptions.url});
             });
             
             this.mqttClient.on('message', (topic, payload, packet) => {
@@ -98,7 +114,7 @@ export default class CommClient {
     public disconnect(){
         return new Promise((resolve, reject) => {
             this.mqttClient.end(true, () => {
-                resolve(this.url);
+                resolve(this.connectionOptions.url);
             });
         });
     }
@@ -172,7 +188,7 @@ export default class CommClient {
                 //Sending message
                 this.sendMessage(topic, message);
             }else{
-                reject(new ServiceUnavailableError(this.host));
+                reject(new ServiceUnavailableError(this.connectionOptions.host));
             }
         });
     }
