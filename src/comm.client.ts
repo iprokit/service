@@ -213,6 +213,7 @@ export default class CommClient {
 
                 //Validate and generate dynamic funcation and add it to subscriber object.
                 if(subscriber[converter.functionName] === undefined){
+                    //TOOD: Bug here with creating function.
                     const subscribe = function(parms?: any) {
                         return that.handleMessage(this.topic, parms);
                     }
