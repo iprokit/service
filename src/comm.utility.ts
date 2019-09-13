@@ -1,15 +1,11 @@
-//Local Imports
-import {Publisher} from './comm.broker';
-
 export default class CommUtility {
-    public static convertToPath(className: typeof Publisher, functionName: string){
-        const publisherName = className.constructor.name.replace('Publisher', '');
-        const path = ('/' + publisherName + '/' + functionName);
-        return path;
+    public static convertToTopic(className: string, functionName: string){
+        const topic = ('/' + className + '/' + functionName);
+        return topic;
     }
 
-    public static convertToFunction(path: string){
-        const topicLevels = path.split('/');
+    public static convertToFunction(topic: string){
+        const topicLevels = topic.split('/');
 
         let className = topicLevels[1];
         let functionName = topicLevels[2];

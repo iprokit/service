@@ -292,7 +292,7 @@ export class Reply implements IReply{
 ///////Publisher
 /////////////////////////
 export class Publisher {
-    constructor(){}   
+    constructor(){}
 }
 
 /////////////////////////

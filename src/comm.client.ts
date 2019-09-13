@@ -206,16 +206,16 @@ export default class CommClient {
 
                 //Validate and generate a subscriber object or get it from service class object.
                 if(this.service.constructor.prototype[converter.className] === undefined){
-                    subscriber = new Subscriber(converter.className, topic);
+                    subscriber = new Subscriber(converter.className);
                 }else{
                     subscriber = this.service.constructor.prototype[converter.className];
                 }
 
                 //Validate and generate dynamic funcation and add it to subscriber object.
                 if(subscriber[converter.functionName] === undefined){
-                    //TOOD: Bug here with creating function.
                     const subscribe = function(parms?: any) {
-                        return that.handleMessage(this.topic, parms);
+                        //TODO: Pass dynamic topic here.
+                        return that.handleMessage(topic, parms);
                     }
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
@@ -265,11 +265,9 @@ export class Reply implements IReply{
 /////////////////////////
 export class Subscriber {
     name: string;
-    topic: string;
 
-    constructor(name: string, topic: string){
+    constructor(name: string){
         this.name = name;
-        this.topic = topic;
     }
 }
 

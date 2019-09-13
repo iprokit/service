@@ -16,7 +16,8 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 /////////////////////////
 export function Reply(): ReplyFunction {
     return function (target, propertyKey, descriptor) {
-        const path = CommUtility.convertToPath(target, propertyKey);
-        commBroker.handleReply(path, descriptor.value);
+        const publisherName = target.constructor.name.replace('Publisher', '');
+        const topic = CommUtility.convertToTopic(publisherName, propertyKey);
+        commBroker.handleReply(topic, descriptor.value);
     }
 }
