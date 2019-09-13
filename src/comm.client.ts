@@ -214,8 +214,8 @@ export default class CommClient {
                 //Validate and generate dynamic funcation and add it to subscriber object.
                 if(subscriber[converter.functionName] === undefined){
                     const subscribe = function(parms?: any) {
-                        //TODO: Pass dynamic topic here.
-                        return that.handleMessage(topic, parms);
+                        const _topic = topic;
+                        return that.handleMessage(_topic, parms);
                     }
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
