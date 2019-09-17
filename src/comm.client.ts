@@ -9,6 +9,7 @@ import CommUtility from './comm.utility';
 export type ConnectionOptions = {
     name: string,
     host: string,
+    port: number,
     url: string
 };
 
@@ -35,10 +36,13 @@ export default class CommClient {
         //Setting that as this.
         that = this;
 
+        const port = global.service.comBrokerPort;
+
         this.connectionOptions = {
             name: global.service.name,
+            port: port,
             host: host,
-            url: 'mqtt://' + host,
+            url: 'mqtt://' + host + ':' + port,
         }
 
         //Array of topics
