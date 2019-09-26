@@ -189,6 +189,7 @@ export default class MicroService {
     private initExpressServer() {
         //Setup Express
         expressApp.use(cors());
+        expressApp.options('*', cors());
         expressApp.use(express.json());
         expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
