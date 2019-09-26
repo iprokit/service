@@ -1,6 +1,6 @@
 {
   "name": "@iprotechs/promicro",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "iProtechs",
   "homepage": "http://www.iprotechs.com",
   "author": {
@@ -64,7 +64,9 @@
     "mysql2": "1.6.5",
     "sequelize": "5.10.0",
     "@types/dotenv": "4.0.3",
-    "dotenv": "8.0.0"
+    "dotenv": "8.0.0",
+    "@types/moment-timezone": "0.5.4",
+    "moment-timezone": "0.5.26"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",
