@@ -36,13 +36,16 @@ export default class CommClient {
         //Setting that as this.
         that = this;
 
-        const port = global.service.comBrokerPort;
+        //Split url into host and port.
+        const _url = host.split(':');
+        const _host = _url[0];
+        const _port = Number(_url[1]) || global.service.comBrokerPort;
 
         this.connectionOptions = {
             name: global.service.name,
-            port: port,
-            host: host,
-            url: 'mqtt://' + host + ':' + port,
+            host: _host,
+            port: _port,
+            url: 'mqtt://' + _host + ':' + _port,
         }
 
         //Array of topics

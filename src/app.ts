@@ -165,7 +165,7 @@ export default class MicroService {
             name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
             version: process.env.npm_package_version || '1.0.0',
             expressPort: Number(process.env.EXPRESS_PORT) || 3000,
-            comBrokerPort: Number(process.env.COM_BROKER_PORT) || 1883,
+            comBrokerPort: Number(process.env.COM_BROKER_PORT) || 6000,
             environment: process.env.NODE_ENV || 'production',
             ip: DockerUtility.getContainerIP()
         };
