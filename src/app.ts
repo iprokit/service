@@ -1,5 +1,6 @@
 //Import modules
 import express, { Request, Response, NextFunction } from 'express';
+import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
@@ -121,7 +122,9 @@ export default class MicroService {
         //Load Comm
         commBroker = new CommBroker();
         this.commMesh = new CommMesh();
-        this.initComm(options.comm);
+        if(options.comm !== undefined){
+            this.initComm(options.comm);
+        }
 
         //Inject Controllers
         if(options.autoInjectControllers !== undefined){
@@ -308,19 +311,13 @@ export default class MicroService {
         this.dbManager.disconnect()
             .then(() => {
                 console.log('DB client disconnected.');
-            })
-            .finally(() => {
                 this.commMesh.disconnect()
                     .then(() => {
                         console.log('Comm mesh disconnected.');
-                    })
-                    .finally(() => {
                         //Stop comm broker
                         commBroker.close()
                             .then(() => {
                                 console.log('Comm broker shutdown complete.');
-                            })
-                            .finally(() => {
                                 //Stop Server
                                 server.close(() => {
                                     console.log('Express server shutdown complete.');
@@ -345,6 +342,29 @@ export default class MicroService {
             console.log('Recived SIGINT!');
             this.stopService(server);
         });
+    }
+
+    /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public all(path: PathParams, ...handlers: RequestHandler[]){
+        expressRouter.all(path, ...handlers);
+    }
+
+    public get(path: PathParams, ...handlers: RequestHandler[]){
+        expressRouter.get(path, ...handlers);
+    }
+
+    public post(path: PathParams, ...handlers: RequestHandler[]){
+        expressRouter.post(path, ...handlers);
+    }
+
+    public put(path: PathParams, ...handlers: RequestHandler[]){
+        expressRouter.put(path, ...handlers);
+    }
+
+    public delete(path: PathParams, ...handlers: RequestHandler[]){
+        expressRouter.delete(path, ...handlers);
     }
 }
 

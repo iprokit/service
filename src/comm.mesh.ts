@@ -82,13 +82,17 @@ export default class CommMesh {
     public disconnect(){
         return new Promise((resolve, reject) => {
             //Close Comm Client connections.
-            this.commClients.forEach((commClient) => {
-                const _commClient = commClient.client;
-                _commClient.disconnect()
-                    .finally(() => {
-                        resolve();
-                    });
-            });
+            if(this.commClients.length === 0){
+                resolve();
+            }else{
+                this.commClients.forEach((commClient) => {
+                    const _commClient = commClient.client;
+                    _commClient.disconnect()
+                        .finally(() => {
+                            resolve();
+                        });
+                });
+            }
         });
     }
 }
