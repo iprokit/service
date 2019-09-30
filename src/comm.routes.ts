@@ -1,5 +1,5 @@
 //Local Imports
-import { commBroker } from './app';
+import { commBroker } from './microservice';
 import { ReplyCallback, Publisher } from './comm.broker';
 import CommUtility from './comm.utility';
 

@@ -2,7 +2,7 @@
 import { PathParams, RequestHandler } from "express-serve-static-core";
 
 //Local Imports
-import { expressRouter } from "./app";
+import { expressRouter } from "./microservice";
 import Controller from "./controller";
 
 //Interface: RequestResponseFunctionDescriptor

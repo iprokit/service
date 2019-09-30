@@ -1,5 +1,5 @@
 //Local Imports
-import MicroService from './app';
+import MicroService from './microservice';
 
 //Exports
 export { Publisher } from './comm.broker';
