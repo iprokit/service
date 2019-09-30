@@ -101,9 +101,6 @@ export default class CommBroker {
         const likeName = autoInjectOptions.likeName || 'publisher.js';
         const excludes = autoInjectOptions.excludes || [];
 
-        //Adding files to Exclude.
-        excludes.push('/node_modules');
-
         paths.forEach((path: string) => {
             let publisherPaths = FileUtility.getFilePaths(path, likeName, excludes);
             publisherPaths.forEach(publisherPath => {

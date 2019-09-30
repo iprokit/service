@@ -151,9 +151,6 @@ export default class DBManager{
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
 
-        //Adding files to Exclude.
-        excludes.push('/node_modules');
-
         paths.forEach((path: string) => {
             let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
