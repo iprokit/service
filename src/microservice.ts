@@ -44,6 +44,9 @@ declare global {
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
+    name?: string,
+    version?: string,
+    url?: string,
     db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
     comm?: CommOptions
@@ -82,6 +85,7 @@ var that: MicroService;
 export default class MicroService {
     //Types
     private options: MicroServiceOptions;
+    private initOptions: MicroServiceInitOptions;
 
     //DB Objects
     private readonly dbManager: DBManager;
@@ -98,7 +102,7 @@ export default class MicroService {
         that = this;
 
         //Load options from constructor
-        options = options || {};
+        this.initOptions = options || {};
 
         //Load options
         this.loadDotEnvFile();
@@ -115,20 +119,20 @@ export default class MicroService {
 
         //Load DB
         this.dbManager = new DBManager();
-        if(options.db !== undefined){
-            this.initDB(options.db);
+        if(this.initOptions.db !== undefined){
+            this.initDB(this.initOptions.db);
         }
 
         //Load Comm
         commBroker = new CommBroker();
         this.commMesh = new CommMesh();
-        if(options.comm !== undefined){
-            this.initComm(options.comm);
+        if(this.initOptions.comm !== undefined){
+            this.initComm(this.initOptions.comm);
         }
 
         //Inject Controllers
-        if(options.autoInjectControllers !== undefined){
-            this.autoInjectControllers(options.autoInjectControllers);
+        if(this.initOptions.autoInjectControllers !== undefined){
+            this.autoInjectControllers(this.initOptions.autoInjectControllers);
         }
         this.injectEndpoints();//Load any user controllers
 
@@ -165,8 +169,8 @@ export default class MicroService {
         //Try loading options from package.json and process.env
         this.options = {
             id: uuid(),
-            name: process.env.npm_package_name || this.constructor.name.replace('App', ''),
-            version: process.env.npm_package_version || '1.0.0',
+            name: this.initOptions.name || process.env.npm_package_name,
+            version: this.initOptions.version || process.env.npm_package_version,
             expressPort: Number(process.env.EXPRESS_PORT) || 3000,
             comBrokerPort: Number(process.env.COM_BROKER_PORT) || 6000,
             environment: process.env.NODE_ENV || 'production',
@@ -197,8 +201,8 @@ export default class MicroService {
         expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
-        const baseURL = '/' + this.options.name;
-        expressApp.use(baseURL.toLowerCase(), expressRouter);
+        this.initOptions.url = (this.initOptions.url || '/' + this.options.name).toLowerCase();
+        expressApp.use(this.initOptions.url, expressRouter);
 
         // Error handler for 404
         expressApp.use((request: Request, response: Response, next: NextFunction) => {
@@ -270,7 +274,7 @@ export default class MicroService {
 
         //Start express server
         const server = expressApp.listen(this.options.expressPort, () => {
-            console.log('Express server running on %s:%s', this.options.ip, this.options.expressPort);
+            console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
         });
         this.addExpressListeners(server);
 

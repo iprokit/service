@@ -2,6 +2,7 @@
 import MicroService from './microservice';
 
 //Exports
+export { default as Gateway } from './gateway';
 export { Publisher } from './comm.broker';
 export { Reply } from './comm.routes';
 export { getService } from './comm.mesh';
