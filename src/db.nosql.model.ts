@@ -1,12 +1,12 @@
 //Import modules
 import { Model, SchemaDefinition, Types } from 'mongoose';
 
-export default class NoSQLModel extends Model{
+export default class NoSQLModel extends Model {
     public static _modelName(): string{
         return this.name.replace('Model', '');
     }
 
-    public static _tableName(): string {
+    public static _collectionName(): string {
         return this.name.replace('Model', '').toLowerCase();
     }
 

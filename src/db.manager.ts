@@ -40,10 +40,9 @@ export type AutoWireOptions = {
 //Alternative for this.
 var that: DBManager;
 
-//TODO: Remove this
 var testModel: Model<Document>;
 
-export default class DBManager{
+export default class DBManager {
     //Options
     private connectionOptions: DBConnectionOptions;
     private initOptions: DBInitOptions;
@@ -227,16 +226,15 @@ export default class DBManager{
         //Get data from model object.
         const fields = model.fields(Mongoose.Types);
         const modelName = model._modelName();
-        const tableName = model._tableName();
+        const collectionName = model._collectionName();
 
         //Logging the model before
-        console.log('Initiating model: %s(%s)', modelName, tableName);
+        console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
         const schema = new Schema(fields);
-        //schema.loadClass(model);
-        //TODO: Remove this
-        testModel = Mongoose.model(tableName, schema);
+        schema.loadClass(model);
+        testModel = Mongoose.model(collectionName, schema);
     }
 
     /////////////////////////
@@ -262,7 +260,6 @@ export default class DBManager{
                         }
                     });
             }else if(this.NoSQL){
-                //TODO: Fix this.
                 const uri = 'mongodb://' + this.connectionOptions.host;
                 const options = {
                     dbName: this.connectionOptions.name,
@@ -273,7 +270,6 @@ export default class DBManager{
                     .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                         
-                        //TODO: Remove this
                         testModel.find()
                             .then((data) => {
                                 console.log(data);
