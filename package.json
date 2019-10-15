@@ -1,6 +1,6 @@
 {
   "name": "@iprotechs/promicro",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "license": "iProtechs",
   "homepage": "http://www.iprotechs.com",
   "author": {
@@ -68,7 +68,9 @@
     "@types/moment-timezone": "0.5.4",
     "moment-timezone": "0.5.26",
     "@types/express-http-proxy": "1.5.12",
-    "express-http-proxy": "1.5.1"
+    "express-http-proxy": "1.5.1",
+    "@types/mongoose": "5.0.11",
+    "mongoose": "5.6.9"
   },
   "devDependencies": {
     "@babel/core": "7.4.5",

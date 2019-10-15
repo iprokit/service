@@ -1,22 +1,19 @@
 //Import modules
 import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
+import Mongoose, { Model, Document, Schema } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
-import moment from 'moment-timezone';
 
 //Local Imports
 import RDBModel from './db.rdb.model';
+import NoSQLModel from './db.nosql.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
 import { Report, Execute } from './routes';
 
-//SQL Types.
-const MYSQL = 'mysql'
-export type SQL = typeof MYSQL;
-
-//NoSQL Types.
-const MONGO = 'mongo';
-export type NoSQL = typeof MONGO;
+//RDS/NoSQL Types.
+export type RDS = 'mysql';
+export type NoSQL = 'mongo';
 
 //Types: DBConnectionOptions
 export type DBConnectionOptions = {
@@ -28,7 +25,7 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
-    type: NoSQL | SQL,
+    type: NoSQL | RDS,
     timezone?: string,
     autoWireModels: AutoWireOptions
 };
@@ -43,16 +40,24 @@ export type AutoWireOptions = {
 //Alternative for this.
 var that: DBManager;
 
+//TODO: Remove this
+var testModel: Model<Document>;
+
 export default class DBManager{
     //Options
     private connectionOptions: DBConnectionOptions;
     private initOptions: DBInitOptions;
+
+    //DB Types
+    private RDS: boolean;
+    private NoSQL: boolean;
     
     //Connection Object
-    private db: Sequelize;
+    private rdbConnection: Sequelize;
 
     //Models
-    public readonly models = new Array<typeof RDBModel>();
+    private readonly rdbModels = new Array<typeof RDBModel>();
+    private readonly noSQLModels = new Array();
     
     //Default Constructor
     public constructor(){
@@ -75,7 +80,11 @@ export default class DBManager{
     }
 
     public getConnection(){
-        return this.db;
+        return this.rdbConnection;
+    }
+
+    public getRDBModels(){
+        return this.rdbModels;
     }
 
     /////////////////////////
@@ -101,7 +110,10 @@ export default class DBManager{
         this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
 
         //Try loading a db based on type.
-        if(this.initOptions.type === MYSQL){
+        if(this.initOptions.type === 'mysql'){
+            //Set DB type
+            this.RDS = true;
+
             //Load Connection
             this.loadRDBConnection(this.initOptions.type);
 
@@ -110,8 +122,12 @@ export default class DBManager{
 
             //Auto call, to create rdb endpoints.
             new RDBController();
-        }else if(this.initOptions.type === MONGO){
-            this.loadNoSQLConnection(this.initOptions.type);
+        }else if(this.initOptions.type === 'mongo'){
+            //Set DB type
+            this.NoSQL = true;
+
+            //Load models
+            this.autoWireNoSQLModels(this.initOptions.autoWireModels);
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
@@ -120,23 +136,14 @@ export default class DBManager{
     /////////////////////////
     ///////RDB Functions
     /////////////////////////
-    private loadRDBConnection(dialect: SQL){
+    private loadRDBConnection(dialect: RDS){
         if(this.connectionOptions.name !== undefined){
             try{
                 //Load Sequelize
-                this.db = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
+                this.rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
                     host: this.connectionOptions.host,
                     dialect: dialect,
-                    timezone: this.initOptions.timezone,
-                    dialectOptions: {
-                        typeCast: (field: any, next: any) => {
-                            if (field.type == 'DATETIME' || field.type == 'TIMESTAMP') {
-                                let date = moment(new Date(field.string())).tz('Asia/Kolkata').format();
-                                return date.split('+')[0];
-                            }
-                            return next();
-                        }
-                    }
+                    timezone: this.initOptions.timezone
                 });
             }catch(error){
                 throw error; //Pass other errors.
@@ -151,20 +158,23 @@ export default class DBManager{
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
 
+        //Adding files to Exclude.
+        excludes.push('/node_modules');
+
         paths.forEach((path: string) => {
             let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
-                this.setupRDBModel(model);
+                this.initRDBModel(model);
 
                 //Add to Array
-                this.models.push(model);
+                this.rdbModels.push(model);
             });
         });
 
         //Associate models
-        this.models.forEach(model => {
+        this.rdbModels.forEach(model => {
             //Logging the model before
             console.log('Associating model: %s', model.name);
     
@@ -173,10 +183,10 @@ export default class DBManager{
         });
     }
 
-    private setupRDBModel(model: typeof RDBModel){
-        //Init the model object and push to array of rdbModels.
+    private initRDBModel(model: typeof RDBModel){
+        //Get data from model object.
         const fields = model.fields(DataTypes);
-        const sequelize = this.db;
+        const sequelize = this.rdbConnection;
         const modelName = model._modelName();
         const tableName = model._tableName();
 
@@ -192,8 +202,41 @@ export default class DBManager{
     /////////////////////////
     ///////NoSQL Functions
     /////////////////////////
-    private loadNoSQLConnection(type: NoSQL){
-        console.log('Mongo to be implemented.');
+    private autoWireNoSQLModels(autoWireModels: AutoWireOptions){
+        let paths = autoWireModels.paths || ['/'];
+        const likeName = autoWireModels.likeName || 'model.js';
+        const excludes = autoWireModels.excludes || [];
+
+        //Adding files to Exclude.
+        excludes.push('/node_modules');
+
+        paths.forEach((path: string) => {
+            let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
+            modelFiles.forEach(modelFile => {
+                const model = require(modelFile).default;
+
+                this.initNoSQLModel(model);
+
+                //Add to Array
+                this.noSQLModels.push(model);
+            });
+        });
+    }
+
+    private initNoSQLModel(model: typeof NoSQLModel){
+        //Get data from model object.
+        const fields = model.fields(Mongoose.Types);
+        const modelName = model._modelName();
+        const tableName = model._tableName();
+
+        //Logging the model before
+        console.log('Initiating model: %s(%s)', modelName, tableName);
+
+        //Initializing model
+        const schema = new Schema(fields);
+        //schema.loadClass(model);
+        //TODO: Remove this
+        testModel = Mongoose.model(tableName, schema);
     }
 
     /////////////////////////
@@ -201,8 +244,8 @@ export default class DBManager{
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
-            if(this.db !== undefined){
-                this.db.authenticate()
+            if(this.RDS){
+                this.rdbConnection.authenticate()
                     .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
@@ -218,6 +261,29 @@ export default class DBManager{
                             reject(error);//Pass other errors.
                         }
                     });
+            }else if(this.NoSQL){
+                //TODO: Fix this.
+                const uri = 'mongodb://' + this.connectionOptions.host;
+                const options = {
+                    dbName: this.connectionOptions.name,
+                    user: this.connectionOptions.username,
+                    pass: this.connectionOptions.password,
+                    useNewUrlParser: true}
+                Mongoose.connect(uri, options)
+                    .then(() => {
+                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                        
+                        //TODO: Remove this
+                        testModel.find()
+                            .then((data) => {
+                                console.log(data);
+                            })
+                            .catch((error) => {
+                                console.log(error);
+                            })
+                    }).catch((error) => {
+                        reject(error);//Pass other errors.
+                    })
             }else{
                 resolve();
             }
@@ -226,13 +292,20 @@ export default class DBManager{
 
     public disconnect(){
         return new Promise((resolve, reject) => {
-            if(this.db !== undefined){
-                this.db.close()
+            if(this.RDS){
+                this.rdbConnection.close()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
+            }else if(this.NoSQL){
+                Mongoose.disconnect()
+                    .then(() => {
+                        resolve();
+                    }).catch((error) => {
+                        reject(error);//Pass other errors.
+                    })
             }else{
                 resolve();
             }
@@ -261,7 +334,7 @@ export class InvalidConnectionOptionsError extends Error{
 class RDBController{
     @Report('/db/report')
     public getRDBOptions(request: Request, response: Response) {
-        const _models = that.models;
+        const _models = that.getRDBModels();
         let models = new Array<{[modelName: string]: string}>();
 
         const connectionOptions = that.getConnectionOptions();
