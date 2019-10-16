@@ -263,7 +263,7 @@ export default class DBManager {
                     pass: this.connectionOptions.password,
                     useNewUrlParser: true}
                 Mongoose.connect(uri, options)
-                    .then(() => {
+                    .then((connection) => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
                         //TODO: Add other errors.
