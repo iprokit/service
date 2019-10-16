@@ -1,6 +1,6 @@
 //Import modules
 import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import Mongoose, { Model, Document, Schema } from 'mongoose';
+import Mongoose, { Schema } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
@@ -39,8 +39,6 @@ export type AutoWireOptions = {
 
 //Alternative for this.
 var that: DBManager;
-
-var testModel: Model<Document>;
 
 export default class DBManager {
     //Options
@@ -224,7 +222,7 @@ export default class DBManager {
 
     private initNoSQLModel(model: typeof NoSQLModel){
         //Get data from model object.
-        const fields = model.fields(Mongoose.Types);
+        const fields = model.fields(Schema.Types);
         const modelName = model._modelName();
         const collectionName = model._collectionName();
 
@@ -232,9 +230,7 @@ export default class DBManager {
         console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
-        const schema = new Schema(fields);
-        schema.loadClass(model);
-        testModel = Mongoose.model(collectionName, schema);
+        model.init(fields, {collectionName: collectionName});
     }
 
     /////////////////////////
@@ -269,15 +265,8 @@ export default class DBManager {
                 Mongoose.connect(uri, options)
                     .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
-                        
-                        testModel.find()
-                            .then((data) => {
-                                console.log(data);
-                            })
-                            .catch((error) => {
-                                console.log(error);
-                            })
                     }).catch((error) => {
+                        //TODO: Add other errors.
                         reject(error);//Pass other errors.
                     })
             }else{
