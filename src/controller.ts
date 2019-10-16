@@ -2,14 +2,11 @@
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
-//Local Import
-import RDBModel from './db.rdb.model';
-
 export default class Controller {
     //Default Constructor
     public constructor(){}
 
-    public getOneByID(model: typeof RDBModel, request: Request, response: Response) {
+    public getOneByID(model: any, request: Request, response: Response) {
         model.getOneByID(request.params.id)
             .then((data: any) => {
                 response.status(httpStatus.OK).send({ status: true, data: data });
@@ -19,7 +16,7 @@ export default class Controller {
             });
     };
 
-    public getAll(model: typeof RDBModel, request: Request, response: Response) {
+    public getAll(model: any, request: Request, response: Response) {
         model.getAll()
             .then((data: any) => {
                 response.status(httpStatus.OK).send({ status: true, data: data });
@@ -29,7 +26,7 @@ export default class Controller {
             });
     };
 
-    public getAllOrderByCreatedAt(model: typeof RDBModel, request: Request, response: Response) {
+    public getAllOrderByCreatedAt(model: any, request: Request, response: Response) {
         model.getAllOrderByCreatedAt(request.params.orderType)
             .then((data: any) => {
                 response.status(httpStatus.OK).send({ status: true, data: data });
@@ -39,7 +36,7 @@ export default class Controller {
             });
     };
 
-    public create(model: typeof RDBModel, request: Request, response: Response) {
+    public create(model: any, request: Request, response: Response) {
         model.create(request.body)
             .then(() => {
                 response.status(httpStatus.CREATED).send({ status: true, message: 'Created!' });
@@ -49,7 +46,7 @@ export default class Controller {
             });
     };
 
-    public updateOneByID(model: typeof RDBModel, request: Request, response: Response) {
+    public updateOneByID(model: any, request: Request, response: Response) {
         model.updateOneByID(request.body.id, request.body)
             .then(() => {
                 response.status(httpStatus.OK).send({ status: true, message: 'Updated!' });
@@ -59,7 +56,7 @@ export default class Controller {
             });
     };
 
-    public deleteOneByID(model: typeof RDBModel, request: Request, response: Response) {
+    public deleteOneByID(model: any, request: Request, response: Response) {
         model.deleteOneByID(request.params.id)
             .then(() => {
                 response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
