@@ -46,12 +46,11 @@ export default class NoSQLModel {
     }
 
     public static async updateOne(conditions: any, doc: any){
-        return await this.model.updateOne(conditions, doc)
+        return await this.model.updateOne(conditions, doc);
     }
 
-    public static async updateOneByID(id: any){
-        //TODO: work on this.
-        //return await this.model.updateOne(conditions, doc)
+    public static async updateOneByID(id: any, update: any){
+        return await this.model.findByIdAndUpdate(id, update);
     }
 
     public static async deleteOne(conditions: any){
@@ -63,7 +62,6 @@ export default class NoSQLModel {
     }
 
     public static async deleteOneByID(id: any){
-        //TODO: work on this.
-        //return await this.model.deleteOne(conditions);
+        return await this.model.findByIdAndRemove(id);
     }
 }

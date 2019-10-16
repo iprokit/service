@@ -53,8 +53,9 @@ export default class DBManager {
     private rdbConnection: Sequelize;
 
     //Models
+    //TODO: Combine both models.
     private readonly rdbModels = new Array<typeof RDBModel>();
-    private readonly noSQLModels = new Array();
+    private readonly noSQLModels = new Array<typeof NoSQLModel>();
     
     //Default Constructor
     public constructor(){
@@ -118,6 +119,7 @@ export default class DBManager {
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
             //Auto call, to create rdb endpoints.
+            //TODO: Attach decorators dynamically.
             new RDBController();
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
@@ -316,6 +318,7 @@ export class InvalidConnectionOptionsError extends Error{
 /////////////////////////
 ///////RDBController
 /////////////////////////
+//TODO: Rename the controller.
 class RDBController{
     @Report('/db/report')
     public getRDBOptions(request: Request, response: Response) {
@@ -342,6 +345,7 @@ class RDBController{
     public syncRDB(request: Request, response: Response) {
         const db = that.getConnection();
 
+        //TODO: Add noSQL sync.
         db.sync({force: request.body.force})
             .then(() => {
                 response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
