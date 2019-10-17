@@ -13,9 +13,6 @@ export type ConnectionOptions = {
     url: string
 };
 
-//Alternative for this.
-var that: CommClient;
-
 export default class CommClient {
     //Options
     private connectionOptions: ConnectionOptions;
@@ -33,9 +30,6 @@ export default class CommClient {
 
     //Default Constructor
     constructor(host: string){
-        //Setting that as this.
-        that = this;
-
         //Split url into host and port.
         const _url = host.split(':');
         const _host = _url[0];
@@ -213,7 +207,7 @@ export default class CommClient {
 
                 //Validate and generate a subscriber object or get it from service class object.
                 if(this.service.constructor.prototype[converter.className] === undefined){
-                    subscriber = new Subscriber(converter.className);
+                    subscriber = new Subscriber(converter.className, this);
                 }else{
                     subscriber = this.service.constructor.prototype[converter.className];
                 }
@@ -222,7 +216,7 @@ export default class CommClient {
                 if(subscriber[converter.functionName] === undefined){
                     const subscribe = function(parms?: any) {
                         const _topic = topic;
-                        return that.message(_topic, parms);
+                        return this.commClient.message(_topic, parms);
                     }
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
@@ -272,9 +266,11 @@ export class Reply implements IReply{
 /////////////////////////
 export class Subscriber {
     name: string;
+    commClient: CommClient;
 
-    constructor(name: string){
+    constructor(name: string, commClient: CommClient){
         this.name = name;
+        this.commClient = commClient;
     }
 }
 
