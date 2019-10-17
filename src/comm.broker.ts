@@ -27,9 +27,6 @@ export type AutoInjectPublisherOptions = {
     excludes?: Array<string>
 };
 
-//Alternative for this.
-var that: CommBroker;
-
 export default class CommBroker implements Component {
     //Options
     private initOptions: CommBrokerInitOptions;
@@ -48,9 +45,6 @@ export default class CommBroker implements Component {
 
     //Default Constructor
     constructor(){
-        //Setting that as this.
-        that = this;
-
         //Load connection options.
         this.connectionOptions = {
             name: global.service.name,
@@ -184,7 +178,7 @@ export default class CommBroker implements Component {
     ///////Broadcast Functions
     /////////////////////////
     private sendBroadcast(){
-        const reply = new Reply(this.broadcastTopic);
+        const reply = new Reply(this.broadcastTopic, this);
         reply.send({name: this.connectionOptions.name, topics: this.topics});
     }
 
@@ -202,7 +196,7 @@ export default class CommBroker implements Component {
 
             //creating new parms.
             const message = new Message(payload.message.parms);
-            const reply = new Reply(packet.topic);
+            const reply = new Reply(packet.topic, this);
 
             //Passing parms to reply callback Emitter
             this.replyCallbackEvent.emit(packet.topic, message, reply);
@@ -265,17 +259,16 @@ interface IReply {
 }
 
 export class Reply implements IReply{
-    private _topic: any;
+    public readonly topic: any;
+    private commBroker: CommBroker;
+
     public body: any;
     public error: any;
     private sendCount: number = 0;
 
-    constructor(topic: any){
-        this._topic = topic;
-    }
-    
-    public get topic() : string {
-        return this._topic;
+    constructor(topic: any, commBroker: CommBroker){
+        this.topic = topic;
+        this.commBroker = commBroker;
     }
 
     send(body: any): void {
@@ -283,7 +276,7 @@ export class Reply implements IReply{
         if(this.sendCount === 0){
             this.sendCount = 1;
             this.body = body;
-            that.sendReply(this);
+            this.commBroker.sendReply(this);
         }else{
             throw new ReplySentWarning();
         }
@@ -294,7 +287,7 @@ export class Reply implements IReply{
         if(this.sendCount === 0){
             this.sendCount = 1;
             this.error = error;
-            that.sendReply(this);
+            this.commBroker.sendReply(this);
         }else{
             throw new ReplySentWarning();
         }

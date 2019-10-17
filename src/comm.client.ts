@@ -265,8 +265,8 @@ export class Reply implements IReply{
 ///////Subscriber
 /////////////////////////
 export class Subscriber {
-    name: string;
-    commClient: CommClient;
+    public name: string;
+    private commClient: CommClient;
 
     constructor(name: string, commClient: CommClient){
         this.name = name;
