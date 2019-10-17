@@ -29,16 +29,12 @@ import fs from 'fs';
 //Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);
 
-//Express server variables
-var expressApp = express();
-export var expressRouter = express.Router();
-
 //Local Imports
 import FileUtility from './file.utility';
+import CommUtility from './comm.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
-import { Report } from './routes';
-import CommBroker, { AutoInjectPublisherOptions } from './comm.broker';
+import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh from './comm.mesh';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
@@ -76,17 +72,38 @@ export type MicroServiceOptions = {
     ip: string
 }
 
-//Comm broker and client objects
-export var dbManager: DBManager;
-export var commMesh: CommMesh;
-export var commBroker: CommBroker;
+//Interface: RequestResponseFunctionDescriptor
+export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
+    value?: RequestHandler;
+}
+
+//Types: RequestResponseFunction
+export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
+
+//Types: AppFunction
+export declare type AppFunction = (target: Object, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
+
+//Interface: ReplyFunctionDescriptor
+interface ReplyFunctionDescriptor extends PropertyDescriptor {
+    value?: ReplyCallback;
+}
+
+//Types: ReplyFunction
+export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
+
+//Global Objects
+var expressApp = express();
+var expressRouter = express.Router();
+var dbManager: DBManager;
+var commMesh: CommMesh;
+var commBroker: CommBroker;
 
 export default class MicroService {
-    //Types
+    //Options
     private options: MicroServiceOptions;
     private initOptions: MicroServiceInitOptions;
 
-    //Objects
+    //Controllers
     private readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
 
     //Default Constructor
@@ -293,27 +310,22 @@ export default class MicroService {
         console.log('%s : %o', this.options.name, options);
         console.log('Starting micro service...');
 
-        //Parallel starting all the servers and clients.
-
-        //Start express server
+        //Parallel starting all components.
         const server = expressApp.listen(this.options.expressPort, () => {
             this.addExpressListeners(server);//Attaching listeners
             console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
         });
 
-        //Start comm broker
         commBroker.listen()
             .then(() => {
                 console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comBrokerPort);
             });
 
-        //Connect comm Mesh
         commMesh.connect()
             .then((urls: []) => {
                 console.log('Comm mesh connected to %o', urls);
             });
 
-        //Connect to DB.
         dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
@@ -338,11 +350,9 @@ export default class MicroService {
                 commMesh.disconnect()
                     .then(() => {
                         console.log('Comm mesh disconnected.');
-                        //Stop comm broker
                         commBroker.close()
                             .then(() => {
                                 console.log('Comm broker shutdown complete.');
-                                //Stop Server
                                 server.close(() => {
                                     console.log('Express server shutdown complete.');
                                     process.exit(0);
@@ -399,6 +409,66 @@ export interface Component {
     init(initOptions: any): void;
     getOptions(): any;
     getReport(): any;
+}
+
+/////////////////////////
+///////Router Decorators
+/////////////////////////
+//Basic Routes
+export function Get(path: PathParams): RequestResponseFunction {
+    return function (target, propertyKey, descriptor) {
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
+        const url = ('/' + controllerName + path);
+        expressRouter.get(url, descriptor.value);
+    }
+}
+
+export function Post(path: PathParams): RequestResponseFunction {
+    return function (target, propertyKey, descriptor) {
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
+        const url = ('/' + controllerName + path);
+        expressRouter.post(url, descriptor.value);
+    }
+}
+
+export function Put(path: PathParams): RequestResponseFunction {
+    return function (target, propertyKey, descriptor) {
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
+        const url = ('/' + controllerName + path);
+        expressRouter.put(url, descriptor.value);
+    }
+}
+
+export function Delete(path: PathParams): RequestResponseFunction {
+    return function (target, propertyKey, descriptor) {
+        const controllerName = target.constructor.name.replace('Controller', '').replace('Service', '').replace('Adapter', '').toLowerCase();
+        const url = ('/' + controllerName + path);
+        expressRouter.delete(url, descriptor.value);
+    }
+}
+
+//App Routes
+export function Report(path: PathParams): AppFunction {
+    return function (target, propertyKey, descriptor) {
+        expressRouter.get(path, descriptor.value);
+    }
+}
+
+export function Execute(path: PathParams): AppFunction {
+    return function (target, propertyKey, descriptor) {
+        expressRouter.post(path, descriptor.value);
+    }
+}
+
+/////////////////////////
+///////Broker Decorators
+/////////////////////////
+export function Reply(): ReplyFunction {
+    return function (target, propertyKey, descriptor) {
+        const publisherName = target.constructor.name.replace('Publisher', '');
+        const topic = CommUtility.convertToTopic(publisherName, propertyKey);
+        commBroker.reply(topic, descriptor.value);
+    }
 }
 
 /////////////////////////

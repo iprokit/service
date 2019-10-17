@@ -10,7 +10,7 @@ import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
-import { Execute } from './routes';
+import { Execute } from './microservice';
 
 //RDS & NoSQL Types.
 export type RDS = 'mysql';
@@ -53,6 +53,8 @@ export default class DBManager implements Component{
     //Models
     private readonly rdbModels = new Array<typeof RDBModel>();
     private readonly noSQLModels = new Array<typeof NoSQLModel>();
+
+    private connected: boolean = false;
     
     //Default Constructor
     public constructor(){
@@ -72,8 +74,7 @@ export default class DBManager implements Component{
     }
 
     public isConnected(){
-        //TODO: Implement this.
-        return true;
+        return this.connected;
     }
 
     public getModels(){
@@ -114,7 +115,8 @@ export default class DBManager implements Component{
                 name: this.connectionOptions.name,
                 host: this.connectionOptions.host,
                 type: this.initOptions.type,
-                timezone: this.initOptions.timezone
+                timezone: this.initOptions.timezone,
+                connected: this.connected
             },
             models: models
         }
@@ -281,8 +283,10 @@ export default class DBManager implements Component{
             if(this.RDS){
                 rdbConnection.authenticate()
                     .then(() => {
+                        this.connected = true; //Connected Flag 
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
+                        this.connected = false; //Connected Flag 
                         if(error instanceof AccessDeniedError){
                             reject(new InvalidConnectionOptionsError('Access denied to the database.'));
                         }else if(error instanceof ConnectionRefusedError){
@@ -305,8 +309,10 @@ export default class DBManager implements Component{
                 }
                 mongoose.connect(uri, options)
                     .then(() => {
+                        this.connected = true; //Connected Flag 
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
+                        this.connected = false; //Connected Flag 
                         if(error.message.includes('Authentication failed')){
                             reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
                         }else if(error.message.includes('getaddrinfo ENOTFOUND')){
@@ -364,7 +370,8 @@ export class InvalidConnectionOptionsError extends Error{
 /////////////////////////
 class DBController {
     public syncRDB(request: Request, response: Response) {
-        rdbConnection.sync({force: request.body.force})
+        const force = request.body.force || false;
+        rdbConnection.sync({force: force})
             .then(() => {
                 response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
             }).catch((error: any) => {

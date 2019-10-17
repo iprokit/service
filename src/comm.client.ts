@@ -177,7 +177,7 @@ export default class CommClient {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public handleMessage(topic: string, parms: any){
+    public message(topic: string, parms: any){
         return new Promise((resolve, reject) => {
             if(this.mqttClient.connected){
                 //Listen for reply on broker
@@ -222,7 +222,7 @@ export default class CommClient {
                 if(subscriber[converter.functionName] === undefined){
                     const subscribe = function(parms?: any) {
                         const _topic = topic;
-                        return that.handleMessage(_topic, parms);
+                        return that.message(_topic, parms);
                     }
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }

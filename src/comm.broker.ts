@@ -228,7 +228,7 @@ export default class CommBroker implements Component {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public handleReply(topic: string, replyCallback: ReplyCallback){
+    public reply(topic: string, replyCallback: ReplyCallback){
         if(this.topics.indexOf(topic) === -1){
             //Add topic to array
             this.topics.push(topic);
