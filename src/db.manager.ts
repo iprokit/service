@@ -48,7 +48,6 @@ export default class DBManager {
     
     //Connection Object
     private rdbConnection: Sequelize;
-    private noSQLConnection: typeof Mongoose;
 
     //Models
     private readonly rdbModels = new Array<typeof RDBModel>();
@@ -90,7 +89,7 @@ export default class DBManager {
         if(this.RDS){
             return this.rdbConnection;
         }else if(this.NoSQL){
-            return this.noSQLConnection;
+            return Mongoose.connection;
         }
     }
 
@@ -282,12 +281,16 @@ export default class DBManager {
                     pass: this.connectionOptions.password,
                     useNewUrlParser: true}
                 Mongoose.connect(uri, options)
-                    .then((connection) => {
-                        this.noSQLConnection = connection;
+                    .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
-                        //TODO: Add other errors.
-                        reject(error);//Pass other errors.
+                        if(error.message.includes('Authentication failed')){
+                            reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
+                        }else if(error.message.includes('getaddrinfo ENOTFOUND')){
+                            reject(new InvalidConnectionOptionsError('Invalid database host.'));
+                        }else{
+                            reject(error);//Pass other errors.
+                        }
                     })
             }else{
                 resolve();
@@ -305,7 +308,7 @@ export default class DBManager {
                         reject(error);//Pass other errors.
                     });
             }else if(this.NoSQL){
-                this.noSQLConnection.disconnect()
+                Mongoose.disconnect()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
