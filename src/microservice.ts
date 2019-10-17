@@ -1,3 +1,19 @@
+declare global {
+    namespace NodeJS {
+        interface Global {
+            service: {
+                id: string,
+                name: string,
+                version: string,
+                expressPort: number,
+                comBrokerPort: number,
+                environment: string
+            }
+            projectPath: string
+        }
+    }
+}
+
 //Import modules
 import express, { Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
@@ -25,22 +41,6 @@ import { Report } from './routes';
 import CommBroker, { AutoInjectPublisherOptions } from './comm.broker';
 import CommMesh from './comm.mesh';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
-
-declare global {
-    namespace NodeJS {
-        interface Global {
-            service: {
-                id: string,
-                name: string,
-                version: string,
-                expressPort: number,
-                comBrokerPort: number,
-                environment: string
-            }
-            projectPath: string
-        }
-    }
-}
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
@@ -77,30 +77,20 @@ export type MicroServiceOptions = {
 }
 
 //Comm broker and client objects
+export var dbManager: DBManager;
+export var commMesh: CommMesh;
 export var commBroker: CommBroker;
-
-//Alternative for this.
-var that: MicroService;
 
 export default class MicroService {
     //Types
     private options: MicroServiceOptions;
     private initOptions: MicroServiceInitOptions;
 
-    //DB Objects
-    public readonly dbManager: DBManager;
-
-    //Comm Objects
-    public readonly commMesh: CommMesh;
-
     //Objects
-    public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
+    private readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
-        //Setting that as this.
-        that = this;
-
         //Load options from constructor
         this.initOptions = options || {};
 
@@ -112,20 +102,18 @@ export default class MicroService {
         //Load express server, router
         this.initExpressServer();
 
-        //Auto call, to create default/app endpoints.
-        new MicroServiceController();
-
-        this.init();//Load any user functions
+        //Load user functions
+        this.init();
 
         //Load DB
-        this.dbManager = new DBManager();
+        dbManager = new DBManager();
         if(this.initOptions.db !== undefined){
             this.initDB(this.initOptions.db);
         }
 
         //Load Comm
         commBroker = new CommBroker();
-        this.commMesh = new CommMesh();
+        commMesh = new CommMesh();
         if(this.initOptions.comm !== undefined){
             this.initComm(this.initOptions.comm);
         }
@@ -134,7 +122,13 @@ export default class MicroService {
         if(this.initOptions.autoInjectControllers !== undefined){
             this.autoInjectControllers(this.initOptions.autoInjectControllers);
         }
-        this.injectEndpoints();//Load any user controllers
+
+        //Load user controllers
+        this.injectEndpoints();
+
+        //Auto call, to create default/app endpoints.
+        new MicroServiceController();
+        MicroServiceController.microServiceOptions = this.getReport();//Pass report variables.
 
         //Start the server
         this.startService();
@@ -143,8 +137,37 @@ export default class MicroService {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
+    public getControllers(){
+        return this.controllers;
+    }
+
     public getOptions(){
         return this.options;
+    }
+
+    public getReport(){
+        const baseURL = this.initOptions.url;
+
+        let controllers = new Array();
+        let routes = new Array();
+
+        this.controllers.forEach((controller) => {
+            controllers.push(controller.constructor.name);
+        });
+
+        //Getting all registered routes from router.
+        expressRouter.stack.forEach((item: any) => {
+            const method = item.route.stack[0].method;
+            const url = baseURL + item.route.path;
+            routes.push({method, url});
+        });
+
+        const report = {
+            init: this.options,
+            controllers: controllers,
+            routes: routes
+        };
+        return report;
     }
 
     /////////////////////////
@@ -220,7 +243,7 @@ export default class MicroService {
     private initDB(dbOptions: DBInitOptions){
         try{
             //Init sequelize
-            this.dbManager.init(dbOptions);
+            dbManager.init(dbOptions);
         }catch(error){
             if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
@@ -233,7 +256,7 @@ export default class MicroService {
 
     private initComm(commOptions: CommOptions){
         commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
-        this.commMesh.init({mesh: commOptions.mesh});
+        commMesh.init({mesh: commOptions.mesh});
     }
 
     /////////////////////////
@@ -274,9 +297,9 @@ export default class MicroService {
 
         //Start express server
         const server = expressApp.listen(this.options.expressPort, () => {
+            this.addExpressListeners(server);//Attaching listeners
             console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
         });
-        this.addExpressListeners(server);
 
         //Start comm broker
         commBroker.listen()
@@ -285,13 +308,13 @@ export default class MicroService {
             });
 
         //Connect comm Mesh
-        this.commMesh.connect()
+        commMesh.connect()
             .then((urls: []) => {
                 console.log('Comm mesh connected to %o', urls);
             });
 
         //Connect to DB.
-        this.dbManager.connect()
+        dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
                     console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
@@ -304,15 +327,15 @@ export default class MicroService {
                     console.error(error);
                 }
                 console.log('Will continue...');
-            })
+            });
     }
 
     private stopService(server: Server){
         //Chained stopping all components.
-        this.dbManager.disconnect()
+        dbManager.disconnect()
             .then(() => {
                 console.log('DB client disconnected.');
-                this.commMesh.disconnect()
+                commMesh.disconnect()
                     .then(() => {
                         console.log('Comm mesh disconnected.');
                         //Stop comm broker
@@ -382,6 +405,8 @@ export interface Component {
 ///////MicroService Controller
 /////////////////////////
 class MicroServiceController {
+    public static microServiceOptions: any;
+
     @Report('/health')
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});
@@ -390,32 +415,14 @@ class MicroServiceController {
     @Report('/report')
     public getReport(request: Request, response: Response){
         try {
-            const baseURL = request.baseUrl;
-            let routes = new Array<{method: string, url: string}>();
-
-            //Getting all registered routes from router.
-            expressRouter.stack.forEach((item: any) => {
-                const method = item.route.stack[0].method;
-                const url = baseURL + item.route.path;
-                routes.push({method, url});
-            });
-
-            let controllers = new Array<string>();
-
-            that.controllers.forEach((controller) => {
-                controllers.push(controller.constructor.name);
-            });
-
-            const data = {
-                service: that.getOptions(),
-                db: that.dbManager.getReport(),
+            const report = {
+                status: true,
+                service: MicroServiceController.microServiceOptions,
+                db: dbManager.getReport(),
                 commBroker: commBroker.getReport(),
-                commMesh: that.commMesh.getReport(),
-                controllers: controllers,
-                routes: routes
+                commMesh: commMesh.getReport()
             };
-
-            response.status(httpStatus.OK).send({status: true, data});
+            response.status(httpStatus.OK).send(report);
         } catch (error) {
             response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
         }

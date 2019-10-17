@@ -8,7 +8,7 @@ export type CommMeshInitOptions = {
 }
 
 export function getService(name: string){
-    const commClientObject = that.commClients.find(client => client.host === name);
+    const commClientObject = commClients.find(client => client.host === name);
     if(commClientObject !== undefined){
         return commClientObject.client.getService();
     }else{
@@ -16,21 +16,15 @@ export function getService(name: string){
     }
 }
 
-//Alternative for this.
-var that: CommMesh;
+//Clients
+var commClients: Array<{host: string, client: CommClient}> = new Array<{host: string, client: CommClient}>();
 
 export default class CommMesh implements Component {
     //Options
     private initOptions: CommMeshInitOptions;
 
-    //Clients
-    public readonly commClients: Array<{host: string, client: CommClient}> = new Array<{host: string, client: CommClient}>();
-
     //Default Constructor
-    constructor(){
-        //Setting that as this.
-        that = this;
-    }
+    constructor(){}
 
     /////////////////////////
     ///////Gets/Sets
@@ -42,7 +36,7 @@ export default class CommMesh implements Component {
     public getReport() {
         let clients = new Array();
 
-        this.commClients.forEach((client) => {
+        commClients.forEach((client) => {
             let commClient = client.client;
             clients.push({
                 host: commClient.getHost(),
@@ -81,7 +75,7 @@ export default class CommMesh implements Component {
             const commClient = new CommClient(host);
 
             //Add to Array
-            this.commClients.push({host: host, client: commClient});
+            commClients.push({host: host, client: commClient});
         });
     }
 
@@ -91,7 +85,7 @@ export default class CommMesh implements Component {
     public connect(){
         return new Promise((resolve, reject) => {
             let urls = new Array();
-            this.commClients.forEach((commClient) => {
+            commClients.forEach((commClient) => {
                 //Connect to comm client
                 commClient.client.connect()
                     .then((url) => {
@@ -107,10 +101,10 @@ export default class CommMesh implements Component {
     public disconnect(){
         return new Promise((resolve, reject) => {
             //Close Comm Client connections.
-            if(this.commClients.length === 0){
+            if(commClients.length === 0){
                 resolve();
             }else{
-                this.commClients.forEach((commClient) => {
+                commClients.forEach((commClient) => {
                     const _commClient = commClient.client;
                     _commClient.disconnect()
                         .finally(() => {

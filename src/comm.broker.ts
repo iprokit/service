@@ -90,9 +90,9 @@ export default class CommBroker implements Component {
         const report = {
             init: {
                 broadcastTopic: this.broadcastTopic,
-                topics: this.topics,
             },
             publishers: publishers,
+            topics: this.topics,
         };
         return report;
     }

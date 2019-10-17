@@ -1,6 +1,6 @@
 //Import modules
 import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import Mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
@@ -37,6 +37,9 @@ export type AutoWireOptions = {
     likeName?: string,
     excludes?: Array<string>
 };
+    
+//Connection Objects
+var rdbConnection: Sequelize;
 
 export default class DBManager implements Component{
     //Options
@@ -46,9 +49,6 @@ export default class DBManager implements Component{
     //DB Types
     private RDS: boolean;
     private NoSQL: boolean;
-    
-    //Connection Object
-    private rdbConnection: Sequelize;
 
     //Models
     private readonly rdbModels = new Array<typeof RDBModel>();
@@ -86,9 +86,9 @@ export default class DBManager implements Component{
 
     public getConnection(){
         if(this.RDS){
-            return this.rdbConnection;
+            return rdbConnection;
         }else if(this.NoSQL){
-            return Mongoose.connection;
+            return mongoose.connection;
         }
     }
 
@@ -157,8 +157,7 @@ export default class DBManager implements Component{
             //Load models
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
-            //Load endpoints
-            DBController.connection = this.getConnection();
+            //Sync Endpoint.
             Execute('/db/sync')(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
@@ -178,7 +177,7 @@ export default class DBManager implements Component{
         if(this.connectionOptions.name !== undefined){
             try{
                 //Load Sequelize
-                this.rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
+                rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
                     host: this.connectionOptions.host,
                     dialect: dialect,
                     timezone: this.initOptions.timezone
@@ -224,7 +223,7 @@ export default class DBManager implements Component{
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
         const fields = model.fields(DataTypes);
-        const sequelize = this.rdbConnection;
+        const sequelize = rdbConnection;
         const modelName = model._modelName();
         const tableName = model._tableName();
 
@@ -280,7 +279,7 @@ export default class DBManager implements Component{
     public connect(){
         return new Promise((resolve, reject) => {
             if(this.RDS){
-                this.rdbConnection.authenticate()
+                rdbConnection.authenticate()
                     .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
@@ -302,8 +301,9 @@ export default class DBManager implements Component{
                     dbName: this.connectionOptions.name,
                     user: this.connectionOptions.username,
                     pass: this.connectionOptions.password,
-                    useNewUrlParser: true}
-                Mongoose.connect(uri, options)
+                    useNewUrlParser: true
+                }
+                mongoose.connect(uri, options)
                     .then(() => {
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
                     }).catch((error) => {
@@ -324,14 +324,14 @@ export default class DBManager implements Component{
     public disconnect(){
         return new Promise((resolve, reject) => {
             if(this.RDS){
-                this.rdbConnection.close()
+                rdbConnection.close()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
             }else if(this.NoSQL){
-                Mongoose.disconnect()
+                mongoose.disconnect()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
@@ -363,10 +363,8 @@ export class InvalidConnectionOptionsError extends Error{
 ///////RDBController
 /////////////////////////
 class DBController {
-    public static connection: any;
-
     public syncRDB(request: Request, response: Response) {
-        DBController.connection.sync({force: request.body.force})
+        rdbConnection.sync({force: request.body.force})
             .then(() => {
                 response.status(httpStatus.OK).send({ status: true, data: 'Database & tables synced!' });
             }).catch((error: any) => {
