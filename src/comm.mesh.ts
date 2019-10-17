@@ -1,10 +1,6 @@
-//Import modules
-import { Request, Response } from 'express';
-import httpStatus from 'http-status-codes';
-
 //Local Imports
+import { Component } from './microservice';
 import CommClient from './comm.client';
-import { Report } from './routes';
 
 //Types: CommMeshInitOptions
 export type CommMeshInitOptions = {
@@ -23,7 +19,10 @@ export function getService(name: string){
 //Alternative for this.
 var that: CommMesh;
 
-export default class CommMesh {
+export default class CommMesh implements Component {
+    //Options
+    private initOptions: CommMeshInitOptions;
+
     //Clients
     public readonly commClients: Array<{host: string, client: CommClient}> = new Array<{host: string, client: CommClient}>();
 
@@ -31,9 +30,34 @@ export default class CommMesh {
     constructor(){
         //Setting that as this.
         that = this;
+    }
 
-        //Auto call, to create mesh endpoints.
-        new CommMeshController();
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public getOptions() {
+        return {initOptions: this.initOptions};
+    }
+
+    public getReport() {
+        let clients = new Array();
+
+        this.commClients.forEach((client) => {
+            let commClient = client.client;
+            clients.push({
+                host: commClient.getHost(),
+                broadcastTopic: commClient.broadcastTopic,
+                connected: commClient.isConnected(),
+                disconnected: commClient.isDisconnected(),
+                reconnecting: commClient.isReconnecting(),
+                topics: commClient.getTopics()
+            });
+        });
+
+        const report = {
+            clients: clients
+        };
+        return report;
     }
 
     /////////////////////////
@@ -41,10 +65,11 @@ export default class CommMesh {
     /////////////////////////
     public init(initOptions: CommMeshInitOptions){
         //Load init options.
-        let hosts = initOptions.mesh || [];
+        this.initOptions = initOptions;
+        this.initOptions.mesh = initOptions.mesh || [];
 
         //Load Clients
-        this.createCommClients(hosts);
+        this.createCommClients(this.initOptions.mesh);
     }
 
     /////////////////////////
@@ -94,39 +119,5 @@ export default class CommMesh {
                 });
             }
         });
-    }
-}
-
-/////////////////////////
-///////CommMesh Controller
-/////////////////////////
-class CommMeshController {
-    @Report('/comm/mesh/report')
-    public getReport(request: Request, response: Response){
-        try {
-            let clients = new Array<{
-                host: string,
-                broadcastTopic:
-                string,
-                connected: boolean,
-                disconnected: boolean,
-                reconnecting: boolean,
-                topics: Array<string>}>();
-            that.commClients.forEach((client) => {
-                let commClient = client.client;
-                clients.push({
-                    host: commClient.getHost(),
-                    broadcastTopic: commClient.broadcastTopic,
-                    connected: commClient.isConnected(),
-                    disconnected: commClient.isDisconnected(),
-                    reconnecting: commClient.isReconnecting(),
-                    topics: commClient.getTopics()
-                });
-            });
-
-            response.status(httpStatus.OK).send({status: true, data: clients});
-        } catch (error) {
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-        }
     }
 }

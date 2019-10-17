@@ -4,11 +4,42 @@ import Mongoose, { Model, Schema, SchemaDefinition, Document } from 'mongoose';
 //Types: InitOptions
 export type InitOptions = {
     collectionName: string,
+    modelName: string,
 }
 
-export default class NoSQLModel {
+export default abstract class NoSQLModel {
+    private static modelName: string;
+    private static collectionName: string;
+    private static attributes: SchemaDefinition;
+    private static schema: Schema;
     private static model: Model<Document>;
 
+    /////////////////////////
+    ///////Gets & Sets
+    /////////////////////////
+    public static getModelName(){
+        return this.modelName;
+    }
+
+    public static getCollectionName(){
+        return this.collectionName;
+    }
+
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
+    public static init(attributes: SchemaDefinition, options: InitOptions) {
+        this.modelName = options.modelName;
+        this.collectionName = options.collectionName;
+
+        this.attributes = attributes;
+        this.schema = new Schema(this.attributes);
+        NoSQLModel.model = Mongoose.model(this.collectionName, this.schema);
+    }
+
+    /////////////////////////
+    ///////Properties
+    /////////////////////////
     public static _modelName(): string{
         return this.name.replace('Model', '');
     }
@@ -19,11 +50,6 @@ export default class NoSQLModel {
 
     public static fields(dataTypes: typeof Schema.Types): SchemaDefinition {
         return null;
-    }
-
-    public static init(attributes: SchemaDefinition, options: InitOptions) {
-        const schema = new Schema(attributes);
-        this.model = Mongoose.model(options.collectionName, schema);
     }
 
     /////////////////////////

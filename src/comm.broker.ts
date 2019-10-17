@@ -1,12 +1,10 @@
 //Import modules
 import mosca, { Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
-import { Request, Response } from 'express';
-import httpStatus from 'http-status-codes';
 
 //Local Imports
+import { Component } from './microservice';
 import FileUtility from './file.utility';
-import { Report } from './routes';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
@@ -32,7 +30,7 @@ export type AutoInjectPublisherOptions = {
 //Alternative for this.
 var that: CommBroker;
 
-export default class CommBroker {
+export default class CommBroker implements Component {
     //Options
     private initOptions: CommBrokerInitOptions;
     private connectionOptions: ConnectionOptions;
@@ -42,11 +40,11 @@ export default class CommBroker {
 
     //Topic Objects
     private readonly broadcastTopic = '/';
-    private topics: Array<string>;
+    private readonly topics: Array<string> = new Array<string>();
     private replyCallbackEvent: EventEmitter;
 
     //Publishers
-    public readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
+    private readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
 
     //Default Constructor
     constructor(){
@@ -59,14 +57,8 @@ export default class CommBroker {
             port: global.service.comBrokerPort
         }
 
-        //Array of topics
-        this.topics = new Array<string>();
-
         //Load reply callback emitter.
         this.replyCallbackEvent = new EventEmitter();
-
-        //Auto call, to create broker endpoints.
-        new CommBrokerController();
     }
 
     /////////////////////////
@@ -80,14 +72,38 @@ export default class CommBroker {
         return this.topics;
     }
 
+    public getPublishers() {
+        return this.publishers;
+    }
+
+    public getOptions() {
+        return {connectionOptions: this.connectionOptions, initOptions: this.initOptions};
+    }
+
+    public getReport(){
+        let publishers = new Array();
+
+        this.publishers.forEach((publisher) => {
+            publishers.push(publisher.constructor.name);
+        });
+
+        const report = {
+            init: {
+                broadcastTopic: this.broadcastTopic,
+                topics: this.topics,
+            },
+            publishers: publishers,
+        };
+        return report;
+    }
+
     /////////////////////////
     ///////init Functions
     /////////////////////////
     public init(initOptions: CommBrokerInitOptions){
         //Load init options.
-        this.initOptions = {
-            autoInjectPublishers: initOptions.autoInjectPublishers || {}
-        }
+        this.initOptions = initOptions;
+        this.initOptions.autoInjectPublishers = initOptions.autoInjectPublishers || {}
 
         //Load Publishers
         this.autoInjectPublishers(this.initOptions.autoInjectPublishers);
@@ -305,29 +321,4 @@ class ReplySentWarning extends Error{
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
       }
-}
-
-/////////////////////////
-///////CommBroker Controller
-/////////////////////////
-class CommBrokerController {
-    @Report('/comm/broker/report')
-    public getReport(request: Request, response: Response){
-        try {
-            let publishers = new Array<string>();
-            that.publishers.forEach((publisher) => {
-                publishers.push(publisher.constructor.name);
-            });
-
-            const data = {
-                broadcastTopic: that.getBroadcastTopic(),
-                topics: that.getTopics(),
-                publishers: publishers,
-            };
-
-            response.status(httpStatus.OK).send({status: true, data});
-        } catch (error) {
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-        }
-    }
 }

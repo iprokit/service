@@ -5,13 +5,14 @@ import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Imports
+import { Component } from './microservice';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
-import { Report, Execute } from './routes';
+import { Execute } from './routes';
 
-//RDS/NoSQL Types.
+//RDS & NoSQL Types.
 export type RDS = 'mysql';
 export type NoSQL = 'mongo';
 
@@ -37,14 +38,14 @@ export type AutoWireOptions = {
     excludes?: Array<string>
 };
 
-export default class DBManager {
+export default class DBManager implements Component{
     //Options
     private connectionOptions: DBConnectionOptions;
     private initOptions: DBInitOptions;
 
     //DB Types
-    public RDS: boolean;
-    public NoSQL: boolean;
+    private RDS: boolean;
+    private NoSQL: boolean;
     
     //Connection Object
     private rdbConnection: Sequelize;
@@ -60,37 +61,64 @@ export default class DBManager {
     }
 
     /////////////////////////
-    ///////Gets/ Sets
+    ///////Gets & Sets
     /////////////////////////
-    public get options(){
-        return {
-            name: this.connectionOptions.name,
-            host: this.connectionOptions.host,
-            type: this.initOptions.type,
-            timezone: this.initOptions.timezone
+    public isRDS(){
+        return this.RDS;
+    }
+
+    public isNoSQL(){
+        return this.NoSQL;
+    }
+
+    public isConnected(){
+        //TODO: Implement this.
+        return true;
+    }
+
+    public getModels(){
+        if(this.RDS){
+            return this.rdbModels;
+        }else if(this.NoSQL){
+            return this.noSQLModels;
         }
     }
 
-    public get modelNames(){
-        let models = new Array<{[modelName: string]: string}>();
+    public getConnection(){
+        if(this.RDS){
+            return this.rdbConnection;
+        }else if(this.NoSQL){
+            return Mongoose.connection;
+        }
+    }
+
+    public getOptions(){
+        return {connectionOptions: this.connectionOptions, initOptions: this.initOptions};
+    }
+
+    public getReport(){
+        let models = new Array();
+
         if(this.RDS){
             this.rdbModels.forEach((model) => {
                 models.push({[model.name]: model.getTableName().toString()});
             });
         }else if(this.NoSQL){
             this.noSQLModels.forEach((model) => {
-                models.push({[model.name]: model._collectionName()});
+                models.push({[model.name]: model._collectionName().toString()});
             });
         }
-        return models;
-    }
 
-    public get connection(){
-        if(this.RDS){
-            return this.rdbConnection;
-        }else if(this.NoSQL){
-            return Mongoose.connection;
+        const report = {
+            init: {
+                name: this.connectionOptions.name,
+                host: this.connectionOptions.host,
+                type: this.initOptions.type,
+                timezone: this.initOptions.timezone
+            },
+            models: models
         }
+        return report;
     }
 
     /////////////////////////
@@ -117,7 +145,6 @@ export default class DBManager {
         
         //Init DBController and inject endpoints.
         const dbController = new DBController();
-        Report('/db/report')(DBController, dbController.getReport.name, {value: dbController.getReport});
 
         //Try loading a db based on type.
         if(this.initOptions.type === 'mysql'){
@@ -131,6 +158,7 @@ export default class DBManager {
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
             //Load endpoints
+            DBController.connection = this.getConnection();
             Execute('/db/sync')(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
@@ -141,11 +169,6 @@ export default class DBManager {
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
-
-        //Set DBController values.
-        DBController.connection = this.connection;
-        DBController.modelNames = this.modelNames;
-        DBController.options = this.options;
     }
 
     /////////////////////////
@@ -248,7 +271,7 @@ export default class DBManager {
         console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
-        model.init(fields, {collectionName: collectionName});
+        model.init(fields, {collectionName, modelName});
     }
 
     /////////////////////////
@@ -341,12 +364,6 @@ export class InvalidConnectionOptionsError extends Error{
 /////////////////////////
 class DBController {
     public static connection: any;
-    public static modelNames: any;
-    public static options: any;
-
-    public getReport(request: Request, response: Response) {
-        response.status(httpStatus.OK).send({ status: true, db: DBController.options, models: DBController.modelNames });
-    };
 
     public syncRDB(request: Request, response: Response) {
         DBController.connection.sync({force: request.body.force})

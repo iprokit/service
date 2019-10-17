@@ -88,10 +88,10 @@ export default class MicroService {
     private initOptions: MicroServiceInitOptions;
 
     //DB Objects
-    private readonly dbManager: DBManager;
+    public readonly dbManager: DBManager;
 
     //Comm Objects
-    private readonly commMesh: CommMesh;
+    public readonly commMesh: CommMesh;
 
     //Objects
     public readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
@@ -370,6 +370,15 @@ export default class MicroService {
 }
 
 /////////////////////////
+///////Component
+/////////////////////////
+export interface Component {
+    init(initOptions: any): void;
+    getOptions(): any;
+    getReport(): any;
+}
+
+/////////////////////////
 ///////MicroService Controller
 /////////////////////////
 class MicroServiceController {
@@ -399,8 +408,11 @@ class MicroServiceController {
 
             const data = {
                 service: that.getOptions(),
-                routes: routes,
+                db: that.dbManager.getReport(),
+                commBroker: commBroker.getReport(),
+                commMesh: that.commMesh.getReport(),
                 controllers: controllers,
+                routes: routes
             };
 
             response.status(httpStatus.OK).send({status: true, data});
