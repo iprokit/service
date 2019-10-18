@@ -37,15 +37,7 @@ export default class CommMesh implements Component {
         let clients = new Array();
 
         commClients.forEach((client) => {
-            let commClient = client.client;
-            clients.push({
-                host: commClient.getHost(),
-                broadcastTopic: commClient.broadcastTopic,
-                connected: commClient.isConnected(),
-                disconnected: commClient.isDisconnected(),
-                reconnecting: commClient.isReconnecting(),
-                topics: commClient.getTopics()
-            });
+            clients.push(client.client.getReport());
         });
 
         const report = {

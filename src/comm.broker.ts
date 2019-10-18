@@ -36,8 +36,8 @@ export default class CommBroker implements Component {
     private mosca: mosca.Server;
 
     //Topic Objects
-    private readonly broadcastTopic = '/';
-    private readonly topics: Array<string> = new Array<string>();
+    public readonly broadcastTopic = '/';
+    private topics: Array<string> = new Array<string>();
     private replyCallbackEvent: EventEmitter;
 
     //Publishers
@@ -58,10 +58,6 @@ export default class CommBroker implements Component {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public getBroadcastTopic() {
-        return this.broadcastTopic;
-    }
-
     public getTopics() {
         return this.topics;
     }

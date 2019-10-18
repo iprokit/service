@@ -55,16 +55,16 @@ export default class CommClient {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public isConnected() {
+    public get connected() {
         return this.mqttClient.connected;
     }
 
-    public isDisconnected() {
-        return this.mqttClient.disconnected;
+    public get reconnecting() {
+        return this.mqttClient.reconnecting;
     }
 
-    public isReconnecting() {
-        return this.mqttClient.reconnecting;
+    public get disconnected() {
+        return this.mqttClient.disconnected;
     }
 
     public getTopics() {
@@ -75,8 +75,23 @@ export default class CommClient {
         return this.service;
     }
 
-    public getHost(){
-        return this.connectionOptions.host;
+    public getOptions() {
+        return {connectionOptions: this.connectionOptions};
+    }
+    
+    public getReport(){
+        const report = {
+            init: {
+                broadcastTopic: this.broadcastTopic,
+                host: this.connectionOptions.host,
+                port: this.connectionOptions.port,
+                connected: this.connected,
+                reconnecting: this.reconnecting,
+                disconnected: this.disconnected
+            },
+            topics: this.topics
+        };
+        return report;
     }
 
     /////////////////////////
