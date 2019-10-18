@@ -35,7 +35,7 @@ import CommUtility from './comm.utility';
 import DockerUtility from './docker.utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
-import CommMesh from './comm.mesh';
+import CommMesh, { Service } from './comm.mesh';
 import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
 
 //Types: MicroServiceInitOptions
@@ -322,8 +322,8 @@ export default class MicroService {
             });
 
         commMesh.connect()
-            .then((urls: []) => {
-                console.log('Comm mesh connected to %o', urls);
+            .then(() => {
+                console.log('Comm mesh connecting to nodes...');
             });
 
         dbManager.connect()
@@ -409,6 +409,13 @@ export interface Component {
     init(initOptions: any): void;
     getOptions(): any;
     getReport(): any;
+}
+
+/////////////////////////
+///////getNode Functions
+/////////////////////////
+export function getNode(name: string): Service {
+    return commMesh.getNodeService(name);
 }
 
 /////////////////////////

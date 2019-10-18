@@ -19,21 +19,12 @@ export type CommMeshInitOptions = {
     mesh: Array<string>
 }
 
-export function getService(name: string){
-    const commClientObject = commClients.find(client => client.host === name);
-    if(commClientObject !== undefined){
-        return commClientObject.client.getService();
-    }else{
-        throw new Error('Invalid service. Service not defined as mesh at entry point.');
-    }
-}
-
-//Clients
-var commClients: Array<{host: string, client: CommClient}> = new Array<{host: string, client: CommClient}>();
-
 export default class CommMesh implements Component {
     //Options
     private initOptions: CommMeshInitOptions;
+
+    //Nodes
+    private nodes: Array<Node> = new Array<Node>();
 
     //Default Constructor
     constructor(){}
@@ -41,19 +32,33 @@ export default class CommMesh implements Component {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
+    public getNodes(){
+        return this.nodes;
+    }
+
+    public getNodeService(name: string){
+        const node = this.nodes.find(node => node.name === name);
+
+        if(node !== undefined){
+            return node.getService();
+        }else{
+            throw new Error('Invalid node. Node not defined as mesh.');
+        }
+    }
+
     public getOptions() {
         return {initOptions: this.initOptions};
     }
 
     public getReport() {
-        let clients = new Array();
+        let nodes = new Array();
 
-        commClients.forEach((client) => {
-            clients.push(client.client.getReport());
+        this.nodes.forEach((node) => {
+            nodes.push(node.getReport());
         });
 
         const report = {
-            clients: clients
+            nodes: nodes
         };
         return report;
     }
@@ -66,20 +71,20 @@ export default class CommMesh implements Component {
         this.initOptions = initOptions;
         this.initOptions.mesh = initOptions.mesh || [];
 
-        //Load Clients
-        this.createCommClients(this.initOptions.mesh);
+        //Load Nodes
+        this.createNodes(this.initOptions.mesh);
     }
 
     /////////////////////////
     ///////Map Functions
     /////////////////////////
-    private createCommClients(hosts: Array<string>){
+    private createNodes(hosts: Array<string>){
         hosts.forEach(host => {
-            //Creating comm client object.
-            const commClient = new CommClient(host);
+            //Creating node object.
+            const node = new Node(host);
 
             //Add to Array
-            commClients.push({host: host, client: commClient});
+            this.nodes.push(node);
         });
     }
 
@@ -88,15 +93,12 @@ export default class CommMesh implements Component {
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
-            let urls = new Array();
-            commClients.forEach((commClient) => {
-                //Connect to comm client
-                commClient.client.connect()
-                    .then((url) => {
-                        urls.push(url);
-                    })
-                    .finally(() => {
-                        resolve(urls);
+            this.nodes.forEach((node, index) => {
+                node.connect()
+                    .then(() => {
+                        if(this.nodes.length === index + 1){
+                            resolve();
+                        }
                     })
             });
         });
@@ -104,23 +106,22 @@ export default class CommMesh implements Component {
 
     public disconnect(){
         return new Promise((resolve, reject) => {
-            //Close Comm Client connections.
-            if(commClients.length === 0){
-                resolve();
-            }else{
-                commClients.forEach((commClient) => {
-                    const _commClient = commClient.client;
-                    _commClient.disconnect()
-                        .finally(() => {
+            this.nodes.forEach((node, index) => {
+                node.disconnect()
+                    .then(() => {
+                        if(this.nodes.length === index + 1){
                             resolve();
-                        });
-                });
-            }
+                        }
+                    })
+            });
         });
     }
 }
 
-class CommClient {
+export class Node {
+    //Default Name.
+    public readonly name: string;
+
     //Options
     private connectionOptions: ConnectionOptions;
 
@@ -137,6 +138,8 @@ class CommClient {
 
     //Default Constructor
     constructor(host: string){
+        this.name = host;
+
         //Split url into host and port.
         const _url = host.split(':');
         const _host = _url[0];
@@ -214,13 +217,16 @@ class CommClient {
 
             //Init Connection object
             this.mqttClient = mqtt.connect(this.connectionOptions.url, options);
+
+            //Return.
+            resolve();
     
+            //mqttClient listeners.
             this.mqttClient.on('connect', () => {
+                console.log('Node: Connected to : %s', this.connectionOptions.url);
+
                 //Subscribe to all topics.
                 this.mqttClient.subscribe(this.broadcastTopic);
-
-                //Return.
-                resolve({url: this.connectionOptions.url});
             });
             
             this.mqttClient.on('message', (topic, payload, packet) => {
@@ -236,8 +242,9 @@ class CommClient {
 
     public disconnect(){
         return new Promise((resolve, reject) => {
-            this.mqttClient.end(true, () => {
-                resolve(this.connectionOptions.url);
+            this.mqttClient.end(false, () => {
+                console.log('Node: Disconnected from : %s', this.connectionOptions.url);
+                resolve();
             });
         });
     }
@@ -270,7 +277,7 @@ class CommClient {
         //Publish message on broker
         this.mqttClient.publish(topic, payload, { qos: 0 }, () => {
             //Logging Message
-            console.log('Client: published a message on topic: %s', topic);
+            console.log('Node: published a message on topic: %s', topic);
         });
     }
 
@@ -278,10 +285,10 @@ class CommClient {
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Validate if the payload is from the broker or client.
+        //Validate if the payload is from the broker or node.
         if(payload.reply !== undefined && payload.message === undefined){
             //Logging Message
-            console.log('Client: received a reply on topic: %s', packet.topic);
+            console.log('Node: received a reply on topic: %s', packet.topic);
 
             //creating new reply parm.
             const reply = new Reply(payload.reply.body, payload.reply.error);
@@ -295,7 +302,7 @@ class CommClient {
     /////////////////////////
     public message(topic: string, parms: any){
         return new Promise((resolve, reject) => {
-            if(this.mqttClient.connected){
+            if(this.connected){
                 //Listen for reply on broker
                 this.messageCallbackEvent.once(topic, (reply: Reply) => {
                     if(reply.body !== undefined){
@@ -311,7 +318,7 @@ class CommClient {
                 //Sending message
                 this.sendMessage(topic, message);
             }else{
-                reject(new ServiceUnavailableError(this.connectionOptions.host));
+                reject(new NodeUnavailableError(this.connectionOptions.host));
             }
         });
     }
@@ -338,7 +345,7 @@ class CommClient {
                 if(subscriber[converter.functionName] === undefined){
                     const subscribe = function(parms?: any) {
                         const _topic = topic;
-                        return this.commClient.message(_topic, parms);
+                        return this.node.message(_topic, parms);
                     }
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
@@ -388,11 +395,11 @@ export class Reply implements IReply{
 /////////////////////////
 export class Subscriber {
     public name: string;
-    private commClient: CommClient;
+    private node: Node;
 
-    constructor(name: string, commClient: CommClient){
+    constructor(name: string, node: Node){
         this.name = name;
-        this.commClient = commClient;
+        this.node = node;
     }
 }
 
@@ -406,9 +413,9 @@ export class Service {
 /////////////////////////
 ///////Error Classes
 /////////////////////////
-export class ServiceUnavailableError extends Error{
+export class NodeUnavailableError extends Error{
     constructor (name: string) {
-        super(name + ' service is unavailable.');
+        super(name + ' node is unavailable.');
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = name;
