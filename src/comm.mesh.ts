@@ -36,11 +36,11 @@ export default class CommMesh implements Component {
         return this.nodes;
     }
 
-    public getNodeService(name: string){
+    public getNodeAlias(name: string){
         const node = this.nodes.find(node => node.name === name);
 
         if(node !== undefined){
-            return node.getService();
+            return node.getAlias();
         }else{
             throw new Error('Invalid node. Node not defined as mesh.');
         }
@@ -133,8 +133,8 @@ export class Node {
     private topics: Array<string>;
     private messageCallbackEvent: EventEmitter;
 
-    //Service
-    private service: Service;
+    //Alias
+    private alias: Alias;
 
     //Default Constructor
     constructor(host: string){
@@ -155,8 +155,8 @@ export class Node {
         //Array of topics
         this.topics = new Array<string>();
 
-        //Create service object
-        this.service = new Service();
+        //Create alias object
+        this.alias = new Alias();
 
         //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();
@@ -181,8 +181,8 @@ export class Node {
         return this.topics;
     }
 
-    public getService(){
-        return this.service;
+    public getAlias(){
+        return this.alias;
     }
 
     public getOptions() {
@@ -260,11 +260,11 @@ export class Node {
         //Add listener then receive reply
         this.messageCallbackEvent.once(this.broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
-                this.service.name = reply.body.name;
+                this.alias.name = reply.body.name;
                 this.topics = reply.body.topics;
 
                 this.mqttClient.subscribe(this.topics);
-                this.generateService(this.topics);
+                this.generateAlias(this.topics);
             }
         });
 
@@ -330,7 +330,7 @@ export class Node {
     /////////////////////////
     ///////Generate Functions
     /////////////////////////
-    private generateService(topics: Array<string>){
+    private generateAlias(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
             const converter = CommUtility.convertToFunction(topic);
@@ -338,11 +338,11 @@ export class Node {
             if(converter){
                 let subscriber;
 
-                //Validate and generate a subscriber object or get it from service class object.
-                if(this.service.constructor.prototype[converter.className] === undefined){
+                //Validate and generate a subscriber object or get it from alias class object.
+                if(this.alias.constructor.prototype[converter.className] === undefined){
                     subscriber = new Subscriber(converter.className, this);
                 }else{
-                    subscriber = this.service.constructor.prototype[converter.className];
+                    subscriber = this.alias.constructor.prototype[converter.className];
                 }
 
                 //Validate and generate dynamic funcation and add it to subscriber object.
@@ -354,8 +354,8 @@ export class Node {
                     Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
                 }
 
-                //Adding the subscriber object to service class object.
-                this.service.constructor.prototype[converter.className] = subscriber;
+                //Adding the subscriber object to alias class object.
+                this.alias.constructor.prototype[converter.className] = subscriber;
             }
         });
     }
@@ -408,9 +408,9 @@ export class Subscriber {
 }
 
 /////////////////////////
-///////Service
+///////Alias
 /////////////////////////
-export class Service {
+export class Alias {
     name: string;
 }
 
