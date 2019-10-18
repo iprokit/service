@@ -25,6 +25,7 @@ import uuid from 'uuid/v1';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import winston from 'winston';
 
 //Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);
@@ -92,11 +93,11 @@ interface ReplyFunctionDescriptor extends PropertyDescriptor {
 export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
 
 //Global Objects
-var expressApp = express();
-var expressRouter = express.Router();
-var dbManager: DBManager;
-var commBroker: CommBroker;
-var commMesh: CommMesh;
+const expressApp = express();
+const expressRouter = express.Router();
+let dbManager: DBManager;
+let commBroker: CommBroker;
+let commMesh: CommMesh;
 
 export default class MicroService {
     //Options

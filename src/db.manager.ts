@@ -39,7 +39,7 @@ export type AutoWireOptions = {
 };
     
 //Connection Objects
-var rdbConnection: Sequelize;
+let rdbConnection: Sequelize;
 
 export default class DBManager implements Component{
     //Options
