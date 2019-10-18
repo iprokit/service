@@ -1,5 +1,5 @@
 //Import modules
-import mqtt from 'mqtt'
+import mqtt, { MqttClient } from 'mqtt'
 import { EventEmitter } from 'events';
 
 //Local Imports
@@ -126,7 +126,7 @@ export class Node {
     private connectionOptions: ConnectionOptions;
 
     //MQTT Client
-    private mqttClient: mqtt.MqttClient;
+    private mqttClient: MqttClient;
     
     //Topic Objects
     public readonly broadcastTopic = '/';

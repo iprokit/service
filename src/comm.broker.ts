@@ -1,5 +1,5 @@
 //Import modules
-import mosca, { Packet, Client } from 'mosca';
+import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
@@ -33,7 +33,7 @@ export default class CommBroker implements Component {
     private connectionOptions: ConnectionOptions;
 
     //Mosca Server
-    private mosca: mosca.Server;
+    private mosca: Server;
 
     //Topic Objects
     public readonly broadcastTopic = '/';
@@ -137,7 +137,7 @@ export default class CommBroker implements Component {
             }
 
             //Init Server object
-            this.mosca = new mosca.Server(options);
+            this.mosca = new Server(options);
     
             this.mosca.on('ready', () => {
                 resolve();
