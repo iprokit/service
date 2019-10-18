@@ -190,18 +190,22 @@ export class Node {
     }
     
     public getReport(){
-        const report = {
-            init: {
-                broadcastTopic: this.broadcastTopic,
-                host: this.connectionOptions.host,
-                port: this.connectionOptions.port,
-                connected: this.connected,
-                reconnecting: this.reconnecting,
-                disconnected: this.disconnected
-            },
-            topics: this.topics
-        };
-        return report;
+        try{
+            const report = {
+                init: {
+                    broadcastTopic: this.broadcastTopic,
+                    host: this.connectionOptions.host,
+                    port: this.connectionOptions.port,
+                    connected: this.connected,
+                    reconnecting: this.reconnecting,
+                    disconnected: this.disconnected
+                },
+                topics: this.topics
+            };
+            return report;
+        }catch(error){
+            return {}
+        }
     }
 
     /////////////////////////

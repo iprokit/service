@@ -95,8 +95,8 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 var expressApp = express();
 var expressRouter = express.Router();
 var dbManager: DBManager;
-var commMesh: CommMesh;
 var commBroker: CommBroker;
+var commMesh: CommMesh;
 
 export default class MicroService {
     //Options

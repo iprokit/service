@@ -98,29 +98,33 @@ export default class DBManager implements Component{
     }
 
     public getReport(){
-        let models = new Array();
+        try{
+            let models = new Array();
 
-        if(this.RDS){
-            this.rdbModels.forEach((model) => {
-                models.push({[model.name]: model.getTableName().toString()});
-            });
-        }else if(this.NoSQL){
-            this.noSQLModels.forEach((model) => {
-                models.push({[model.name]: model._collectionName().toString()});
-            });
-        }
+            if(this.RDS){
+                this.rdbModels.forEach((model) => {
+                    models.push({[model.name]: model.getTableName().toString()});
+                });
+            }else if(this.NoSQL){
+                this.noSQLModels.forEach((model) => {
+                    models.push({[model.name]: model._collectionName().toString()});
+                });
+            }
 
-        const report = {
-            init: {
-                name: this.connectionOptions.name,
-                host: this.connectionOptions.host,
-                type: this.initOptions.type,
-                timezone: this.initOptions.timezone,
-                connected: this.connected
-            },
-            models: models
+            const report = {
+                init: {
+                    name: this.connectionOptions.name,
+                    host: this.connectionOptions.host,
+                    type: this.initOptions.type,
+                    timezone: this.initOptions.timezone,
+                    connected: this.connected
+                },
+                models: models
+            }
+            return report;
+        }catch(error){
+            return {}
         }
-        return report;
     }
 
     /////////////////////////

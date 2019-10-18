@@ -71,20 +71,24 @@ export default class CommBroker implements Component {
     }
 
     public getReport(){
-        let publishers = new Array();
+        try{
+            let publishers = new Array();
 
-        this.publishers.forEach((publisher) => {
-            publishers.push(publisher.constructor.name);
-        });
+            this.publishers.forEach((publisher) => {
+                publishers.push(publisher.constructor.name);
+            });
 
-        const report = {
-            init: {
-                broadcastTopic: this.broadcastTopic,
-            },
-            publishers: publishers,
-            topics: this.topics,
-        };
-        return report;
+            const report = {
+                init: {
+                    broadcastTopic: this.broadcastTopic,
+                },
+                publishers: publishers,
+                topics: this.topics,
+            };
+            return report;
+        }catch(error){
+            return {}
+        }
     }
 
     /////////////////////////
