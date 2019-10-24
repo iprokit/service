@@ -3,6 +3,7 @@ import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNo
 import mongoose, { Schema } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
+import moment from 'moment-timezone';
 
 //Local Imports
 import { Component } from './microservice';
@@ -186,7 +187,16 @@ export default class DBManager implements Component{
                 rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
                     host: this.connectionOptions.host,
                     dialect: dialect,
-                    timezone: this.initOptions.timezone
+                    timezone: this.initOptions.timezone,
+                    dialectOptions: {//TODO: Have to make this dynamic.
+                        typeCast: (field: any, next: any) => {
+                            if (field.type == 'DATETIME' || field.type == 'TIMESTAMP') {
+                                let date = moment(new Date(field.string())).tz('Asia/Kolkata').format();
+                                return date.split('+')[0];
+                            }
+                            return next();
+                        }
+                    }
                 });
             }catch(error){
                 throw error; //Pass other errors.
