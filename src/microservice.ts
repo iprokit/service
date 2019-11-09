@@ -25,7 +25,6 @@ import uuid from 'uuid/v1';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import winston from 'winston';
 
 //Adding project path to global.
 global.projectPath = path.dirname(require.main.filename);

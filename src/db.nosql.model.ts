@@ -33,7 +33,21 @@ export default abstract class NoSQLModel {
         this.collectionName = options.collectionName;
 
         this.attributes = attributes;
-        this.schema = new Schema(this.attributes);
+
+        //Creates a schema with timestamp audit fields, no version key(__v), id instead of _id.
+        this.schema = new Schema(this.attributes, {
+            timestamps: true,
+            toJSON: {
+                virtuals: true,
+                versionKey: false,
+                transform: (doc: any, ret: any, options: any) => {
+                    delete ret._id;
+                }
+            }
+        });
+
+        //Add Timezone plugin from https://www.npmjs.com/package/mongoose-timezone
+
         NoSQLModel.model = Mongoose.model(this.collectionName, this.schema);
     }
 
@@ -52,42 +66,79 @@ export default abstract class NoSQLModel {
         return null;
     }
 
+    private static transformID(conditions: any){
+        //if id exists in conditions replace with _id
+        if(conditions.id){
+            conditions._id = conditions.id;
+            delete conditions.id;
+        }
+    }
+
     /////////////////////////
     ///////DAO's
     /////////////////////////
-    public static async getOneByID(id: any){
-        return await this.model.findById(id);
+    public static async create(...docs: any[]){
+        return await this.model.create(docs);
     }
 
     public static async getAll(){
         return await this.model.find();
     }
 
-    public static async create(...docs: any[]){
-        return await this.model.create(docs);
-    }
-
-    public static async update(conditions: any, doc: any){
-        return await this.model.update(conditions, doc);
+    public static async getOne(conditions: any){
+        this.transformID(conditions);
+        return await this.model.findOne(conditions)
+            .then(async data => {
+                if(data){
+                    return data
+                }else{
+                    throw new Error('ID does not exit!');
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
     }
 
     public static async updateOne(conditions: any, doc: any){
-        return await this.model.updateOne(conditions, doc);
-    }
-
-    public static async updateOneByID(id: any, update: any){
-        return await this.model.findByIdAndUpdate(id, update);
+        this.transformID(conditions);
+        return await this.model.updateOne(conditions, doc)
+            .then(async affectedRows => {
+                if (affectedRows.n === 0 && affectedRows.nModified === 0) {
+                    throw new Error('ID does not exit!');
+                }else{
+                    return true;
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
     }
 
     public static async deleteOne(conditions: any){
-        return await this.model.deleteOne(conditions);
+        this.transformID(conditions);
+        return await this.model.deleteOne(conditions)
+            .then(async affectedRows => {
+                if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
+                    throw new Error('ID does not exit!');
+                }else{
+                    return true;
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
     }
 
-    public static async deleteMany(conditions: any){
-        return await this.model.deleteMany(conditions);
+    public static async getOneByID(id: any){
+        return await this.getOne({id: id});
+    }
+
+    public static async updateOneByID(id: any, update: any){
+        return await this.updateOne({id: id}, update);
     }
 
     public static async deleteOneByID(id: any){
-        return await this.model.findByIdAndRemove(id);
+        return await this.deleteOne({id: id});
     }
 }

@@ -42,6 +42,10 @@ export default class RDBModel extends Model {
         return await this.findAll();
     }
 
+    //TODO: For all return object data.
+
+    //TODO: Add getOne
+
     public static async getOneByID(id: any){
         return await this.findByPk(id)
             .then(async data => {
@@ -73,6 +77,8 @@ export default class RDBModel extends Model {
     public static async updateOneByID(id: any, data: any){
         return await this.updateOne(data, {id: id});
     }
+
+    //TODO: Add deleteOne
 
     public static async deleteOneByID(id: any){
         return await this.destroy({where: { id: id }, individualHooks: true})
