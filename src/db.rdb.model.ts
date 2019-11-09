@@ -44,7 +44,7 @@ export default class RDBModel extends Model {
 
     //TODO: For all return object data.
 
-    //TODO: Add getOne
+    //TODO: Add getOne and call findOne
 
     public static async getOneByID(id: any){
         return await this.findByPk(id)

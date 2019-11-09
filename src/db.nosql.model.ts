@@ -67,7 +67,7 @@ export default abstract class NoSQLModel {
     }
 
     private static transformID(conditions: any){
-        //if id exists in conditions replace with _id
+        //If id exists in conditions replace with _id
         if(conditions.id){
             conditions._id = conditions.id;
             delete conditions.id;

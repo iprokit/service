@@ -423,7 +423,7 @@ export function getNode(name: string): Alias {
 /////////////////////////
 //Basic Routes
 export function Get(path: PathParams): RequestResponseFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.get(url, descriptor.value);
@@ -431,7 +431,7 @@ export function Get(path: PathParams): RequestResponseFunction {
 }
 
 export function Post(path: PathParams): RequestResponseFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.post(url, descriptor.value);
@@ -439,7 +439,7 @@ export function Post(path: PathParams): RequestResponseFunction {
 }
 
 export function Put(path: PathParams): RequestResponseFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.put(url, descriptor.value);
@@ -447,7 +447,7 @@ export function Put(path: PathParams): RequestResponseFunction {
 }
 
 export function Delete(path: PathParams): RequestResponseFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
         const url = ('/' + controllerName + path);
         expressRouter.delete(url, descriptor.value);
@@ -456,13 +456,13 @@ export function Delete(path: PathParams): RequestResponseFunction {
 
 //App Routes
 export function Report(path: PathParams): AppFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         expressRouter.get(path, descriptor.value);
     }
 }
 
 export function Execute(path: PathParams): AppFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         expressRouter.post(path, descriptor.value);
     }
 }
@@ -471,7 +471,7 @@ export function Execute(path: PathParams): AppFunction {
 ///////Broker Decorators
 /////////////////////////
 export function Reply(): ReplyFunction {
-    return function (target, propertyKey, descriptor) {
+    return (target, propertyKey, descriptor) => {
         const publisherName = target.constructor.name.replace('Publisher', '');
         const topic = CommUtility.convertToTopic(publisherName, propertyKey);
         commBroker.reply(topic, descriptor.value);
