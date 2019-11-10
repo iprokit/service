@@ -4,7 +4,7 @@ import Mongoose, { Model, Schema, SchemaDefinition, Document } from 'mongoose';
 //Types: InitOptions
 export type InitOptions = {
     collectionName: string,
-    modelName: string,
+    modelName: string
 }
 
 export default abstract class NoSQLModel {
@@ -79,6 +79,15 @@ export default abstract class NoSQLModel {
     /////////////////////////
     public static async create(...docs: any[]){
         return await this.model.create(docs);
+    }
+    
+    //TODO: Need to remove this function in coming versions.
+    public static async getAllOrderByCreatedAt(orderType: string){
+        if(orderType === 'new'){
+            return await this.model.find().sort({createdAt: 1});
+        } else if(orderType === 'old'){
+            return await this.model.find().sort({createdAt: -1});
+        }
     }
 
     public static async getAll(){
