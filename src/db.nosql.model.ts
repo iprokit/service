@@ -31,7 +31,6 @@ export default abstract class NoSQLModel {
     public static init(attributes: SchemaDefinition, options: InitOptions) {
         this.modelName = options.modelName;
         this.collectionName = options.collectionName;
-
         this.attributes = attributes;
 
         //Creates a schema with timestamp audit fields, no version key(__v), id instead of _id.
@@ -45,8 +44,6 @@ export default abstract class NoSQLModel {
                 }
             }
         });
-
-        //Add Timezone plugin from https://www.npmjs.com/package/mongoose-timezone
 
         NoSQLModel.model = Mongoose.model(this.collectionName, this.schema);
     }

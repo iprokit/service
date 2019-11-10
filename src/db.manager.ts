@@ -187,8 +187,8 @@ export default class DBManager implements Component{
                 rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
                     host: this.connectionOptions.host,
                     dialect: dialect,
-                    timezone: this.initOptions.timezone,
-                    dialectOptions: {//TODO: Have to make this dynamic.
+                    timezone: this.initOptions.timezone,//TODO: Should remove this.
+                    dialectOptions: {//TODO: Should remove this.
                         typeCast: (field: any, next: any) => {
                             if (field.type == 'DATETIME' || field.type == 'TIMESTAMP') {
                                 let date = moment(new Date(field.string())).tz('Asia/Kolkata').format();
