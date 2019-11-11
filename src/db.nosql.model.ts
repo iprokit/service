@@ -63,11 +63,24 @@ export default abstract class NoSQLModel {
         return null;
     }
 
-    private static transformID(conditions: any){
+    /////////////////////////
+    ///////Others
+    /////////////////////////
+    private static transformConditions(conditions: any){
         //If id exists in conditions replace with _id
         if(conditions.id){
             conditions._id = conditions.id;
             delete conditions.id;
+        }
+    }
+
+    private static transformJson(object: any){
+        //Start: Find all keys in json object
+        for(let key in object){
+            if(object[key] instanceof Date){
+                let date: Date = object[key];
+                object[key] = date.toUTCString();
+            }
         }
     }
 
@@ -92,7 +105,7 @@ export default abstract class NoSQLModel {
     }
 
     public static async getOne(conditions: any){
-        this.transformID(conditions);
+        this.transformConditions(conditions);
         return await this.model.findOne(conditions)
             .then(async data => {
                 if(data){
@@ -107,7 +120,7 @@ export default abstract class NoSQLModel {
     }
 
     public static async updateOne(conditions: any, doc: any){
-        this.transformID(conditions);
+        this.transformConditions(conditions);
         return await this.model.updateOne(conditions, doc)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.nModified === 0) {
@@ -122,7 +135,7 @@ export default abstract class NoSQLModel {
     }
 
     public static async deleteOne(conditions: any){
-        this.transformID(conditions);
+        this.transformConditions(conditions);
         return await this.model.deleteOne(conditions)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
