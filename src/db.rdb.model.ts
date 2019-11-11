@@ -50,7 +50,7 @@ export default class RDBModel extends Model {
                 if(data){
                     return data
                 }else{
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }
             })
             .catch(error => {
@@ -62,7 +62,7 @@ export default class RDBModel extends Model {
         return await this.update(data, { where: where, individualHooks: true})
             .then(async affectedRows => {
                 if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }
@@ -82,7 +82,7 @@ export default class RDBModel extends Model {
         return await this.destroy({where: { id: id }, individualHooks: true})
             .then(async affectedRows => {
                 if(affectedRows === 0){
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }

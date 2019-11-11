@@ -98,7 +98,7 @@ export default abstract class NoSQLModel {
                 if(data){
                     return data
                 }else{
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }
             })
             .catch(error => {
@@ -111,7 +111,7 @@ export default abstract class NoSQLModel {
         return await this.model.updateOne(conditions, doc)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.nModified === 0) {
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }
@@ -126,7 +126,7 @@ export default abstract class NoSQLModel {
         return await this.model.deleteOne(conditions)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
-                    throw new Error('ID does not exit!');
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }
