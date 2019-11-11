@@ -33,6 +33,7 @@ global.projectPath = path.dirname(require.main.filename);
 import FileUtility from './file.utility';
 import CommUtility from './comm.utility';
 import DockerUtility from './docker.utility';
+import GatewayUtility from './gateway.utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
@@ -241,6 +242,10 @@ export default class MicroService {
         expressApp.use(express.urlencoded({extended: false}));
         //TODO: Add logging.
 
+        //Setup Express Middlewares
+        expressApp.use(this.proxyHandler());
+
+        //Setup Router
         this.initOptions.url = (this.initOptions.url || '/' + this.options.name).toLowerCase();
         expressApp.use(this.initOptions.url, expressRouter);
 
@@ -399,6 +404,17 @@ export default class MicroService {
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
         expressRouter.delete(path, ...handlers);
+    }
+
+    /////////////////////////
+    ///////Custom Middlewares
+    /////////////////////////
+    public proxyHandler(){
+        return (request: any, response: Response, next: NextFunction) => {
+            //Generate Proxy object from headers.
+            GatewayUtility.generateProxyObjects(request);
+            next();
+        }
     }
 }
 
