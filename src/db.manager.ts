@@ -276,7 +276,10 @@ export default class DBManager implements Component{
         console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
-        model.init(fields, {collectionName, modelName});
+        model.init(fields, {
+            collectionName: collectionName, 
+            modelName: modelName
+        });
     }
 
     /////////////////////////
