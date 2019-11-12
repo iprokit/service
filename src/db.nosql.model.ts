@@ -45,7 +45,7 @@ export default abstract class NoSQLModel {
             }
         });
 
-        NoSQLModel.model = Mongoose.model(this.collectionName, this.schema);
+        this.model = Mongoose.model(this.collectionName, this.schema);
     }
 
     /////////////////////////
