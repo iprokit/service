@@ -26,7 +26,6 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
-    paperTrail?: boolean,
     type: NoSQL | RDS,
     autoWireModels: AutoWireOptions
 };
@@ -145,7 +144,6 @@ export default class DBManager implements Component{
     public init(initOptions: DBInitOptions){
         //Load init options.
         this.initOptions = initOptions;
-        this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true : this.initOptions.paperTrail;
         this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
         
         //Init DBController and inject endpoints.
@@ -233,11 +231,6 @@ export default class DBManager implements Component{
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
-
-        let paperTrail = this.initOptions.paperTrail;
-
-        //TODO: Add paper trail support.
-        //timestamps: paperTrail
 
         //Initializing model
         model.init(fields, {
