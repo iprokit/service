@@ -65,8 +65,6 @@
     "sequelize": "5.10.0",
     "@types/dotenv": "4.0.3",
     "dotenv": "8.0.0",
-    "@types/moment-timezone": "0.5.4",
-    "moment-timezone": "0.5.26",
     "@types/express-http-proxy": "1.5.12",
     "express-http-proxy": "1.5.1",
     "@types/mongoose": "5.0.11",

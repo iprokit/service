@@ -3,7 +3,6 @@ import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNo
 import mongoose, { Schema } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
-import moment from 'moment-timezone';
 
 //Local Imports
 import { Component } from './microservice';
@@ -27,8 +26,8 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
+    paperTrail?: boolean,
     type: NoSQL | RDS,
-    timezone?: string,
     autoWireModels: AutoWireOptions
 };
 
@@ -117,7 +116,6 @@ export default class DBManager implements Component{
                     name: this.connectionOptions.name,
                     host: this.connectionOptions.host,
                     type: this.initOptions.type,
-                    timezone: this.initOptions.timezone,
                     connected: this.connected
                 },
                 models: models
@@ -147,7 +145,7 @@ export default class DBManager implements Component{
     public init(initOptions: DBInitOptions){
         //Load init options.
         this.initOptions = initOptions;
-        this.initOptions.timezone = this.initOptions.timezone || '+00:00';
+        this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true : this.initOptions.paperTrail;
         this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
         
         //Init DBController and inject endpoints.
@@ -236,8 +234,17 @@ export default class DBManager implements Component{
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
 
+        let paperTrail = this.initOptions.paperTrail;
+
+        //TODO: Add paper trail support.
+        //timestamps: paperTrail
+
         //Initializing model
-        model.init(fields, {sequelize, tableName, modelName});
+        model.init(fields, {
+            sequelize: sequelize,
+            tableName: tableName,
+            modelName: modelName,
+        });
         model.hooks();
         model.validations();
     }
