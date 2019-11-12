@@ -91,4 +91,6 @@ export default class RDBModel extends Model {
                 throw error;
             });
     }
+
+    //TODO: Add pagenations
 }

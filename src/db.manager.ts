@@ -186,17 +186,7 @@ export default class DBManager implements Component{
                 //Load Sequelize
                 rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
                     host: this.connectionOptions.host,
-                    dialect: dialect,
-                    timezone: this.initOptions.timezone,//TODO: Should remove this.
-                    dialectOptions: {//TODO: Should remove this.
-                        typeCast: (field: any, next: any) => {
-                            if (field.type == 'DATETIME' || field.type == 'TIMESTAMP') {
-                                let date = moment(new Date(field.string())).tz('Asia/Kolkata').format();
-                                return date.split('+')[0];
-                            }
-                            return next();
-                        }
-                    }
+                    dialect: dialect
                 });
             }catch(error){
                 throw error; //Pass other errors.
