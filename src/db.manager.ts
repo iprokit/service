@@ -243,7 +243,7 @@ export default class DBManager implements Component{
         model.init(fields, {
             sequelize: sequelize,
             tableName: tableName,
-            modelName: modelName,
+            modelName: modelName
         });
         model.hooks();
         model.validations();
