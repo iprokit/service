@@ -10,7 +10,7 @@ import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import DockerUtility from './docker.utility';
 import FileUtility from './file.utility';
-import { Execute } from './microservice';
+import { Post } from './microservice';
 
 //RDS & NoSQL Types.
 export type RDS = 'mysql';
@@ -161,7 +161,7 @@ export default class DBManager implements Component{
             this.autoWireRDBModels(this.initOptions.autoWireModels);
 
             //Sync Endpoint.
-            Execute('/db/sync')(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
+            Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
             this.NoSQL = true;

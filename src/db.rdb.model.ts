@@ -5,6 +5,8 @@ export const Op: typeof Operation = Operation;
 
 export default class RDBModel extends Model {
 
+    //Implement onLoad/setup function.
+
     /////////////////////////
     ///////Properties
     /////////////////////////
@@ -42,7 +44,7 @@ export default class RDBModel extends Model {
         return await this.findAll();
     }
 
-    //TODO: Add getOne and call findOne
+    //TODO: Add getRecord() and call findOne
 
     public static async getOneByID(id: any){
         return await this.findByPk(id)

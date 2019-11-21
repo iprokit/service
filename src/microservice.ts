@@ -79,10 +79,7 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
 }
 
 //Types: RequestResponseFunction
-export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
-
-//Types: AppFunction
-export declare type AppFunction = (target: Object, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
+export declare type RequestResponseFunction = (target: Object, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
 //Interface: ReplyFunctionDescriptor
 interface ReplyFunctionDescriptor extends PropertyDescriptor {
@@ -437,49 +434,43 @@ export function getNode(name: string): Alias {
 /////////////////////////
 ///////Router Decorators
 /////////////////////////
-//Basic Routes
-export function Get(path: PathParams): RequestResponseFunction {
+export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-        const url = ('/' + controllerName + path);
-        expressRouter.get(url, descriptor.value);
-    }
-}
-
-export function Post(path: PathParams): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-        const url = ('/' + controllerName + path);
-        expressRouter.post(url, descriptor.value);
-    }
-}
-
-export function Put(path: PathParams): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-        const url = ('/' + controllerName + path);
-        expressRouter.put(url, descriptor.value);
-    }
-}
-
-export function Delete(path: PathParams): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-        const url = ('/' + controllerName + path);
-        expressRouter.delete(url, descriptor.value);
-    }
-}
-
-//App Routes
-export function Report(path: PathParams): AppFunction {
-    return (target, propertyKey, descriptor) => {
+        if(!rootPath){
+            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
         expressRouter.get(path, descriptor.value);
     }
 }
 
-export function Execute(path: PathParams): AppFunction {
+export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
+        if(!rootPath){
+            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
         expressRouter.post(path, descriptor.value);
+    }
+}
+
+export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+    return (target, propertyKey, descriptor) => {
+        if(!rootPath){
+            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+        expressRouter.put(path, descriptor.value);
+    }
+}
+
+export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+    return (target, propertyKey, descriptor) => {
+        if(!rootPath){
+            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+        expressRouter.delete(path, descriptor.value);
     }
 }
 
@@ -500,12 +491,12 @@ export function Reply(): ReplyFunction {
 class MicroServiceController {
     public static microServiceOptions: any;
 
-    @Report('/health')
+    @Get('/health', true)
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});
     }
 
-    @Report('/report')
+    @Get('/report', true)
     public getReport(request: Request, response: Response){
         try {
             const report = {
