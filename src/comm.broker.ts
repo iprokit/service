@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 
 //Local Imports
 import { Component } from './microservice';
-import FileUtility from './file.utility';
+import Utility from './utility';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
@@ -112,7 +112,7 @@ export default class CommBroker implements Component {
         const excludes = autoInjectOptions.excludes || [];
 
         paths.forEach((path: string) => {
-            let publisherPaths = FileUtility.getFilePaths(path, likeName, excludes);
+            let publisherPaths = Utility.getFilePaths(path, likeName, excludes);
             publisherPaths.forEach(publisherPath => {
                 const Publisher = require(publisherPath).default;
                 const publisher = new Publisher();

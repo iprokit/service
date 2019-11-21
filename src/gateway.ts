@@ -3,7 +3,7 @@ import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
 
 //Local Imports
-import GatewayUtility from './gateway.utility';
+import Utility from './utility';
 import MicroService, { AutoInjectControllerOptions, CommOptions } from "./microservice";
 import { DBInitOptions } from "./db.manager";
 
@@ -35,24 +35,24 @@ export default class Gateway extends MicroService {
     ///////Proxy Functions
     /////////////////////////
     public proxy(host: string){
-        return expressProxy(GatewayUtility.resolveHost(host, this.expressPort), {
+        return expressProxy(Utility.resolveHost(host, this.expressPort), {
             proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
                 //Generate Proxy headers from object.
-                GatewayUtility.generateProxyHeaders(sourceRequest, targetRequest);
+                Utility.generateProxyHeaders(sourceRequest, targetRequest);
                 return targetRequest;
             }
         });
     }
 
     public proxyRedirect(host: string, redirect: string){
-        return expressProxy(GatewayUtility.resolveHost(host, this.expressPort), {
+        return expressProxy(Utility.resolveHost(host, this.expressPort), {
             proxyReqPathResolver: (request) => {
                 //Redirect path.
                 return redirect;
             },
             proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
                 //Generate Proxy headers from object.
-                GatewayUtility.generateProxyHeaders(sourceRequest, targetRequest);
+                Utility.generateProxyHeaders(sourceRequest, targetRequest);
                 return targetRequest;
             }
         });

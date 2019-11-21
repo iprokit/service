@@ -30,10 +30,7 @@ import fs from 'fs';
 global.projectPath = path.dirname(require.main.filename);
 
 //Local Imports
-import FileUtility from './file.utility';
-import CommUtility from './comm.utility';
-import DockerUtility from './docker.utility';
-import GatewayUtility from './gateway.utility';
+import Utility from './utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
@@ -212,7 +209,7 @@ export default class MicroService {
             expressPort: Number(process.env.EXPRESS_PORT) || 3000,
             comBrokerPort: Number(process.env.COM_BROKER_PORT) || 6000,
             environment: process.env.NODE_ENV || 'production',
-            ip: DockerUtility.getContainerIP()
+            ip: Utility.getContainerIP()
         };
     }
 
@@ -287,7 +284,7 @@ export default class MicroService {
         const excludes = autoInjectOptions.excludes || [];
 
         paths.forEach((path: string) => {
-            let controllerPaths = FileUtility.getFilePaths(path, likeName, excludes);
+            let controllerPaths = Utility.getFilePaths(path, likeName, excludes);
             controllerPaths.forEach(controllerPath => {
                 const Controller = require(controllerPath).default;
                 const controller = new Controller();
@@ -365,7 +362,7 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////Other Functions
+    ///////Listeners
     /////////////////////////
     private addExpressListeners(server: Server){
         //Adding process listeners to stop server gracefully.
@@ -409,7 +406,7 @@ export default class MicroService {
     public proxyHandler(){
         return (request: any, response: Response, next: NextFunction) => {
             //Generate Proxy object from headers.
-            GatewayUtility.generateProxyObjects(request);
+            Utility.generateProxyObjects(request);
             next();
         }
     }
@@ -480,7 +477,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.constructor.name.replace('Publisher', '');
-        const topic = CommUtility.convertToTopic(publisherName, propertyKey);
+        const topic = Utility.convertToTopic(publisherName, propertyKey);
         commBroker.reply(topic, descriptor.value);
     }
 }

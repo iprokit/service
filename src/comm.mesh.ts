@@ -4,7 +4,7 @@ import { EventEmitter } from 'events';
 
 //Local Imports
 import { Component } from './microservice';
-import CommUtility from './comm.utility';
+import Utility from './utility';
 
 //Types: ConnectionOptions
 export type ConnectionOptions = {
@@ -337,7 +337,7 @@ export class Node {
     private generateAlias(topics: Array<string>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
-            const converter = CommUtility.convertToFunction(topic);
+            const converter = Utility.convertToFunction(topic);
 
             if(converter){
                 let subscriber;

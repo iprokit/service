@@ -5,12 +5,10 @@ import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Imports
-import { Component } from './microservice';
+import { Component, Post } from './microservice';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
-import DockerUtility from './docker.utility';
-import FileUtility from './file.utility';
-import { Post } from './microservice';
+import Utility from './utility';
 
 //RDS & NoSQL Types.
 export type RDS = 'mysql';
@@ -134,7 +132,7 @@ export default class DBManager implements Component{
             name: process.env.DB_NAME,
             username: process.env.DB_USERNAME,
             password: process.env.DB_PASSWORD,
-            host: process.env.DB_HOST || DockerUtility.getHostIP()
+            host: process.env.DB_HOST || Utility.getHostIP()
         };
     }
 
@@ -201,7 +199,7 @@ export default class DBManager implements Component{
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
+            let modelFiles = Utility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
@@ -254,7 +252,7 @@ export default class DBManager implements Component{
         excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
-            let modelFiles = FileUtility.getFilePaths(path, likeName, excludes);
+            let modelFiles = Utility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
