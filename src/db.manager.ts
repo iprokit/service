@@ -190,7 +190,7 @@ export default class DBManager implements Component{
                     timezone: this.initOptions.timezone,//TODO: Should remove this.
                     dialectOptions: {//TODO: Should remove this.
                         typeCast: (field: any, next: any) => {
-                            if (field.type == 'DATETIME' || field.type == 'TIMESTAMP') {
+                            if (field.type == 'DATETIME' || field.type == 'TIMESTAMP' || field.type == 'DATE' || field.type == 'DATEONLY') {
                                 let date = moment(new Date(field.string())).tz('Asia/Kolkata').format();
                                 return date.split('+')[0];
                             }
