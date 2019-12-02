@@ -34,7 +34,9 @@ import Utility from './utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, {DBInitOptions, InvalidConnectionOptionsError} from './db.manager';
+import DBManager, {DBInitOptions, InvalidConnectionOptionsError, EntityOptions} from './db.manager';
+import RDBModel from './db.rdb.model';
+import NoSQLModel from './db.nosql.model';
 
 //Types: MicroServiceInitOptions
 export type MicroServiceInitOptions = {
@@ -85,6 +87,9 @@ interface ReplyFunctionDescriptor extends PropertyDescriptor {
 
 //Types: ReplyFunction
 export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
+
+//Types: ModelClass
+export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
 
 //Global Objects
 const expressApp = express();
@@ -479,6 +484,15 @@ export function Reply(): ReplyFunction {
         const publisherName = target.constructor.name.replace('Publisher', '');
         const topic = Utility.convertToTopic(publisherName, propertyKey);
         commBroker.reply(topic, descriptor.value);
+    }
+}
+
+/////////////////////////
+///////Entity Decorators
+/////////////////////////
+export function Entity(entityOptions: EntityOptions): ModelClass {
+    return (target) => {
+        target.entityOptions = entityOptions;
     }
 }
 

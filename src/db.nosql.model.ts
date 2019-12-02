@@ -1,40 +1,29 @@
 //Import modules
 import Mongoose, { Model, Schema, SchemaDefinition, Document } from 'mongoose';
 
+//Local Imports
+import { EntityOptions } from './db.manager';
+
 //Types: InitOptions
 export type InitOptions = {
-    collectionName: string,
-    modelName: string
+    collectionName: string
 }
 
+//Export model Types.
+export const NoSQLTypes: typeof Schema.Types = Schema.Types;
+
 export default abstract class NoSQLModel {
-    private static modelName: string;
-    private static collectionName: string;
-    private static attributes: SchemaDefinition;
+    public static entityOptions: EntityOptions;
+
     private static schema: Schema;
     private static model: Model<Document>;
-
-    /////////////////////////
-    ///////Gets & Sets
-    /////////////////////////
-    public static getModelName(){
-        return this.modelName;
-    }
-
-    public static getCollectionName(){
-        return this.collectionName;
-    }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
     public static init(attributes: SchemaDefinition, options: InitOptions) {
-        this.modelName = options.modelName;
-        this.collectionName = options.collectionName;
-        this.attributes = attributes;
-
         //Creates a schema with timestamp audit fields, no version key(__v), id instead of _id.
-        this.schema = new Schema(this.attributes, {
+        this.schema = new Schema(attributes, {
             timestamps: true,
             toJSON: {
                 virtuals: true,
@@ -45,22 +34,7 @@ export default abstract class NoSQLModel {
             }
         });
 
-        this.model = Mongoose.model(this.collectionName, this.schema);
-    }
-
-    /////////////////////////
-    ///////Properties
-    /////////////////////////
-    public static _modelName(): string{
-        return this.name.replace('Model', '');
-    }
-
-    public static _collectionName(): string {
-        return this.name.replace('Model', '').toLowerCase();
-    }
-
-    public static fields(dataTypes: typeof Schema.Types): SchemaDefinition {
-        return null;
+        this.model = Mongoose.model(options.collectionName, this.schema);
     }
 
     /////////////////////////

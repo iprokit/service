@@ -1,30 +1,20 @@
 //Import modules
-import {Model, ModelAttributes, DataTypes, Op as Operation} from 'sequelize';
+import {Model, DataTypes, Op as Operation} from 'sequelize';
 
+//Local Imports
+import { EntityOptions } from './db.manager';
+
+//Export model Types.
 export const Op: typeof Operation = Operation;
+export const RDBTypes: typeof DataTypes = DataTypes;
 
 export default class RDBModel extends Model {
-
-    //Implement onLoad/setup function.
+    public static entityOptions: EntityOptions;
 
     /////////////////////////
     ///////Properties
     /////////////////////////
-    public static _modelName(): string{
-        return this.name.replace('Model', '');
-    }
-
-    public static _tableName(): string {
-        return this.name.replace('Model', '').toLowerCase();
-    }
-
-    public static fields(dataTypes: typeof DataTypes): ModelAttributes {
-        return null;
-    }
-
     public static hooks() {}
-
-    public static validations() {}
 
     public static associate() {}
 

@@ -1,6 +1,6 @@
 //Import modules
-import { Sequelize, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import mongoose, { Schema } from 'mongoose';
+import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError, ModelAttributes } from 'sequelize';
+import mongoose, { SchemaDefinition } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
@@ -34,17 +34,23 @@ export type AutoWireOptions = {
     likeName?: string,
     excludes?: Array<string>
 };
+
+//Export Entity Types.
+export type EntityOptions = {
+    name: string,
+    attributes: any,
+}
     
 //Connection Objects
 let rdbConnection: Sequelize;
 
-export default class DBManager implements Component{
+export default class DBManager implements Component {
     //Options
     private connectionOptions: DBConnectionOptions;
     private initOptions: DBInitOptions;
 
     //DB Types
-    private RDS: boolean;
+    private RDB: boolean;
     private NoSQL: boolean;
 
     //Models
@@ -62,8 +68,8 @@ export default class DBManager implements Component{
     /////////////////////////
     ///////Gets & Sets
     /////////////////////////
-    public isRDS(){
-        return this.RDS;
+    public isRDB(){
+        return this.RDB;
     }
 
     public isNoSQL(){
@@ -75,7 +81,7 @@ export default class DBManager implements Component{
     }
 
     public getModels(){
-        if(this.RDS){
+        if(this.RDB){
             return this.rdbModels;
         }else if(this.NoSQL){
             return this.noSQLModels;
@@ -83,7 +89,7 @@ export default class DBManager implements Component{
     }
 
     public getConnection(){
-        if(this.RDS){
+        if(this.RDB){
             return rdbConnection;
         }else if(this.NoSQL){
             return mongoose.connection;
@@ -96,17 +102,17 @@ export default class DBManager implements Component{
 
     public getReport(){
         try{
-            let models = new Array();
-
-            if(this.RDS){
-                this.rdbModels.forEach((model) => {
-                    models.push({[model.name]: model.getTableName().toString()});
-                });
+            let _models;
+            if(this.RDB){
+                _models = this.rdbModels;
             }else if(this.NoSQL){
-                this.noSQLModels.forEach((model) => {
-                    models.push({[model.name]: model._collectionName().toString()});
-                });
+                _models = this.noSQLModels;
             }
+
+            let models = new Array();
+            _models.forEach((model: typeof RDBModel | typeof NoSQLModel) => {
+                models.push({[model.name]: model.entityOptions.name});
+            });
 
             const report = {
                 init: {
@@ -150,31 +156,25 @@ export default class DBManager implements Component{
         //Try loading a db based on type.
         if(this.initOptions.type === 'mysql'){
             //Set DB type
-            this.RDS = true;
+            this.RDB = true;
 
-            //Load Connection
-            this.loadRDBConnection(this.initOptions.type);
-
-            //Load models
-            this.autoWireRDBModels(this.initOptions.autoWireModels);
+            //Init Connection
+            this.initRDBConnection(this.initOptions.type);
 
             //Sync Endpoint.
             Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
             this.NoSQL = true;
-
-            //Load models
-            this.autoWireNoSQLModels(this.initOptions.autoWireModels);
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
+
+        //Load models
+        this.autoWireModels(this.initOptions.autoWireModels);
     }
 
-    /////////////////////////
-    ///////RDB Functions
-    /////////////////////////
-    private loadRDBConnection(dialect: RDS){
+    private initRDBConnection(dialect: RDS){
         if(this.connectionOptions.name !== undefined){
             try{
                 //Load Sequelize
@@ -190,20 +190,24 @@ export default class DBManager implements Component{
         }
     }
 
-    private autoWireRDBModels(autoWireModels: AutoWireOptions){
+    /////////////////////////
+    ///////Model Functions
+    /////////////////////////
+    private autoWireModels(autoWireModels: AutoWireOptions){
         let paths = autoWireModels.paths || ['/'];
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
-
-        //Adding files to Exclude.
-        excludes.push('/node_modules');
 
         paths.forEach((path: string) => {
             let modelFiles = Utility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
                 const model = require(modelFile).default;
 
-                this.initRDBModel(model);
+                if(model.prototype instanceof RDBModel){
+                    this.initRDBModel(model);
+                }else if(model.prototype instanceof NoSQLModel){
+                    this.initNoSQLModel(model);
+                }
 
                 //Add to Array
                 this.rdbModels.push(model);
@@ -211,72 +215,50 @@ export default class DBManager implements Component{
         });
 
         //Associate models
-        this.rdbModels.forEach(model => {
-            //Logging the model before
-            console.log('Associating model: %s', model.name);
-    
-            //Associating model
-            model.associate();
-        });
+        if(this.RDB){
+            this.rdbModels.forEach(model => {
+                //Logging the model before
+                console.log('Associating model: %s', model.name);
+        
+                //Associating model
+                model.associate();
+            });
+        }
     }
 
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
-        const fields = model.fields(DataTypes);
         const sequelize = rdbConnection;
-        const modelName = model._modelName();
-        const tableName = model._tableName();
+        const modelName = model.name.replace('Model', '');
+        const tableName = model.entityOptions.name;
+        const attributes = model.entityOptions.attributes;
+
+        //TODO: Add Id, updateBy, createdBy
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
 
         //Initializing model
-        model.init(fields, {
-            sequelize: sequelize,
+        model.init(attributes, {
             tableName: tableName,
-            modelName: modelName
+            modelName: modelName,
+            sequelize: sequelize
         });
         model.hooks();
-        model.validations();
-    }
-
-    /////////////////////////
-    ///////NoSQL Functions
-    /////////////////////////
-    private autoWireNoSQLModels(autoWireModels: AutoWireOptions){
-        let paths = autoWireModels.paths || ['/'];
-        const likeName = autoWireModels.likeName || 'model.js';
-        const excludes = autoWireModels.excludes || [];
-
-        //Adding files to Exclude.
-        excludes.push('/node_modules');
-
-        paths.forEach((path: string) => {
-            let modelFiles = Utility.getFilePaths(path, likeName, excludes);
-            modelFiles.forEach(modelFile => {
-                const model = require(modelFile).default;
-
-                this.initNoSQLModel(model);
-
-                //Add to Array
-                this.noSQLModels.push(model);
-            });
-        });
     }
 
     private initNoSQLModel(model: typeof NoSQLModel){
         //Get data from model object.
-        const fields = model.fields(Schema.Types);
-        const modelName = model._modelName();
-        const collectionName = model._collectionName();
+        const modelName = model.name.replace('Model', '');
+        const collectionName = model.entityOptions.name;
+        const attributes = model.entityOptions.attributes;
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
-        model.init(fields, {
-            collectionName: collectionName, 
-            modelName: modelName
+        model.init(attributes, {
+            collectionName: collectionName
         });
     }
 
@@ -285,7 +267,7 @@ export default class DBManager implements Component{
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
-            if(this.RDS){
+            if(this.RDB){
                 rdbConnection.authenticate()
                     .then(() => {
                         this.connected = true; //Connected Flag 
@@ -334,7 +316,7 @@ export default class DBManager implements Component{
 
     public disconnect(){
         return new Promise((resolve, reject) => {
-            if(this.RDS){
+            if(this.RDB){
                 rdbConnection.close()
                     .then(() => {
                         resolve();
