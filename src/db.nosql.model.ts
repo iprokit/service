@@ -6,7 +6,8 @@ import { EntityOptions } from './db.manager';
 
 //Types: InitOptions
 export type InitOptions = {
-    collectionName: string
+    collectionName: string,
+    timestamps: boolean
 }
 
 //Export model Types.
@@ -15,7 +16,6 @@ export const NoSQLTypes: typeof Schema.Types = Schema.Types;
 export default abstract class NoSQLModel {
     public static entityOptions: EntityOptions;
 
-    private static schema: Schema;
     private static model: Model<Document>;
 
     /////////////////////////
@@ -23,8 +23,8 @@ export default abstract class NoSQLModel {
     /////////////////////////
     public static init(attributes: SchemaDefinition, options: InitOptions) {
         //Creates a schema with timestamp audit fields, no version key(__v), id instead of _id.
-        this.schema = new Schema(attributes, {
-            timestamps: true,
+        const schema = new Schema(attributes, {
+            timestamps: options.timestamps,
             toJSON: {
                 virtuals: true,
                 versionKey: false,
@@ -34,7 +34,7 @@ export default abstract class NoSQLModel {
             }
         });
 
-        this.model = Mongoose.model(options.collectionName, this.schema);
+        this.model = Mongoose.model(options.collectionName, schema);
     }
 
     /////////////////////////

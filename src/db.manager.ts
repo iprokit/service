@@ -1,17 +1,17 @@
 //Import modules
 import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError, ModelAttributes } from 'sequelize';
-import mongoose, { SchemaDefinition } from 'mongoose';
+import mongoose from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Imports
 import { Component, Post } from './microservice';
-import RDBModel from './db.rdb.model';
+import RDBModel, { RDBTypes } from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
 
-//RDS & NoSQL Types.
-export type RDS = 'mysql';
+//RDB & NoSQL Types.
+export type RDB = 'mysql';
 export type NoSQL = 'mongo';
 
 //Types: DBConnectionOptions
@@ -24,8 +24,9 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
-    type: NoSQL | RDS,
-    autoWireModels: AutoWireOptions
+    type: NoSQL | RDB,
+    autoWireModels: AutoWireOptions,
+    paperTrail: boolean
 };
 
 //Types: AutoWireOptions
@@ -149,7 +150,8 @@ export default class DBManager implements Component {
         //Load init options.
         this.initOptions = initOptions;
         this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
-        
+        this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true: this.initOptions.paperTrail;
+
         //Init DBController and inject endpoints.
         const dbController = new DBController();
 
@@ -174,7 +176,7 @@ export default class DBManager implements Component {
         this.autoWireModels(this.initOptions.autoWireModels);
     }
 
-    private initRDBConnection(dialect: RDS){
+    private initRDBConnection(dialect: RDB){
         if(this.connectionOptions.name !== undefined){
             try{
                 //Load Sequelize
@@ -231,9 +233,27 @@ export default class DBManager implements Component {
         const sequelize = rdbConnection;
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
-        const attributes = model.entityOptions.attributes;
+        let attributes = model.entityOptions.attributes;
 
-        //TODO: Add Id, updateBy, createdBy
+        const paperTrail = this.initOptions.paperTrail;
+
+        if(paperTrail){
+            let _attributes: any = {
+                id: {
+                    type: RDBTypes.INTEGER,
+                    primaryKey: true,
+                    autoIncrement: true
+                }
+            }
+
+            for(let key in attributes){
+                const value = attributes[key];
+                _attributes[key] = value;
+            }
+            attributes = _attributes;
+
+            //TODO: add createdby and updatedby
+        }
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
@@ -242,7 +262,8 @@ export default class DBManager implements Component {
         model.init(attributes, {
             tableName: tableName,
             modelName: modelName,
-            sequelize: sequelize
+            sequelize: sequelize,
+            timestamps: paperTrail
         });
         model.hooks();
     }
@@ -253,12 +274,17 @@ export default class DBManager implements Component {
         const collectionName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
 
+        const paperTrail = this.initOptions.paperTrail;
+
+        //TODO: add createdby and updatedby
+
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, collectionName);
 
         //Initializing model
         model.init(attributes, {
-            collectionName: collectionName
+            collectionName: collectionName,
+            timestamps: paperTrail
         });
     }
 
