@@ -128,6 +128,8 @@ export default class MicroService {
             this.initDB(this.initOptions.db);
         }
 
+        //TODO: Parallel load mesh, broker, db
+
         //Load Comm
         commBroker = new CommBroker();
         commMesh = new CommMesh();

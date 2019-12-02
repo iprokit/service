@@ -230,30 +230,11 @@ export default class DBManager implements Component {
 
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
+        const paperTrail = this.initOptions.paperTrail;
         const sequelize = rdbConnection;
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
-        let attributes = model.entityOptions.attributes;
-
-        const paperTrail = this.initOptions.paperTrail;
-
-        if(paperTrail){
-            let _attributes: any = {
-                id: {
-                    type: RDBTypes.INTEGER,
-                    primaryKey: true,
-                    autoIncrement: true
-                }
-            }
-
-            for(let key in attributes){
-                const value = attributes[key];
-                _attributes[key] = value;
-            }
-            attributes = _attributes;
-
-            //TODO: add createdby and updatedby
-        }
+        const attributes = model.entityOptions.attributes;
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
@@ -270,11 +251,10 @@ export default class DBManager implements Component {
 
     private initNoSQLModel(model: typeof NoSQLModel){
         //Get data from model object.
+        const paperTrail = this.initOptions.paperTrail;
         const modelName = model.name.replace('Model', '');
         const collectionName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
-
-        const paperTrail = this.initOptions.paperTrail;
 
         //TODO: add createdby and updatedby
 
