@@ -11,8 +11,8 @@ import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
 
 //RDB & NoSQL Types.
-export type RDB = 'mysql';
-export type NoSQL = 'mongo';
+export type RDBType = 'mysql';
+export type NoSQLType = 'mongo';
 
 //Types: DBConnectionOptions
 export type DBConnectionOptions = {
@@ -24,7 +24,7 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
-    type: NoSQL | RDB,
+    type: NoSQLType | RDBType,
     autoWireModels: AutoWireOptions,
     paperTrail: boolean
 };
@@ -46,16 +46,14 @@ export type EntityOptions = {
 let rdbConnection: Sequelize;
 let noSQLConnection: typeof Mongoose;
 
-//TODO: Export Sequelize functions fn, where and so on.
-
 export default class DBManager implements Component {
     //Options
     private connectionOptions: DBConnectionOptions;
     private initOptions: DBInitOptions;
 
     //DB Types
-    private RDB: boolean;
-    private NoSQL: boolean;
+    private rdb: boolean;
+    private noSQL: boolean;
 
     //Models
     private readonly rdbModels = new Array<typeof RDBModel>();
@@ -73,11 +71,11 @@ export default class DBManager implements Component {
     ///////Gets & Sets
     /////////////////////////
     public isRDB(){
-        return this.RDB;
+        return this.rdb;
     }
 
     public isNoSQL(){
-        return this.NoSQL;
+        return this.noSQL;
     }
 
     public isConnected(){
@@ -85,17 +83,17 @@ export default class DBManager implements Component {
     }
 
     public getModels(){
-        if(this.RDB){
+        if(this.rdb){
             return this.rdbModels;
-        }else if(this.NoSQL){
+        }else if(this.noSQL){
             return this.noSQLModels;
         }
     }
 
     public getConnection(){
-        if(this.RDB){
+        if(this.rdb){
             return rdbConnection;
-        }else if(this.NoSQL){
+        }else if(this.noSQL){
             return noSQLConnection.connection;
         }
     }
@@ -107,9 +105,9 @@ export default class DBManager implements Component {
     public getReport(){
         try{
             let _models;
-            if(this.RDB){
+            if(this.rdb){
                 _models = this.rdbModels;
-            }else if(this.NoSQL){
+            }else if(this.noSQL){
                 _models = this.noSQLModels;
             }
 
@@ -161,7 +159,7 @@ export default class DBManager implements Component {
         //Try loading a db connection based on type.
         if(this.initOptions.type === 'mysql'){
             //Set DB type
-            this.RDB = true;
+            this.rdb = true;
 
             //Init Connection
             this.initRDBConnection(this.initOptions.type);
@@ -170,7 +168,7 @@ export default class DBManager implements Component {
             Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
-            this.NoSQL = true;
+            this.noSQL = true;
 
             //Init Connection
             this.initNoSQLConnection();
@@ -182,7 +180,7 @@ export default class DBManager implements Component {
         this.autoWireModels(this.initOptions.autoWireModels);
     }
 
-    private initRDBConnection(dialect: RDB){
+    private initRDBConnection(dialect: RDBType){
         if(this.connectionOptions.name !== undefined){
             try{
                 //Load Sequelize
@@ -228,7 +226,7 @@ export default class DBManager implements Component {
         });
 
         //Associate models
-        if(this.RDB){
+        if(this.rdb){
             this.rdbModels.forEach(model => {
                 //Logging the model before
                 console.log('Associating model: %s', model.name);
@@ -286,7 +284,7 @@ export default class DBManager implements Component {
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
-            if(this.RDB){
+            if(this.rdb){
                 rdbConnection.authenticate()
                     .then(() => {
                         this.connected = true; //Connected Flag 
@@ -305,7 +303,7 @@ export default class DBManager implements Component {
                             reject(error);//Pass other errors.
                         }
                     });
-            }else if(this.NoSQL){
+            }else if(this.noSQL){
                 const uri = 'mongodb://' + this.connectionOptions.host;
                 const options = {
                     dbName: this.connectionOptions.name,
@@ -335,14 +333,14 @@ export default class DBManager implements Component {
 
     public disconnect(){
         return new Promise((resolve, reject) => {
-            if(this.RDB){
+            if(this.rdb){
                 rdbConnection.close()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
                     });
-            }else if(this.NoSQL){
+            }else if(this.noSQL){
                 noSQLConnection.disconnect()
                     .then(() => {
                         resolve();

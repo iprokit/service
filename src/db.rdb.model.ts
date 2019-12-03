@@ -1,11 +1,10 @@
 //Import modules
-import {Model, DataTypes, Op as Operation} from 'sequelize';
+import {Model, DataTypes} from 'sequelize';
 
 //Local Imports
 import { EntityOptions } from './db.manager';
 
 //Export model Types.
-export const Op: typeof Operation = Operation;
 export const RDBTypes: typeof DataTypes = DataTypes;
 
 export default class RDBModel extends Model {
