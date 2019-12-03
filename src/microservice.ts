@@ -293,13 +293,18 @@ export default class MicroService {
         paths.forEach((path: string) => {
             let controllerPaths = Utility.getFilePaths(path, likeName, excludes);
             controllerPaths.forEach(controllerPath => {
-                const Controller = require(controllerPath).default;
-                const controller = new Controller();
+                const _Controller = require(controllerPath).default;
 
-                console.log('Adding endpoints from controller: %s', controller.constructor.name);
+                if(_Controller.prototype instanceof Controller){
+                    const controller: typeof Controller = new _Controller();
 
-                //Add to Array
-                this.controllers.push(controller);
+                    console.log('Adding endpoints from controller: %s', controller.constructor.name);
+    
+                    //Add to Array
+                    this.controllers.push(controller);
+                }else{
+                    console.log('Could not add endpoints from controller: %s', _Controller.constructor.name);
+                }
             });
         });
     }

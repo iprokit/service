@@ -114,13 +114,18 @@ export default class CommBroker implements Component {
         paths.forEach((path: string) => {
             let publisherPaths = Utility.getFilePaths(path, likeName, excludes);
             publisherPaths.forEach(publisherPath => {
-                const Publisher = require(publisherPath).default;
-                const publisher = new Publisher();
+                const _Publisher = require(publisherPath).default;
 
-                console.log('Mapping publishers: %s', publisher.constructor.name);
-
-                //Add to Array
-                this.publishers.push(publisher);
+                if(_Publisher.prototype instanceof Publisher){
+                    const publisher: typeof Publisher = new _Publisher();
+    
+                    console.log('Mapping publisher: %s', publisher.constructor.name);
+    
+                    //Add to Array
+                    this.publishers.push(publisher);
+                }else{
+                    console.log('Could not map publisher: %s', _Publisher.constructor.name);
+                }
             });
         });
     }

@@ -18,6 +18,7 @@ export type InitOptions = {
 export default abstract class NoSQLModel {
     public static entityOptions: EntityOptions;
 
+    private static mongoose: Mongoose;
     private static model: Model<Document>;
 
     /////////////////////////
@@ -36,7 +37,8 @@ export default abstract class NoSQLModel {
             }
         });
 
-        this.model = options.mongoose.model(options.modelName, schema, options.collectionName);
+        this.mongoose = options.mongoose;
+        this.model = this.mongoose.model(options.modelName, schema, options.collectionName);
     }
 
     /////////////////////////

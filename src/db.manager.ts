@@ -164,6 +164,9 @@ export default class DBManager implements Component {
             //Init Connection
             this.initRDBConnection(this.initOptions.type);
 
+            //Load models
+            this.autoWireModels(this.initOptions.autoWireModels);
+
             //Sync Endpoint.
             Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
@@ -172,12 +175,12 @@ export default class DBManager implements Component {
 
             //Init Connection
             this.initNoSQLConnection();
+
+            //Load models
+            this.autoWireModels(this.initOptions.autoWireModels);
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
-
-        //Load models
-        this.autoWireModels(this.initOptions.autoWireModels);
     }
 
     private initRDBConnection(dialect: RDBType){
@@ -227,16 +230,21 @@ export default class DBManager implements Component {
         paths.forEach((path: string) => {
             let modelFiles = Utility.getFilePaths(path, likeName, excludes);
             modelFiles.forEach(modelFile => {
-                const model = require(modelFile).default;
+                const _Model = require(modelFile).default;
 
-                if(model.prototype instanceof RDBModel){
-                    this.initRDBModel(model);
-                }else if(model.prototype instanceof NoSQLModel){
-                    this.initNoSQLModel(model);
+                if(_Model.prototype instanceof RDBModel && this.rdb){
+                    this.initRDBModel(_Model);
+
+                    //Add to Array
+                    this.rdbModels.push(_Model);
+                }else if(_Model.prototype instanceof NoSQLModel && this.noSQL){
+                    this.initNoSQLModel(_Model);
+
+                    //Add to Array
+                    this.rdbModels.push(_Model);
+                }else{
+                    console.log('Could not initiatize model: %s', _Model.constructor.name);
                 }
-
-                //Add to Array
-                this.rdbModels.push(model);
             });
         });
 
@@ -345,6 +353,7 @@ export default class DBManager implements Component {
             if(this.rdb){
                 rdbConnection.close()
                     .then(() => {
+                        this.connected = false; //Connected Flag
                         resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
@@ -352,6 +361,7 @@ export default class DBManager implements Component {
             }else if(this.noSQL){
                 noSQLConnection.close()
                     .then(() => {
+                        this.connected = false; //Connected Flag
                         resolve();
                     }).catch((error) => {
                         reject(error);//Pass other errors.
