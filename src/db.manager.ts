@@ -301,6 +301,7 @@ export default class DBManager implements Component {
             mongoose: mongoose,
             timestamps: paperTrail
         });
+        model.hooks();
     }
 
     /////////////////////////
@@ -377,8 +378,20 @@ export default class DBManager implements Component {
 ///////Error Classes
 /////////////////////////
 export class InvalidConnectionOptionsError extends Error {
-    constructor (message: string) {
+    constructor(message: string) {
         super(message);
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
+}
+
+export class NoRecordsFoundError extends Error {
+    constructor() {
+        super('No records found!');
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

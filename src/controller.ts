@@ -6,10 +6,10 @@ export default class Controller {
     //Default Constructor
     public constructor(){}
 
-    public getOneByID(model: any, request: Request, response: Response) {
-        model.getOneByID(request.params.id)
-            .then((data: any) => {
-                response.status(httpStatus.OK).send({ status: true, data: data });
+    public create(model: any, request: Request, response: Response) {
+        model.create(request.body)
+            .then(() => {
+                response.status(httpStatus.CREATED).send({ status: true, message: 'Created!' });
             })
             .catch((error: any) => {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
@@ -36,10 +36,10 @@ export default class Controller {
             });
     };
 
-    public create(model: any, request: Request, response: Response) {
-        model.create(request.body)
-            .then(() => {
-                response.status(httpStatus.CREATED).send({ status: true, message: 'Created!' });
+    public getOneByID(model: any, request: Request, response: Response) {
+        model.getOneByID(request.params.id)
+            .then((data: any) => {
+                response.status(httpStatus.OK).send({ status: true, data: data });
             })
             .catch((error: any) => {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });

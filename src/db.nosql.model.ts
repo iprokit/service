@@ -2,7 +2,7 @@
 import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document } from 'mongoose';
 
 //Local Imports
-import { EntityOptions } from './db.manager';
+import { EntityOptions, NoRecordsFoundError } from './db.manager';
 
 //Export model Types.
 export const NoSQLTypes: typeof Schema.Types = Schema.Types;
@@ -18,8 +18,74 @@ export type InitOptions = {
 export default abstract class NoSQLModel {
     public static entityOptions: EntityOptions;
 
-    private static mongoose: Mongoose;
-    private static model: Model<Document>;
+    public static mongoose: Mongoose;
+    public static model: Model<Document>;
+
+    /////////////////////////
+    ///////DAO's
+    /////////////////////////
+    public static async create(...docs: any[]){
+        return await this.model.create(docs);
+    }
+
+    public static async getAll(){
+        return await this.model.find();
+    }
+    
+    public static async getAllOrderByCreatedAt(orderType: string){
+        if(orderType === 'new'){
+            return await this.model.find().sort({createdAt: -1});
+        } else if(orderType === 'old'){
+            return await this.model.find().sort({createdAt: 1});
+        }
+    }
+
+    public static async getOneByID(id: any){
+        return await this.model.findOne({_id: id})
+            .then(async data => {
+                if(data){
+                    return data
+                }else{
+                    throw new NoRecordsFoundError();
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
+    }
+
+    public static async updateOneByID(id: any, update: any){
+        return await this.model.updateOne({_id: id}, update)
+            .then(async affectedRows => {
+                if (affectedRows.n === 0 && affectedRows.nModified === 0) {
+                    throw new NoRecordsFoundError();
+                }else{
+                    return true;
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
+    }
+
+    public static async deleteOneByID(id: any){
+        return await this.model.deleteOne({_id: id})
+            .then(async affectedRows => {
+                if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
+                    throw new NoRecordsFoundError();
+                }else{
+                    return true;
+                }
+            })
+            .catch(error => {
+                throw error;
+            });
+    }
+
+    /////////////////////////
+    ///////Properties
+    /////////////////////////
+    public static hooks() {}
 
     /////////////////////////
     ///////init Functions
@@ -61,80 +127,11 @@ export default abstract class NoSQLModel {
             }
         }
     }
-
-    /////////////////////////
-    ///////DAO's
-    /////////////////////////
-    public static async create(...docs: any[]){
-        return await this.model.create(docs);
-    }
-    
-    public static async getAllOrderByCreatedAt(orderType: string){
-        if(orderType === 'new'){
-            return await this.model.find().sort({createdAt: -1});
-        } else if(orderType === 'old'){
-            return await this.model.find().sort({createdAt: 1});
-        }
-    }
-
-    public static async getAll(){
-        return await this.model.find();
-    }
-
-    public static async getOne(conditions: any){
-        this.transformConditions(conditions);
-        return await this.model.findOne(conditions)
-            .then(async data => {
-                if(data){
-                    return data
-                }else{
-                    throw new Error('No records found!');
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
-    }
-
-    public static async updateOne(conditions: any, doc: any){
-        this.transformConditions(conditions);
-        return await this.model.updateOne(conditions, doc)
-            .then(async affectedRows => {
-                if (affectedRows.n === 0 && affectedRows.nModified === 0) {
-                    throw new Error('No records found!');
-                }else{
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
-    }
-
-    public static async deleteOne(conditions: any){
-        this.transformConditions(conditions);
-        return await this.model.deleteOne(conditions)
-            .then(async affectedRows => {
-                if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
-                    throw new Error('No records found!');
-                }else{
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
-    }
-
-    public static async getOneByID(id: any){
-        return await this.getOne({id: id});
-    }
-
-    public static async updateOneByID(id: any, update: any){
-        return await this.updateOne({id: id}, update);
-    }
-
-    public static async deleteOneByID(id: any){
-        return await this.deleteOne({id: id});
-    }
 }
+
+//Add pagenations
+
+// public static async getOne(conditions: any){
+//     this.transformConditions(conditions);
+//     //Do Something.
+// }

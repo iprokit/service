@@ -11,15 +11,12 @@ export default class RDBModel extends Model {
     public static entityOptions: EntityOptions;
 
     /////////////////////////
-    ///////Properties
-    /////////////////////////
-    public static associate() {}
-
-    public static hooks() {}
-
-    /////////////////////////
     ///////DAO's
     /////////////////////////
+    public static async getAll(){
+        return await this.findAll();
+    }
+
     public static async getAllOrderByCreatedAt(orderType: string){
         if(orderType === 'new'){
             return await this.findAll({order: [['createdAt', 'DESC']]});
@@ -27,12 +24,6 @@ export default class RDBModel extends Model {
             return await this.findAll({order: [['createdAt', 'ASC']]});
         }
     }
-
-    public static async getAll(){
-        return await this.findAll();
-    }
-
-    //TODO: Add getRecord() and call findOne
 
     public static async getOneByID(id: any){
         return await this.findByPk(id)
@@ -48,8 +39,8 @@ export default class RDBModel extends Model {
             });
     }
 
-    public static async updateOne(data: any, where: any){
-        return await this.update(data, { where: where, individualHooks: true})
+    public static async updateOneByID(id: any, data: any){
+        return await this.update(data, {where: {id: id}, individualHooks: true})
             .then(async affectedRows => {
                 if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
                     throw new Error('No records found!');
@@ -61,12 +52,6 @@ export default class RDBModel extends Model {
                 throw error;
             });
     }
-
-    public static async updateOneByID(id: any, data: any){
-        return await this.updateOne(data, {id: id});
-    }
-
-    //TODO: Add deleteOne
 
     public static async deleteOneByID(id: any){
         return await this.destroy({where: { id: id }, individualHooks: true})
@@ -82,5 +67,12 @@ export default class RDBModel extends Model {
             });
     }
 
-    //TODO: Add pagenations
+    /////////////////////////
+    ///////Properties
+    /////////////////////////
+    public static hooks() {}
+
+    public static associate() {}
 }
+
+//Add pagenations
