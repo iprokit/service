@@ -2,7 +2,6 @@ declare global {
     namespace NodeJS {
         interface Global {
             service: {
-                id: string,
                 name: string,
                 version: string,
                 expressPort: number,
@@ -21,7 +20,6 @@ import { Server } from 'http';
 import cors from 'cors';
 import httpStatus from 'http-status-codes';
 import createError from 'http-errors';
-import uuid from 'uuid/v1';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -63,7 +61,6 @@ export type CommOptions = {
 
 //Types: MicroServiceOptions
 export type MicroServiceOptions = {
-    id: string,
     name: string,
     version: string,
     expressPort: number,
@@ -127,8 +124,6 @@ export default class MicroService {
         if(this.initOptions.db !== undefined){
             this.initDB(this.initOptions.db);
         }
-
-        //TODO: Parallel load mesh, broker, db
 
         //Load Comm
         commBroker = new CommBroker();
@@ -210,7 +205,6 @@ export default class MicroService {
     private loadServiceOptions(){
         //Try loading options from package.json and process.env
         this.options = {
-            id: uuid(),
             name: this.initOptions.name || process.env.npm_package_name,
             version: this.initOptions.version || process.env.npm_package_version,
             expressPort: Number(process.env.EXPRESS_PORT) || 3000,
@@ -223,7 +217,6 @@ export default class MicroService {
     private loadGlobalOptions(){
         //Adding service variables to global.
         global.service = {
-            id: this.options.id,
             name: this.options.name,
             version: this.options.version,
             expressPort: this.options.expressPort,
@@ -314,7 +307,6 @@ export default class MicroService {
     /////////////////////////
     private startService() {
         const options = {
-            id: this.options.id,
             version: this.options.version,
             environment: this.options.environment
         }
@@ -323,7 +315,7 @@ export default class MicroService {
 
         //Parallel starting all components.
         const server = expressApp.listen(this.options.expressPort, () => {
-            this.addExpressListeners(server);//Attaching listeners
+            this.addExpressListeners(server);//Attach listeners
             console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
         });
 

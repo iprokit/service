@@ -69,7 +69,6 @@ export default abstract class NoSQLModel {
         return await this.model.create(docs);
     }
     
-    //TODO: Need to remove this function in coming versions.
     public static async getAllOrderByCreatedAt(orderType: string){
         if(orderType === 'new'){
             return await this.model.find().sort({createdAt: -1});

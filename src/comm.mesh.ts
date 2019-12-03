@@ -93,14 +93,18 @@ export default class CommMesh implements Component {
     /////////////////////////
     public connect(){
         return new Promise((resolve, reject) => {
-            this.nodes.forEach((node, index) => {
-                node.connect()
-                    .then(() => {
-                        if(this.nodes.length === index + 1){
-                            resolve();
-                        }
-                    })
-            });
+            if(this.nodes.length > 0){
+                this.nodes.forEach((node, index) => {
+                    node.connect()
+                        .then(() => {
+                            if(this.nodes.length === index + 1){
+                                resolve();
+                            }
+                        })
+                });
+            }else{
+                resolve();
+            }
         });
     }
 
