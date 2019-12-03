@@ -302,6 +302,22 @@ export class Publisher {
 }
 
 /////////////////////////
+///////Transaction Classes
+/////////////////////////
+export class Transaction {
+    //TODO: Start work from here for transaction.
+    public start(){
+
+    }
+    public commit(){
+
+    }
+    public rollback(){
+        
+    }
+}
+
+/////////////////////////
 ///////Error Classes
 /////////////////////////
 class ReplySentWarning extends Error{

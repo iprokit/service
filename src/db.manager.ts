@@ -357,7 +357,7 @@ export default class DBManager implements Component {
 /////////////////////////
 ///////Error Classes
 /////////////////////////
-export class InvalidConnectionOptionsError extends Error{
+export class InvalidConnectionOptionsError extends Error {
     constructor (message: string) {
         super(message);
         
