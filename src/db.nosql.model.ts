@@ -1,5 +1,5 @@
 //Import modules
-import Mongoose, { Model, Schema, SchemaDefinition, Document } from 'mongoose';
+import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document } from 'mongoose';
 
 //Local Imports
 import { EntityOptions } from './db.manager';
@@ -10,7 +10,9 @@ export const NoSQLTypes: typeof Schema.Types = Schema.Types;
 //Types: InitOptions
 export type InitOptions = {
     collectionName: string,
-    timestamps: boolean
+    modelName: string,
+    mongoose: Mongoose,
+    timestamps: boolean,
 }
 
 export default abstract class NoSQLModel {
@@ -34,7 +36,7 @@ export default abstract class NoSQLModel {
             }
         });
 
-        this.model = Mongoose.model(options.collectionName, schema);
+        this.model = options.mongoose.model(options.modelName, schema, options.collectionName);
     }
 
     /////////////////////////

@@ -1,6 +1,6 @@
 //Import modules
 import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import Mongoose from 'mongoose';
+import mongoose, { Connection as Mongoose } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
@@ -44,7 +44,7 @@ export type EntityOptions = {
     
 //Connection Objects
 let rdbConnection: Sequelize;
-let noSQLConnection: typeof Mongoose;
+let noSQLConnection: Mongoose;
 
 export default class DBManager implements Component {
     //Options
@@ -94,7 +94,7 @@ export default class DBManager implements Component {
         if(this.rdb){
             return rdbConnection;
         }else if(this.noSQL){
-            return noSQLConnection.connection;
+            return noSQLConnection;
         }
     }
 
@@ -197,8 +197,23 @@ export default class DBManager implements Component {
     }
 
     private initNoSQLConnection(){
-        //Load Mongoose
-        noSQLConnection = Mongoose
+        if(this.connectionOptions.name !== undefined){
+            try{
+                //Load Mongoose
+                const uri = 'mongodb://' + this.connectionOptions.host;
+                const options = {
+                    dbName: this.connectionOptions.name,
+                    user: this.connectionOptions.username,
+                    pass: this.connectionOptions.password,
+                    useNewUrlParser: true
+                }
+                noSQLConnection = mongoose.createConnection(uri, options);
+            }catch(error){
+                throw error; //Pass other errors.
+            }
+        }else{
+            throw new InvalidConnectionOptionsError('Invalid Database Name provided in .env.');
+        }
     }
 
     /////////////////////////
@@ -237,6 +252,8 @@ export default class DBManager implements Component {
         }
     }
 
+    //TODO: Add createdby and updatedby in model inits(). If add is not required combine initRDBModel() and initNoSQLModel()
+
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
         const paperTrail = this.initOptions.paperTrail;
@@ -244,8 +261,6 @@ export default class DBManager implements Component {
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
-
-        //TODO: add createdby and updatedby
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
@@ -263,11 +278,10 @@ export default class DBManager implements Component {
     private initNoSQLModel(model: typeof NoSQLModel){
         //Get data from model object.
         const paperTrail = this.initOptions.paperTrail;
+        const mongoose = noSQLConnection;
         const modelName = model.name.replace('Model', '');
         const collectionName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
-
-        //TODO: add createdby and updatedby
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, collectionName);
@@ -275,6 +289,8 @@ export default class DBManager implements Component {
         //Initializing model
         model.init(attributes, {
             collectionName: collectionName,
+            modelName: modelName,
+            mongoose: mongoose,
             timestamps: paperTrail
         });
     }
@@ -304,27 +320,20 @@ export default class DBManager implements Component {
                         }
                     });
             }else if(this.noSQL){
-                const uri = 'mongodb://' + this.connectionOptions.host;
-                const options = {
-                    dbName: this.connectionOptions.name,
-                    user: this.connectionOptions.username,
-                    pass: this.connectionOptions.password,
-                    useNewUrlParser: true
-                }
-                noSQLConnection.connect(uri, options)
-                    .then(() => {
-                        this.connected = true; //Connected Flag 
-                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
-                    }).catch((error) => {
-                        this.connected = false; //Connected Flag 
-                        if(error.message.includes('Authentication failed')){
-                            reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
-                        }else if(error.message.includes('getaddrinfo ENOTFOUND')){
-                            reject(new InvalidConnectionOptionsError('Invalid database host.'));
-                        }else{
-                            reject(error);//Pass other errors.
-                        }
-                    })
+                noSQLConnection.on('connected', (error) => {
+                    this.connected = true; //Connected Flag 
+                    resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                });
+                noSQLConnection.on('error', (error) => {
+                    this.connected = false; //Connected Flag
+                    if(error.message.includes('Authentication failed')){
+                        reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
+                    }else if(error.message.includes('getaddrinfo ENOTFOUND')){
+                        reject(new InvalidConnectionOptionsError('Invalid database host.'));
+                    }else{
+                        reject(error);//Pass other errors.
+                    }
+                });
             }else{
                 resolve();
             }
@@ -341,7 +350,7 @@ export default class DBManager implements Component {
                         reject(error);//Pass other errors.
                     });
             }else if(this.noSQL){
-                noSQLConnection.disconnect()
+                noSQLConnection.close()
                     .then(() => {
                         resolve();
                     }).catch((error) => {

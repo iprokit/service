@@ -399,6 +399,14 @@ export class Reply implements IReply{
 }
 
 /////////////////////////
+///////Alias
+/////////////////////////
+//Holds subscribers.
+export class Alias {
+    name: string;
+}
+
+/////////////////////////
 ///////Subscriber
 /////////////////////////
 export class Subscriber {
@@ -409,13 +417,6 @@ export class Subscriber {
         this.name = name;
         this.node = node;
     }
-}
-
-/////////////////////////
-///////Alias
-/////////////////////////
-export class Alias {
-    name: string;
 }
 
 /////////////////////////
