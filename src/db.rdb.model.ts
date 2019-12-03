@@ -1,5 +1,5 @@
 //Import modules
-import {Model, DataTypes, Op as Operation, ModelAttributes, InitOptions} from 'sequelize';
+import {Model, DataTypes, Op as Operation} from 'sequelize';
 
 //Local Imports
 import { EntityOptions } from './db.manager';

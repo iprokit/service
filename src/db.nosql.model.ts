@@ -4,14 +4,14 @@ import Mongoose, { Model, Schema, SchemaDefinition, Document } from 'mongoose';
 //Local Imports
 import { EntityOptions } from './db.manager';
 
+//Export model Types.
+export const NoSQLTypes: typeof Schema.Types = Schema.Types;
+
 //Types: InitOptions
 export type InitOptions = {
     collectionName: string,
     timestamps: boolean
 }
-
-//Export model Types.
-export const NoSQLTypes: typeof Schema.Types = Schema.Types;
 
 export default abstract class NoSQLModel {
     public static entityOptions: EntityOptions;

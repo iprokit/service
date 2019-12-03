@@ -1,12 +1,12 @@
 //Import modules
-import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError, ModelAttributes } from 'sequelize';
-import mongoose from 'mongoose';
+import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
+import Mongoose from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
 //Local Imports
 import { Component, Post } from './microservice';
-import RDBModel, { RDBTypes } from './db.rdb.model';
+import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
 
@@ -44,6 +44,9 @@ export type EntityOptions = {
     
 //Connection Objects
 let rdbConnection: Sequelize;
+let noSQLConnection: typeof Mongoose;
+
+//TODO: Export Sequelize functions fn, where and so on.
 
 export default class DBManager implements Component {
     //Options
@@ -93,7 +96,7 @@ export default class DBManager implements Component {
         if(this.RDB){
             return rdbConnection;
         }else if(this.NoSQL){
-            return mongoose.connection;
+            return noSQLConnection.connection;
         }
     }
 
@@ -155,7 +158,7 @@ export default class DBManager implements Component {
         //Init DBController and inject endpoints.
         const dbController = new DBController();
 
-        //Try loading a db based on type.
+        //Try loading a db connection based on type.
         if(this.initOptions.type === 'mysql'){
             //Set DB type
             this.RDB = true;
@@ -168,6 +171,9 @@ export default class DBManager implements Component {
         }else if(this.initOptions.type === 'mongo'){
             //Set DB type
             this.NoSQL = true;
+
+            //Init Connection
+            this.initNoSQLConnection();
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
@@ -190,6 +196,11 @@ export default class DBManager implements Component {
         }else{
             throw new InvalidConnectionOptionsError('Invalid Database Name provided in .env.');
         }
+    }
+
+    private initNoSQLConnection(){
+        //Load Mongoose
+        noSQLConnection = Mongoose
     }
 
     /////////////////////////
@@ -235,6 +246,8 @@ export default class DBManager implements Component {
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
+
+        //TODO: add createdby and updatedby
 
         //Logging the model before
         console.log('Initiating model: %s(%s)', modelName, tableName);
@@ -300,7 +313,7 @@ export default class DBManager implements Component {
                     pass: this.connectionOptions.password,
                     useNewUrlParser: true
                 }
-                mongoose.connect(uri, options)
+                noSQLConnection.connect(uri, options)
                     .then(() => {
                         this.connected = true; //Connected Flag 
                         resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
@@ -330,7 +343,7 @@ export default class DBManager implements Component {
                         reject(error);//Pass other errors.
                     });
             }else if(this.NoSQL){
-                mongoose.disconnect()
+                noSQLConnection.disconnect()
                     .then(() => {
                         resolve();
                     }).catch((error) => {
