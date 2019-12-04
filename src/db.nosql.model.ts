@@ -22,7 +22,7 @@ export default abstract class NoSQLModel {
     public static model: Model<Document>;
 
     /////////////////////////
-    ///////DAO's
+    ///////DAO's - Basic
     /////////////////////////
     public static async create(...docs: any[]){
         return await this.model.create(docs);

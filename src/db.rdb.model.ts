@@ -11,7 +11,7 @@ export default class RDBModel extends Model {
     public static entityOptions: EntityOptions;
 
     /////////////////////////
-    ///////DAO's
+    ///////DAO's - Basic
     /////////////////////////
     public static async getAll(){
         return await this.findAll();
