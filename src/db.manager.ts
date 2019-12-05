@@ -10,7 +10,8 @@ import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
 
-//RDB & NoSQL Types.
+//DB Types.
+export type DBTypes = RDBType| NoSQLType
 export type RDBType = 'mysql';
 export type NoSQLType = 'mongo';
 
@@ -24,7 +25,7 @@ export type DBConnectionOptions = {
 
 //Types: DBInitOptions
 export type DBInitOptions = {
-    type: NoSQLType | RDBType,
+    type: DBTypes,
     autoWireModels: AutoWireOptions,
     paperTrail: boolean
 };
