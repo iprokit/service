@@ -43,7 +43,7 @@ export type MicroServiceInitOptions = {
     url?: string,
     db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
-    comm?: CommOptions
+    autoInjectPublishers?: AutoInjectPublisherOptions
 }
 
 //Types: AutoInjectControllerOptions
@@ -52,12 +52,6 @@ export type AutoInjectControllerOptions = {
     likeName?: string,
     excludes?: Array<string>
 };
-
-//Types: CommOptions
-export type CommOptions = {
-    autoInjectPublishers?: AutoInjectPublisherOptions,
-    mesh: Array<string>
-}
 
 //Types: MicroServiceOptions
 export type MicroServiceOptions = {
@@ -91,9 +85,9 @@ export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) =
 //Global Objects
 const expressApp = express();
 const expressRouter = express.Router();
-let dbManager: DBManager;
 let commBroker: CommBroker;
 let commMesh: CommMesh;
+let dbManager: DBManager;
 
 export default class MicroService {
     //Options
@@ -119,17 +113,17 @@ export default class MicroService {
         //Load user functions
         this.init();
 
+        //Load Comm
+        commBroker = new CommBroker();
+        commMesh = new CommMesh();
+        if(this.initOptions.autoInjectPublishers !== undefined){
+            commBroker.init({autoInjectPublishers: this.initOptions.autoInjectPublishers});
+        }
+
         //Load DB
         dbManager = new DBManager();
         if(this.initOptions.db !== undefined){
             this.initDB(this.initOptions.db);
-        }
-
-        //Load Comm
-        commBroker = new CommBroker();
-        commMesh = new CommMesh();
-        if(this.initOptions.comm !== undefined){
-            this.initComm(this.initOptions.comm);
         }
 
         //Inject Controllers
@@ -268,11 +262,6 @@ export default class MicroService {
             }
             console.log('Will continue...');
         }
-    }
-
-    private initComm(commOptions: CommOptions){
-        commBroker.init({autoInjectPublishers: commOptions.autoInjectPublishers});
-        commMesh.init({mesh: commOptions.mesh});
     }
 
     /////////////////////////
@@ -428,8 +417,8 @@ export interface Component {
 /////////////////////////
 ///////getNode Functions
 /////////////////////////
-export function getNode(name: string): Alias {
-    return commMesh.getNodeAlias(name);
+export function getNode(url: string): Alias {
+    return commMesh.getNodeAlias(url);
 }
 
 /////////////////////////

@@ -14,15 +14,7 @@ export type ConnectionOptions = {
     url: string
 };
 
-//Types: CommMeshInitOptions
-export type CommMeshInitOptions = {
-    mesh: Array<string>
-}
-
 export default class CommMesh implements Component {
-    //Options
-    private initOptions: CommMeshInitOptions;
-
     //Nodes
     private nodes: Array<Node> = new Array<Node>();
 
@@ -36,18 +28,20 @@ export default class CommMesh implements Component {
         return this.nodes;
     }
 
-    public getNodeAlias(name: string){
-        const node = this.nodes.find(node => node.name === name);
+    public getNodeAlias(url: string){
+        //Try finding nodes.
+        let node = this.nodes.find(node => node.url === url);
 
-        if(node !== undefined){
-            return node.getAlias();
-        }else{
-            throw new Error('Invalid node. Node not defined as mesh.');
+        if(!node){
+            //No node found. creating a new node.
+            node = this.createNode(url);
         }
+
+        return node.getAlias();
     }
 
     public getOptions() {
-        return {initOptions: this.initOptions};
+        return {};
     }
 
     public getReport() {
@@ -66,26 +60,19 @@ export default class CommMesh implements Component {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(initOptions: CommMeshInitOptions){
-        //Load init options.
-        this.initOptions = initOptions;
-        this.initOptions.mesh = initOptions.mesh || [];
-
-        //Load Nodes
-        this.createNodes(this.initOptions.mesh);
-    }
+    public init(){}
 
     /////////////////////////
     ///////Map Functions
     /////////////////////////
-    private createNodes(hosts: Array<string>){
-        hosts.forEach(host => {
-            //Creating node object.
-            const node = new Node(host);
+    private createNode(host: string){
+        //Creating node object.
+        const node = new Node(host);
 
-            //Add to Array
-            this.nodes.push(node);
-        });
+        //Add to Array
+        this.nodes.push(node);
+
+        return node;
     }
 
     /////////////////////////
@@ -127,8 +114,8 @@ export default class CommMesh implements Component {
 }
 
 export class Node {
-    //Default Name.
-    public readonly name: string;
+    //url = host+port
+    public readonly url: string;
 
     //Options
     private connectionOptions: ConnectionOptions;
@@ -146,7 +133,7 @@ export class Node {
 
     //Default Constructor
     constructor(host: string){
-        this.name = host;
+        this.url = host;
 
         //Split url into host and port.
         const _url = host.split(':');

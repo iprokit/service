@@ -4,15 +4,16 @@ import { RequestOptions } from 'https';
 
 //Local Imports
 import Utility from './utility';
-import MicroService, { AutoInjectControllerOptions, CommOptions } from "./microservice";
+import MicroService, { AutoInjectControllerOptions } from "./microservice";
 import { DBInitOptions } from "./db.manager";
+import { AutoInjectPublisherOptions } from './comm.broker';
 
 //Types: MicroServiceInitOptions
 export type GatewayInitOptions = {
     version?: string,
     db?: DBInitOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
-    comm?: CommOptions
+    autoInjectPublishers?: AutoInjectPublisherOptions
 }
 
 export default class Gateway extends MicroService {
@@ -27,7 +28,7 @@ export default class Gateway extends MicroService {
             url: '/api',
             db: options.db,
             autoInjectControllers: options.autoInjectControllers,
-            comm: options.comm
+            autoInjectPublishers: options.autoInjectPublishers
         });
     }
 
