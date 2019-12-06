@@ -113,20 +113,20 @@ export default class MicroService {
         //Load user functions
         this.init();
 
-        //Load Comm
+        //load components.
         commBroker = new CommBroker();
         commMesh = new CommMesh();
-        if(this.initOptions.autoInjectPublishers !== undefined){
-            commBroker.init({autoInjectPublishers: this.initOptions.autoInjectPublishers});
-        }
-
-        //Load DB
         dbManager = new DBManager();
+
+        //Init Components.
         if(this.initOptions.db !== undefined){
             this.initDB(this.initOptions.db);
         }
 
-        //Inject Controllers
+        if(this.initOptions.autoInjectPublishers !== undefined){
+            commBroker.init({autoInjectPublishers: this.initOptions.autoInjectPublishers});
+        }
+
         if(this.initOptions.autoInjectControllers !== undefined){
             this.autoInjectControllers(this.initOptions.autoInjectControllers);
         }
