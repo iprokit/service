@@ -120,11 +120,22 @@ export default class MicroService {
 
         //Init Components.
         if(this.initOptions.db !== undefined){
-            this.initDB(this.initOptions.db);
+            try{
+                //Init sequelize
+                dbManager.init(this.initOptions.db);
+            }catch(error){
+                if(error instanceof InvalidConnectionOptionsError){
+                    console.log(error.message);
+                }else{
+                    console.error(error);
+                }
+                console.log('Will continue...');
+            }
+            dbManager.autoWireModels(this.initOptions.db.autoWireModels);
         }
 
         if(this.initOptions.autoInjectPublishers !== undefined){
-            commBroker.init({autoInjectPublishers: this.initOptions.autoInjectPublishers});
+            commBroker.autoInjectPublishers(this.initOptions.autoInjectPublishers);
         }
 
         if(this.initOptions.autoInjectControllers !== undefined){
@@ -248,20 +259,6 @@ export default class MicroService {
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
         });
-    }
-
-    private initDB(dbOptions: DBInitOptions){
-        try{
-            //Init sequelize
-            dbManager.init(dbOptions);
-        }catch(error){
-            if(error instanceof InvalidConnectionOptionsError){
-                console.log(error.message);
-            }else{
-                console.error(error);
-            }
-            console.log('Will continue...');
-        }
     }
 
     /////////////////////////
@@ -409,7 +406,6 @@ export default class MicroService {
 ///////Component
 /////////////////////////
 export interface Component {
-    init(initOptions: any): void;
     getOptions(): any;
     getReport(): any;
 }

@@ -58,11 +58,6 @@ export default class CommMesh implements Component {
     }
 
     /////////////////////////
-    ///////init Functions
-    /////////////////////////
-    public init(){}
-
-    /////////////////////////
     ///////Map Functions
     /////////////////////////
     private createNode(host: string){

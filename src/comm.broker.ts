@@ -9,11 +9,6 @@ import Utility from './utility';
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
 
-//Types: CommBrokerInitOptions
-export type CommBrokerInitOptions = {
-    autoInjectPublishers: AutoInjectPublisherOptions
-};
-
 //Types: ConnectionOptions
 export type ConnectionOptions = {
     name: string,
@@ -28,8 +23,6 @@ export type AutoInjectPublisherOptions = {
 };
 
 export default class CommBroker implements Component {
-    //Options
-    private initOptions: CommBrokerInitOptions;
     private connectionOptions: ConnectionOptions;
 
     //Mosca Server
@@ -67,7 +60,7 @@ export default class CommBroker implements Component {
     }
 
     public getOptions() {
-        return {connectionOptions: this.connectionOptions, initOptions: this.initOptions};
+        return {connectionOptions: this.connectionOptions};
     }
 
     public getReport(){
@@ -92,21 +85,9 @@ export default class CommBroker implements Component {
     }
 
     /////////////////////////
-    ///////init Functions
-    /////////////////////////
-    public init(initOptions: CommBrokerInitOptions){
-        //Load init options.
-        this.initOptions = initOptions;
-        this.initOptions.autoInjectPublishers = initOptions.autoInjectPublishers || {}
-
-        //Load Publishers
-        this.autoInjectPublishers(this.initOptions.autoInjectPublishers);
-    }
-
-    /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    private autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+    public autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'publisher.js';
         const excludes = autoInjectOptions.excludes || [];

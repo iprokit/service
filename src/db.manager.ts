@@ -11,7 +11,7 @@ import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
 
 //DB Types.
-export type DBTypes = RDBType| NoSQLType
+export type DBTypes = RDBType | NoSQLType;
 export type RDBType = 'mysql';
 export type NoSQLType = 'mongo';
 
@@ -26,8 +26,8 @@ export type DBConnectionOptions = {
 //Types: DBInitOptions
 export type DBInitOptions = {
     type: DBTypes,
-    autoWireModels: AutoWireOptions,
-    paperTrail: boolean
+    paperTrail: boolean,
+    autoWireModels: AutoWireOptions
 };
 
 //Types: AutoWireOptions
@@ -151,8 +151,8 @@ export default class DBManager implements Component {
     public init(initOptions: DBInitOptions){
         //Load init options.
         this.initOptions = initOptions;
-        this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
         this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true: this.initOptions.paperTrail;
+        this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
 
         //Init DBController and inject endpoints.
         const dbController = new DBController();
@@ -165,9 +165,6 @@ export default class DBManager implements Component {
             //Init Connection
             this.initRDBConnection(this.initOptions.type);
 
-            //Load models
-            this.autoWireModels(this.initOptions.autoWireModels);
-
             //Sync Endpoint.
             Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
         }else if(this.initOptions.type === 'mongo'){
@@ -176,9 +173,6 @@ export default class DBManager implements Component {
 
             //Init Connection
             this.initNoSQLConnection();
-
-            //Load models
-            this.autoWireModels(this.initOptions.autoWireModels);
         }else {
             throw new InvalidConnectionOptionsError('Invalid Database type provided.')
         }
@@ -223,7 +217,7 @@ export default class DBManager implements Component {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    private autoWireModels(autoWireModels: AutoWireOptions){
+    public autoWireModels(autoWireModels: AutoWireOptions){
         let paths = autoWireModels.paths || ['/'];
         const likeName = autoWireModels.likeName || 'model.js';
         const excludes = autoWireModels.excludes || [];
@@ -252,9 +246,6 @@ export default class DBManager implements Component {
         //Associate models
         if(this.rdb){
             this.rdbModels.forEach(model => {
-                //Logging the model before
-                console.log('Associating model: %s', model.name);
-        
                 //Associating model
                 model.associate();
             });
