@@ -113,7 +113,7 @@ export default class MicroService {
         //Load user functions
         this.init();
 
-        //load components.
+        //Load components.
         commBroker = new CommBroker();
         commMesh = new CommMesh();
         dbManager = new DBManager();
