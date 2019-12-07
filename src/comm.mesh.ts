@@ -3,23 +3,21 @@ import mqtt, { MqttClient } from 'mqtt'
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component } from './microservice';
+import { Component, Defaults } from './microservice';
 import Utility from './utility';
 
-//Types: ConnectionOptions
-export type ConnectionOptions = {
-    name: string,
-    host: string,
-    port: number,
-    url: string
-};
-
 export default class CommMesh implements Component {
+    //Mesh Variables.
+    private serviceName: string;
+
     //Nodes
-    private nodes: Array<Node> = new Array<Node>();
+    private readonly nodes: Array<Node>;
 
     //Default Constructor
-    constructor(){}
+    constructor(){
+        //Init variables.
+        this.nodes = new Array();
+    }
 
     /////////////////////////
     ///////Gets/Sets
@@ -40,10 +38,6 @@ export default class CommMesh implements Component {
         return node.getAlias();
     }
 
-    public getOptions() {
-        return {};
-    }
-
     public getReport() {
         let nodes = new Array();
 
@@ -60,9 +54,9 @@ export default class CommMesh implements Component {
     /////////////////////////
     ///////Map Functions
     /////////////////////////
-    private createNode(host: string){
+    private createNode(url: string){
         //Creating node object.
-        const node = new Node(host);
+        const node = new Node(url);
 
         //Add to Array
         this.nodes.push(node);
@@ -73,11 +67,14 @@ export default class CommMesh implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public connect(){
+    public connect(serviceName: string){
         return new Promise((resolve, reject) => {
+            //Init connection variables
+            this.serviceName = serviceName;
+
             if(this.nodes.length > 0){
                 this.nodes.forEach((node, index) => {
-                    node.connect()
+                    node.connect(this.serviceName)
                         .then(() => {
                             if(this.nodes.length === index + 1){
                                 resolve();
@@ -109,46 +106,39 @@ export default class CommMesh implements Component {
 }
 
 export class Node {
-    //url = host+port
-    public readonly url: string;
-
-    //Options
-    private connectionOptions: ConnectionOptions;
+    //Node Variables.
+    public readonly url: string; //host+port
+    private readonly host: string;
+    private readonly port: number;
+    private serviceName: string;
 
     //MQTT Client
     private mqttClient: MqttClient;
     
     //Topic Objects
-    public readonly broadcastTopic = '/';
+    private readonly broadcastTopic: string;
     private topics: Array<string>;
-    private messageCallbackEvent: EventEmitter;
 
     //Alias
-    private alias: Alias;
+    private readonly alias: Alias;
+
+    //Message Events
+    private readonly messageCallbackEvent: EventEmitter;
 
     //Default Constructor
-    constructor(host: string){
-        this.url = host;
+    constructor(url: string){
+        //Init node variables.
+        this.url = url;
 
         //Split url into host and port.
-        const _url = host.split(':');
-        const _host = _url[0];
-        const _port = Number(_url[1]) || global.service.comBrokerPort;
+        const _url = this.url.split(':');
+        this.host = _url[0];
+        this.port = Number(_url[1]) || Defaults.COMM_PORT;
 
-        this.connectionOptions = {
-            name: global.service.name,
-            host: _host,
-            port: _port,
-            url: 'mqtt://' + _host + ':' + _port,
-        }
-
-        //Array of topics
-        this.topics = new Array<string>();
-
-        //Create alias object
+        //Init variables.
+        this.broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this.topics = new Array();
         this.alias = new Alias();
-
-        //Load message callback emitter.
         this.messageCallbackEvent = new EventEmitter();
     }
 
@@ -174,18 +164,14 @@ export class Node {
     public getAlias(){
         return this.alias;
     }
-
-    public getOptions() {
-        return {connectionOptions: this.connectionOptions};
-    }
     
     public getReport(){
         try{
             const report = {
                 init: {
                     broadcastTopic: this.broadcastTopic,
-                    host: this.connectionOptions.host,
-                    port: this.connectionOptions.port,
+                    host: this.host,
+                    port: this.port,
                     connected: this.connected,
                     reconnecting: this.reconnecting,
                     disconnected: this.disconnected
@@ -201,23 +187,25 @@ export class Node {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public connect(){
+    public connect(serviceName: string){
         return new Promise((resolve, reject) => {
-            //Set options
-            const options = {
-                id: this.connectionOptions.name,
-                keepalive: 30
-            };
+            //Init connection variables
+            this.serviceName = serviceName;
 
             //Init Connection object
-            this.mqttClient = mqtt.connect(this.connectionOptions.url, options);
+            const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
+            const options = {
+                id: this.serviceName,
+                keepalive: 30
+            };
+            this.mqttClient = mqtt.connect(mqttUrl, options);
 
             //Return.
             resolve();
     
             //mqttClient listeners.
             this.mqttClient.on('connect', () => {
-                console.log('Node: Connected to : %s', this.connectionOptions.url);
+                console.log('Node: Connected to : %s', this.url);
 
                 //Subscribe to all topics.
                 this.mqttClient.subscribe(this.broadcastTopic);
@@ -237,7 +225,7 @@ export class Node {
     public disconnect(){
         return new Promise((resolve, reject) => {
             this.mqttClient.end(false, () => {
-                console.log('Node: Disconnected from : %s', this.connectionOptions.url);
+                console.log('Node: Disconnected from : %s', this.url);
                 resolve();
             });
         });
@@ -312,7 +300,7 @@ export class Node {
                 //Sending message
                 this.sendMessage(topic, message);
             }else{
-                reject(new NodeUnavailableError(this.connectionOptions.host));
+                reject(new NodeUnavailableError(this.url));
             }
         });
     }

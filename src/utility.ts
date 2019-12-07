@@ -4,6 +4,9 @@ import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
 
+//Local Imports
+import { projectPath } from './microservice';
+
 export default class Utility {
     /////////////////////////
     ///////Network
@@ -24,7 +27,7 @@ export default class Utility {
         excludes.push('node_modules');
         excludes.push('git');
 
-        return(this.findFilePaths(global.projectPath + givenPath, likeName, excludes));
+        return(this.findFilePaths(projectPath + givenPath, likeName, excludes));
     }
 
     private static findFilePaths(givenPath: string, likeName: string, excludes: Array<string>) {

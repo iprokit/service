@@ -15,16 +15,8 @@ export type DBTypes = RDBType | NoSQLType;
 export type RDBType = 'mysql';
 export type NoSQLType = 'mongo';
 
-//Types: DBConnectionOptions
-export type DBConnectionOptions = {
-    name: string,
-    username: string,
-    password: string,
-    host: string
-}
-
-//Types: DBInitOptions
-export type DBInitOptions = {
+//Types: InitOptions
+export type InitOptions = {
     type: DBTypes,
     paperTrail: boolean
 };
@@ -47,24 +39,40 @@ let rdbConnection: Sequelize;
 let noSQLConnection: Mongoose;
 
 export default class DBManager implements Component {
-    //Options
-    private connectionOptions: DBConnectionOptions;
-    private initOptions: DBInitOptions;
+    //DB Variables.
+    private paperTrail: boolean;
+    private type: DBTypes;
+    private name: string;
+    private username: string;
+    private password: string;
+    private host: string;
 
     //DB Types
     private rdb: boolean;
     private noSQL: boolean;
 
     //Models
-    private readonly rdbModels = new Array<typeof RDBModel>();
-    private readonly noSQLModels = new Array<typeof NoSQLModel>();
+    private readonly rdbModels: Array<typeof RDBModel>;
+    private readonly noSQLModels: Array<typeof NoSQLModel>;
 
-    private connected: boolean = false;
+    private connected: boolean;
+
+    //DB Controller
+    private readonly dbController: DBController;
     
     //Default Constructor
     public constructor(){
-        //Load options
-        this.loadOptions();
+        //Init db variables from env.
+        this.host = process.env.DB_HOST || Utility.getHostIP();
+        this.name = process.env.DB_NAME;
+        this.username = process.env.DB_USERNAME;
+        this.password = process.env.DB_PASSWORD;
+
+        //Init variables.
+        this.rdbModels = new Array();
+        this.noSQLModels = new Array();
+        this.connected = false;
+        this.dbController = new DBController();
     }
 
     /////////////////////////
@@ -98,10 +106,6 @@ export default class DBManager implements Component {
         }
     }
 
-    public getOptions(){
-        return {connectionOptions: this.connectionOptions, initOptions: this.initOptions};
-    }
-
     public getReport(){
         try{
             let _models;
@@ -118,9 +122,9 @@ export default class DBManager implements Component {
 
             const report = {
                 init: {
-                    name: this.connectionOptions.name,
-                    host: this.connectionOptions.host,
-                    type: this.initOptions.type,
+                    name: this.name,
+                    host: this.host,
+                    type: this.type,
                     connected: this.connected
                 },
                 models: models
@@ -132,40 +136,24 @@ export default class DBManager implements Component {
     }
 
     /////////////////////////
-    ///////Load Functions
-    /////////////////////////
-    private loadOptions(){
-        //Try loading options from process.env
-        this.connectionOptions = {
-            name: process.env.DB_NAME,
-            username: process.env.DB_USERNAME,
-            password: process.env.DB_PASSWORD,
-            host: process.env.DB_HOST || Utility.getHostIP()
-        };
-    }
-
-    /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(initOptions: DBInitOptions){
+    public init(initOptions: InitOptions){
         //Load init options.
-        this.initOptions = initOptions;
-        this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true: this.initOptions.paperTrail;
-
-        //Init DBController and inject endpoints.
-        const dbController = new DBController();
+        this.type = initOptions.type;
+        this.paperTrail = (initOptions.paperTrail === undefined) ? true: initOptions.paperTrail;
 
         //Try loading a db connection based on type.
-        if(this.initOptions.type === 'mysql'){
+        if(this.type === 'mysql'){
             //Set DB type
             this.rdb = true;
 
             //Init Connection
-            this.initRDBConnection(this.initOptions.type);
+            this.initRDBConnection(this.type);
 
             //Sync Endpoint.
-            Post('/db/sync', true)(DBController, dbController.syncRDB.name, {value: dbController.syncRDB});
-        }else if(this.initOptions.type === 'mongo'){
+            Post('/db/sync', true)(DBController, this.dbController.syncRDB.name, {value: this.dbController.syncRDB});
+        }else if(this.type === 'mongo'){
             //Set DB type
             this.noSQL = true;
 
@@ -177,13 +165,14 @@ export default class DBManager implements Component {
     }
 
     private initRDBConnection(dialect: RDBType){
-        if(this.connectionOptions.name !== undefined){
+        if(this.name !== undefined){
             try{
                 //Load Sequelize
-                rdbConnection = new Sequelize(this.connectionOptions.name, this.connectionOptions.username, this.connectionOptions.password, {
-                    host: this.connectionOptions.host,
+                const options = {
+                    host: this.host,
                     dialect: dialect
-                });
+                }
+                rdbConnection = new Sequelize(this.name, this.username, this.password, options);
             }catch(error){
                 throw error; //Pass other errors.
             }
@@ -193,14 +182,14 @@ export default class DBManager implements Component {
     }
 
     private initNoSQLConnection(){
-        if(this.connectionOptions.name !== undefined){
+        if(this.name !== undefined){
             try{
                 //Load Mongoose
-                const uri = 'mongodb://' + this.connectionOptions.host;
+                const uri = 'mongodb://' + this.host;
                 const options = {
-                    dbName: this.connectionOptions.name,
-                    user: this.connectionOptions.username,
-                    pass: this.connectionOptions.password,
+                    dbName: this.name,
+                    user: this.username,
+                    pass: this.password,
                     useNewUrlParser: true
                 }
                 noSQLConnection = mongoose.createConnection(uri, options);
@@ -254,7 +243,7 @@ export default class DBManager implements Component {
 
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
-        const paperTrail = this.initOptions.paperTrail;
+        const paperTrail = this.paperTrail;
         const sequelize = rdbConnection;
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
@@ -275,7 +264,7 @@ export default class DBManager implements Component {
 
     private initNoSQLModel(model: typeof NoSQLModel){
         //Get data from model object.
-        const paperTrail = this.initOptions.paperTrail;
+        const paperTrail = this.paperTrail;
         const mongoose = noSQLConnection;
         const modelName = model.name.replace('Model', '');
         const collectionName = model.entityOptions.name;
@@ -303,7 +292,7 @@ export default class DBManager implements Component {
                 rdbConnection.authenticate()
                     .then(() => {
                         this.connected = true; //Connected Flag 
-                        resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                        resolve({name: this.name, host: this.host, type: this.type});
                     }).catch((error) => {
                         this.connected = false; //Connected Flag 
                         if(error instanceof AccessDeniedError){
@@ -321,7 +310,7 @@ export default class DBManager implements Component {
             }else if(this.noSQL){
                 noSQLConnection.on('connected', (error) => {
                     this.connected = true; //Connected Flag 
-                    resolve({name: this.connectionOptions.name, host: this.connectionOptions.host, type: this.initOptions.type});
+                    resolve({name: this.name, host: this.host, type: this.type});
                 });
                 noSQLConnection.on('error', (error) => {
                     this.connected = false; //Connected Flag

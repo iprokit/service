@@ -3,17 +3,11 @@ import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component } from './microservice';
+import { Component, Defaults } from './microservice';
 import Utility from './utility';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
-
-//Types: ConnectionOptions
-export type ConnectionOptions = {
-    name: string,
-    port: number
-};
 
 //Types: AutoInjectPublisherOptions
 export type AutoInjectPublisherOptions = {
@@ -23,28 +17,29 @@ export type AutoInjectPublisherOptions = {
 };
 
 export default class CommBroker implements Component {
-    private connectionOptions: ConnectionOptions;
+    //Broker Variables.
+    private port: number;
+    private serviceName: string;
 
     //Mosca Server
     private mosca: Server;
 
     //Topic Objects
-    public readonly broadcastTopic = '/';
-    private topics: Array<string> = new Array<string>();
-    private replyCallbackEvent: EventEmitter;
+    private readonly broadcastTopic: string;
+    private readonly topics: Array<string>;
 
     //Publishers
-    private readonly publishers: Array<typeof Publisher> = new Array<typeof Publisher>();
+    private readonly publishers: Array<typeof Publisher>;
+
+    //Reply Events
+    private readonly replyCallbackEvent: EventEmitter;
 
     //Default Constructor
     constructor(){
-        //Load connection options.
-        this.connectionOptions = {
-            name: global.service.name,
-            port: global.service.comBrokerPort
-        }
-
-        //Load reply callback emitter.
+        //Init variables.
+        this.broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this.topics = new Array();
+        this.publishers = new Array();
         this.replyCallbackEvent = new EventEmitter();
     }
 
@@ -59,10 +54,6 @@ export default class CommBroker implements Component {
         return this.publishers;
     }
 
-    public getOptions() {
-        return {connectionOptions: this.connectionOptions};
-    }
-
     public getReport(){
         try{
             let publishers = new Array();
@@ -74,6 +65,7 @@ export default class CommBroker implements Component {
             const report = {
                 init: {
                     broadcastTopic: this.broadcastTopic,
+                    port: this.port
                 },
                 publishers: publishers,
                 topics: this.topics,
@@ -114,19 +106,21 @@ export default class CommBroker implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(){
+    public listen(serviceName: string, port: number){
         return new Promise((resolve, reject) => {
-            //Set options
-            const options = {
-                id: this.connectionOptions.name,
-                port: this.connectionOptions.port
-            }
+            //Init connection variables
+            this.serviceName = serviceName;
+            this.port = port || Defaults.COMM_PORT;
 
-            //Init Server object
+            //Init server object
+            const options = {
+                id: this.serviceName,
+                port: this.port
+            };
             this.mosca = new Server(options);
     
             this.mosca.on('ready', () => {
-                resolve();
+                resolve({port: this.port});
             });
 
             this.mosca.on('subscribed', (topic: any, client: Client) => {
@@ -165,7 +159,7 @@ export default class CommBroker implements Component {
     /////////////////////////
     private sendBroadcast(){
         const reply = new Reply(this.broadcastTopic, this);
-        reply.send({name: this.connectionOptions.name, topics: this.topics});
+        reply.send({name: this.serviceName, topics: this.topics});
     }
 
     /////////////////////////

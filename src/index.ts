@@ -12,7 +12,6 @@ export { default as Controller } from './controller';
 export { default as RDBModel, RDBTypes } from './db.rdb.model';
 export { default as NoSQLModel, NoSQLTypes } from './db.nosql.model';
 export { Get, Post, Put, Delete, Reply, Entity, getNode } from './microservice';
-export { default as Utility } from './utility';
 
 //Export Default
 export default MicroService;

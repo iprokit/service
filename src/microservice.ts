@@ -1,16 +1,11 @@
-declare global {
-    namespace NodeJS {
-        interface Global {
-            service: {
-                name: string,
-                version: string,
-                expressPort: number,
-                comBrokerPort: number,
-                environment: string
-            }
-            projectPath: string
-        }
-    }
+/////////////////////////
+///////Defaults
+/////////////////////////
+export class Defaults {
+    public static readonly ENVIRONMENT: string = 'production';
+    public static readonly EXPRESS_PORT: number = 3000;
+    public static readonly COMM_PORT: number = 6000;
+    public static readonly BROADCAST_TOPIC: string = '/';
 }
 
 //Import modules
@@ -26,22 +21,27 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 
 //Adding project path to global.
-global.projectPath = path.dirname(require.main.filename);
+export const projectPath = path.dirname(require.main.filename);
+
+//Load Environment variables from .env file.
+const envPath = path.join(projectPath, '.env');
+if(fs.existsSync(envPath)){
+    dotenv.config({path: envPath});
+}
 
 //Local Imports
 import Utility from './utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { DBInitOptions, InvalidConnectionOptionsError, EntityOptions, AutoWireModelOptions } from './db.manager';
+import DBManager, { InitOptions as DBInitOptions, InvalidConnectionOptionsError, EntityOptions, AutoWireModelOptions } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
-//Types: MicroServiceInitOptions
-export type MicroServiceInitOptions = {
-    name?: string,
-    version?: string,
-    url?: string,
+//Types: Options
+export type Options = {
+    name?: string
+    version?: string
 }
 
 //Types: AutoInjectControllerOptions
@@ -50,16 +50,6 @@ export type AutoInjectControllerOptions = {
     likeName?: string,
     excludes?: Array<string>
 };
-
-//Types: MicroServiceOptions
-export type MicroServiceOptions = {
-    name: string,
-    version: string,
-    expressPort: number,
-    comBrokerPort: number,
-    environment: string,
-    ip: string
-}
 
 //Interface: RequestResponseFunctionDescriptor
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
@@ -81,55 +71,62 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
 
 //Global Objects
+let that: MicroService;
 const expressApp = express();
 const expressRouter = express.Router();
-let commBroker: CommBroker;
-let commMesh: CommMesh;
-let dbManager: DBManager;
+const commBroker = new CommBroker();
+const commMesh = new CommMesh();
+const dbManager = new DBManager();
 
-export default class MicroService extends EventEmitter{
-    //Options
-    private options: MicroServiceOptions;
-    private initOptions: MicroServiceInitOptions;
+export default class MicroService extends EventEmitter {
+    //Service Variables.
+    public readonly serviceName: string;
+    public readonly baseUrl: string;
+    public readonly version: string;
+    public readonly expressPort: number;
+    public readonly environment: string;
+    public readonly ip: string;
+
+    //CommBroker 
+    public readonly commBrokerPort: number;
 
     //Controllers
-    private readonly controllers: Array<typeof Controller> = new Array<typeof Controller>();
+    public readonly controllers: Array<typeof Controller>;
 
     //Default Constructor
-    public constructor(options?: MicroServiceInitOptions) {
-        //Call super for Events.
+    public constructor(baseUrl?: string, options?: Options) {
+        //Call super for EventEmitter.
         super();
 
-        //Load options from constructor
-        this.initOptions = options || {};
+        //Alternative to this.
+        that = this;
 
-        //Load options
-        this.loadDotEnvFile();
-        this.loadServiceOptions();
-        this.loadGlobalOptions();
+        //Set null defaults.
+        options = options || {};
 
-        //Load express server, router
-        this.initExpressServer();
+        //Init service variables.
+        this.serviceName = options.name || process.env.npm_package_name;
+        this.baseUrl = baseUrl || '/' + this.serviceName.toLowerCase();
+        this.version = options.version || process.env.npm_package_version;
+        this.expressPort = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
+        this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
+        this.ip = Utility.getContainerIP();
 
-        //Load components.
-        commBroker = new CommBroker();
-        commMesh = new CommMesh();
-        dbManager = new DBManager();
+        //Init CommBroker variables.
+        this.commBrokerPort = Number(process.env.COM_BROKER_PORT);
+
+        //Init Variables.
+        this.controllers = new Array();
+
+        //Load express, router
+        this.initExpress();
     }
 
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public getControllers(){
-        return this.controllers;
-    }
-
-    public getOptions(){
-        return this.options;
-    }
-
     public getReport(){
-        const baseURL = this.initOptions.url;
+        const baseURL = this.baseUrl;
 
         let controllers = new Array();
         let routes = new Array();
@@ -146,7 +143,13 @@ export default class MicroService extends EventEmitter{
         });
 
         const report = {
-            init: this.options,
+            init: {
+                name: this.serviceName,
+                version: this.version,
+                expressPort: this.expressPort,
+                environment: this.environment,
+                ip: this.ip
+            },
             controllers: controllers,
             routes: routes
         };
@@ -154,53 +157,23 @@ export default class MicroService extends EventEmitter{
     }
 
     /////////////////////////
-    ///////Load Functions
+    ///////Init Functions
     /////////////////////////
-    private loadDotEnvFile(){
-        //Getting env file.
-        const envPath = path.join(global.projectPath, '.env');
-        if(fs.existsSync(envPath)){
-            dotenv.config({path: envPath});
-        }
-    }
-
-    private loadServiceOptions(){
-        //Try loading options from package.json and process.env
-        this.options = {
-            name: this.initOptions.name || process.env.npm_package_name,
-            version: this.initOptions.version || process.env.npm_package_version,
-            expressPort: Number(process.env.EXPRESS_PORT) || 3000,
-            comBrokerPort: Number(process.env.COM_BROKER_PORT) || 6000,
-            environment: process.env.NODE_ENV || 'production',
-            ip: Utility.getContainerIP()
-        };
-    }
-
-    private loadGlobalOptions(){
-        //Adding service variables to global.
-        global.service = {
-            name: this.options.name,
-            version: this.options.version,
-            expressPort: this.options.expressPort,
-            comBrokerPort: this.options.comBrokerPort,
-            environment: this.options.environment
-        }
-    }
-
-    private initExpressServer() {
+    private initExpress() {
         //Setup Express
         expressApp.use(cors());
         expressApp.options('*', cors());
         expressApp.use(express.json());
         expressApp.use(express.urlencoded({extended: false}));
-        //TODO: Add logging.
 
         //Setup Express Middlewares
         expressApp.use(this.proxyHandler());
 
+        //Auto call, to create default/app endpoints.
+        new MicroServiceController();
+
         //Setup Router
-        this.initOptions.url = (this.initOptions.url || '/' + this.options.name).toLowerCase();
-        expressApp.use(this.initOptions.url, expressRouter);
+        expressApp.use(this.baseUrl, expressRouter);
 
         // Error handler for 404
         expressApp.use((request: Request, response: Response, next: NextFunction) => {
@@ -215,22 +188,8 @@ export default class MicroService extends EventEmitter{
         });
     }
 
-    public initDB(db: DBInitOptions){
-        try{
-            //Init sequelize
-            dbManager.init(db);
-        }catch(error){
-            if(error instanceof InvalidConnectionOptionsError){
-                console.log(error.message);
-            }else{
-                console.error(error);
-            }
-            console.log('Will continue...');
-        }
-    }
-
     /////////////////////////
-    ///////Inject Functions
+    ///////User Call Functions
     /////////////////////////
     public autoWireModels(autoInjectOptions: AutoWireModelOptions){
         dbManager.autoWireModels(autoInjectOptions)
@@ -264,46 +223,56 @@ export default class MicroService extends EventEmitter{
         });
     }
 
+    public useDB(dbInitOptions: DBInitOptions){
+        try{
+            //Init sequelize
+            dbManager.init(dbInitOptions);
+        }catch(error){
+            if(error instanceof InvalidConnectionOptionsError){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
+        }
+    }
+
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public startService() {
-        this.emit(MicroServiceEvents.STARTING);
-
-        //Auto call, to create default/app endpoints.
-        new MicroServiceController();
-        MicroServiceController.microServiceOptions = this.getReport();//Pass report variables.
+    public start() {
+        this.emit(Events.STARTING);
 
         const options = {
-            version: this.options.version,
-            environment: this.options.environment
+            version: this.version,
+            environment: this.environment
         }
-        console.log('%s : %o', this.options.name, options);
+        console.log('%s : %o', this.serviceName, options);
         console.log('Starting micro service...');
 
         //Parallel starting all components.
-        const server = expressApp.listen(this.options.expressPort, () => {
-            this.emit(MicroServiceEvents.EXPRESS_STARTED);
+        const server = expressApp.listen(this.expressPort, () => {
+            this.emit(Events.EXPRESS_STARTED);
             this.addExpressListeners(server);//Attach listeners
-            console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
+            console.log('Express server running on %s:%s%s', this.ip, this.expressPort, this.baseUrl);
         });
 
-        commBroker.listen()
-            .then(() => {
-                this.emit(MicroServiceEvents.BROKER_STARTED);
-                console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comBrokerPort);
+        commBroker.listen(this.serviceName, this.commBrokerPort)
+            .then((commOptions: any) => {
+                this.emit(Events.BROKER_STARTED);
+                console.log('Comm broker broadcasting on %s:%s', this.ip, commOptions.port);
             });
 
-        commMesh.connect()
+        commMesh.connect(this.serviceName)
             .then(() => {
-                this.emit(MicroServiceEvents.MESH_CONNECTING);
+                this.emit(Events.MESH_CONNECTING);
                 console.log('Comm mesh connecting to nodes...');
             });
 
         dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
-                    this.emit(MicroServiceEvents.DB_CONNECTED);
+                    this.emit(Events.DB_CONNECTED);
                     console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
@@ -315,27 +284,27 @@ export default class MicroService extends EventEmitter{
                 }
                 console.log('Will continue...');
             });
-        this.emit(MicroServiceEvents.STARTED);
+        this.emit(Events.STARTED);
     }
 
-    private stopService(server: Server){
+    public stop(server: Server){
         //Chained stopping all components.
-        this.emit(MicroServiceEvents.STOPPING);
+        this.emit(Events.STOPPING);
         dbManager.disconnect()
             .then(() => {
-                this.emit(MicroServiceEvents.DB_DISCONNECTED);
+                this.emit(Events.DB_DISCONNECTED);
                 console.log('DB client disconnected.');
                 commMesh.disconnect()
                     .then(() => {
-                        this.emit(MicroServiceEvents.MESH_DISCONNECTED);
+                        this.emit(Events.MESH_DISCONNECTED);
                         console.log('Comm mesh disconnected.');
                         commBroker.close()
                             .then(() => {
-                                this.emit(MicroServiceEvents.BROKER_STOPPED);
+                                this.emit(Events.BROKER_STOPPED);
                                 console.log('Comm broker shutdown complete.');
                                 server.close(() => {
-                                    this.emit(MicroServiceEvents.EXPRESS_STOPPED);
-                                    this.emit(MicroServiceEvents.STOPPED);
+                                    this.emit(Events.EXPRESS_STOPPED);
+                                    this.emit(Events.STOPPED);
                                     console.log('Express server shutdown complete.');
                                     process.exit(0);
                                 });
@@ -351,12 +320,12 @@ export default class MicroService extends EventEmitter{
         //Adding process listeners to stop server gracefully.
         process.on('SIGTERM', () => {
             console.log('Recived SIGTERM!');
-            this.stopService(server)
+            this.stop(server)
         });
 
         process.on('SIGINT', () => {
             console.log('Recived SIGINT!');
-            this.stopService(server);
+            this.stop(server);
         });
     }
 
@@ -396,30 +365,30 @@ export default class MicroService extends EventEmitter{
 }
 
 /////////////////////////
-///////MicroServiceEvents
+///////Events
 /////////////////////////
-export class MicroServiceEvents {
+export class Events {
     //Main
-    public static STARTING = 'STARTING';
-    public static STARTED = 'STARTED';
-    public static STOPPING = 'STOPPING';
-    public static STOPPED = 'STOPPED';
+    public static readonly STARTING = 'STARTING';
+    public static readonly STARTED = 'STARTED';
+    public static readonly STOPPING = 'STOPPING';
+    public static readonly STOPPED = 'STOPPED';
 
     //Express
-    public static EXPRESS_STARTED = 'EXPRESS_STARTED';
-    public static EXPRESS_STOPPED = 'EXPRESS_STOPPED';
+    public static readonly EXPRESS_STARTED = 'EXPRESS_STARTED';
+    public static readonly EXPRESS_STOPPED = 'EXPRESS_STOPPED';
 
     //Broker
-    public static BROKER_STARTED = 'BROKER_STARTED';
-    public static BROKER_STOPPED = 'BROKER_STOPPED';
+    public static readonly BROKER_STARTED = 'BROKER_STARTED';
+    public static readonly BROKER_STOPPED = 'BROKER_STOPPED';
 
     //Comm Mesh
-    public static MESH_CONNECTING = 'MESH_CONNECTING';
-    public static MESH_DISCONNECTED = 'MESH_DISCONNECTED';
+    public static readonly MESH_CONNECTING = 'MESH_CONNECTING';
+    public static readonly MESH_DISCONNECTED = 'MESH_DISCONNECTED';
 
     //DB
-    public static DB_CONNECTED = 'DB_CONNECTED';
-    public static DB_DISCONNECTED = 'DB_DISCONNECTED';
+    public static readonly DB_CONNECTED = 'DB_CONNECTED';
+    public static readonly DB_DISCONNECTED = 'DB_DISCONNECTED';
 
 }
 
@@ -427,7 +396,6 @@ export class MicroServiceEvents {
 ///////Component
 /////////////////////////
 export interface Component {
-    getOptions(): any;
     getReport(): any;
 }
 
@@ -505,8 +473,6 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
 ///////MicroService Controller
 /////////////////////////
 class MicroServiceController {
-    public static microServiceOptions: any;
-
     @Get('/health', true)
     public getHealth(request: Request, response: Response) {
         response.status(httpStatus.OK).send({status: true});
@@ -517,7 +483,7 @@ class MicroServiceController {
         try {
             const report = {
                 status: true,
-                service: MicroServiceController.microServiceOptions,
+                service: that.getReport(),
                 db: dbManager.getReport(),
                 commBroker: commBroker.getReport(),
                 commMesh: commMesh.getReport()
