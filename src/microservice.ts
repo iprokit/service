@@ -30,9 +30,9 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import Controller from './controller';
-import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
+import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { InitOptions as DBInitOptions, InvalidConnectionOptionsError, EntityOptions, AutoWireModelOptions } from './db.manager';
+import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -42,8 +42,8 @@ export type Options = {
     version?: string
 }
 
-//Types: AutoInjectControllerOptions
-export type AutoInjectControllerOptions = {
+//Types: AutoLoadOptions
+export type AutoLoadOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
@@ -108,6 +108,8 @@ export default class MicroService extends EventEmitter implements Component{
 
         //Load express, router
         this.initExpress();
+
+        this.addListeners();        
     }
 
     /////////////////////////
@@ -199,10 +201,10 @@ export default class MicroService extends EventEmitter implements Component{
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public useDB(dbInitOptions: DBInitOptions){
+    public useDB(type: DBTypes, paperTrail?: boolean){
         try{
             //Init sequelize
-            dbManager.init(dbInitOptions);
+            dbManager.init(type, paperTrail);
         }catch(error){
             if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
@@ -213,15 +215,17 @@ export default class MicroService extends EventEmitter implements Component{
         }
     }
 
-    public autoWireModels(autoInjectOptions: AutoWireModelOptions){
+    //TODO: Optimize loading functions into one.
+
+    public autoWireModels(autoInjectOptions: AutoLoadOptions){
         dbManager.autoWireModels(autoInjectOptions)
     }
 
-    public autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+    public autoInjectPublishers(autoInjectOptions: AutoLoadOptions){
         commBroker.autoInjectPublishers(autoInjectOptions);
     }
 
-    public autoInjectControllers(autoInjectOptions: AutoInjectControllerOptions){
+    public autoInjectControllers(autoInjectOptions: AutoLoadOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'controller.js';
         const excludes = autoInjectOptions.excludes || [];
@@ -251,89 +255,93 @@ export default class MicroService extends EventEmitter implements Component{
     public start() {
         this.emit(Events.STARTING);
 
-        const options = {
-            version: this.version,
-            environment: this.environment
-        }
-        console.log('%s : %o', this.serviceName, options);
-        console.log('Starting micro service...');
-
         //Parallel starting all components.
         const server = expressApp.listen(this.expressPort, () => {
-            this.emit(Events.EXPRESS_STARTED);
-            this.addExpressListeners(server);//Attach listeners
-            console.log('Express server running on %s:%s%s', this.ip, this.expressPort, this.baseUrl);
+            //Adding process listeners to stop server gracefully.
+            process.on('SIGTERM', () => {
+                this.stop(server)
+            });
+
+            process.on('SIGINT', () => {
+                this.stop(server);
+            });
+            this.emit(Events.EXPRESS_STARTED, {port: this.expressPort});
         });
 
-        commBroker.listen(this.serviceName)
-            .then((commOptions: any) => {
-                this.emit(Events.BROKER_STARTED);
-                console.log('Comm broker broadcasting on %s:%s', this.ip, commOptions.port);
-            });
-
-        commMesh.connect(this.serviceName)
-            .then(() => {
-                this.emit(Events.MESH_CONNECTING);
-                console.log('Comm mesh connecting to nodes...');
-            });
-
-        dbManager.connect()
-            .then((dbOptions: any) => {
-                if(dbOptions !== undefined){
-                    this.emit(Events.DB_CONNECTED);
-                    console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
-                }
-            })
-            .catch((error) => {
-                if(error instanceof InvalidConnectionOptionsError){
-                    console.log(error.message);
-                }else{
-                    console.error(error);
-                }
-                console.log('Will continue...');
-            });
-        this.emit(Events.STARTED);
+        commBroker.listen(this.serviceName);
+        commMesh.connect(this.serviceName);
+        try{
+            dbManager.connect();
+        }catch(error){
+            if(error instanceof InvalidConnectionOptionsError){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
+        }
     }
 
     public stop(server: Server){
         //Chained stopping all components.
         this.emit(Events.STOPPING);
-        dbManager.disconnect()
-            .then(() => {
-                this.emit(Events.DB_DISCONNECTED);
-                console.log('DB client disconnected.');
-                commMesh.disconnect()
-                    .then(() => {
-                        this.emit(Events.MESH_DISCONNECTED);
-                        console.log('Comm mesh disconnected.');
-                        commBroker.close()
-                            .then(() => {
-                                this.emit(Events.BROKER_STOPPED);
-                                console.log('Comm broker shutdown complete.');
-                                server.close(() => {
-                                    this.emit(Events.EXPRESS_STOPPED);
-                                    this.emit(Events.STOPPED);
-                                    console.log('Express server shutdown complete.');
-                                    process.exit(0);
-                                });
-                            });
+        dbManager.disconnect(() => {
+            commMesh.disconnect(() => {
+                commBroker.close(() => {
+                    server.close(() => {
+                        this.emit(Events.EXPRESS_STOPPED);
+                        this.emit(Events.STOPPED);
+                        process.exit(0);
                     });
+                });
             });
+        });
     }
 
     /////////////////////////
     ///////Listeners
     /////////////////////////
-    private addExpressListeners(server: Server){
-        //Adding process listeners to stop server gracefully.
-        process.on('SIGTERM', () => {
-            console.log('Recived SIGTERM!');
-            this.stop(server)
+    private addListeners(){
+        //Adding listeners.
+        this.on(Events.STARTING, () => {
+            console.log('%s : %o', this.serviceName, {version: this.version, environment: this.environment});
+            console.log('Starting micro service...');
+        });
+        
+        this.on(Events.STOPPING, () => {
+            console.log('Stopping micro service...');
+        })
+
+        this.on(Events.EXPRESS_STARTED, (options) => {
+            console.log('Express server running on %s:%s%s', this.ip, options.port, this.baseUrl);
         });
 
-        process.on('SIGINT', () => {
-            console.log('Recived SIGINT!');
-            this.stop(server);
+        this.on(Events.EXPRESS_STOPPED, () => {
+            console.log('Stopped Express.');
+        });
+
+        commBroker.on(Events.BROKER_STARTED, (options) => {
+            console.log('Comm broker broadcasting on %s:%s', this.ip, options.port);
+        });
+
+        commBroker.on(Events.BROKER_STOPPED, () => {
+            console.log('Stopped Broker.');
+        });
+
+        commMesh.on(Events.NODE_CONNECTED, (options) => {
+            console.log('Node: Connected to %s', options.url);
+        });
+
+        commMesh.on(Events.NODE_DISCONNECTED, (options) => {
+            console.log('Node: Disconnected from : %s', options.url);
+        });
+
+        dbManager.on(Events.DB_CONNECTED, (options) => {
+            console.log('DB client connected to %s://%s/%s', options.type, options.host, options.name);
+        });
+
+        dbManager.on(Events.DB_DISCONNECTED, () => {
+            console.log('DB Disconnected');
         });
     }
 
@@ -367,7 +375,6 @@ export default class MicroService extends EventEmitter implements Component{
 export class Events {
     //Main
     public static readonly STARTING = 'STARTING';
-    public static readonly STARTED = 'STARTED';
     public static readonly STOPPING = 'STOPPING';
     public static readonly STOPPED = 'STOPPED';
 
@@ -379,9 +386,14 @@ export class Events {
     public static readonly BROKER_STARTED = 'BROKER_STARTED';
     public static readonly BROKER_STOPPED = 'BROKER_STOPPED';
 
-    //Comm Mesh
+    //Mesh
     public static readonly MESH_CONNECTING = 'MESH_CONNECTING';
+    public static readonly MESH_DISCONNECTING = 'MESH_DISCONNECTING';
     public static readonly MESH_DISCONNECTED = 'MESH_DISCONNECTED';
+
+    //Node
+    public static readonly NODE_CONNECTED = 'NODE_CONNECTED';
+    public static readonly NODE_DISCONNECTED = 'NODE_DISCONNECTED';
 
     //DB
     public static readonly DB_CONNECTED = 'DB_CONNECTED';

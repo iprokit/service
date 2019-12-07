@@ -3,18 +3,11 @@ import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Defaults } from './microservice';
+import { Component, Defaults, Events, AutoLoadOptions } from './microservice';
 import Utility from './utility';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
-
-//Types: AutoInjectPublisherOptions
-export type AutoInjectPublisherOptions = {
-    paths?: Array<string>,
-    likeName?: string,
-    excludes?: Array<string>
-};
 
 export default class CommBroker extends EventEmitter implements Component {
     //Broker Variables.
@@ -85,7 +78,7 @@ export default class CommBroker extends EventEmitter implements Component {
     /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    public autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+    public autoInjectPublishers(autoInjectOptions: AutoLoadOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'publisher.js';
         const excludes = autoInjectOptions.excludes || [];
@@ -113,49 +106,48 @@ export default class CommBroker extends EventEmitter implements Component {
     ///////Start/Stop Functions
     /////////////////////////
     public listen(serviceName: string){
-        return new Promise((resolve, reject) => {
-            //Init connection variables
-            this.serviceName = serviceName;
+        //Init connection variables
+        this.serviceName = serviceName;
 
-            //Init server object
-            const options = {
-                id: this.serviceName,
-                port: this.port
-            };
-            this.mosca = new Server(options);
-    
-            this.mosca.on('ready', () => {
-                resolve({port: this.port});
-            });
+        //Init server object
+        const options = {
+            id: this.serviceName,
+            port: this.port
+        };
+        this.mosca = new Server(options);
 
-            this.mosca.on('subscribed', (topic: any, client: Client) => {
-                //Broadcast
-                if(topic === this.broadcastTopic){
-                    this.sendBroadcast();
-                }
-            });
-    
-            this.mosca.on('published', (packet: Packet, client: Client) => {
-                const topic = packet.topic;
-                if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                    try{
-                        this.receiveMessage(packet);
-                    }catch(error){
-                        if(error instanceof ReplySentWarning){
-                            console.error(error);
-                        }
-                        //Do nothing.
+        this.mosca.on('ready', () => {
+            this.emit(Events.BROKER_STARTED, {port: this.port});
+        });
+
+        this.mosca.on('subscribed', (topic: any, client: Client) => {
+            //Broadcast
+            if(topic === this.broadcastTopic){
+                this.sendBroadcast();
+            }
+        });
+
+        this.mosca.on('published', (packet: Packet, client: Client) => {
+            const topic = packet.topic;
+            if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
+                try{
+                    this.receiveMessage(packet);
+                }catch(error){
+                    if(error instanceof ReplySentWarning){
+                        console.error(error);
                     }
+                    //Do nothing.
                 }
-            });
+            }
         });
     }
 
-    public close(){
-        return new Promise((resolve, reject) => {
-            this.mosca.close(() => {
-                resolve();
-            });
+    public close(callback?: Function){
+        this.mosca.close(() => {
+            this.emit(Events.BROKER_STOPPED);
+            if(callback){
+                callback();
+            }
         });
     }
 

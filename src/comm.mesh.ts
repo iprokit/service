@@ -3,7 +3,7 @@ import mqtt, { MqttClient } from 'mqtt'
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Defaults } from './microservice';
+import { Component, Defaults, Events } from './microservice';
 import Utility from './utility';
 
 export default class CommMesh extends EventEmitter implements Component {
@@ -61,6 +61,14 @@ export default class CommMesh extends EventEmitter implements Component {
         //Creating node object.
         const node = new Node(url);
 
+        //Attaching events to node object.
+        node.on(Events.NODE_CONNECTED, (node: Node) => {
+            this.emit(Events.NODE_CONNECTED, {url: node.url});
+        });
+        node.on(Events.NODE_DISCONNECTED, (node: Node) => {
+            this.emit(Events.NODE_DISCONNECTED, {url: node.url});
+        });
+
         //Add to Array
         this.nodes.push(node);
 
@@ -71,40 +79,35 @@ export default class CommMesh extends EventEmitter implements Component {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(serviceName: string){
-        return new Promise((resolve, reject) => {
-            //Init connection variables
-            this.serviceName = serviceName;
+        //Init connection variables
+        this.serviceName = serviceName;
 
-            if(this.nodes.length > 0){
-                this.nodes.forEach((node, index) => {
-                    node.connect(this.serviceName)
-                        .then(() => {
-                            if(this.nodes.length === index + 1){
-                                resolve();
-                            }
-                        })
-                });
-            }else{
-                resolve();
-            }
-        });
+        if(this.nodes.length > 0){
+            this.emit(Events.MESH_CONNECTING);
+            this.nodes.forEach((node, index) => {
+                node.connect(this.serviceName);
+            });
+        }
     }
 
-    public disconnect(){
-        return new Promise((resolve, reject) => {
-            if(this.nodes.length > 0){
-                this.nodes.forEach((node, index) => {
-                    node.disconnect()
-                        .then(() => {
-                            if(this.nodes.length === index + 1){
-                                resolve();
-                            }
-                        })
+    public disconnect(callback?: Function){
+        if(this.nodes.length > 0){
+            this.emit(Events.MESH_DISCONNECTING);
+            this.nodes.forEach((node, index) => {
+                node.disconnect(() => {
+                    if(this.nodes.length === index + 1){
+                        this.emit(Events.MESH_DISCONNECTED);
+                        if(callback){
+                            callback();
+                        }
+                    }
                 });
-            }else{
-                resolve();
+            });
+        }else{
+            if(callback){
+                callback();
             }
-        });
+        }
     }
 }
 
@@ -194,46 +197,41 @@ export class Node extends EventEmitter {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(serviceName: string){
-        return new Promise((resolve, reject) => {
-            //Init connection variables
-            this.serviceName = serviceName;
+        //Init connection variables
+        this.serviceName = serviceName;
 
-            //Init Connection object
-            const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
-            const options = {
-                id: this.serviceName,
-                keepalive: 30
-            };
-            this.mqttClient = mqtt.connect(mqttUrl, options);
+        //Init Connection object
+        const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
+        const options = {
+            id: this.serviceName,
+            keepalive: 30
+        };
+        this.mqttClient = mqtt.connect(mqttUrl, options);
 
-            //Return.
-            resolve();
-    
-            //mqttClient listeners.
-            this.mqttClient.on('connect', () => {
-                console.log('Node: Connected to : %s', this.url);
+        //mqttClient listeners.
+        this.mqttClient.on('connect', () => {
+            this.emit(Events.NODE_CONNECTED, this);
 
-                //Subscribe to all topics.
-                this.mqttClient.subscribe(this.broadcastTopic);
-            });
-            
-            this.mqttClient.on('message', (topic, payload, packet) => {
-                //Receive broadcast
-                if(topic === this.broadcastTopic){
-                    this.receiveBroadcast(packet);
-                }else{
-                    this.receiveReply(packet);
-                }
-            });
+            //Subscribe to all topics.
+            this.mqttClient.subscribe(this.broadcastTopic);
+        });
+        
+        this.mqttClient.on('message', (topic, payload, packet) => {
+            //Receive broadcast
+            if(topic === this.broadcastTopic){
+                this.receiveBroadcast(packet);
+            }else{
+                this.receiveReply(packet);
+            }
         });
     }
 
-    public disconnect(){
-        return new Promise((resolve, reject) => {
-            this.mqttClient.end(false, () => {
-                console.log('Node: Disconnected from : %s', this.url);
-                resolve();
-            });
+    public disconnect(callback?: Function){
+        this.mqttClient.end(false, () => {
+            this.emit(Events.NODE_DISCONNECTED, this);
+            if(callback){
+                callback();
+            }
         });
     }
 

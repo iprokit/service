@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Post } from './microservice';
+import { Component, Post, Events, AutoLoadOptions } from './microservice';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
@@ -16,19 +16,6 @@ import Controller from './controller';
 export type DBTypes = RDBType | NoSQLType;
 export type RDBType = 'mysql';
 export type NoSQLType = 'mongo';
-
-//Types: InitOptions
-export type InitOptions = {
-    type: DBTypes,
-    paperTrail: boolean
-};
-
-//Types: AutoWireModelOptions
-export type AutoWireModelOptions = {
-    paths?: Array<string>,
-    likeName?: string,
-    excludes?: Array<string>
-};
 
 //Export Entity Types.
 export type EntityOptions = {
@@ -143,10 +130,10 @@ export default class DBManager extends EventEmitter implements Component {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(initOptions: InitOptions){
+    public init(type: DBTypes, paperTrail?: boolean){
         //Load init options.
-        this.type = initOptions.type;
-        this.paperTrail = (initOptions.paperTrail === undefined) ? true: initOptions.paperTrail;
+        this.type = type;
+        this.paperTrail = (paperTrail === undefined) ? true: paperTrail;
 
         //Try loading a db connection based on type.
         if(this.type === 'mysql'){
@@ -209,7 +196,7 @@ export default class DBManager extends EventEmitter implements Component {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public autoWireModels(autoWireOptions: AutoWireModelOptions){
+    public autoWireModels(autoWireOptions: AutoLoadOptions){
         let paths = autoWireOptions.paths || ['/'];
         const likeName = autoWireOptions.likeName || 'model.js';
         const excludes = autoWireOptions.excludes || [];
@@ -230,6 +217,7 @@ export default class DBManager extends EventEmitter implements Component {
                     //Add to Array
                     this.rdbModels.push(_Model);
                 }else{
+                    //TODO: Issue here when useDB not called.
                     console.log('Could not initiatize model: %s', _Model.constructor.name);
                 }
             });
@@ -292,69 +280,66 @@ export default class DBManager extends EventEmitter implements Component {
     ///////Connection Management
     /////////////////////////
     public connect(){
-        return new Promise((resolve, reject) => {
-            if(this.rdb){
-                rdbConnection.authenticate()
-                    .then(() => {
-                        this.connected = true; //Connected Flag 
-                        resolve({name: this.name, host: this.host, type: this.type});
-                    }).catch((error) => {
-                        this.connected = false; //Connected Flag 
-                        if(error instanceof AccessDeniedError){
-                            reject(new InvalidConnectionOptionsError('Access denied to the database.'));
-                        }else if(error instanceof ConnectionRefusedError){
-                            reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
-                        }else if(error instanceof HostNotFoundError){
-                            reject(new InvalidConnectionOptionsError('Invalid database host.'));
-                        }else if(error instanceof ConnectionError){
-                            reject(new InvalidConnectionOptionsError('Could not connect to the database due to unknown connection issue.'));
-                        }else{
-                            reject(error);//Pass other errors.
-                        }
-                    });
-            }else if(this.noSQL){
-                noSQLConnection.on('connected', (error) => {
+        if(this.rdb){
+            rdbConnection.authenticate()
+                .then(() => {
                     this.connected = true; //Connected Flag 
-                    resolve({name: this.name, host: this.host, type: this.type});
-                });
-                noSQLConnection.on('error', (error) => {
-                    this.connected = false; //Connected Flag
-                    if(error.message.includes('Authentication failed')){
-                        reject(new InvalidConnectionOptionsError('Connection refused to the database.'));
-                    }else if(error.message.includes('getaddrinfo ENOTFOUND')){
-                        reject(new InvalidConnectionOptionsError('Invalid database host.'));
+                    this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
+                }).catch((error) => {
+                    this.connected = false; //Connected Flag 
+                    if(error instanceof AccessDeniedError){
+                        throw new InvalidConnectionOptionsError('Access denied to the database.');
+                    }else if(error instanceof ConnectionRefusedError){
+                        throw new InvalidConnectionOptionsError('Connection refused to the database.');
+                    }else if(error instanceof HostNotFoundError){
+                        throw new InvalidConnectionOptionsError('Invalid database host.');
+                    }else if(error instanceof ConnectionError){
+                        throw new InvalidConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
                     }else{
-                        reject(error);//Pass other errors.
+                        throw error;//Pass other errors.
                     }
                 });
-            }else{
-                resolve();
-            }
-        });
+        }else if(this.noSQL){
+            noSQLConnection.on('connected', (error) => {
+                this.connected = true; //Connected Flag 
+                this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
+            });
+            noSQLConnection.on('error', (error) => {
+                this.connected = false; //Connected Flag
+                if(error.message.includes('Authentication failed')){
+                    throw new InvalidConnectionOptionsError('Connection refused to the database.');
+                }else if(error.message.includes('getaddrinfo ENOTFOUND')){
+                    throw new InvalidConnectionOptionsError('Invalid database host.');
+                }else{
+                    throw error;//Pass other errors.
+                }
+            });
+        }
     }
 
-    public disconnect(){
-        return new Promise((resolve, reject) => {
-            if(this.rdb){
-                rdbConnection.close()
-                    .then(() => {
-                        this.connected = false; //Connected Flag
-                        resolve();
-                    }).catch((error) => {
-                        reject(error);//Pass other errors.
-                    });
-            }else if(this.noSQL){
-                noSQLConnection.close()
-                    .then(() => {
-                        this.connected = false; //Connected Flag
-                        resolve();
-                    }).catch((error) => {
-                        reject(error);//Pass other errors.
-                    })
-            }else{
-                resolve();
+    public disconnect(callback?: Function){
+        if(this.rdb){
+            rdbConnection.close()
+                .then(() => {
+                    this.connected = false; //Connected Flag
+                    this.emit(Events.DB_DISCONNECTED);
+                    if(callback){
+                        callback();
+                    }
+                });
+        }else if(this.noSQL){
+            noSQLConnection.close(() => {
+                this.connected = false; //Connected Flag
+                this.emit(Events.DB_DISCONNECTED);
+                if(callback){
+                    callback();
+                }
+            });
+        }else{
+            if(callback){
+                callback();
             }
-        });
+        }
     }
 }
 
