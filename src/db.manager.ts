@@ -26,12 +26,11 @@ export type DBConnectionOptions = {
 //Types: DBInitOptions
 export type DBInitOptions = {
     type: DBTypes,
-    paperTrail: boolean,
-    autoWireModels: AutoWireOptions
+    paperTrail: boolean
 };
 
-//Types: AutoWireOptions
-export type AutoWireOptions = {
+//Types: AutoWireModelOptions
+export type AutoWireModelOptions = {
     paths?: Array<string>,
     likeName?: string,
     excludes?: Array<string>
@@ -152,7 +151,6 @@ export default class DBManager implements Component {
         //Load init options.
         this.initOptions = initOptions;
         this.initOptions.paperTrail = this.initOptions.paperTrail === undefined ? true: this.initOptions.paperTrail;
-        this.initOptions.autoWireModels = this.initOptions.autoWireModels || {};
 
         //Init DBController and inject endpoints.
         const dbController = new DBController();
@@ -217,10 +215,10 @@ export default class DBManager implements Component {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public autoWireModels(autoWireModels: AutoWireOptions){
-        let paths = autoWireModels.paths || ['/'];
-        const likeName = autoWireModels.likeName || 'model.js';
-        const excludes = autoWireModels.excludes || [];
+    public autoWireModels(autoWireOptions: AutoWireModelOptions){
+        let paths = autoWireOptions.paths || ['/'];
+        const likeName = autoWireOptions.likeName || 'model.js';
+        const excludes = autoWireOptions.excludes || [];
 
         paths.forEach((path: string) => {
             let modelFiles = Utility.getFilePaths(path, likeName, excludes);

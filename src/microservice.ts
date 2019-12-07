@@ -32,7 +32,7 @@ import Utility from './utility';
 import Controller from './controller';
 import CommBroker, { AutoInjectPublisherOptions, ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, {DBInitOptions, InvalidConnectionOptionsError, EntityOptions} from './db.manager';
+import DBManager, { DBInitOptions, InvalidConnectionOptionsError, EntityOptions, AutoWireModelOptions } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -42,6 +42,7 @@ export type MicroServiceInitOptions = {
     version?: string,
     url?: string,
     db?: DBInitOptions,
+    autoWireModels?: AutoWireModelOptions,
     autoInjectControllers?: AutoInjectControllerOptions,
     autoInjectPublishers?: AutoInjectPublisherOptions
 }
@@ -131,7 +132,10 @@ export default class MicroService {
                 }
                 console.log('Will continue...');
             }
-            dbManager.autoWireModels(this.initOptions.db.autoWireModels);
+
+            if(this.initOptions.autoWireModels !== undefined){
+                dbManager.autoWireModels(this.initOptions.autoWireModels);
+            }
         }
 
         if(this.initOptions.autoInjectPublishers !== undefined){
