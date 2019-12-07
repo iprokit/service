@@ -14,6 +14,7 @@ declare global {
 }
 
 //Import modules
+import { EventEmitter } from 'events';
 import express, { Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server } from 'http';
@@ -41,10 +42,6 @@ export type MicroServiceInitOptions = {
     name?: string,
     version?: string,
     url?: string,
-    db?: DBInitOptions,
-    autoWireModels?: AutoWireModelOptions,
-    autoInjectControllers?: AutoInjectControllerOptions,
-    autoInjectPublishers?: AutoInjectPublisherOptions
 }
 
 //Types: AutoInjectControllerOptions
@@ -90,7 +87,7 @@ let commBroker: CommBroker;
 let commMesh: CommMesh;
 let dbManager: DBManager;
 
-export default class MicroService {
+export default class MicroService extends EventEmitter{
     //Options
     private options: MicroServiceOptions;
     private initOptions: MicroServiceInitOptions;
@@ -100,6 +97,9 @@ export default class MicroService {
 
     //Default Constructor
     public constructor(options?: MicroServiceInitOptions) {
+        //Call super for Events.
+        super();
+
         //Load options from constructor
         this.initOptions = options || {};
 
@@ -111,50 +111,10 @@ export default class MicroService {
         //Load express server, router
         this.initExpressServer();
 
-        //Load user functions
-        this.init();
-
         //Load components.
         commBroker = new CommBroker();
         commMesh = new CommMesh();
         dbManager = new DBManager();
-
-        //Init Components.
-        if(this.initOptions.db !== undefined){
-            try{
-                //Init sequelize
-                dbManager.init(this.initOptions.db);
-            }catch(error){
-                if(error instanceof InvalidConnectionOptionsError){
-                    console.log(error.message);
-                }else{
-                    console.error(error);
-                }
-                console.log('Will continue...');
-            }
-
-            if(this.initOptions.autoWireModels !== undefined){
-                dbManager.autoWireModels(this.initOptions.autoWireModels);
-            }
-        }
-
-        if(this.initOptions.autoInjectPublishers !== undefined){
-            commBroker.autoInjectPublishers(this.initOptions.autoInjectPublishers);
-        }
-
-        if(this.initOptions.autoInjectControllers !== undefined){
-            this.autoInjectControllers(this.initOptions.autoInjectControllers);
-        }
-
-        //Load user controllers
-        this.injectEndpoints();
-
-        //Auto call, to create default/app endpoints.
-        new MicroServiceController();
-        MicroServiceController.microServiceOptions = this.getReport();//Pass report variables.
-
-        //Start the server
-        this.startService();
     }
 
     /////////////////////////
@@ -194,13 +154,6 @@ export default class MicroService {
     }
 
     /////////////////////////
-    ///////User Functions
-    /////////////////////////
-    public init(){}
-
-    public injectEndpoints(){}
-
-    /////////////////////////
     ///////Load Functions
     /////////////////////////
     private loadDotEnvFile(){
@@ -234,9 +187,6 @@ export default class MicroService {
         }
     }
 
-    /////////////////////////
-    ///////init Functions
-    /////////////////////////
     private initExpressServer() {
         //Setup Express
         expressApp.use(cors());
@@ -265,10 +215,32 @@ export default class MicroService {
         });
     }
 
+    public initDB(db: DBInitOptions){
+        try{
+            //Init sequelize
+            dbManager.init(db);
+        }catch(error){
+            if(error instanceof InvalidConnectionOptionsError){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
+        }
+    }
+
     /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    private autoInjectControllers(autoInjectOptions: AutoInjectControllerOptions){
+    public autoWireModels(autoInjectOptions: AutoWireModelOptions){
+        dbManager.autoWireModels(autoInjectOptions)
+    }
+
+    public autoInjectPublishers(autoInjectOptions: AutoInjectPublisherOptions){
+        commBroker.autoInjectPublishers(autoInjectOptions);
+    }
+
+    public autoInjectControllers(autoInjectOptions: AutoInjectControllerOptions){
         let paths = autoInjectOptions.paths || ['/'];
         const likeName = autoInjectOptions.likeName || 'controller.js';
         const excludes = autoInjectOptions.excludes || [];
@@ -295,7 +267,13 @@ export default class MicroService {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    private startService() {
+    public startService() {
+        this.emit(MicroServiceEvents.STARTING);
+
+        //Auto call, to create default/app endpoints.
+        new MicroServiceController();
+        MicroServiceController.microServiceOptions = this.getReport();//Pass report variables.
+
         const options = {
             version: this.options.version,
             environment: this.options.environment
@@ -305,23 +283,27 @@ export default class MicroService {
 
         //Parallel starting all components.
         const server = expressApp.listen(this.options.expressPort, () => {
+            this.emit(MicroServiceEvents.EXPRESS_STARTED);
             this.addExpressListeners(server);//Attach listeners
             console.log('Express server running on %s:%s%s', this.options.ip, this.options.expressPort, this.initOptions.url);
         });
 
         commBroker.listen()
             .then(() => {
+                this.emit(MicroServiceEvents.BROKER_STARTED);
                 console.log('Comm broker broadcasting on %s:%s', this.options.ip, this.options.comBrokerPort);
             });
 
         commMesh.connect()
             .then(() => {
+                this.emit(MicroServiceEvents.MESH_CONNECTING);
                 console.log('Comm mesh connecting to nodes...');
             });
 
         dbManager.connect()
             .then((dbOptions: any) => {
                 if(dbOptions !== undefined){
+                    this.emit(MicroServiceEvents.DB_CONNECTED);
                     console.log('DB client connected to %s://%s/%s', dbOptions.type, dbOptions.host, dbOptions.name);
                 }
             })
@@ -333,20 +315,27 @@ export default class MicroService {
                 }
                 console.log('Will continue...');
             });
+        this.emit(MicroServiceEvents.STARTED);
     }
 
     private stopService(server: Server){
         //Chained stopping all components.
+        this.emit(MicroServiceEvents.STOPPING);
         dbManager.disconnect()
             .then(() => {
+                this.emit(MicroServiceEvents.DB_DISCONNECTED);
                 console.log('DB client disconnected.');
                 commMesh.disconnect()
                     .then(() => {
+                        this.emit(MicroServiceEvents.MESH_DISCONNECTED);
                         console.log('Comm mesh disconnected.');
                         commBroker.close()
                             .then(() => {
+                                this.emit(MicroServiceEvents.BROKER_STOPPED);
                                 console.log('Comm broker shutdown complete.');
                                 server.close(() => {
+                                    this.emit(MicroServiceEvents.EXPRESS_STOPPED);
+                                    this.emit(MicroServiceEvents.STOPPED);
                                     console.log('Express server shutdown complete.');
                                     process.exit(0);
                                 });
@@ -404,6 +393,34 @@ export default class MicroService {
             next();
         }
     }
+}
+
+/////////////////////////
+///////MicroServiceEvents
+/////////////////////////
+export class MicroServiceEvents {
+    //Main
+    public static STARTING = 'STARTING';
+    public static STARTED = 'STARTED';
+    public static STOPPING = 'STOPPING';
+    public static STOPPED = 'STOPPED';
+
+    //Express
+    public static EXPRESS_STARTED = 'EXPRESS_STARTED';
+    public static EXPRESS_STOPPED = 'EXPRESS_STOPPED';
+
+    //Broker
+    public static BROKER_STARTED = 'BROKER_STARTED';
+    public static BROKER_STOPPED = 'BROKER_STOPPED';
+
+    //Comm Mesh
+    public static MESH_CONNECTING = 'MESH_CONNECTING';
+    public static MESH_DISCONNECTED = 'MESH_DISCONNECTED';
+
+    //DB
+    public static DB_CONNECTED = 'DB_CONNECTED';
+    public static DB_DISCONNECTED = 'DB_DISCONNECTED';
+
 }
 
 /////////////////////////

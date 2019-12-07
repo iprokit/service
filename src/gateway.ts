@@ -4,31 +4,20 @@ import { RequestOptions } from 'https';
 
 //Local Imports
 import Utility from './utility';
-import MicroService, { AutoInjectControllerOptions } from "./microservice";
-import { DBInitOptions } from "./db.manager";
-import { AutoInjectPublisherOptions } from './comm.broker';
+import MicroService from "./microservice";
 
 //Types: MicroServiceInitOptions
 export type GatewayInitOptions = {
     version?: string,
-    db?: DBInitOptions,
-    autoInjectControllers?: AutoInjectControllerOptions,
-    autoInjectPublishers?: AutoInjectPublisherOptions
 }
 
 export default class Gateway extends MicroService {
-    //Options
-    private readonly expressPort: Number = global.service.expressPort;
-
     //Default Constructor
     public constructor(options?: GatewayInitOptions) {
         super({
             name: 'gateway',
             version: options.version,
-            url: '/api',
-            db: options.db,
-            autoInjectControllers: options.autoInjectControllers,
-            autoInjectPublishers: options.autoInjectPublishers
+            url: '/api'
         });
     }
 
@@ -36,7 +25,7 @@ export default class Gateway extends MicroService {
     ///////Proxy Functions
     /////////////////////////
     public proxy(host: string){
-        return expressProxy(Utility.resolveHost(host, this.expressPort), {
+        return expressProxy(this.resolveHost(host), {
             proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
                 //Generate Proxy headers from object.
                 Utility.generateProxyHeaders(sourceRequest, targetRequest);
@@ -46,7 +35,7 @@ export default class Gateway extends MicroService {
     }
 
     public proxyRedirect(host: string, redirect: string){
-        return expressProxy(Utility.resolveHost(host, this.expressPort), {
+        return expressProxy(this.resolveHost(host), {
             proxyReqPathResolver: (request) => {
                 //Redirect path.
                 return redirect;
@@ -57,5 +46,18 @@ export default class Gateway extends MicroService {
                 return targetRequest;
             }
         });
+    }
+
+    /////////////////////////
+    ///////Other Functions
+    /////////////////////////
+    public resolveHost(host: string){
+        //Split url into host and port.
+        const _url = host.split(':');
+        const _host = _url[0];
+        const _port = Number(_url[1]) || global.service.expressPort;
+
+        //New URL
+        return _host + ':' + _port;
     }
 }
