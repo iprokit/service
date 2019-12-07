@@ -1,6 +1,4 @@
-/////////////////////////
-///////Defaults
-/////////////////////////
+//Defaults dictionary
 export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly EXPRESS_PORT: number = 3000;
@@ -20,7 +18,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
-//Adding project path to global.
+//Project path
 export const projectPath = path.dirname(require.main.filename);
 
 //Load Environment variables from .env file.
@@ -57,7 +55,7 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
 }
 
 //Types: RequestResponseFunction
-export declare type RequestResponseFunction = (target: Object, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
+export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
 //Interface: ReplyFunctionDescriptor
 interface ReplyFunctionDescriptor extends PropertyDescriptor {
@@ -71,14 +69,13 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
 
 //Global Objects
-let that: MicroService;
 const expressApp = express();
 const expressRouter = express.Router();
 const commBroker = new CommBroker();
 const commMesh = new CommMesh();
 const dbManager = new DBManager();
 
-export default class MicroService extends EventEmitter {
+export default class MicroService extends EventEmitter implements Component{
     //Service Variables.
     public readonly serviceName: string;
     public readonly baseUrl: string;
@@ -87,9 +84,6 @@ export default class MicroService extends EventEmitter {
     public readonly environment: string;
     public readonly ip: string;
 
-    //CommBroker 
-    public readonly commBrokerPort: number;
-
     //Controllers
     public readonly controllers: Array<typeof Controller>;
 
@@ -97,9 +91,6 @@ export default class MicroService extends EventEmitter {
     public constructor(baseUrl?: string, options?: Options) {
         //Call super for EventEmitter.
         super();
-
-        //Alternative to this.
-        that = this;
 
         //Set null defaults.
         options = options || {};
@@ -111,9 +102,6 @@ export default class MicroService extends EventEmitter {
         this.expressPort = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
-
-        //Init CommBroker variables.
-        this.commBrokerPort = Number(process.env.COM_BROKER_PORT);
 
         //Init Variables.
         this.controllers = new Array();
@@ -146,9 +134,9 @@ export default class MicroService extends EventEmitter {
             init: {
                 name: this.serviceName,
                 version: this.version,
-                expressPort: this.expressPort,
-                environment: this.environment,
-                ip: this.ip
+                ip: this.ip,
+                port: this.expressPort,
+                environment: this.environment
             },
             controllers: controllers,
             routes: routes
@@ -166,14 +154,34 @@ export default class MicroService extends EventEmitter {
         expressApp.use(express.json());
         expressApp.use(express.urlencoded({extended: false}));
 
-        //Setup Express Middlewares
-        expressApp.use(this.proxyHandler());
-
-        //Auto call, to create default/app endpoints.
-        new MicroServiceController();
+        //Setup proxy pass.
+        expressApp.use((request: any, response: Response, next: NextFunction) => {
+            //Generate Proxy object from headers.
+            Utility.generateProxyObjects(request);
+            next();
+        });
 
         //Setup Router
         expressApp.use(this.baseUrl, expressRouter);
+
+        //Default Service Routes
+        expressRouter.get('/health', (request, response, next) => {
+            response.status(httpStatus.OK).send({status: true});
+        });
+        expressRouter.get('/report', (request, response, next) => {
+            try {
+                const report = {
+                    status: true,
+                    service: this.getReport(),
+                    db: dbManager.getReport(),
+                    commBroker: commBroker.getReport(),
+                    commMesh: commMesh.getReport()
+                };
+                response.status(httpStatus.OK).send(report);
+            } catch (error) {
+                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+            }
+        });
 
         // Error handler for 404
         expressApp.use((request: Request, response: Response, next: NextFunction) => {
@@ -189,8 +197,22 @@ export default class MicroService extends EventEmitter {
     }
 
     /////////////////////////
-    ///////User Call Functions
+    ///////Call Functions
     /////////////////////////
+    public useDB(dbInitOptions: DBInitOptions){
+        try{
+            //Init sequelize
+            dbManager.init(dbInitOptions);
+        }catch(error){
+            if(error instanceof InvalidConnectionOptionsError){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
+        }
+    }
+
     public autoWireModels(autoInjectOptions: AutoWireModelOptions){
         dbManager.autoWireModels(autoInjectOptions)
     }
@@ -223,20 +245,6 @@ export default class MicroService extends EventEmitter {
         });
     }
 
-    public useDB(dbInitOptions: DBInitOptions){
-        try{
-            //Init sequelize
-            dbManager.init(dbInitOptions);
-        }catch(error){
-            if(error instanceof InvalidConnectionOptionsError){
-                console.log(error.message);
-            }else{
-                console.error(error);
-            }
-            console.log('Will continue...');
-        }
-    }
-
     /////////////////////////
     ///////Service Functions
     /////////////////////////
@@ -257,7 +265,7 @@ export default class MicroService extends EventEmitter {
             console.log('Express server running on %s:%s%s', this.ip, this.expressPort, this.baseUrl);
         });
 
-        commBroker.listen(this.serviceName, this.commBrokerPort)
+        commBroker.listen(this.serviceName)
             .then((commOptions: any) => {
                 this.emit(Events.BROKER_STARTED);
                 console.log('Comm broker broadcasting on %s:%s', this.ip, commOptions.port);
@@ -350,17 +358,6 @@ export default class MicroService extends EventEmitter {
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
         expressRouter.delete(path, ...handlers);
-    }
-
-    /////////////////////////
-    ///////Custom Middlewares
-    /////////////////////////
-    public proxyHandler(){
-        return (request: any, response: Response, next: NextFunction) => {
-            //Generate Proxy object from headers.
-            Utility.generateProxyObjects(request);
-            next();
-        }
     }
 }
 
@@ -466,31 +463,5 @@ export function Reply(): ReplyFunction {
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
         target.entityOptions = entityOptions;
-    }
-}
-
-/////////////////////////
-///////MicroService Controller
-/////////////////////////
-class MicroServiceController {
-    @Get('/health', true)
-    public getHealth(request: Request, response: Response) {
-        response.status(httpStatus.OK).send({status: true});
-    }
-
-    @Get('/report', true)
-    public getReport(request: Request, response: Response){
-        try {
-            const report = {
-                status: true,
-                service: that.getReport(),
-                db: dbManager.getReport(),
-                commBroker: commBroker.getReport(),
-                commMesh: commMesh.getReport()
-            };
-            response.status(httpStatus.OK).send(report);
-        } catch (error) {
-            response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-        }
     }
 }

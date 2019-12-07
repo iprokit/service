@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 import { Component, Defaults } from './microservice';
 import Utility from './utility';
 
-export default class CommMesh implements Component {
+export default class CommMesh extends EventEmitter implements Component {
     //Mesh Variables.
     private serviceName: string;
 
@@ -15,6 +15,9 @@ export default class CommMesh implements Component {
 
     //Default Constructor
     constructor(){
+        //Call super for EventEmitter.
+        super();
+
         //Init variables.
         this.nodes = new Array();
     }
@@ -105,7 +108,7 @@ export default class CommMesh implements Component {
     }
 }
 
-export class Node {
+export class Node extends EventEmitter {
     //Node Variables.
     public readonly url: string; //host+port
     private readonly host: string;
@@ -127,6 +130,9 @@ export class Node {
 
     //Default Constructor
     constructor(url: string){
+        //Call super for EventEmitter.
+        super();
+
         //Init node variables.
         this.url = url;
 

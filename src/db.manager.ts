@@ -3,12 +3,14 @@ import { Sequelize, AccessDeniedError, ConnectionRefusedError, HostNotFoundError
 import mongoose, { Connection as Mongoose } from 'mongoose';
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
+import { EventEmitter } from 'events';
 
 //Local Imports
 import { Component, Post } from './microservice';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
+import Controller from './controller';
 
 //DB Types.
 export type DBTypes = RDBType | NoSQLType;
@@ -38,7 +40,7 @@ export type EntityOptions = {
 let rdbConnection: Sequelize;
 let noSQLConnection: Mongoose;
 
-export default class DBManager implements Component {
+export default class DBManager extends EventEmitter implements Component {
     //DB Variables.
     private paperTrail: boolean;
     private type: DBTypes;
@@ -62,6 +64,9 @@ export default class DBManager implements Component {
     
     //Default Constructor
     public constructor(){
+        //Call super for EventEmitter.
+        super();
+
         //Init db variables from env.
         this.host = process.env.DB_HOST || Utility.getHostIP();
         this.name = process.env.DB_NAME;
@@ -383,7 +388,7 @@ export class NoRecordsFoundError extends Error {
 /////////////////////////
 ///////RDBController
 /////////////////////////
-class DBController {
+class DBController extends Controller {
     public syncRDB(request: Request, response: Response) {
         const force = request.body.force || false;
         rdbConnection.sync({force: force})

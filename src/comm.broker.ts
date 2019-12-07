@@ -16,7 +16,7 @@ export type AutoInjectPublisherOptions = {
     excludes?: Array<string>
 };
 
-export default class CommBroker implements Component {
+export default class CommBroker extends EventEmitter implements Component {
     //Broker Variables.
     private port: number;
     private serviceName: string;
@@ -36,6 +36,12 @@ export default class CommBroker implements Component {
 
     //Default Constructor
     constructor(){
+        //Call super for EventEmitter.
+        super();
+
+        //Init Broker variables.
+        this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
+
         //Init variables.
         this.broadcastTopic = Defaults.BROADCAST_TOPIC;
         this.topics = new Array();
@@ -106,11 +112,10 @@ export default class CommBroker implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(serviceName: string, port: number){
+    public listen(serviceName: string){
         return new Promise((resolve, reject) => {
             //Init connection variables
             this.serviceName = serviceName;
-            this.port = port || Defaults.COMM_PORT;
 
             //Init server object
             const options = {
