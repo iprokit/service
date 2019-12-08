@@ -193,26 +193,19 @@ export default class DBManager extends EventEmitter implements Component {
         }
     }
 
+    public initModel(model: any){
+        if(model.prototype instanceof RDBModel && this.rdb){
+            this.initRDBModel(model);
+        }else if(model.prototype instanceof NoSQLModel && this.noSQL){
+            this.initNoSQLModel(model);
+        }else{
+            throw new InvalidModel(model.constructor.name);
+        }
+    }
+
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public autoWireModels(models: Array<any>){
-        models.forEach(model => {
-            if(model.prototype instanceof RDBModel && this.rdb){
-                this.initRDBModel(model);
-                this.rdbModels.push(model);
-            }else if(model.prototype instanceof NoSQLModel && this.noSQL){
-                this.initNoSQLModel(model);
-                this.rdbModels.push(model);
-            }else{
-                //TODO: Issue here when useDB not called.
-                console.log('Could not initiatize model: %s', model.constructor.name);
-            }
-        });
-    }
-
-    //TODO: Add createdby and updatedby in model inits(). If add is not required combine initRDBModel() and initNoSQLModel()
-
     private initRDBModel(model: typeof RDBModel){
         //Get data from model object.
         const paperTrail = this.paperTrail;
@@ -221,8 +214,7 @@ export default class DBManager extends EventEmitter implements Component {
         const tableName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
 
-        //Logging the model before
-        console.log('Initiating model: %s(%s)', modelName, tableName);
+        this.emit(Events.INIT_MODEL, modelName, tableName, model);
 
         //Initializing model
         model.init(attributes, {
@@ -232,6 +224,9 @@ export default class DBManager extends EventEmitter implements Component {
             timestamps: paperTrail
         });
         model.hooks();
+
+        //Add to Array.
+        this.rdbModels.push(model);
     }
 
     private initNoSQLModel(model: typeof NoSQLModel){
@@ -242,8 +237,7 @@ export default class DBManager extends EventEmitter implements Component {
         const collectionName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
 
-        //Logging the model before
-        console.log('Initiating model: %s(%s)', modelName, collectionName);
+        this.emit(Events.INIT_MODEL, modelName, collectionName, model);
 
         //Initializing model
         model.init(attributes, {
@@ -253,6 +247,9 @@ export default class DBManager extends EventEmitter implements Component {
             timestamps: paperTrail
         });
         model.hooks();
+
+        //Add to Array.
+        this.noSQLModels.push(model);
     }
 
     /////////////////////////
@@ -260,14 +257,12 @@ export default class DBManager extends EventEmitter implements Component {
     /////////////////////////
     public connect(){
         if(this.rdb){
-            //TODO: Uncomment below.
-            // //Associate models
-            // if(this.rdb){
-            //     this.rdbModels.forEach(model => {
-            //         //Associating model
-            //         model.associate();
-            //     });
-            // }
+            //Associate models
+            this.rdbModels.forEach(model => {
+                model.associate();
+            });
+
+            //Start Connection.
             rdbConnection.authenticate()
                 .then(() => {
                     this.connected = true; //Connected Flag 
@@ -287,6 +282,7 @@ export default class DBManager extends EventEmitter implements Component {
                     }
                 });
         }else if(this.noSQL){
+            //Start Connection.
             noSQLConnection.on('connected', (error) => {
                 this.connected = true; //Connected Flag 
                 this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
@@ -348,6 +344,18 @@ export class InvalidConnectionOptionsError extends Error {
 export class NoRecordsFoundError extends Error {
     constructor() {
         super('No records found!');
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
+}
+
+export class InvalidModel extends Error {
+    constructor (name: string) {
+        super('Could not initiatize model: %s' + name);
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

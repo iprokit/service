@@ -76,18 +76,16 @@ export default class CommBroker extends EventEmitter implements Component {
     }
 
     /////////////////////////
-    ///////Inject Functions
+    ///////init Functions
     /////////////////////////
-    public autoInjectPublishers(publishers: Array<any>){
-        publishers.forEach(publisher => {
-            if(publisher.prototype instanceof Publisher){
-                const _publisher = new publisher();
-                console.log('Mapping publisher: %s', _publisher.constructor.name);
-                this.publishers.push(_publisher);
-            }else{
-                console.log('Could not map publisher: %s', publisher.constructor.name);
-            }
-        });
+    public initPublisher(publisher: any){
+        if(publisher.prototype instanceof Publisher){
+            const _publisher: typeof Publisher = new publisher();
+            this.emit(Events.INIT_PUBLISHER, _publisher.constructor.name, _publisher);
+            this.publishers.push(_publisher);
+        }else{
+            throw new InvalidPublisher(publisher.constructor.name);
+        }
     }
 
     /////////////////////////
@@ -285,9 +283,21 @@ export class Transaction {
 /////////////////////////
 ///////Error Classes
 /////////////////////////
-class ReplySentWarning extends Error{
+export class ReplySentWarning extends Error {
     constructor () {
         super('Reply already sent.');
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
+}
+
+export  class InvalidPublisher extends Error {
+    constructor (name: string) {
+        super('Could not initiatize publisher: %s' + name);
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

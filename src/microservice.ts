@@ -30,9 +30,9 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility, { FileOptions } from './utility';
 import Controller from './controller';
-import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
+import CommBroker, { ReplyCallback, Publisher, InvalidPublisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes } from './db.manager';
+import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes, InvalidModel } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -210,6 +210,16 @@ export default class MicroService extends EventEmitter implements Component{
         });
     }
 
+    private initController(controller: any){
+        if(controller.prototype instanceof Controller){
+            const _controller: typeof Controller = new controller();
+            this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
+            this.controllers.push(_controller);
+        }else{
+            throw new InvalidController(controller.constructor.name);
+        }
+    }
+
     /////////////////////////
     ///////Call Functions
     /////////////////////////
@@ -265,16 +275,10 @@ export default class MicroService extends EventEmitter implements Component{
         let publishersOptions = this.autoInjectPublisherOptions;
         let controllersOptions = this.autoInjectControllerOptions;
 
-        //TODO: Work from here.
-
-        let paths = ['/'];
+        let paths = modelsOptions.paths;
         let options: FileOptions = {
             endsWith: '.js'
         }
-
-        let models = new Array();
-        let controllers = new Array();
-        let publishers = new Array();
 
         paths.forEach((path: string) => {
             let files = Utility.getFilePaths(path, options);
@@ -283,32 +287,24 @@ export default class MicroService extends EventEmitter implements Component{
                 
                 try{
                     if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                        models.push(fileClass);
+                        dbManager.initModel(fileClass);
                     }else if(fileClass.prototype instanceof Controller){
-                        controllers.push(fileClass);
+                        this.initController(fileClass);
                     }else if(fileClass.prototype instanceof Publisher){
-                        publishers.push(fileClass);
+                        commBroker.initPublisher(fileClass);
                     }
                 }catch(error){
-                    //Invalid File.
+                    if(error instanceof InvalidController){
+                        console.log('InvalidController');
+                    }else if(error instanceof InvalidModel){
+                        console.log('InvalidModel');
+                    }else if(error instanceof InvalidPublisher){
+                        console.log('InvalidPublisher');
+                    }else{
+                        console.log('Some Error');
+                    }
                 }
             });
-        });
-
-        dbManager.autoWireModels(models);
-        this.autoInjectControllers(controllers);
-        commBroker.autoInjectPublishers(publishers);
-    }
-
-    private autoInjectControllers(controllers: Array<any>){
-        controllers.forEach(controller => {
-            if(controller.prototype instanceof Controller){
-                const _controller = new controller();
-                console.log('Adding endpoints from controller: %s', _controller.constructor.name);
-                this.controllers.push(_controller);
-            }else{
-                console.log('Could not add endpoints from controller: %s', controllers.constructor.name);
-            }
         });
     }
 
@@ -408,6 +404,19 @@ export default class MicroService extends EventEmitter implements Component{
         dbManager.on(Events.DB_DISCONNECTED, () => {
             console.log('DB Disconnected');
         });
+
+        //Init
+        dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
+            console.log('Initiating model: %s(%s)', name, entityName);
+        });
+
+        commBroker.on(Events.INIT_PUBLISHER, (name, publisher) => {
+            console.log('Mapping publisher: %s', name);
+        });
+
+        this.on(Events.INIT_CONTROLLER, (name, controller) => {
+            console.log('Adding endpoints from controller: %s', name);
+        });
     }
 
     /////////////////////////
@@ -463,6 +472,11 @@ export class Events {
     //DB
     public static readonly DB_CONNECTED = 'DB_CONNECTED';
     public static readonly DB_DISCONNECTED = 'DB_DISCONNECTED';
+
+    //Init
+    public static readonly INIT_CONTROLLER = 'INIT_CONTROLLER';
+    public static readonly INIT_MODEL = 'INIT_MODEL';
+    public static readonly INIT_PUBLISHER = 'INIT_PUBLISHER';
 
 }
 
@@ -541,4 +555,19 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
         target.entityOptions = entityOptions;
     }
+}
+
+/////////////////////////
+///////Error Classes
+/////////////////////////
+export class InvalidController extends Error {
+    constructor (name: string) {
+        super('Could not initiatize controller: %s' + name);
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
 }
