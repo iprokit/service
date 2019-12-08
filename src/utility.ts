@@ -31,14 +31,9 @@ export default class Utility {
     ///////Files
     /////////////////////////
     public static getFilePaths(paths: string, options?: FileOptions){
-        //Set Options.
-        options = options || {};
-
         //Set Defaults.
+        options = options || {};
         options.excludes = options.excludes || [];
-        options.startsWith = options.startsWith || '';
-        options.endsWith = options.endsWith || '';
-        options.likeName = options.likeName || '';
 
         //Adding files to Exclude.
         options.excludes.push('node_modules');
