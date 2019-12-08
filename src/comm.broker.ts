@@ -78,27 +78,15 @@ export default class CommBroker extends EventEmitter implements Component {
     /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    public autoInjectPublishers(autoInjectOptions: AutoLoadOptions){
-        let paths = autoInjectOptions.paths || ['/'];
-        const likeName = autoInjectOptions.likeName || 'publisher.js';
-        const excludes = autoInjectOptions.excludes || [];
-
-        paths.forEach((path: string) => {
-            let publisherPaths = Utility.getFilePaths(path, likeName, excludes);
-            publisherPaths.forEach(publisherPath => {
-                const _Publisher = require(publisherPath).default;
-
-                if(_Publisher.prototype instanceof Publisher){
-                    const publisher: typeof Publisher = new _Publisher();
-    
-                    console.log('Mapping publisher: %s', publisher.constructor.name);
-    
-                    //Add to Array
-                    this.publishers.push(publisher);
-                }else{
-                    console.log('Could not map publisher: %s', _Publisher.constructor.name);
-                }
-            });
+    public autoInjectPublishers(publishers: Array<any>){
+        publishers.forEach(publisher => {
+            if(publisher.prototype instanceof Publisher){
+                const _publisher = new publisher();
+                console.log('Mapping publisher: %s', _publisher.constructor.name);
+                this.publishers.push(_publisher);
+            }else{
+                console.log('Could not map publisher: %s', publisher.constructor.name);
+            }
         });
     }
 

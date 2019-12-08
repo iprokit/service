@@ -7,6 +7,14 @@ import path from 'path';
 //Local Imports
 import { projectPath } from './microservice';
 
+//Types: FileOptions
+export type FileOptions = {
+    excludes?: Array<string>,
+    startsWith?: string,
+    endsWith?: string,
+    likeName?: string
+};
+
 export default class Utility {
     /////////////////////////
     ///////Network
@@ -22,32 +30,51 @@ export default class Utility {
     /////////////////////////
     ///////Files
     /////////////////////////
-    public static getFilePaths(givenPath: string, likeName: string, excludes: Array<string>){
-        //Adding files to Exclude.
-        excludes.push('node_modules');
-        excludes.push('git');
+    public static getFilePaths(paths: string, options?: FileOptions){
+        //Set Options.
+        options = options || {};
 
-        return(this.findFilePaths(projectPath + givenPath, likeName, excludes));
+        //Set Defaults.
+        options.excludes = options.excludes || [];
+        options.startsWith = options.startsWith || '';
+        options.endsWith = options.endsWith || '';
+        options.likeName = options.likeName || '';
+
+        //Adding files to Exclude.
+        options.excludes.push('node_modules');
+        options.excludes.push('git');
+
+        return(this.findFilePaths(projectPath + paths, options));
     }
 
-    private static findFilePaths(givenPath: string, likeName: string, excludes: Array<string>) {
+    private static findFilePaths(paths: string, options?: FileOptions) {
         const allFiles = new Array<string>();
 
-        const filesOrDirectories = fs.readdirSync(givenPath);
+        const filesOrDirectories = fs.readdirSync(paths);
         filesOrDirectories.forEach(fileOrDirectory => {
-            const fileOrDirectoryPath = path.join(givenPath, fileOrDirectory);
+            const fileOrDirectoryPath = path.join(paths, fileOrDirectory);
             
             //Validate isExcluded()
-            if(!this.isExcluded(fileOrDirectoryPath, excludes)){
+            if(!this.isExcluded(fileOrDirectoryPath, options.excludes)){
                 //Validate if the fileOrDirectoryPath is directory or a file.
                 //If its a directory get sub files and add it to allFiles[].
 
-                if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                if(fs.statSync(fileOrDirectoryPath).isDirectory()) {
                     //Getting all files in the sub directory and adding to allFiles[].
-                    Array.prototype.push.apply(allFiles, this.findFilePaths(fileOrDirectoryPath, likeName, excludes));
+                    Array.prototype.push.apply(allFiles, this.findFilePaths(fileOrDirectoryPath, options));
                 } else {
-                    if (fileOrDirectory.includes(likeName)) {
-                        allFiles.push(fileOrDirectoryPath);
+                    if(options.startsWith){
+                        if(fileOrDirectory.startsWith(options.startsWith)){
+                            allFiles.push(fileOrDirectoryPath);
+                        }
+                    }else if(options.endsWith){
+                        if(fileOrDirectory.endsWith(options.endsWith)){
+                            allFiles.push(fileOrDirectoryPath);
+                        }
+                    }else if(options.likeName){
+                        if(fileOrDirectory.includes(options.likeName)){
+                            allFiles.push(fileOrDirectoryPath);
+                        }
                     }
                 }
             }

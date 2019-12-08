@@ -196,40 +196,19 @@ export default class DBManager extends EventEmitter implements Component {
     /////////////////////////
     ///////Model Functions
     /////////////////////////
-    public autoWireModels(autoWireOptions: AutoLoadOptions){
-        let paths = autoWireOptions.paths || ['/'];
-        const likeName = autoWireOptions.likeName || 'model.js';
-        const excludes = autoWireOptions.excludes || [];
-
-        paths.forEach((path: string) => {
-            let modelFiles = Utility.getFilePaths(path, likeName, excludes);
-            modelFiles.forEach(modelFile => {
-                const _Model = require(modelFile).default;
-
-                if(_Model.prototype instanceof RDBModel && this.rdb){
-                    this.initRDBModel(_Model);
-
-                    //Add to Array
-                    this.rdbModels.push(_Model);
-                }else if(_Model.prototype instanceof NoSQLModel && this.noSQL){
-                    this.initNoSQLModel(_Model);
-
-                    //Add to Array
-                    this.rdbModels.push(_Model);
-                }else{
-                    //TODO: Issue here when useDB not called.
-                    console.log('Could not initiatize model: %s', _Model.constructor.name);
-                }
-            });
+    public autoWireModels(models: Array<any>){
+        models.forEach(model => {
+            if(model.prototype instanceof RDBModel && this.rdb){
+                this.initRDBModel(model);
+                this.rdbModels.push(model);
+            }else if(model.prototype instanceof NoSQLModel && this.noSQL){
+                this.initNoSQLModel(model);
+                this.rdbModels.push(model);
+            }else{
+                //TODO: Issue here when useDB not called.
+                console.log('Could not initiatize model: %s', model.constructor.name);
+            }
         });
-
-        //Associate models
-        if(this.rdb){
-            this.rdbModels.forEach(model => {
-                //Associating model
-                model.associate();
-            });
-        }
     }
 
     //TODO: Add createdby and updatedby in model inits(). If add is not required combine initRDBModel() and initNoSQLModel()
@@ -281,6 +260,14 @@ export default class DBManager extends EventEmitter implements Component {
     /////////////////////////
     public connect(){
         if(this.rdb){
+            //TODO: Uncomment below.
+            // //Associate models
+            // if(this.rdb){
+            //     this.rdbModels.forEach(model => {
+            //         //Associating model
+            //         model.associate();
+            //     });
+            // }
             rdbConnection.authenticate()
                 .then(() => {
                     this.connected = true; //Connected Flag 

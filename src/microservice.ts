@@ -28,7 +28,7 @@ if(fs.existsSync(envPath)){
 }
 
 //Local Imports
-import Utility from './utility';
+import Utility, { FileOptions } from './utility';
 import Controller from './controller';
 import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
@@ -45,8 +45,10 @@ export type Options = {
 //Types: AutoLoadOptions
 export type AutoLoadOptions = {
     paths?: Array<string>,
-    likeName?: string,
-    excludes?: Array<string>
+    excludes?: Array<string>,
+    startsWith?: string,
+    endsWith?: string,
+    likeName?: string
 };
 
 //Interface: RequestResponseFunctionDescriptor
@@ -87,6 +89,11 @@ export default class MicroService extends EventEmitter implements Component{
     //Controllers
     public readonly controllers: Array<typeof Controller>;
 
+    //AutoLoad Variables.
+    private autoWireModelOptions: AutoLoadOptions;
+    private autoInjectPublisherOptions: AutoLoadOptions;
+    private autoInjectControllerOptions: AutoLoadOptions;
+
     //Default Constructor
     public constructor(baseUrl?: string, options?: Options) {
         //Call super for EventEmitter.
@@ -105,6 +112,11 @@ export default class MicroService extends EventEmitter implements Component{
 
         //Init Variables.
         this.controllers = new Array();
+
+        //Init AutoLoad Variables.
+        // this.autoWireModels(['/']);
+        // this.autoInjectPublishers(['/']);
+        // this.autoInjectControllers(['/']);
 
         //Load express, router
         this.initExpress();
@@ -215,37 +227,88 @@ export default class MicroService extends EventEmitter implements Component{
         }
     }
 
-    //TODO: Optimize loading functions into one.
+    // public autoWireModels(paths: Array<string>, options?: FileOptions){
+    //     options = options || {};
+    //     this.autoWireModelOptions = {
+    //         paths: paths,
+    //         excludes: options.excludes,
+    //         startsWith: options.startsWith,
+    //         endsWith: options.endsWith,
+    //         likeName: options.likeName
+    //     };
+    // }
 
-    public autoWireModels(autoInjectOptions: AutoLoadOptions){
-        dbManager.autoWireModels(autoInjectOptions)
-    }
+    // public autoInjectPublishers(paths: Array<string>, options?: FileOptions){
+    //     options = options || {};
+    //     this.autoInjectPublisherOptions = {
+    //         paths: paths,
+    //         excludes: options.excludes,
+    //         startsWith: options.startsWith,
+    //         endsWith: options.endsWith,
+    //         likeName: options.likeName
+    //     };
+    // }
 
-    public autoInjectPublishers(autoInjectOptions: AutoLoadOptions){
-        commBroker.autoInjectPublishers(autoInjectOptions);
-    }
+    // public autoInjectControllers(paths: Array<string>, options?: FileOptions){
+    //     options = options || {};
+    //     this.autoInjectControllerOptions = {
+    //         paths: paths,
+    //         excludes: options.excludes,
+    //         startsWith: options.startsWith,
+    //         endsWith: options.endsWith,
+    //         likeName: options.likeName
+    //     };
+    // }
 
-    public autoInjectControllers(autoInjectOptions: AutoLoadOptions){
-        let paths = autoInjectOptions.paths || ['/'];
-        const likeName = autoInjectOptions.likeName || 'controller.js';
-        const excludes = autoInjectOptions.excludes || [];
+    private loadFiles(){
+        let modelsOptions = this.autoInjectControllerOptions;
+        let publishersOptions = this.autoInjectPublisherOptions;
+        let controllersOptions = this.autoInjectControllerOptions;
+
+        //TODO: Work from here.
+
+        let paths = ['/'];
+        let options: FileOptions = {
+            endsWith: '.js'
+        }
+
+        let models = new Array();
+        let controllers = new Array();
+        let publishers = new Array();
 
         paths.forEach((path: string) => {
-            let controllerPaths = Utility.getFilePaths(path, likeName, excludes);
-            controllerPaths.forEach(controllerPath => {
-                const _Controller = require(controllerPath).default;
-
-                if(_Controller.prototype instanceof Controller){
-                    const controller: typeof Controller = new _Controller();
-
-                    console.log('Adding endpoints from controller: %s', controller.constructor.name);
-    
-                    //Add to Array
-                    this.controllers.push(controller);
-                }else{
-                    console.log('Could not add endpoints from controller: %s', _Controller.constructor.name);
+            let files = Utility.getFilePaths(path, options);
+            files.forEach(file => {
+                const fileClass = require(file).default;
+                
+                try{
+                    if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
+                        models.push(fileClass);
+                    }else if(fileClass.prototype instanceof Controller){
+                        controllers.push(fileClass);
+                    }else if(fileClass.prototype instanceof Publisher){
+                        publishers.push(fileClass);
+                    }
+                }catch(error){
+                    //Invalid File.
                 }
             });
+        });
+
+        dbManager.autoWireModels(models);
+        this.autoInjectControllers(controllers);
+        commBroker.autoInjectPublishers(publishers);
+    }
+
+    private autoInjectControllers(controllers: Array<any>){
+        controllers.forEach(controller => {
+            if(controller.prototype instanceof Controller){
+                const _controller = new controller();
+                console.log('Adding endpoints from controller: %s', _controller.constructor.name);
+                this.controllers.push(_controller);
+            }else{
+                console.log('Could not add endpoints from controller: %s', controllers.constructor.name);
+            }
         });
     }
 
@@ -254,6 +317,8 @@ export default class MicroService extends EventEmitter implements Component{
     /////////////////////////
     public start() {
         this.emit(Events.STARTING);
+
+        this.loadFiles();
 
         //Parallel starting all components.
         const server = expressApp.listen(this.expressPort, () => {
