@@ -210,6 +210,44 @@ export default class MicroService extends EventEmitter implements Component{
         });
     }
 
+    private initFiles(){
+        //TODO: Work from here.
+
+        // let modelsOptions = this.autoInjectControllerOptions;
+        // let publishersOptions = this.autoInjectPublisherOptions;
+        // let controllersOptions = this.autoInjectControllerOptions;
+
+        let path = '/';
+        let options: FileOptions = {
+            endsWith: '.js'
+        }
+
+        let files = Utility.getFilePaths(path, options);
+        files.forEach(file => {
+            const fileClass = require(file).default;
+            
+            try{
+                if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
+                    dbManager.initModel(fileClass);
+                }else if(fileClass.prototype instanceof Controller){
+                    this.initController(fileClass);
+                }else if(fileClass.prototype instanceof Publisher){
+                    commBroker.initPublisher(fileClass);
+                }
+            }catch(error){
+                if(error instanceof InvalidController){
+                    console.log('InvalidController');
+                }else if(error instanceof InvalidModel){
+                    console.log('InvalidModel');
+                }else if(error instanceof InvalidPublisher){
+                    console.log('InvalidPublisher');
+                }else{
+                    console.log('Some Error');
+                }
+            }
+        });
+    }
+
     private initController(controller: any){
         if(controller.prototype instanceof Controller){
             const _controller: typeof Controller = new controller();
@@ -237,75 +275,37 @@ export default class MicroService extends EventEmitter implements Component{
         }
     }
 
-    // public autoWireModels(paths: Array<string>, options?: FileOptions){
-    //     options = options || {};
-    //     this.autoWireModelOptions = {
-    //         paths: paths,
-    //         excludes: options.excludes,
-    //         startsWith: options.startsWith,
-    //         endsWith: options.endsWith,
-    //         likeName: options.likeName
-    //     };
-    // }
+    public autoWireModels(paths: Array<string>, options?: FileOptions){
+        options = options || {};
+        this.autoWireModelOptions = {
+            paths: paths,
+            excludes: options.excludes,
+            startsWith: options.startsWith,
+            endsWith: options.endsWith,
+            likeName: options.likeName
+        };
+    }
 
-    // public autoInjectPublishers(paths: Array<string>, options?: FileOptions){
-    //     options = options || {};
-    //     this.autoInjectPublisherOptions = {
-    //         paths: paths,
-    //         excludes: options.excludes,
-    //         startsWith: options.startsWith,
-    //         endsWith: options.endsWith,
-    //         likeName: options.likeName
-    //     };
-    // }
+    public autoInjectPublishers(paths: Array<string>, options?: FileOptions){
+        options = options || {};
+        this.autoInjectPublisherOptions = {
+            paths: paths,
+            excludes: options.excludes,
+            startsWith: options.startsWith,
+            endsWith: options.endsWith,
+            likeName: options.likeName
+        };
+    }
 
-    // public autoInjectControllers(paths: Array<string>, options?: FileOptions){
-    //     options = options || {};
-    //     this.autoInjectControllerOptions = {
-    //         paths: paths,
-    //         excludes: options.excludes,
-    //         startsWith: options.startsWith,
-    //         endsWith: options.endsWith,
-    //         likeName: options.likeName
-    //     };
-    // }
-
-    private loadFiles(){
-        let modelsOptions = this.autoInjectControllerOptions;
-        let publishersOptions = this.autoInjectPublisherOptions;
-        let controllersOptions = this.autoInjectControllerOptions;
-
-        let paths = modelsOptions.paths;
-        let options: FileOptions = {
-            endsWith: '.js'
-        }
-
-        paths.forEach((path: string) => {
-            let files = Utility.getFilePaths(path, options);
-            files.forEach(file => {
-                const fileClass = require(file).default;
-                
-                try{
-                    if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                        dbManager.initModel(fileClass);
-                    }else if(fileClass.prototype instanceof Controller){
-                        this.initController(fileClass);
-                    }else if(fileClass.prototype instanceof Publisher){
-                        commBroker.initPublisher(fileClass);
-                    }
-                }catch(error){
-                    if(error instanceof InvalidController){
-                        console.log('InvalidController');
-                    }else if(error instanceof InvalidModel){
-                        console.log('InvalidModel');
-                    }else if(error instanceof InvalidPublisher){
-                        console.log('InvalidPublisher');
-                    }else{
-                        console.log('Some Error');
-                    }
-                }
-            });
-        });
+    public autoInjectControllers(paths: Array<string>, options?: FileOptions){
+        options = options || {};
+        this.autoInjectControllerOptions = {
+            paths: paths,
+            excludes: options.excludes,
+            startsWith: options.startsWith,
+            endsWith: options.endsWith,
+            likeName: options.likeName
+        };
     }
 
     /////////////////////////
@@ -314,7 +314,7 @@ export default class MicroService extends EventEmitter implements Component{
     public start() {
         this.emit(Events.STARTING);
 
-        this.loadFiles();
+        this.initFiles();
 
         //Parallel starting all components.
         const server = expressApp.listen(this.expressPort, () => {
