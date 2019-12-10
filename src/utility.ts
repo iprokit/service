@@ -37,7 +37,11 @@ export default class Utility {
 
         //Adding files to Exclude.
         options.excludes.push('node_modules');
+        options.excludes.push('.babelrc');
+        options.excludes.push('package.json');
+        options.excludes.push('package-lock.json');
         options.excludes.push('git');
+        options.excludes.push('.env');
 
         return(this.findFilePaths(projectPath + paths, options));
     }
@@ -49,8 +53,8 @@ export default class Utility {
         filesOrDirectories.forEach(fileOrDirectory => {
             const fileOrDirectoryPath = path.join(paths, fileOrDirectory);
             
-            //Validate isExcluded()
-            if(!this.isExcluded(fileOrDirectoryPath, options.excludes)){
+            //Validate if excluded
+            if(!options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))){
                 //Validate if the fileOrDirectoryPath is directory or a file.
                 //If its a directory get sub files and add it to allFiles[].
 
@@ -75,16 +79,6 @@ export default class Utility {
             }
         });
         return allFiles;
-    }
-
-    private static isExcluded(file: string, excludes: Array<string>){
-        let excluded = false;
-        excludes.forEach(exclude => {
-            if(file.includes(exclude)){
-                excluded = true;
-            }
-        });
-        return excluded;
     }
 
     /////////////////////////

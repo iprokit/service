@@ -2,7 +2,12 @@
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
+//Local Imports
+import { RouteOptions } from './microservice';
+
 export default class Controller {
+    public static routes: Array<RouteOptions>;
+
     //Default Constructor
     public constructor(){}
 

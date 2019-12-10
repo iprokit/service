@@ -3,11 +3,16 @@ import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Defaults, Events, AutoLoadOptions } from './microservice';
-import Utility from './utility';
+import { Component, Defaults, Events } from './microservice';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
+
+//Export ReplyOptions
+export type ReplyOptions = {
+    topic: string,
+    replyCB: ReplyCallback
+}
 
 export default class CommBroker extends EventEmitter implements Component {
     //Broker Variables.
@@ -79,13 +84,13 @@ export default class CommBroker extends EventEmitter implements Component {
     ///////init Functions
     /////////////////////////
     public initPublisher(publisher: any){
-        if(publisher.prototype instanceof Publisher){
-            const _publisher: typeof Publisher = new publisher();
-            this.emit(Events.INIT_PUBLISHER, _publisher.constructor.name, _publisher);
-            this.publishers.push(_publisher);
-        }else{
-            throw new InvalidPublisher(publisher.constructor.name);
-        }
+        const _publisher: typeof Publisher = new publisher();
+        this.emit(Events.INIT_PUBLISHER, _publisher.constructor.name, _publisher);
+
+        _publisher.replies.forEach(reply => {
+            this.reply(reply.topic, reply.replyCB);
+        });
+        this.publishers.push(_publisher);
     }
 
     /////////////////////////
@@ -261,6 +266,8 @@ export class Reply implements IReply{
 ///////Publisher
 /////////////////////////
 export class Publisher {
+    public static replies: Array<ReplyOptions>;
+
     constructor(){}
 }
 
@@ -286,18 +293,6 @@ export class Transaction {
 export class ReplySentWarning extends Error {
     constructor () {
         super('Reply already sent.');
-        
-        // Saving class name in the property of our custom error as a shortcut.
-        this.name = this.constructor.name;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-      }
-}
-
-export  class InvalidPublisher extends Error {
-    constructor (name: string) {
-        super('Could not initiatize publisher: %s' + name);
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

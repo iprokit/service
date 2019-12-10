@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Post, Events, AutoLoadOptions } from './microservice';
+import { Component, Post, Events } from './microservice';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 import Utility from './utility';
@@ -199,7 +199,7 @@ export default class DBManager extends EventEmitter implements Component {
         }else if(model.prototype instanceof NoSQLModel && this.noSQL){
             this.initNoSQLModel(model);
         }else{
-            throw new InvalidModel(model.constructor.name);
+            //DO: Throw Wrong DB loaded.
         }
     }
 
@@ -213,6 +213,8 @@ export default class DBManager extends EventEmitter implements Component {
         const modelName = model.name.replace('Model', '');
         const tableName = model.entityOptions.name;
         const attributes = model.entityOptions.attributes;
+
+        //TODO: check if attribues are null;
 
         this.emit(Events.INIT_MODEL, modelName, tableName, model);
 
@@ -344,18 +346,6 @@ export class InvalidConnectionOptionsError extends Error {
 export class NoRecordsFoundError extends Error {
     constructor() {
         super('No records found!');
-        
-        // Saving class name in the property of our custom error as a shortcut.
-        this.name = this.constructor.name;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-      }
-}
-
-export class InvalidModel extends Error {
-    constructor (name: string) {
-        super('Could not initiatize model: %s' + name);
         
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

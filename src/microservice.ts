@@ -28,11 +28,11 @@ if(fs.existsSync(envPath)){
 }
 
 //Local Imports
-import Utility, { FileOptions } from './utility';
+import Utility from './utility';
 import Controller from './controller';
-import CommBroker, { ReplyCallback, Publisher, InvalidPublisher } from './comm.broker';
+import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes, InvalidModel } from './db.manager';
+import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -44,12 +44,9 @@ export type Options = {
 
 //Types: AutoLoadOptions
 export type AutoLoadOptions = {
-    paths?: Array<string>,
-    excludes?: Array<string>,
-    startsWith?: string,
-    endsWith?: string,
-    likeName?: string
-};
+    includes?: Array<string>,
+    excludes?: Array<string>
+}
 
 //Interface: RequestResponseFunctionDescriptor
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
@@ -69,6 +66,13 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 
 //Types: ModelClass
 export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
+
+//Export RouteOptions
+export type RouteOptions = {
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    path: PathParams,
+    fn: RequestHandler
+}
 
 //Global Objects
 const expressApp = express();
@@ -114,9 +118,9 @@ export default class MicroService extends EventEmitter implements Component{
         this.controllers = new Array();
 
         //Init AutoLoad Variables.
-        // this.autoWireModels(['/']);
-        // this.autoInjectPublishers(['/']);
-        // this.autoInjectControllers(['/']);
+        // this.setAutoWireModelOptions({includes: ['/']});
+        // this.setAutoInjectPublisherOptions({includes: ['/']});
+        // this.setAutoInjectControllerOptions({includes: ['/']});
 
         //Load express, router
         this.initExpress();
@@ -211,51 +215,69 @@ export default class MicroService extends EventEmitter implements Component{
     }
 
     private initFiles(){
-        //TODO: Work from here.
+        let modelsOptions = (this.autoWireModelOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoWireModelOptions;
+        let publishersOptions = (this.autoInjectPublisherOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectPublisherOptions;
+        let controllersOptions = (this.autoInjectControllerOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectControllerOptions;
 
-        // let modelsOptions = this.autoInjectControllerOptions;
-        // let publishersOptions = this.autoInjectPublisherOptions;
-        // let controllersOptions = this.autoInjectControllerOptions;
+        let modelFiles = new Array();
+        let publisherFiles = new Array();
+        let controllerFiles = new Array();
 
-        let path = '/';
-        let options: FileOptions = {
-            endsWith: '.js'
-        }
-
-        let files = Utility.getFilePaths(path, options);
+        let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js']});
         files.forEach(file => {
             const fileClass = require(file).default;
-            
-            try{
+
+            if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
+                || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
                 if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                    dbManager.initModel(fileClass);
-                }else if(fileClass.prototype instanceof Controller){
-                    this.initController(fileClass);
-                }else if(fileClass.prototype instanceof Publisher){
-                    commBroker.initPublisher(fileClass);
+                    modelFiles.push(fileClass);
                 }
-            }catch(error){
-                if(error instanceof InvalidController){
-                    console.log('InvalidController');
-                }else if(error instanceof InvalidModel){
-                    console.log('InvalidModel');
-                }else if(error instanceof InvalidPublisher){
-                    console.log('InvalidPublisher');
-                }else{
-                    console.log('Some Error');
+            }
+            if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
+                || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                if(fileClass.prototype instanceof Publisher){
+                    publisherFiles.push(fileClass);
+                }
+            }
+            if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
+                || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                if(fileClass.prototype instanceof Controller){
+                    controllerFiles.push(fileClass);
                 }
             }
         });
+
+        try{
+            modelFiles.forEach(modelFile => {
+                dbManager.initModel(modelFile);
+            });
+            publisherFiles.forEach(publisherFile => {
+                commBroker.initPublisher(publisherFile);
+            })
+            controllerFiles.forEach(controllerFile => {
+                this.initController(controllerFile);
+            })
+        }catch(error){
+            console.log('Some Error');
+        }
     }
 
     private initController(controller: any){
-        if(controller.prototype instanceof Controller){
-            const _controller: typeof Controller = new controller();
-            this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
-            this.controllers.push(_controller);
-        }else{
-            throw new InvalidController(controller.constructor.name);
-        }
+        const _controller: typeof Controller = new controller();
+        this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
+
+        _controller.routes.forEach(route => {
+            if(route.method === 'GET'){
+                expressRouter.get(route.path, route.fn);
+            }else if(route.method === 'POST'){
+                expressRouter.post(route.path, route.fn);
+            }else if(route.method === 'PUT'){
+                expressRouter.put(route.path, route.fn);
+            }else if(route.method === 'DELETE'){
+                expressRouter.delete(route.path, route.fn);
+            }
+        });
+        this.controllers.push(_controller);
     }
 
     /////////////////////////
@@ -275,37 +297,16 @@ export default class MicroService extends EventEmitter implements Component{
         }
     }
 
-    public autoWireModels(paths: Array<string>, options?: FileOptions){
-        options = options || {};
-        this.autoWireModelOptions = {
-            paths: paths,
-            excludes: options.excludes,
-            startsWith: options.startsWith,
-            endsWith: options.endsWith,
-            likeName: options.likeName
-        };
+    public setAutoWireModelOptions(options?: AutoLoadOptions){
+        this.autoWireModelOptions = options;
     }
 
-    public autoInjectPublishers(paths: Array<string>, options?: FileOptions){
-        options = options || {};
-        this.autoInjectPublisherOptions = {
-            paths: paths,
-            excludes: options.excludes,
-            startsWith: options.startsWith,
-            endsWith: options.endsWith,
-            likeName: options.likeName
-        };
+    public setAutoInjectPublisherOptions(options?: AutoLoadOptions){
+        this.autoInjectPublisherOptions = options;
     }
 
-    public autoInjectControllers(paths: Array<string>, options?: FileOptions){
-        options = options || {};
-        this.autoInjectControllerOptions = {
-            paths: paths,
-            excludes: options.excludes,
-            startsWith: options.startsWith,
-            endsWith: options.endsWith,
-            likeName: options.likeName
-        };
+    public setAutoInjectControllerOptions(options?: AutoLoadOptions){
+        this.autoInjectControllerOptions = options;
     }
 
     /////////////////////////
@@ -503,7 +504,10 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
             path = ('/' + controllerName + path);
         }
-        expressRouter.get(path, descriptor.value);
+        if(!target.routes){
+            target.routes = new Array();
+        }
+        target.routes.push({method: 'GET', path: path, fn: descriptor.value});
     }
 }
 
@@ -513,7 +517,10 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
             const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
             path = ('/' + controllerName + path);
         }
-        expressRouter.post(path, descriptor.value);
+        if(!target.routes){
+            target.routes = new Array();
+        }
+        target.routes.push({method: 'POST', path: path, fn: descriptor.value});
     }
 }
 
@@ -523,7 +530,10 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
             path = ('/' + controllerName + path);
         }
-        expressRouter.put(path, descriptor.value);
+        if(!target.routes){
+            target.routes = new Array();
+        }
+        target.routes.push({method: 'PUT', path: path, fn: descriptor.value});
     }
 }
 
@@ -533,7 +543,10 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
             const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
             path = ('/' + controllerName + path);
         }
-        expressRouter.delete(path, descriptor.value);
+        if(!target.routes){
+            target.routes = new Array();
+        }
+        target.routes.push({method: 'DELETE', path: path, fn: descriptor.value});
     }
 }
 
@@ -544,7 +557,11 @@ export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.constructor.name.replace('Publisher', '');
         const topic = Utility.convertToTopic(publisherName, propertyKey);
-        commBroker.reply(topic, descriptor.value);
+
+        if(!target.replies){
+            target.replies = new Array();
+        }
+        target.replies.push({topic: topic, replyCB: descriptor.value});
     }
 }
 
@@ -555,19 +572,4 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
         target.entityOptions = entityOptions;
     }
-}
-
-/////////////////////////
-///////Error Classes
-/////////////////////////
-export class InvalidController extends Error {
-    constructor (name: string) {
-        super('Could not initiatize controller: %s' + name);
-        
-        // Saving class name in the property of our custom error as a shortcut.
-        this.name = this.constructor.name;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-      }
 }
