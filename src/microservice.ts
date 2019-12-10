@@ -83,8 +83,8 @@ export type EntityOptions = {
 //Global Service Variables.
 const expressApp = express();
 const expressRouter = express.Router();
-const commMesh = new CommMesh();
 const commBroker = new CommBroker();
+const commMesh = new CommMesh();
 const dbManager = new DBManager();
 
 export default class MicroService extends EventEmitter implements Component {

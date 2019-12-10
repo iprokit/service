@@ -25,22 +25,6 @@ export default class CommMesh extends EventEmitter implements Component {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public getNodes(){
-        return this.nodes;
-    }
-
-    public getNodeAlias(url: string){
-        //Try finding nodes.
-        let node = this.nodes.find(node => node.url === url);
-
-        if(!node){
-            //No node found. creating a new node.
-            node = this.createNode(url);
-        }
-
-        return node.getAlias();
-    }
-
     public getReport() {
         let nodes = new Array();
 
@@ -57,6 +41,18 @@ export default class CommMesh extends EventEmitter implements Component {
     /////////////////////////
     ///////Map Functions
     /////////////////////////
+    public getNodeAlias(url: string){
+        //Try finding nodes.
+        let node = this.nodes.find(node => node.url === url);
+
+        if(!node){
+            //No node found. creating a new node.
+            node = this.createNode(url);
+        }
+
+        return node.alias;
+    }
+    
     private createNode(url: string){
         //Creating node object.
         const node = new Node(url);
@@ -126,7 +122,7 @@ export class Node extends EventEmitter {
     private topics: Array<string>;
 
     //Alias
-    private readonly alias: Alias;
+    public readonly alias: Alias;
 
     //Message Events
     private readonly messageCallbackEvent: EventEmitter;
@@ -164,14 +160,6 @@ export class Node extends EventEmitter {
 
     public get disconnected() {
         return this.mqttClient.disconnected;
-    }
-
-    public getTopics() {
-        return this.topics;
-    }
-
-    public getAlias(){
-        return this.alias;
     }
     
     public getReport(){

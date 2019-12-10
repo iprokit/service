@@ -76,22 +76,6 @@ export default class DBManager extends EventEmitter implements Component {
         return this.connected;
     }
 
-    public getModels(){
-        if(this.rdb){
-            return this.rdbModels;
-        }else if(this.noSQL){
-            return this.noSQLModels;
-        }
-    }
-
-    public getConnection(){
-        if(this.rdb){
-            return rdbConnection;
-        }else if(this.noSQL){
-            return noSQLConnection;
-        }
-    }
-
     public getReport(){
         try{
             let _models;

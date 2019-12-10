@@ -50,14 +50,6 @@ export default class CommBroker extends EventEmitter implements Component {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public getTopics() {
-        return this.topics;
-    }
-
-    public getPublishers() {
-        return this.publishers;
-    }
-
     public getReport(){
         try{
             let publishers = new Array();

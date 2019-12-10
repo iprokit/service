@@ -36,11 +36,11 @@ export default class Utility {
         options.excludes = options.excludes || [];
 
         //Adding files to Exclude.
+        options.excludes.push('git');
         options.excludes.push('node_modules');
-        options.excludes.push('.babelrc');
         options.excludes.push('package.json');
         options.excludes.push('package-lock.json');
-        options.excludes.push('git');
+        options.excludes.push('.babelrc');
         options.excludes.push('.env');
 
         return(this.findFilePaths(projectPath + paths, options));
