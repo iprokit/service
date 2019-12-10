@@ -32,7 +32,7 @@ import Utility from './utility';
 import Controller from './controller';
 import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { InvalidConnectionOptionsError, EntityOptions, DBTypes } from './db.manager';
+import DBManager, { InvalidConnectionOptionsError, DBTypes } from './db.manager';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -67,11 +67,17 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 //Types: ModelClass
 export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
 
-//Export RouteOptions
+//Types: RouteOptions
 export type RouteOptions = {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: PathParams,
     fn: RequestHandler
+}
+
+//Types: EntityOptions.
+export type EntityOptions = {
+    name: string,
+    attributes: any,
 }
 
 //Global Objects
@@ -81,7 +87,7 @@ const commBroker = new CommBroker();
 const commMesh = new CommMesh();
 const dbManager = new DBManager();
 
-export default class MicroService extends EventEmitter implements Component{
+export default class MicroService extends EventEmitter implements Component {
     //Service Variables.
     public readonly serviceName: string;
     public readonly baseUrl: string;
@@ -116,11 +122,6 @@ export default class MicroService extends EventEmitter implements Component{
 
         //Init Variables.
         this.controllers = new Array();
-
-        //Init AutoLoad Variables.
-        // this.setAutoWireModelOptions({includes: ['/']});
-        // this.setAutoInjectPublisherOptions({includes: ['/']});
-        // this.setAutoInjectControllerOptions({includes: ['/']});
 
         //Load express, router
         this.initExpress();
@@ -227,39 +228,33 @@ export default class MicroService extends EventEmitter implements Component{
         files.forEach(file => {
             const fileClass = require(file).default;
 
-            if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
-                || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                    modelFiles.push(fileClass);
+            if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
+                if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
+                    || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                        modelFiles.push(fileClass);
                 }
-            }
-            if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
-                || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                if(fileClass.prototype instanceof Publisher){
-                    publisherFiles.push(fileClass);
+            }else if(fileClass.prototype instanceof Publisher){
+                if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
+                    || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                        publisherFiles.push(fileClass);
                 }
-            }
-            if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
-                || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                if(fileClass.prototype instanceof Controller){
-                    controllerFiles.push(fileClass);
+            }else if(fileClass.prototype instanceof Controller){
+                if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
+                    || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                        controllerFiles.push(fileClass);
                 }
             }
         });
 
-        try{
-            modelFiles.forEach(modelFile => {
-                dbManager.initModel(modelFile);
-            });
-            publisherFiles.forEach(publisherFile => {
-                commBroker.initPublisher(publisherFile);
-            })
-            controllerFiles.forEach(controllerFile => {
-                this.initController(controllerFile);
-            })
-        }catch(error){
-            console.log('Some Error');
-        }
+        modelFiles.forEach(modelFile => {
+            dbManager.initModel(modelFile);
+        });
+        publisherFiles.forEach(publisherFile => {
+            commBroker.initPublisher(publisherFile);
+        })
+        controllerFiles.forEach(controllerFile => {
+            this.initController(controllerFile);
+        })
     }
 
     private initController(controller: any){
@@ -570,6 +565,7 @@ export function Reply(): ReplyFunction {
 /////////////////////////
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
-        target.entityOptions = entityOptions;
+        target.entityName = entityOptions.name;
+        target.entityAttributes = entityOptions.attributes;
     }
 }

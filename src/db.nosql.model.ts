@@ -2,7 +2,7 @@
 import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document } from 'mongoose';
 
 //Local Imports
-import { EntityOptions, NoRecordsFoundError } from './db.manager';
+import { NoRecordsFoundError } from './db.manager';
 
 //Export model Types.
 export const NoSQLTypes: typeof Schema.Types = Schema.Types;
@@ -16,7 +16,8 @@ export type InitOptions = {
 }
 
 export default abstract class NoSQLModel {
-    public static entityOptions: EntityOptions;
+    public static entityName: string;
+    public static entityAttributes: SchemaDefinition;
 
     public static mongoose: Mongoose;
     public static model: Model<Document>;

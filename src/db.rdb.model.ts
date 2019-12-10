@@ -1,14 +1,15 @@
 //Import modules
-import {Model, DataTypes} from 'sequelize';
+import {Model, DataTypes, ModelAttributes} from 'sequelize';
 
 //Local Imports
-import { EntityOptions } from './db.manager';
+import { NoRecordsFoundError } from './db.manager';
 
 //Export model Types.
 export const RDBTypes: typeof DataTypes = DataTypes;
 
 export default class RDBModel extends Model {
-    public static entityOptions: EntityOptions;
+    public static entityName: string;
+    public static entityAttributes: ModelAttributes;
 
     /////////////////////////
     ///////DAO's - Basic
@@ -31,7 +32,7 @@ export default class RDBModel extends Model {
                 if(data){
                     return data
                 }else{
-                    throw new Error('No records found!');
+                    throw new NoRecordsFoundError();
                 }
             })
             .catch(error => {
@@ -43,7 +44,7 @@ export default class RDBModel extends Model {
         return await this.update(data, {where: {id: id}, individualHooks: true})
             .then(async affectedRows => {
                 if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
-                    throw new Error('No records found!');
+                    throw new NoRecordsFoundError();
                 }else{
                     return true;
                 }
@@ -57,7 +58,7 @@ export default class RDBModel extends Model {
         return await this.destroy({where: { id: id }, individualHooks: true})
             .then(async affectedRows => {
                 if(affectedRows === 0){
-                    throw new Error('No records found!');
+                    throw new NoRecordsFoundError();
                 }else{
                     return true;
                 }

@@ -16,12 +16,6 @@ import Controller from './controller';
 export type DBTypes = RDBType | NoSQLType;
 export type RDBType = 'mysql';
 export type NoSQLType = 'mongo';
-
-//Export Entity Types.
-export type EntityOptions = {
-    name: string,
-    attributes: any,
-}
     
 //Connection Objects
 let rdbConnection: Sequelize;
@@ -109,7 +103,7 @@ export default class DBManager extends EventEmitter implements Component {
 
             let models = new Array();
             _models.forEach((model: typeof RDBModel | typeof NoSQLModel) => {
-                models.push({[model.name]: model.entityOptions.name});
+                models.push({[model.name]: model.entityName});
             });
 
             const report = {
@@ -211,8 +205,8 @@ export default class DBManager extends EventEmitter implements Component {
         const paperTrail = this.paperTrail;
         const sequelize = rdbConnection;
         const modelName = model.name.replace('Model', '');
-        const tableName = model.entityOptions.name;
-        const attributes = model.entityOptions.attributes;
+        const tableName = model.entityName;
+        const attributes = model.entityAttributes;
 
         //TODO: check if attribues are null;
 
@@ -236,8 +230,8 @@ export default class DBManager extends EventEmitter implements Component {
         const paperTrail = this.paperTrail;
         const mongoose = noSQLConnection;
         const modelName = model.name.replace('Model', '');
-        const collectionName = model.entityOptions.name;
-        const attributes = model.entityOptions.attributes;
+        const collectionName = model.entityName;
+        const attributes = model.entityAttributes;
 
         this.emit(Events.INIT_MODEL, modelName, collectionName, model);
 
