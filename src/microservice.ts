@@ -221,6 +221,7 @@ export default class MicroService extends EventEmitter implements Component {
     }
 
     private initFiles(){
+        //DO: Implement init fn. Move this to seperate functions.
         let modelsOptions = (this.autoWireModelOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoWireModelOptions;
         let publishersOptions = (this.autoInjectPublisherOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectPublisherOptions;
         let controllersOptions = (this.autoInjectControllerOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectControllerOptions;
@@ -256,10 +257,10 @@ export default class MicroService extends EventEmitter implements Component {
         });
         publisherFiles.forEach(publisherFile => {
             commBroker.initPublisher(publisherFile);
-        })
+        });
         controllerFiles.forEach(controllerFile => {
             this.initController(controllerFile);
-        })
+        });
     }
 
     private initController(controller: any){

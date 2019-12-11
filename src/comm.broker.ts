@@ -258,7 +258,7 @@ export class Publisher {
 ///////Transaction Classes
 /////////////////////////
 export class Transaction {
-    //DO: Start work from here for transaction.
+    //DO: Implement Transaction.
     public start(){
 
     }

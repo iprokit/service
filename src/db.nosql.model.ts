@@ -130,9 +130,9 @@ export default abstract class NoSQLModel {
     }
 }
 
-//Add pagenations
-
 // public static async getOne(conditions: any){
 //     this.transformConditions(conditions);
 //     //Do Something.
 // }
+
+//DO: Implement pagenation
