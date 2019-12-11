@@ -26,11 +26,13 @@ export default class CommMesh extends EventEmitter implements Component {
     ///////Gets/Sets
     /////////////////////////
     public getReport(){
-        return {
-            nodes: this.nodes.map(node => {
-                return node.getReport();
-            })
-        }
+        let nodes = new Array();
+
+        this.nodes.forEach(node => {
+            nodes.push(node.getReport());
+        });
+
+        return nodes;
     }
 
     /////////////////////////

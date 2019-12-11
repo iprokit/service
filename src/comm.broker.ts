@@ -52,14 +52,18 @@ export default class CommBroker extends EventEmitter implements Component {
     ///////Gets/Sets
     /////////////////////////
     public getReport(){
+        let publishers = new Array();
+
+        this.publishers.forEach(publisher => {
+            publishers.push({[publisher.constructor.name]: publisher.replies});
+        });
+
         return {
             init: {
                 broadcastTopic: this.broadcastTopic,
                 port: this.port
             },
-            publishers: this.publishers.map(publisher => {
-                return {[publisher.constructor.name]: publisher.replies}
-            })
+            publishers: publishers
         }
     }
 

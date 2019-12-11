@@ -135,24 +135,32 @@ export default class MicroService extends EventEmitter implements Component {
     /////////////////////////
     public getReport(){
         //Get all routes
-        let serviceRoutes = expressRouter.stack.map(item => {
-            return {
+        let serviceRoutes = new Array();
+        expressRouter.stack.forEach(item => {
+            serviceRoutes.push({
                 name: item.route.stack[0].name,
                 method: item.route.stack[0].method,
                 path: this.baseUrl + item.route.path
-            };
+            });
         });
 
         //Get all controllers
-        let controllers = this.controllers.map(controller => {
-            let routes = controller.routes.map(route => {
-                route.path = this.baseUrl + route.path; //Prepending baseURL.
+        let controllers = new Array();
+        this.controllers.forEach(controller => {
+            let routes = new Array();
+
+            controller.routes.forEach(route => {
+                let _route = {
+                    name: route.name,
+                    method: route.method,
+                    path: this.baseUrl + route.path
+                }
+                routes.push(_route);
 
                 //Remove controller routes from serviceRoutes.
-                serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(route)), 1);
-                return route;
-            })
-            return {[controller.constructor.name]: routes};
+                serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(_route)), 1);
+            });
+            controllers.push({[controller.constructor.name]: routes});
         });
 
         return {
@@ -221,7 +229,6 @@ export default class MicroService extends EventEmitter implements Component {
     }
 
     private initFiles(){
-        //DO: Implement init fn. Move this to seperate functions.
         let modelsOptions = (this.autoWireModelOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoWireModelOptions;
         let publishersOptions = (this.autoInjectPublisherOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectPublisherOptions;
         let controllersOptions = (this.autoInjectControllerOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectControllerOptions;

@@ -75,6 +75,12 @@ export default class DBManager extends EventEmitter implements Component {
     }
 
     public getReport(){
+        let models = new Array();
+
+        this.models.forEach(model => {
+            models.push({[model.name]: model.entityName});
+        });
+
         return {
             init: {
                 name: this.name,
@@ -82,9 +88,7 @@ export default class DBManager extends EventEmitter implements Component {
                 type: this.type,
                 connected: this.connected
             },
-            models: this.models.map(model => {
-                return {[model.name]: model.entityName}
-            })
+            models: models
         }
     }
 
