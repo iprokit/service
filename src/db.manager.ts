@@ -77,31 +77,23 @@ export default class DBManager extends EventEmitter implements Component {
     }
 
     public getReport(){
-        try{
-            let _models;
-            if(this.rdb){
-                _models = this.rdbModels;
-            }else if(this.noSQL){
-                _models = this.noSQLModels;
-            }
+        let _models: Array<typeof RDBModel | typeof NoSQLModel>;
+        if(this.rdb){
+            _models = this.rdbModels;
+        }else if(this.noSQL){
+            _models = this.noSQLModels;
+        }
 
-            let models = new Array();
-            _models.forEach((model: typeof RDBModel | typeof NoSQLModel) => {
-                models.push({[model.name]: model.entityName});
-            });
-
-            const report = {
-                init: {
-                    name: this.name,
-                    host: this.host,
-                    type: this.type,
-                    connected: this.connected
-                },
-                models: models
-            }
-            return report;
-        }catch(error){
-            return {}
+        return {
+            init: {
+                name: this.name,
+                host: this.host,
+                type: this.type,
+                connected: this.connected
+            },
+            models: _models.map(model => {
+                return {[model.name]: model.entityName}
+            })
         }
     }
 

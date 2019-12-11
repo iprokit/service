@@ -25,17 +25,12 @@ export default class CommMesh extends EventEmitter implements Component {
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
-    public getReport() {
-        let nodes = new Array();
-
-        this.nodes.forEach((node) => {
-            nodes.push(node.getReport());
-        });
-
-        const report = {
-            nodes: nodes
-        };
-        return report;
+    public getReport(){
+        return {
+            nodes: this.nodes.map(node => {
+                return node.getReport();
+            })
+        }
     }
 
     /////////////////////////
@@ -107,7 +102,7 @@ export default class CommMesh extends EventEmitter implements Component {
     }
 }
 
-export class Node extends EventEmitter {
+export class Node extends EventEmitter implements Component {
     //Node Variables.
     public readonly url: string; //host+port
     private readonly host: string;
@@ -163,21 +158,16 @@ export class Node extends EventEmitter {
     }
     
     public getReport(){
-        try{
-            const report = {
-                init: {
-                    broadcastTopic: this.broadcastTopic,
-                    host: this.host,
-                    port: this.port,
-                    connected: this.connected,
-                    reconnecting: this.reconnecting,
-                    disconnected: this.disconnected
-                },
-                topics: this.topics
-            };
-            return report;
-        }catch(error){
-            return {}
+        return {
+            init: {
+                broadcastTopic: this.broadcastTopic,
+                host: this.host,
+                port: this.port,
+                connected: this.connected,
+                reconnecting: this.reconnecting,
+                disconnected: this.disconnected
+            },
+            topics: this.topics
         }
     }
 

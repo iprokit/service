@@ -8,7 +8,7 @@ export class Defaults {
 
 //Import modules
 import { EventEmitter } from 'events';
-import express, { Express, Router, Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server } from 'http';
 import cors from 'cors';
@@ -69,7 +69,8 @@ export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) =
 
 //Types: RouteOptions
 export type RouteOptions = {
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    name: string,
+    method: 'get' | 'post' | 'put' | 'delete',
     path: PathParams,
     fn: RequestHandler
 }
@@ -97,7 +98,7 @@ export default class MicroService extends EventEmitter implements Component {
     public readonly ip: string;
 
     //Controllers
-    public readonly controllers: Array<typeof Controller>;
+    private readonly controllers: Array<typeof Controller>;
 
     //AutoLoad Variables.
     private autoWireModelOptions: AutoLoadOptions;
@@ -133,23 +134,27 @@ export default class MicroService extends EventEmitter implements Component {
     ///////Gets/Sets
     /////////////////////////
     public getReport(){
-        const baseURL = this.baseUrl;
-
-        let controllers = new Array();
-        let routes = new Array();
-
-        this.controllers.forEach((controller) => {
-            controllers.push(controller.constructor.name);
+        //Get all routes
+        let serviceRoutes = expressRouter.stack.map(item => {
+            return {
+                name: item.route.stack[0].name,
+                method: item.route.stack[0].method,
+                path: this.baseUrl + item.route.path
+            };
         });
 
-        //Getting all registered routes from router.
-        expressRouter.stack.forEach((item: any) => {
-            const method = item.route.stack[0].method;
-            const url = baseURL + item.route.path;
-            routes.push({method, url});
+        //Get all controllers
+        let controllers = this.controllers.map(controller => {
+            let routes = controller.routes;
+
+            //Remove controller routes from serviceRoutes.
+            routes.find(route => {
+                serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(route)), 1);
+            });
+            return {[controller.constructor.name]: routes};
         });
 
-        const report = {
+        return {
             init: {
                 name: this.serviceName,
                 version: this.version,
@@ -157,10 +162,9 @@ export default class MicroService extends EventEmitter implements Component {
                 port: this.expressPort,
                 environment: this.environment
             },
-            controllers: controllers,
-            routes: routes
-        };
-        return report;
+            serviceRoutes: serviceRoutes,
+            controllers: controllers
+        }
     }
 
     /////////////////////////
@@ -262,14 +266,14 @@ export default class MicroService extends EventEmitter implements Component {
         this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
 
         _controller.routes.forEach(route => {
-            if(route.method === 'GET'){
-                this.get(route.path, route.fn);
-            }else if(route.method === 'POST'){
-                this.post(route.path, route.fn);
-            }else if(route.method === 'PUT'){
-                this.put(route.path, route.fn);
-            }else if(route.method === 'DELETE'){
-                this.delete(route.path, route.fn);
+            if(route.method === 'get'){
+                expressRouter.get(route.path, route.fn);
+            }else if(route.method === 'post'){
+                expressRouter.post(route.path, route.fn);
+            }else if(route.method === 'put'){
+                expressRouter.put(route.path, route.fn);
+            }else if(route.method === 'delete'){
+                expressRouter.delete(route.path, route.fn);
             }
         });
         this.controllers.push(_controller);
@@ -480,7 +484,7 @@ export class Events {
 ///////Component
 /////////////////////////
 export interface Component {
-    getReport(): any;
+    getReport(): Object;
 }
 
 /////////////////////////
@@ -502,7 +506,7 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
         if(!target.routes){
             target.routes = new Array();
         }
-        target.routes.push({method: 'GET', path: path, fn: descriptor.value});
+        target.routes.push({name: propertyKey, method: 'get', path: path, fn: descriptor.value});
     }
 }
 
@@ -515,7 +519,7 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
         if(!target.routes){
             target.routes = new Array();
         }
-        target.routes.push({method: 'POST', path: path, fn: descriptor.value});
+        target.routes.push({name: propertyKey, method: 'post', path: path, fn: descriptor.value});
     }
 }
 
@@ -528,7 +532,7 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
         if(!target.routes){
             target.routes = new Array();
         }
-        target.routes.push({method: 'PUT', path: path, fn: descriptor.value});
+        target.routes.push({name: propertyKey, method: 'put', path: path, fn: descriptor.value});
     }
 }
 
@@ -541,7 +545,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
         if(!target.routes){
             target.routes = new Array();
         }
-        target.routes.push({method: 'DELETE', path: path, fn: descriptor.value});
+        target.routes.push({name: propertyKey, method: 'delete', path: path, fn: descriptor.value});
     }
 }
 
