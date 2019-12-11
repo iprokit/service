@@ -145,12 +145,13 @@ export default class MicroService extends EventEmitter implements Component {
 
         //Get all controllers
         let controllers = this.controllers.map(controller => {
-            let routes = controller.routes;
+            let routes = controller.routes.map(route => {
+                route.path = this.baseUrl + route.path; //Prepending baseURL.
 
-            //Remove controller routes from serviceRoutes.
-            routes.find(route => {
+                //Remove controller routes from serviceRoutes.
                 serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(route)), 1);
-            });
+                return route;
+            })
             return {[controller.constructor.name]: routes};
         });
 
@@ -560,7 +561,7 @@ export function Reply(): ReplyFunction {
         if(!target.replies){
             target.replies = new Array();
         }
-        target.replies.push({topic: topic, replyCB: descriptor.value});
+        target.replies.push({name: propertyKey, topic: topic, replyCB: descriptor.value});
     }
 }
 

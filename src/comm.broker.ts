@@ -10,6 +10,7 @@ export declare type ReplyCallback = (message: Message, reply: Reply) => void;
 
 //Export ReplyOptions
 export type ReplyOptions = {
+    name: string,
     topic: string,
     replyCB: ReplyCallback
 }
@@ -257,7 +258,7 @@ export class Publisher {
 ///////Transaction Classes
 /////////////////////////
 export class Transaction {
-    //TODO: Start work from here for transaction.
+    //DO: Start work from here for transaction.
     public start(){
 
     }

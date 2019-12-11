@@ -35,8 +35,7 @@ export default class DBManager extends EventEmitter implements Component {
     private noSQL: boolean;
 
     //Models
-    private readonly rdbModels: Array<typeof RDBModel>;
-    private readonly noSQLModels: Array<typeof NoSQLModel>;
+    private readonly models: Array<typeof RDBModel | typeof NoSQLModel>;
 
     private connected: boolean;
 
@@ -55,8 +54,7 @@ export default class DBManager extends EventEmitter implements Component {
         this.password = process.env.DB_PASSWORD;
 
         //Init variables.
-        this.rdbModels = new Array();
-        this.noSQLModels = new Array();
+        this.models = new Array();
         this.connected = false;
         this.dbController = new DBController();
     }
@@ -77,13 +75,6 @@ export default class DBManager extends EventEmitter implements Component {
     }
 
     public getReport(){
-        let _models: Array<typeof RDBModel | typeof NoSQLModel>;
-        if(this.rdb){
-            _models = this.rdbModels;
-        }else if(this.noSQL){
-            _models = this.noSQLModels;
-        }
-
         return {
             init: {
                 name: this.name,
@@ -91,7 +82,7 @@ export default class DBManager extends EventEmitter implements Component {
                 type: this.type,
                 connected: this.connected
             },
-            models: _models.map(model => {
+            models: this.models.map(model => {
                 return {[model.name]: model.entityName}
             })
         }
@@ -184,7 +175,7 @@ export default class DBManager extends EventEmitter implements Component {
         const tableName = model.entityName;
         const attributes = model.entityAttributes;
 
-        //TODO: check if attribues are null;
+        //DO: check if attribues are null;
 
         this.emit(Events.INIT_MODEL, modelName, tableName, model);
 
@@ -198,7 +189,7 @@ export default class DBManager extends EventEmitter implements Component {
         model.hooks();
 
         //Add to Array.
-        this.rdbModels.push(model);
+        this.models.push(model);
     }
 
     private initNoSQLModel(model: typeof NoSQLModel){
@@ -208,6 +199,8 @@ export default class DBManager extends EventEmitter implements Component {
         const modelName = model.name.replace('Model', '');
         const collectionName = model.entityName;
         const attributes = model.entityAttributes;
+
+        //DO: check if attribues are null;
 
         this.emit(Events.INIT_MODEL, modelName, collectionName, model);
 
@@ -221,7 +214,7 @@ export default class DBManager extends EventEmitter implements Component {
         model.hooks();
 
         //Add to Array.
-        this.noSQLModels.push(model);
+        this.models.push(model);
     }
 
     /////////////////////////
@@ -230,7 +223,7 @@ export default class DBManager extends EventEmitter implements Component {
     public connect(){
         if(this.rdb){
             //Associate models
-            this.rdbModels.forEach(model => {
+            this.models.forEach((model: any) => {
                 model.associate();
             });
 
