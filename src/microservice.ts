@@ -234,21 +234,25 @@ export default class MicroService extends EventEmitter implements Component {
         files.forEach(file => {
             const fileClass = require(file).default;
 
-            if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
-                    || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                        modelFiles.push(fileClass);
+            try{
+                if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
+                    if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
+                        || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                            modelFiles.push(fileClass);
+                    }
+                }else if(fileClass.prototype instanceof Publisher){
+                    if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
+                        || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                            publisherFiles.push(fileClass);
+                    }
+                }else if(fileClass.prototype instanceof Controller){
+                    if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
+                        || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
+                            controllerFiles.push(fileClass);
+                    }
                 }
-            }else if(fileClass.prototype instanceof Publisher){
-                if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
-                    || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                        publisherFiles.push(fileClass);
-                }
-            }else if(fileClass.prototype instanceof Controller){
-                if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
-                    || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                        controllerFiles.push(fileClass);
-                }
+            }catch(error){
+                //Ignore file.
             }
         });
 
