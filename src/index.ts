@@ -6,7 +6,7 @@ export { Op as RDBOp, Sequelize as RDB } from 'sequelize';
 
 //Export Locals
 export { default as Gateway } from './gateway';
-export { Publisher, Transaction } from './comm.broker';
+export { Publisher } from './comm.broker';
 export { NodeUnavailableError } from './comm.mesh';
 export { default as Controller } from './controller';
 export { default as RDBModel, RDBTypes } from './db.rdb.model';

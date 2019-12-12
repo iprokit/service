@@ -164,7 +164,7 @@ export default class DBManager extends EventEmitter implements Component {
         }else if(model.prototype instanceof NoSQLModel && this.noSQL){
             this.initNoSQLModel(model);
         }else{
-            //DO: Throw Wrong DB loaded.
+            //TODO: Throw Wrong DB loaded.
         }
     }
 
@@ -179,7 +179,7 @@ export default class DBManager extends EventEmitter implements Component {
         const tableName = model.entityName;
         const attributes = model.entityAttributes;
 
-        //DO: check if attribues are null;
+        //TODO: check if attribues are null;
 
         this.emit(Events.INIT_MODEL, modelName, tableName, model);
 
@@ -204,7 +204,7 @@ export default class DBManager extends EventEmitter implements Component {
         const collectionName = model.entityName;
         const attributes = model.entityAttributes;
 
-        //DO: check if attribues are null;
+        //TODO: check if attribues are null;
 
         this.emit(Events.INIT_MODEL, modelName, collectionName, model);
 

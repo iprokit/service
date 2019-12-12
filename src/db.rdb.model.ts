@@ -76,4 +76,4 @@ export default class RDBModel extends Model {
     public static associate() {}
 }
 
-//DO: Implement pagenation
+//TODO: Implement pagenation

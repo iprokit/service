@@ -24,7 +24,7 @@ export default class Utility {
     }
     
     public static getHostIP(){
-        return ''; //DO: This should become dynamic
+        return ''; //TODO: This should become dynamic
     }
 
     /////////////////////////

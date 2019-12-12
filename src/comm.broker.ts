@@ -261,22 +261,6 @@ export class Publisher {
 }
 
 /////////////////////////
-///////Transaction Classes
-/////////////////////////
-export class Transaction {
-    //DO: Implement Transaction.
-    public start(){
-
-    }
-    public commit(){
-
-    }
-    public rollback(){
-        
-    }
-}
-
-/////////////////////////
 ///////Error Classes
 /////////////////////////
 export class ReplySentWarning extends Error {

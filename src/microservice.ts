@@ -20,7 +20,8 @@ export const projectPath = path.dirname(require.main.filename);
 //Load Environment variables from .env file.
 const envPath = path.join(projectPath, '.env');
 if(fs.existsSync(envPath)){
-    dotenv.config({path: envPath});
+    const env = dotenv.config({path: envPath});
+    //TODO use env later for report.
 }
 
 //Local Imports
