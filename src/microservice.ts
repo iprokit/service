@@ -8,12 +8,8 @@ export class Defaults {
 
 //Import modules
 import { EventEmitter } from 'events';
-import express, { Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
-import { Server } from 'http';
-import cors from 'cors';
 import httpStatus from 'http-status-codes';
-import createError from 'http-errors';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -29,10 +25,11 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './utility';
-import Controller from './controller';
+import WWW from './www';
 import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
 import DBManager, { InvalidConnectionOptionsError, DBTypes } from './db.manager';
+import Controller from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -82,23 +79,17 @@ export type EntityOptions = {
 }
 
 //Global Service Variables.
-const expressApp = express();
-const expressRouter = express.Router();
+const www = new WWW();
 const commBroker = new CommBroker();
 const commMesh = new CommMesh();
 const dbManager = new DBManager();
 
-export default class MicroService extends EventEmitter implements Component {
+export default class MicroService extends EventEmitter {
     //Service Variables.
     public readonly serviceName: string;
-    public readonly baseUrl: string;
     public readonly version: string;
-    public readonly expressPort: number;
     public readonly environment: string;
     public readonly ip: string;
-
-    //Controllers
-    private readonly controllers: Array<typeof Controller>;
 
     //AutoLoad Variables.
     private autoWireModelOptions: AutoLoadOptions;
@@ -115,96 +106,30 @@ export default class MicroService extends EventEmitter implements Component {
 
         //Init service variables.
         this.serviceName = options.name || process.env.npm_package_name;
-        this.baseUrl = baseUrl || '/' + this.serviceName.toLowerCase();
         this.version = options.version || process.env.npm_package_version;
-        this.expressPort = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
 
-        //Init Variables.
-        this.controllers = new Array();
-
-        //Load express, router
-        this.initExpress();
-
-        this.addListeners();        
-    }
-
-    /////////////////////////
-    ///////Gets/Sets
-    /////////////////////////
-    public getReport(){
-        //Get all routes
-        let serviceRoutes = new Array();
-        expressRouter.stack.forEach(item => {
-            serviceRoutes.push({
-                name: item.route.stack[0].name,
-                method: item.route.stack[0].method,
-                path: this.baseUrl + item.route.path
-            });
-        });
-
-        //Get all controllers
-        let controllers = new Array();
-        this.controllers.forEach(controller => {
-            let routes = new Array();
-
-            controller.routes.forEach(route => {
-                let _route = {
-                    name: route.name,
-                    method: route.method,
-                    path: this.baseUrl + route.path
-                }
-                routes.push(_route);
-
-                //Remove controller routes from serviceRoutes.
-                serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(_route)), 1);
-            });
-            controllers.push({[controller.constructor.name]: routes});
-        });
-
-        return {
-            init: {
-                name: this.serviceName,
-                version: this.version,
-                ip: this.ip,
-                port: this.expressPort,
-                environment: this.environment
-            },
-            serviceRoutes: serviceRoutes,
-            controllers: controllers
-        }
-    }
-
-    /////////////////////////
-    ///////Init Functions
-    /////////////////////////
-    private initExpress() {
-        //Setup Express
-        expressApp.use(cors());
-        expressApp.options('*', cors());
-        expressApp.use(express.json());
-        expressApp.use(express.urlencoded({extended: false}));
-
-        //Setup proxy pass.
-        expressApp.use((request: any, response: Response, next: NextFunction) => {
-            //Generate Proxy object from headers.
-            Utility.generateProxyObjects(request);
-            next();
-        });
-
-        //Setup Router
-        expressApp.use(this.baseUrl, expressRouter);
+        const url = baseUrl || '/' + this.serviceName.toLowerCase();
+        www.init(url);
+        commBroker.init(this.serviceName);
+        commMesh.init(this.serviceName);
 
         //Default Service Routes
-        expressRouter.get('/health', (request, response, next) => {
+        www.get('/health', (request, response, next) => {
             response.status(httpStatus.OK).send({status: true});
         });
-        expressRouter.get('/report', (request, response, next) => {
+        www.get('/report', (request, response, next) => {
             try {
                 const report = {
                     status: true,
-                    service: this.getReport(),
+                    service: {
+                        name: this.serviceName,
+                        version: this.version,
+                        ip: this.ip,
+                        environment: this.environment
+                    },
+                    www: www.getReport(),
                     db: dbManager.getReport(),
                     commBroker: commBroker.getReport(),
                     commMesh: commMesh.getReport()
@@ -215,19 +140,12 @@ export default class MicroService extends EventEmitter implements Component {
             }
         });
 
-        // Error handler for 404
-        expressApp.use((request: Request, response: Response, next: NextFunction) => {
-            next(createError(404));
-        });
-
-        // Default error handler
-        expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
-            response.locals.message = error.message;
-            response.locals.error = request.app.get('env') === 'development' ? error : {};
-            response.status(error.status || 500).send(error.message);
-        });
+        this.addListeners();        
     }
 
+    /////////////////////////
+    ///////Init Functions
+    /////////////////////////
     private initFiles(){
         let modelsOptions = (this.autoWireModelOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoWireModelOptions;
         let publishersOptions = (this.autoInjectPublisherOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectPublisherOptions;
@@ -270,26 +188,8 @@ export default class MicroService extends EventEmitter implements Component {
             commBroker.initPublisher(publisherFile);
         });
         controllerFiles.forEach(controllerFile => {
-            this.initController(controllerFile);
+            www.initController(controllerFile);
         });
-    }
-
-    private initController(controller: any){
-        const _controller: typeof Controller = new controller();
-        this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
-
-        _controller.routes.forEach(route => {
-            if(route.method === 'get'){
-                expressRouter.get(route.path, route.fn);
-            }else if(route.method === 'post'){
-                expressRouter.post(route.path, route.fn);
-            }else if(route.method === 'put'){
-                expressRouter.put(route.path, route.fn);
-            }else if(route.method === 'delete'){
-                expressRouter.delete(route.path, route.fn);
-            }
-        });
-        this.controllers.push(_controller);
     }
 
     /////////////////////////
@@ -329,21 +229,9 @@ export default class MicroService extends EventEmitter implements Component {
 
         this.initFiles();
 
-        //Parallel starting all components.
-        const server = expressApp.listen(this.expressPort, () => {
-            //Adding process listeners to stop server gracefully.
-            process.on('SIGTERM', () => {
-                this.stop(server)
-            });
-
-            process.on('SIGINT', () => {
-                this.stop(server);
-            });
-            this.emit(Events.EXPRESS_STARTED, {port: this.expressPort});
-        });
-
-        commBroker.listen(this.serviceName);
-        commMesh.connect(this.serviceName);
+        www.listen();
+        commBroker.listen();
+        commMesh.connect();
         try{
             dbManager.connect();
         }catch(error){
@@ -356,17 +244,16 @@ export default class MicroService extends EventEmitter implements Component {
         }
     }
 
-    public stop(server: Server){
+    public stop(){
         //Chained stopping all components.
         this.emit(Events.STOPPING);
         dbManager.disconnect(() => {
             commMesh.disconnect(() => {
                 commBroker.close(() => {
-                    server.close(() => {
-                        this.emit(Events.EXPRESS_STOPPED);
+                    www.close(() => {
                         this.emit(Events.STOPPED);
                         process.exit(0);
-                    });
+                    })
                 });
             });
         });
@@ -376,7 +263,16 @@ export default class MicroService extends EventEmitter implements Component {
     ///////Listeners
     /////////////////////////
     private addListeners(){
-        //Adding listeners.
+        //Main listeners.
+        process.on('SIGTERM', () => {
+            this.stop()
+        });
+
+        process.on('SIGINT', () => {
+            this.stop();
+        });
+
+        //Adding log listeners.
         this.on(Events.STARTING, () => {
             console.log('%s : %o', this.serviceName, {version: this.version, environment: this.environment});
             console.log('Starting micro service...');
@@ -386,11 +282,11 @@ export default class MicroService extends EventEmitter implements Component {
             console.log('Stopping micro service...');
         })
 
-        this.on(Events.EXPRESS_STARTED, (options) => {
-            console.log('Express server running on %s:%s%s', this.ip, options.port, this.baseUrl);
+        www.on(Events.WWW_STARTED, (options) => {
+            console.log('Express server running on %s:%s%s', this.ip, options.port, options.baseUrl);
         });
 
-        this.on(Events.EXPRESS_STOPPED, () => {
+        www.on(Events.WWW_STOPPED, () => {
             console.log('Stopped Express.');
         });
 
@@ -419,40 +315,17 @@ export default class MicroService extends EventEmitter implements Component {
         });
 
         //Init
-        dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
-            console.log('Initiating model: %s(%s)', name, entityName);
+        www.on(Events.INIT_CONTROLLER, (name, controller) => {
+            console.log('Adding endpoints from controller: %s', name);
         });
 
         commBroker.on(Events.INIT_PUBLISHER, (name, publisher) => {
             console.log('Mapping publisher: %s', name);
         });
 
-        this.on(Events.INIT_CONTROLLER, (name, controller) => {
-            console.log('Adding endpoints from controller: %s', name);
+        dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
+            console.log('Initiating model: %s(%s)', name, entityName);
         });
-    }
-
-    /////////////////////////
-    ///////Router Functions
-    /////////////////////////
-    public all(path: PathParams, ...handlers: RequestHandler[]){
-        expressRouter.all(path, ...handlers);
-    }
-
-    public get(path: PathParams, ...handlers: RequestHandler[]){
-        expressRouter.get(path, ...handlers);
-    }
-
-    public post(path: PathParams, ...handlers: RequestHandler[]){
-        expressRouter.post(path, ...handlers);
-    }
-
-    public put(path: PathParams, ...handlers: RequestHandler[]){
-        expressRouter.put(path, ...handlers);
-    }
-
-    public delete(path: PathParams, ...handlers: RequestHandler[]){
-        expressRouter.delete(path, ...handlers);
     }
 }
 
@@ -465,9 +338,9 @@ export class Events {
     public static readonly STOPPING = Symbol('STOPPING');
     public static readonly STOPPED = Symbol('STOPPED');
 
-    //Express
-    public static readonly EXPRESS_STARTED = Symbol('EXPRESS_STARTED');
-    public static readonly EXPRESS_STOPPED = Symbol('EXPRESS_STOPPED');
+    //WWW
+    public static readonly WWW_STARTED = Symbol('WWW_STARTED');
+    public static readonly WWW_STOPPED = Symbol('WWW_STOPPED');
 
     //Broker
     public static readonly BROKER_STARTED = Symbol('BROKER_STARTED');

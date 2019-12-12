@@ -70,6 +70,11 @@ export default class CommBroker extends EventEmitter implements Component {
     /////////////////////////
     ///////init Functions
     /////////////////////////
+    public init(serviceName: string){
+        //Init connection variables
+        this.serviceName = serviceName;
+    }
+
     public initPublisher(publisher: any){
         const _publisher: typeof Publisher = new publisher();
         this.emit(Events.INIT_PUBLISHER, _publisher.constructor.name, _publisher);
@@ -83,10 +88,7 @@ export default class CommBroker extends EventEmitter implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(serviceName: string){
-        //Init connection variables
-        this.serviceName = serviceName;
-
+    public listen(){
         //Init server object
         const options = {
             id: this.serviceName,

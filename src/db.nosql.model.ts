@@ -15,7 +15,7 @@ export type InitOptions = {
     timestamps: boolean,
 }
 
-export default abstract class NoSQLModel {
+export default class NoSQLModel {
     public static entityName: string;
     public static entityAttributes: SchemaDefinition;
 

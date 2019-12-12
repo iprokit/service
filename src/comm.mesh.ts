@@ -36,6 +36,14 @@ export default class CommMesh extends EventEmitter implements Component {
     }
 
     /////////////////////////
+    ///////init Functions
+    /////////////////////////
+    public init(serviceName: string){
+        //Init connection variables
+        this.serviceName = serviceName;
+    }
+
+    /////////////////////////
     ///////Map Functions
     /////////////////////////
     public getNodeAlias(url: string){
@@ -53,6 +61,7 @@ export default class CommMesh extends EventEmitter implements Component {
     private createNode(url: string){
         //Creating node object.
         const node = new Node(url);
+        node.init(this.serviceName);
 
         //Attaching events to node object.
         node.on(Events.NODE_CONNECTED, (node: Node) => {
@@ -71,14 +80,11 @@ export default class CommMesh extends EventEmitter implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public connect(serviceName: string){
-        //Init connection variables
-        this.serviceName = serviceName;
-
+    public connect(){
         if(this.nodes.length > 0){
             this.emit(Events.MESH_CONNECTING);
             this.nodes.forEach((node, index) => {
-                node.connect(this.serviceName);
+                node.connect();
             });
         }
     }
@@ -174,12 +180,17 @@ export class Node extends EventEmitter implements Component {
     }
 
     /////////////////////////
-    ///////Start/Stop Functions
+    ///////init Functions
     /////////////////////////
-    public connect(serviceName: string){
+    public init(serviceName: string){
         //Init connection variables
         this.serviceName = serviceName;
+    }
 
+    /////////////////////////
+    ///////Start/Stop Functions
+    /////////////////////////
+    public connect(){
         //Init Connection object
         const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
         const options = {
