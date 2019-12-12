@@ -34,7 +34,7 @@
     "lib/**/*"
   ],
   "engines": {
-    "node": ">= 6.10.1"
+    "node": ">= 12.13.1"
   },
   "scripts": {
     "build": "tsc",

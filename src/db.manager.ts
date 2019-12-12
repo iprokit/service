@@ -252,7 +252,7 @@ export default class DBManager extends EventEmitter implements Component {
                 });
         }else if(this.noSQL){
             //Start Connection.
-            noSQLConnection.on('connected', (error) => {
+            noSQLConnection.once('connected', (error) => {
                 this.connected = true; //Connected Flag 
                 this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
             });
@@ -262,6 +262,8 @@ export default class DBManager extends EventEmitter implements Component {
                     throw new InvalidConnectionOptionsError('Connection refused to the database.');
                 }else if(error.message.includes('getaddrinfo ENOTFOUND')){
                     throw new InvalidConnectionOptionsError('Invalid database host.');
+                }else if(error.message.includes('connection timed out')){
+                    console.log('Connection timed out');
                 }else{
                     throw error;//Pass other errors.
                 }

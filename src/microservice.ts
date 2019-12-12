@@ -461,35 +461,35 @@ export default class MicroService extends EventEmitter implements Component {
 /////////////////////////
 export class Events {
     //Main
-    public static readonly STARTING = 'STARTING';
-    public static readonly STOPPING = 'STOPPING';
-    public static readonly STOPPED = 'STOPPED';
+    public static readonly STARTING = Symbol('STARTING');
+    public static readonly STOPPING = Symbol('STOPPING');
+    public static readonly STOPPED = Symbol('STOPPED');
 
     //Express
-    public static readonly EXPRESS_STARTED = 'EXPRESS_STARTED';
-    public static readonly EXPRESS_STOPPED = 'EXPRESS_STOPPED';
+    public static readonly EXPRESS_STARTED = Symbol('EXPRESS_STARTED');
+    public static readonly EXPRESS_STOPPED = Symbol('EXPRESS_STOPPED');
 
     //Broker
-    public static readonly BROKER_STARTED = 'BROKER_STARTED';
-    public static readonly BROKER_STOPPED = 'BROKER_STOPPED';
+    public static readonly BROKER_STARTED = Symbol('BROKER_STARTED');
+    public static readonly BROKER_STOPPED = Symbol('BROKER_STOPPED');
 
     //Mesh
-    public static readonly MESH_CONNECTING = 'MESH_CONNECTING';
-    public static readonly MESH_DISCONNECTING = 'MESH_DISCONNECTING';
-    public static readonly MESH_DISCONNECTED = 'MESH_DISCONNECTED';
+    public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
+    public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
+    public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
 
     //Node
-    public static readonly NODE_CONNECTED = 'NODE_CONNECTED';
-    public static readonly NODE_DISCONNECTED = 'NODE_DISCONNECTED';
+    public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
+    public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
 
     //DB
-    public static readonly DB_CONNECTED = 'DB_CONNECTED';
-    public static readonly DB_DISCONNECTED = 'DB_DISCONNECTED';
+    public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
+    public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
 
     //Init
-    public static readonly INIT_CONTROLLER = 'INIT_CONTROLLER';
-    public static readonly INIT_MODEL = 'INIT_MODEL';
-    public static readonly INIT_PUBLISHER = 'INIT_PUBLISHER';
+    public static readonly INIT_CONTROLLER = Symbol('INIT_CONTROLLER');
+    public static readonly INIT_MODEL = Symbol('INIT_MODEL');
+    public static readonly INIT_PUBLISHER = Symbol('INIT_PUBLISHER');
 
 }
 
