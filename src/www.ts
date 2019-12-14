@@ -7,11 +7,11 @@ import cors from 'cors';
 import createError from 'http-errors';
 
 //Local Imports
-import { Component, Events, Defaults } from './microservice';
+import { ServerComponent, Events, Defaults } from './microservice';
 import Utility from './utility';
 import Controller from './controller';
 
-export default class WWW extends EventEmitter implements Component {
+export default class WWW extends EventEmitter implements ServerComponent {
     //Server Variables.
     private baseUrl: string;
     private port: number;
@@ -138,18 +138,25 @@ export default class WWW extends EventEmitter implements Component {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public listen(){
-        this.server = this.expressApp.listen(this.port, () => {
-            this.emit(Events.WWW_STARTED, {port: this.port, baseUrl: this.baseUrl});
+    public listen() {
+        return new Promise((resolve, reject) => {
+            this.server = this.expressApp.listen(this.port, () => {
+                this.emit(Events.WWW_STARTED, {port: this.port, baseUrl: this.baseUrl});
+                resolve();
+            });
         });
     }
-
-    public close(callback?: Function){
-        this.server.close(() => {
-            this.emit(Events.WWW_STOPPED);
-            if(callback){
-                callback();
-            }
+    
+    public close() {
+        return new Promise((resolve, reject) => {
+            this.server.close((error) => {
+                this.emit(Events.WWW_STOPPED);
+                if(error){
+                    reject(error);
+                }else{
+                    resolve();
+                }
+            });
         });
     }
 

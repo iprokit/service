@@ -225,75 +225,74 @@ export default class DBManager extends EventEmitter implements Component {
     ///////Connection Management
     /////////////////////////
     public connect(){
-        if(this.rdb){
-            //Associate models
-            this.models.forEach((model: any) => {
-                model.associate();
-            });
-
-            //Start Connection.
-            rdbConnection.authenticate()
-                .then(() => {
+        return new Promise((resolve, reject) => {
+            if(this.rdb){
+                //Associate models
+                this.models.forEach((model: any) => {
+                    model.associate();
+                });
+    
+                //Start Connection.
+                rdbConnection.authenticate()
+                    .then(() => {
+                        this.connected = true; //Connected Flag 
+                        this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
+                        resolve();
+                    }).catch((error) => {
+                        this.connected = false; //Connected Flag 
+                        if(error instanceof AccessDeniedError){
+                            error = new InvalidConnectionOptionsError('Access denied to the database.');
+                        }else if(error instanceof ConnectionRefusedError){
+                            error =  new InvalidConnectionOptionsError('Connection refused to the database.');
+                        }else if(error instanceof HostNotFoundError){
+                            error =  new InvalidConnectionOptionsError('Invalid database host.');
+                        }else if(error instanceof ConnectionError){
+                            error =  new InvalidConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+                        }else{
+                            error = error;//Pass other errors.
+                        }
+                        reject(error);
+                    });
+            }else if(this.noSQL){
+                //Start Connection.
+                noSQLConnection.once('connected', (error) => {
                     this.connected = true; //Connected Flag 
                     this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
-                }).catch((error) => {
-                    this.connected = false; //Connected Flag 
-                    if(error instanceof AccessDeniedError){
-                        throw new InvalidConnectionOptionsError('Access denied to the database.');
-                    }else if(error instanceof ConnectionRefusedError){
-                        throw new InvalidConnectionOptionsError('Connection refused to the database.');
-                    }else if(error instanceof HostNotFoundError){
-                        throw new InvalidConnectionOptionsError('Invalid database host.');
-                    }else if(error instanceof ConnectionError){
-                        throw new InvalidConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
-                    }else{
-                        throw error;//Pass other errors.
-                    }
+                    resolve();
                 });
-        }else if(this.noSQL){
-            //Start Connection.
-            noSQLConnection.once('connected', (error) => {
-                this.connected = true; //Connected Flag 
-                this.emit(Events.DB_CONNECTED, {name: this.name, host: this.host, type: this.type});
-            });
-            noSQLConnection.on('error', (error) => {
-                this.connected = false; //Connected Flag
-                if(error.message.includes('Authentication failed')){
-                    throw new InvalidConnectionOptionsError('Connection refused to the database.');
-                }else if(error.message.includes('getaddrinfo ENOTFOUND')){
-                    throw new InvalidConnectionOptionsError('Invalid database host.');
-                }else if(error.message.includes('connection timed out')){
-                    console.log('Connection timed out');
-                }else{
-                    throw error;//Pass other errors.
-                }
-            });
-        }
+                noSQLConnection.on('error', (error) => {
+                    this.connected = false; //Connected Flag
+                    if(error.message.includes('Authentication failed')){
+                        error = new InvalidConnectionOptionsError('Connection refused to the database.');
+                    }else if(error.message.includes('getaddrinfo ENOTFOUND')){
+                        error = new InvalidConnectionOptionsError('Invalid database host.');
+                    }else if(error.message.includes('connection timed out')){
+                        console.log('Connection timed out');
+                    }else{
+                        error = error;//Pass other errors.
+                    }
+                    reject(error);
+                });
+            }
+        });
     }
 
-    public disconnect(callback?: Function){
-        if(this.rdb){
-            rdbConnection.close()
-                .then(() => {
+    public disconnect(){
+        return new Promise((resolve, reject) => {
+            if(this.rdb){
+                rdbConnection.close()
+                    .then(() => {
+                        this.connected = false; //Connected Flag
+                        this.emit(Events.DB_DISCONNECTED);
+                    });
+            }else if(this.noSQL){
+                noSQLConnection.close(() => {
                     this.connected = false; //Connected Flag
                     this.emit(Events.DB_DISCONNECTED);
-                    if(callback){
-                        callback();
-                    }
                 });
-        }else if(this.noSQL){
-            noSQLConnection.close(() => {
-                this.connected = false; //Connected Flag
-                this.emit(Events.DB_DISCONNECTED);
-                if(callback){
-                    callback();
-                }
-            });
-        }else{
-            if(callback){
-                callback();
             }
-        }
+            resolve();
+        });
     }
 }
 

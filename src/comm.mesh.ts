@@ -3,10 +3,10 @@ import mqtt, { MqttClient } from 'mqtt'
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Defaults, Events } from './microservice';
+import { ClientComponent, Defaults, Events } from './microservice';
 import Utility from './utility';
 
-export default class CommMesh extends EventEmitter implements Component {
+export default class CommMesh extends EventEmitter implements ClientComponent {
     //Mesh Variables.
     private serviceName: string;
 
@@ -81,36 +81,40 @@ export default class CommMesh extends EventEmitter implements Component {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(){
-        if(this.nodes.length > 0){
-            this.emit(Events.MESH_CONNECTING);
-            this.nodes.forEach((node, index) => {
-                node.connect();
-            });
-        }
+        return new Promise((resolve, reject) => {
+            if(this.nodes.length > 0){
+                this.emit(Events.MESH_CONNECTING);
+                this.nodes.forEach((node, index) => {
+                    node.connect();
+                    if(this.nodes.length === index + 1){
+                        resolve();
+                    }
+                });
+            }else{
+                resolve();
+            }
+        })
     }
 
     public disconnect(callback?: Function){
-        if(this.nodes.length > 0){
-            this.emit(Events.MESH_DISCONNECTING);
-            this.nodes.forEach((node, index) => {
-                node.disconnect(() => {
+        return new Promise((resolve, reject) => {
+            if(this.nodes.length > 0){
+                this.emit(Events.MESH_DISCONNECTING);
+                this.nodes.forEach((node, index) => {
+                    node.disconnect();
                     if(this.nodes.length === index + 1){
                         this.emit(Events.MESH_DISCONNECTED);
-                        if(callback){
-                            callback();
-                        }
+                        resolve();
                     }
                 });
-            });
-        }else{
-            if(callback){
-                callback();
+            }else{
+                resolve();
             }
-        }
+        });
     }
 }
 
-export class Node extends EventEmitter implements Component {
+export class Node extends EventEmitter implements ClientComponent {
     //Node Variables.
     public readonly url: string; //host+port
     private readonly host: string;
@@ -191,38 +195,42 @@ export class Node extends EventEmitter implements Component {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(){
-        //Init Connection object
-        const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
-        const options = {
-            id: this.serviceName,
-            keepalive: 30
-        };
-        this.mqttClient = mqtt.connect(mqttUrl, options);
+        return new Promise((resolve, reject) => {
+            //Init Connection object
+            const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
+            const options = {
+                id: this.serviceName,
+                keepalive: 30
+            };
+            this.mqttClient = mqtt.connect(mqttUrl, options);
 
-        //mqttClient listeners.
-        this.mqttClient.on('connect', () => {
-            this.emit(Events.NODE_CONNECTED, this);
+            //mqttClient listeners.
+            this.mqttClient.on('connect', () => {
+                this.emit(Events.NODE_CONNECTED, this);
 
-            //Subscribe to all topics.
-            this.mqttClient.subscribe(this.broadcastTopic);
-        });
-        
-        this.mqttClient.on('message', (topic, payload, packet) => {
-            //Receive broadcast
-            if(topic === this.broadcastTopic){
-                this.receiveBroadcast(packet);
-            }else{
-                this.receiveReply(packet);
-            }
+                //Subscribe to all topics.
+                this.mqttClient.subscribe(this.broadcastTopic);
+
+                resolve();
+            });
+            
+            this.mqttClient.on('message', (topic, payload, packet) => {
+                //Receive broadcast
+                if(topic === this.broadcastTopic){
+                    this.receiveBroadcast(packet);
+                }else{
+                    this.receiveReply(packet);
+                }
+            });
         });
     }
 
-    public disconnect(callback?: Function){
-        this.mqttClient.end(false, () => {
-            this.emit(Events.NODE_DISCONNECTED, this);
-            if(callback){
-                callback();
-            }
+    public disconnect(){
+        return new Promise((resolve, reject) => {
+            this.mqttClient.end(false, () => {
+                this.emit(Events.NODE_DISCONNECTED, this);
+                resolve();
+            });
         });
     }
 

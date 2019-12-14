@@ -3,7 +3,7 @@ import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Component, Defaults, Events } from './microservice';
+import { ServerComponent, Defaults, Events } from './microservice';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
@@ -15,7 +15,7 @@ export type ReplyOptions = {
     replyCB: ReplyCallback
 }
 
-export default class CommBroker extends EventEmitter implements Component {
+export default class CommBroker extends EventEmitter implements ServerComponent {
     //Broker Variables.
     private port: number;
     private serviceName: string;
@@ -89,45 +89,46 @@ export default class CommBroker extends EventEmitter implements Component {
     ///////Start/Stop Functions
     /////////////////////////
     public listen(){
-        //Init server object
-        const options = {
-            id: this.serviceName,
-            port: this.port
-        };
-        this.mosca = new Server(options);
+        return new Promise((resolve, reject) => {
+            //Init server object
+            const options = {
+                id: this.serviceName,
+                port: this.port
+            };
+            this.mosca = new Server(options, () => {
+                this.emit(Events.BROKER_STARTED, {port: this.port});
+                resolve();
+            });
 
-        this.mosca.on('ready', () => {
-            this.emit(Events.BROKER_STARTED, {port: this.port});
-        });
-
-        this.mosca.on('subscribed', (topic: any, client: Client) => {
-            //Broadcast
-            if(topic === this.broadcastTopic){
-                this.sendBroadcast();
-            }
-        });
-
-        this.mosca.on('published', (packet: Packet, client: Client) => {
-            const topic = packet.topic;
-            if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                try{
-                    this.receiveMessage(packet);
-                }catch(error){
-                    if(error instanceof ReplySentWarning){
-                        console.error(error);
-                    }
-                    //Do nothing.
+            this.mosca.on('subscribed', (topic: any, client: Client) => {
+                //Broadcast
+                if(topic === this.broadcastTopic){
+                    this.sendBroadcast();
                 }
-            }
+            });
+
+            this.mosca.on('published', (packet: Packet, client: Client) => {
+                const topic = packet.topic;
+                if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
+                    try{
+                        this.receiveMessage(packet);
+                    }catch(error){
+                        if(error instanceof ReplySentWarning){
+                            console.error(error);
+                        }
+                        //Do nothing.
+                    }
+                }
+            });
         });
     }
 
-    public close(callback?: Function){
-        this.mosca.close(() => {
-            this.emit(Events.BROKER_STOPPED);
-            if(callback){
-                callback();
-            }
+    public close(){
+        return new Promise((resolve, reject) => {
+            this.mosca.close(() => {
+                this.emit(Events.BROKER_STOPPED);
+                resolve();
+            });
         });
     }
 

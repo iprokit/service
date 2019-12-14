@@ -196,6 +196,10 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Call Functions
     /////////////////////////
+    public plugin(){
+
+    }
+
     public useDB(type: DBTypes, paperTrail?: boolean){
         try{
             //Init sequelize
@@ -225,16 +229,15 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public start() {
+    public async start() {
         this.emit(Events.STARTING);
 
         this.initFiles();
-
-        www.listen();
-        commBroker.listen();
-        commMesh.connect();
         try{
-            dbManager.connect();
+            await www.listen();
+            await commBroker.listen();
+            await commMesh.connect();
+            await dbManager.connect();
         }catch(error){
             if(error instanceof InvalidConnectionOptionsError){
                 console.log(error.message);
@@ -245,19 +248,15 @@ export default class MicroService extends EventEmitter {
         }
     }
 
-    public stop(){
+    public async stop(){
         //Chained stopping all components.
         this.emit(Events.STOPPING);
-        dbManager.disconnect(() => {
-            commMesh.disconnect(() => {
-                commBroker.close(() => {
-                    www.close(() => {
-                        this.emit(Events.STOPPED);
-                        process.exit(0);
-                    })
-                });
-            });
-        });
+        await dbManager.disconnect();
+        await commMesh.disconnect();
+        await commBroker.close();
+        await www.close();
+        this.emit(Events.STOPPED);
+        process.exit(0);
     }
 
     /////////////////////////
@@ -368,10 +367,20 @@ export class Events {
 }
 
 /////////////////////////
-///////Component
+///////Components
 /////////////////////////
 export interface Component {
     getReport(): Object;
+}
+
+export interface ServerComponent extends Component{
+    listen(): Promise<any>;
+    close():  Promise<any>;
+}
+
+export interface ClientComponent extends Component{
+    connect():  Promise<any>;
+    disconnect():  Promise<any>;
 }
 
 /////////////////////////
