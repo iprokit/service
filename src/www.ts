@@ -1,13 +1,14 @@
 //Import modules
 import Promise from 'bluebird';
+import { EventEmitter } from 'events';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
-import { Server } from 'http';
+import { Server as HttpServer } from 'http';
 import cors from 'cors';
 import createError from 'http-errors';
 
 //Local Imports
-import { ServerComponent, Defaults } from './microservice';
+import { Server, Events, Defaults } from './microservice';
 import Utility from './utility';
 import Controller from './controller';
 
@@ -19,7 +20,7 @@ export type RouteOptions = {
     path: PathParams
 }
 
-export default class WWW implements ServerComponent {
+export default class WWW extends EventEmitter implements Server {
     //Server Variables.
     public readonly baseUrl: string;
     public readonly port: number;
@@ -27,31 +28,21 @@ export default class WWW implements ServerComponent {
     //Express Server
     private _expressApp: Express;
     private _expressRouter: Router;
-    private _server: Server;
+    private _httpServer: HttpServer;
 
     //Controllers
     private readonly _controllers: Array<{controler: typeof Controller, route: RouteOptions}>;
 
-    constructor(baseUrl: string, port?: number){
+    constructor(baseUrl?: string){
+        //Call super for EventEmitter.
+        super();
+
         //Init Server variables.
-        this.baseUrl = baseUrl;
-        this.port = port || Defaults.EXPRESS_PORT;
+        this.baseUrl = baseUrl || '/' + global.service.name.toLowerCase();
+        this.port = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
 
-        //Init Express
-        this._expressApp = express();
-        this._expressRouter = express.Router();
-
-        //Init Variables.
-        this._controllers = new Array();
-
-        this.initExpress();
-    }
-
-    /////////////////////////
-    ///////Init Functions
-    /////////////////////////
-    private initExpress(){
         //Setup Express
+        this._expressApp = express();
         this._expressApp.use(cors());
         this._expressApp.options('*', cors());
         this._expressApp.use(express.json());
@@ -65,6 +56,7 @@ export default class WWW implements ServerComponent {
         });
 
         //Setup Router
+        this._expressRouter = express.Router();
         this._expressApp.use(this.baseUrl, this._expressRouter);
 
         // Error handler for 404
@@ -78,11 +70,40 @@ export default class WWW implements ServerComponent {
             response.locals.error = request.app.get('env') === 'development' ? error : {};
             response.status(error.status || 500).send(error.message);
         });
+
+        //Init Variables.
+        this._controllers = new Array();
     }
 
+    /////////////////////////
+    ///////init Functions
+    /////////////////////////
     public initController(controller: any){
         const _controller: typeof Controller = new controller();
         this._controllers.push({controler: _controller, route: undefined});
+    }
+
+    public addRoute(method: RouteMethod, path: PathParams, rootPath: boolean, handler: RequestHandler, controller: typeof Controller){
+        if(!rootPath){
+            const controllerName = controller.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //DO: Add to array.
+        switch(method){
+            case 'get':
+                this.get(path, handler);
+                break;
+            case 'post':
+                this.post(path, handler);
+                break;
+            case 'put':
+                this.put(path, handler);
+                break;
+            case 'delete':
+                this.delete(path, handler);
+                break;
+        }
     }
 
     /////////////////////////
@@ -90,7 +111,8 @@ export default class WWW implements ServerComponent {
     /////////////////////////
     public listen() {
         return new Promise<boolean>((resolve, reject) => {
-            this._server = this._expressApp.listen(this.port, () => {
+            this._httpServer = this._expressApp.listen(this.port, () => {
+                this.emit(Events.WWW_STARTED, this);
                 resolve(true);
             });
         });
@@ -98,7 +120,8 @@ export default class WWW implements ServerComponent {
     
     public close() {
         return new Promise<boolean>((resolve, reject) => {
-            this._server.close(() => {
+            this._httpServer.close(() => {
+                this.emit(Events.WWW_STOPPED, this);
                 resolve(true);
             });
         });
@@ -138,10 +161,6 @@ export default class WWW implements ServerComponent {
         // });
 
         return {
-            init: {
-                baseUrl: this.baseUrl,
-                port: this.port
-            },
             serviceRoutes: serviceRoutes,
             controllers: controllers
         }
@@ -150,29 +169,6 @@ export default class WWW implements ServerComponent {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public addRoute(method: RouteMethod, path: PathParams, rootPath: boolean, handler: RequestHandler, controller: typeof Controller){
-        if(!rootPath){
-            const controllerName = controller.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
-
-        //DO: Add to array.
-        switch(method){
-            case 'get':
-                this.get(path, handler);
-                break;
-            case 'post':
-                this.post(path, handler);
-                break;
-            case 'put':
-                this.put(path, handler);
-                break;
-            case 'delete':
-                this.delete(path, handler);
-                break;
-        }
-    }
-
     public all(path: PathParams, ...handlers: RequestHandler[]){
         this._expressRouter.all(path, ...handlers);
     }

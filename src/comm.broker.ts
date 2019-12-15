@@ -1,10 +1,10 @@
 //Import modules
 import Promise from 'bluebird';
-import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
+import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
-import { ServerComponent, Defaults } from './microservice';
+import { Server, Events, Defaults } from './microservice';
 import Utility from './utility';
 
 //Types: ReplyCallback
@@ -17,13 +17,13 @@ export type ReplyOptions = {
     replyCB: ReplyCallback
 }
 
-export default class CommBroker implements ServerComponent {
+export default class CommBroker extends EventEmitter implements Server {
     //Broker Variables.
     public readonly name: string;
     public readonly port: number;
 
-    //Mosca Server
-    private _mosca: Server;
+    //MQTT Server
+    private _mqttServer: MqttServer;
 
     //Topic Objects
     private readonly _broadcastTopic: string;
@@ -36,10 +36,13 @@ export default class CommBroker implements ServerComponent {
     private readonly _replyCallbackEvent: EventEmitter;
 
     //Default Constructor
-    constructor(name: string, port?: number){
+    constructor(){
+        //Call super for EventEmitter.
+        super();
+
         //Init Broker variables.
-        this.name = name;
-        this.port = port || Defaults.COMM_PORT;
+        this.name = global.service.name;
+        this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
 
         //Init variables.
         this._broadcastTopic = Defaults.BROADCAST_TOPIC;
@@ -56,6 +59,13 @@ export default class CommBroker implements ServerComponent {
         this._publishers.push(_publisher);
     }
 
+    public addReply(publisher: Publisher, replyCallback: ReplyCallback){
+        const publisherName = publisher.constructor.name.replace('Publisher', '');
+        const topic = Utility.convertToTopic(publisherName, replyCallback.name);
+
+        this.reply(topic, replyCallback);
+    }
+
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
@@ -66,18 +76,19 @@ export default class CommBroker implements ServerComponent {
                 id: this.name,
                 port: this.port
             };
-            this._mosca = new Server(options, () => {
+            this._mqttServer = new MqttServer(options, () => {
+                this.emit(Events.BROKER_STARTED, this);
                 resolve(true);
             });
 
-            this._mosca.on('subscribed', (topic: any, client: Client) => {
+            this._mqttServer.on('subscribed', (topic: any, client: Client) => {
                 //Broadcast
                 if(topic === this._broadcastTopic){
                     this.sendBroadcast();
                 }
             });
 
-            this._mosca.on('published', (packet: Packet, client: Client) => {
+            this._mqttServer.on('published', (packet: Packet, client: Client) => {
                 const topic = packet.topic;
                 if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                     try{
@@ -95,7 +106,8 @@ export default class CommBroker implements ServerComponent {
 
     public close(){
         return new Promise<boolean>((resolve, reject) => {
-            this._mosca.close(() => {
+            this._mqttServer.close(() => {
+                this.emit(Events.BROKER_STOPPED, this);
                 resolve(true);
             });
         });
@@ -113,10 +125,6 @@ export default class CommBroker implements ServerComponent {
         // });
 
         return {
-            init: {
-                broadcastTopic: this._broadcastTopic,
-                port: this.port
-            },
             publishers: publishers
         }
     }
@@ -160,7 +168,7 @@ export default class CommBroker implements ServerComponent {
         };
 
         //Publish message on broker
-        this._mosca.publish(packet, () => {
+        this._mqttServer.publish(packet, () => {
             //Logging Reply
             console.log('Broker: published a reply on topic: %s', reply.topic);
         });
@@ -169,10 +177,7 @@ export default class CommBroker implements ServerComponent {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public reply(publisher: Publisher, replyCallback: ReplyCallback, replyCallbackName: string){
-        const publisherName = publisher.constructor.name.replace('Publisher', '');
-        const topic = Utility.convertToTopic(publisherName, replyCallbackName);
-
+    public reply(topic: string, replyCallback: ReplyCallback){
         if(this._topics.indexOf(topic) === -1){
             //Add topic to array
             this._topics.push(topic);

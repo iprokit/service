@@ -10,9 +10,6 @@ export type InitOptions = {
 }
 
 export default class NoSQLModel {
-    public static entityName: string;
-    public static entityAttributes: SchemaDefinition;
-
     public static mongoose: Mongoose;
     public static model: Model<Document>;
 
@@ -100,6 +97,8 @@ export default class NoSQLModel {
 
         this.mongoose = options.mongoose;
         this.model = this.mongoose.model(options.modelName, schema, options.collectionName);
+
+        //DO Object.Assing as see if it works.
     }
 
     /////////////////////////

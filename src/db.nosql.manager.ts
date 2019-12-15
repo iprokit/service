@@ -1,55 +1,70 @@
 //Import modules
 import Promise from 'bluebird';
-import mongoose, { Connection as Mongoose, SchemaDefinition, Schema } from 'mongoose';
+import { EventEmitter } from 'events';
+import mongoose, { Connection as Mongoose, SchemaDefinition } from 'mongoose';
 
 //Export Libs
 const DataTypes: typeof mongoose.Types = mongoose.Types;
 export { mongoose as NoSQL, DataTypes as NoSQLDataTypes };
 
 //Local Imports
-import { ClientComponent } from './microservice';
+import { Client, Events } from './microservice';
 import NoSQLModel from './db.nosql.model';
 
-export default class NoSQLManager implements ClientComponent{
+//Export Mongo
+export type Mongo = 'mongo';
+
+export default class NoSQLManager extends EventEmitter implements Client {
     //NoSQL Variables.
     private _paperTrail: boolean;
     private _connected: boolean;
     
     //Connection Objects
+    public dbType: string;
+    public dbHost: string;
+    public dbName: string;
+    public dbUsername: string;
+    public dbPassword: string;
     private _connection: Mongoose;
     
     //Default Constructor
     public constructor(paperTrail?: boolean){
+        //Call super for EventEmitter.
+        super();
+
+        //Set type
+        this.dbType = 'mongo';
+
         //Validate host
-        let host = process.env.DB_HOST;
-        if(!host){
+        this.dbHost = process.env.DB_HOST;
+        if(!this.dbHost){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate name
-        let name = process.env.DB_NAME;
-        if(!name){
+        this.dbName = process.env.DB_NAME;
+        if(!this.dbName){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate username
-        let username = process.env.DB_USERNAME;
-        if(!username){
+        this.dbUsername = process.env.DB_USERNAME;
+        if(!this.dbUsername){
             throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
         }
 
         //Validate password
-        let password = process.env.DB_PASSWORD;
-        if(!password){
+        this.dbPassword = process.env.DB_PASSWORD;
+        if(!this.dbPassword){
             throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
         }
 
         //Load Mongoose
-        const uri = 'mongodb://' + host;
+        const uri = 'mongodb://' + this.dbHost;
         const options = {
-            dbName: name,
-            user: username,
-            pass: password,
+            dbName: this.dbName,
+            user: this.dbUsername,
+            pass: this.dbPassword,
             useNewUrlParser: true
         }
         this._connection = mongoose.createConnection(uri, options);
@@ -66,25 +81,8 @@ export default class NoSQLManager implements ClientComponent{
         return this._connected;
     }
 
-    public getReport(){
-        let models = new Array();
-
-        // this.models.forEach(model => {
-        //     models.push({[model.name]: model.entityName});
-        // });
-
-        return {
-            init: {
-                name: '$dbName',
-                // host: this.host,
-                connected: this._connected
-            },
-            models: models
-        }
-    }
-
     /////////////////////////
-    ///////Model Functions
+    ///////init Functions
     /////////////////////////
     public initModel(collectionName: string, attributes: SchemaDefinition, model: typeof NoSQLModel){
         const modelName = model.name.replace('Model', '');
@@ -106,10 +104,12 @@ export default class NoSQLManager implements ClientComponent{
         return new Promise<boolean>((resolve, reject) => {
             //Start Connection.
             this._connection.once('connected', (error) => {
-                this._connected = true; //Connected Flag
                 if(!error){
+                    this._connected = true; //Connected Flag
+                    this.emit(Events.DB_CONNECTED, this);
                     resolve(true);
                 }else{
+                    this._connected = false; //Connected Flag
                     reject(error);
                 }
             });
@@ -134,9 +134,31 @@ export default class NoSQLManager implements ClientComponent{
             this._connection.close()
                 .then(() => {
                     this._connected = false; //Connected Flag
+                    this.emit(Events.DB_DISCONNECTED, this);
                     resolve(true);
                 });
         });
+    }
+
+    /////////////////////////
+    ///////Report
+    /////////////////////////
+    public getReport(){
+        let models = new Array();
+
+        // this.models.forEach(model => {
+        //     models.push({[model.name]: model.entityName});
+        // });
+
+        return {
+            init: {
+                name: this.dbName,
+                host: this.dbHost,
+                type: this.dbType,
+                connected: this._connected
+            },
+            models: models
+        }
     }
 }
 

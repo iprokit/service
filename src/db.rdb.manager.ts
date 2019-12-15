@@ -1,55 +1,68 @@
 //Import modules
 import Promise from 'bluebird';
+import { EventEmitter } from 'events';
 import { Sequelize, Dialect, Op, ModelAttributes, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 
 //Export Libs
 export { Sequelize as RDB, Op as RDBOp, DataTypes as RDBDataTypes, Dialect as RDBDialect};
 
 //Local Imports
-import { ClientComponent } from './microservice';
+import { Client, Events } from './microservice';
 import RDBModel from './db.rdb.model';
 
-export default class RDBManager implements ClientComponent{
+export default class RDBManager extends EventEmitter implements Client {
     //RDB Variables.
     private _paperTrail: boolean;
     private _connected: boolean;
 
     //Connection Objects
+    public dbType: Dialect;
+    public dbHost: string;
+    public dbName: string;
+    public dbUsername: string;
+    public dbPassword: string;
     private _connection: Sequelize;
     
     //Default Constructor
     public constructor(dialect: Dialect, paperTrail?: boolean){
-        //Validate dialect
-        if(!dialect){
+        //Call super for EventEmitter.
+        super();
+
+        //Validate type
+        this.dbType = dialect;
+        if(!this.dbType){
             throw new ConnectionOptionsError('Invalid Database dialect provided.');
         }
 
         //Validate host
-        let host = process.env.DB_HOST;
-        if(!host){
+        this.dbHost = process.env.DB_HOST;
+        if(!this.dbHost){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate name
-        let name = process.env.DB_NAME;
-        if(!name){
+        this.dbName = process.env.DB_NAME;
+        if(!this.dbName){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate username
-        let username = process.env.DB_USERNAME;
-        if(!username){
+        this.dbUsername = process.env.DB_USERNAME;
+        if(!this.dbUsername){
             throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
         }
 
         //Validate password
-        let password = process.env.DB_PASSWORD;
-        if(!password){
+        this.dbPassword = process.env.DB_PASSWORD;
+        if(!this.dbPassword){
             throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
         }
 
         //Call super for Sequelize.
-        this._connection = new Sequelize(name, username, password, {host: host, dialect: dialect});
+        this._connection = new Sequelize(this.dbName, this.dbUsername, this.dbPassword, {
+            host: this.dbHost,
+            dialect: this.dbType
+        });
         this._connected = false;
 
         //Init variables.
@@ -63,26 +76,8 @@ export default class RDBManager implements ClientComponent{
         return this._connected;
     }
 
-    public getReport(){
-        let models = new Array();
-
-        this._connection.modelManager.models.forEach(model => {
-            models.push({[model.name]: model.tableName});
-        });
-
-        return {
-            init: {
-                name: this._connection.config.database,
-                host: this._connection.config.host,
-                dialect: this._connection.getDialect(),
-                connected: this._connected
-            },
-            models: models
-        }
-    }
-
     /////////////////////////
-    ///////Model Functions
+    ///////init Functions
     /////////////////////////
     public initModel(tableName: string, attributes: ModelAttributes, model: typeof RDBModel){
         let modelName = model.name.replace('Model', '');
@@ -109,7 +104,8 @@ export default class RDBManager implements ClientComponent{
             //Start Connection.
             this._connection.authenticate()
                 .then(() => {
-                    this._connected = true; //Connected Flag 
+                    this._connected = true; //Connected Flag
+                    this.emit(Events.DB_CONNECTED, this);
                     resolve(true);
                 }).catch((error) => {
                     this._connected = false; //Connected Flag 
@@ -134,9 +130,31 @@ export default class RDBManager implements ClientComponent{
             this._connection.close()
                 .then(() => {
                     this._connected = false; //Connected Flag
+                    this.emit(Events.DB_DISCONNECTED, this);
                     resolve(true);
                 });
         });
+    }
+
+    /////////////////////////
+    ///////Report
+    /////////////////////////
+    public getReport(){
+        let models = new Array();
+
+        this._connection.modelManager.models.forEach(model => {
+            models.push({[model.name]: model.tableName});
+        });
+
+        return {
+            init: {
+                name: this.dbName,
+                host: this.dbHost,
+                type: this.dbType,
+                connected: this._connected
+            },
+            models: models
+        }
     }
 }
 

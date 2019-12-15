@@ -1,13 +1,13 @@
 //Import modules
 import Promise from 'bluebird';
-import mqtt, { MqttClient } from 'mqtt'
 import { EventEmitter } from 'events';
+import mqtt, { MqttClient } from 'mqtt'
 
 //Local Imports
-import { ClientComponent, Defaults, Events } from './microservice';
+import { Client, Events, Defaults } from './microservice';
 import Utility from './utility';
 
-export default class CommMesh implements ClientComponent {
+export default class CommMesh extends EventEmitter implements Client {
     //Mesh Variables.
     public readonly name: string;
 
@@ -15,9 +15,12 @@ export default class CommMesh implements ClientComponent {
     private readonly nodes: Array<Node>;
 
     //Default Constructor
-    constructor(name: string){
+    constructor(){
+        //Call super for EventEmitter.
+        super();
+
         //Init Mesh variables.
-        this.name = name;
+        this.name = global.service.name;
 
         //Init variables.
         this.nodes = new Array();
@@ -46,6 +49,14 @@ export default class CommMesh implements ClientComponent {
         //Creating node object.
         const node = new Node(this.name, url);
 
+        node.once(Events.NODE_CONNECTED, (node) => {
+            this.emit(Events.NODE_CONNECTED, node);
+        });
+
+        node.once(Events.NODE_DISCONNECTED, (node) => {
+            this.emit(Events.NODE_DISCONNECTED, node);
+        });
+
         //Add to Array
         this.nodes.push(node);
 
@@ -56,8 +67,10 @@ export default class CommMesh implements ClientComponent {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(){
+        this.emit(Events.MESH_CONNECTING);
         return new Promise<boolean>((resolve, reject) => {
             Promise.map(this.nodes, (node) => {
+                this.emit(Events.MESH_CONNECTED, this);
                 return node.connect();
             }).then(() => {
                 resolve(true);
@@ -68,8 +81,10 @@ export default class CommMesh implements ClientComponent {
     }
 
     public disconnect(){
+        this.emit(Events.MESH_DISCONNECTING);
         return new Promise<boolean>((resolve, reject) => {
             Promise.map(this.nodes, (node) => {
+                this.emit(Events.MESH_DISCONNECTED, this);
                 return node.disconnect();
             }).then(() => {
                 resolve(true);
@@ -91,7 +106,7 @@ export default class CommMesh implements ClientComponent {
     }
 }
 
-export class Node implements ClientComponent {
+export class Node extends EventEmitter implements Client {
     //Node Variables.
     public readonly name: string;
     public readonly url: string; //host+port
@@ -113,6 +128,9 @@ export class Node implements ClientComponent {
 
     //Default Constructor
     constructor(name: string, url: string){
+        //Call super for EventEmitter.
+        super();
+
         //Init node variables.
         this.name = name;
         this.url = url;
@@ -162,6 +180,7 @@ export class Node implements ClientComponent {
                 //Subscribe to all topics.
                 this._mqttClient.subscribe(this._broadcastTopic);
 
+                this.emit(Events.NODE_CONNECTED, this);
                 resolve(true);
             });
             
@@ -179,6 +198,7 @@ export class Node implements ClientComponent {
     public disconnect(){
         return new Promise<boolean>((resolve, reject) => {
             this._mqttClient.end(false, () => {
+                this.emit(Events.NODE_DISCONNECTED, this);
                 resolve(true);
             });
         });
@@ -190,7 +210,6 @@ export class Node implements ClientComponent {
     public getReport(){
         return {
             init: {
-                broadcastTopic: this._broadcastTopic,
                 host: this.host,
                 port: this.port,
                 connected: this.connected,
@@ -375,5 +394,5 @@ export class NodeUnavailableError extends Error{
     
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
-      }
+    }
 }

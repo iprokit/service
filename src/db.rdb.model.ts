@@ -2,9 +2,6 @@
 import {Model, ModelAttributes} from 'sequelize';
 
 export default class RDBModel extends Model {
-    public static entityName: string;
-    public static entityAttributes: ModelAttributes;
-
     /////////////////////////
     ///////DAO's - Basic
     /////////////////////////

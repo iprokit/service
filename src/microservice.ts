@@ -1,13 +1,17 @@
-//Defaults dictionary
-export class Defaults {
-    public static readonly ENVIRONMENT: string = 'production';
-    public static readonly EXPRESS_PORT: number = 3000;
-    public static readonly COMM_PORT: number = 6000;
-    public static readonly BROADCAST_TOPIC: string = '/';
+//Global Variables.
+declare global {
+    namespace NodeJS {
+        interface Global {
+            service: {
+                name: string,
+                projectPath: string
+            }
+        }
+    }
 }
 
-//Import modules
-import Promise, { resolve, reject } from 'bluebird';
+//Import Modules
+import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import httpStatus from 'http-status-codes';
@@ -15,14 +19,11 @@ import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 
-//Project path
-export const projectPath = path.dirname(require.main.filename);
-
 //Load Environment variables from .env file.
+const projectPath = path.dirname(require.main.filename);
 const envPath = path.join(projectPath, '.env');
 if(fs.existsSync(envPath)){
-    const env = dotenv.config({path: envPath});
-    //TODO use env later for report.
+    dotenv.config({path: envPath});
 }
 
 //Local Imports
@@ -31,7 +32,7 @@ import WWW from './www';
 import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
 import RDBManager, { RDBDialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
-import NoSQLManager, { ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
+import NoSQLManager, { Mongo, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
 import Controller from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
@@ -105,18 +106,16 @@ export default class MicroService extends EventEmitter {
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
 
-        //Load WWW.
-        const url = baseUrl || '/' + this.serviceName.toLowerCase();
-        const expressPort = Number(process.env.EXPRESS_PORT);
-        www = new WWW(url, expressPort);
+        //Load global variables.
+        global.service = {
+            name: this.serviceName,
+            projectPath: projectPath
+        }
 
-        //Load CommBroker.
-        const name = this.serviceName;
-        const commPort = Number(process.env.COM_BROKER_PORT);
-        commBroker = new CommBroker(name, commPort);
-
-        //Load CommMesh
-        commMesh = new CommMesh(this.serviceName);
+        //Init Components.
+        www = new WWW(baseUrl);
+        commBroker = new CommBroker();
+        commMesh = new CommMesh();
 
         //Default Service Routes
         www.get('/health', (request, response, next) => {
@@ -124,19 +123,25 @@ export default class MicroService extends EventEmitter {
         });
         www.get('/report', (request, response, next) => {
             try {
-                const report = {
+                let report = {
                     status: true,
                     service: {
                         name: this.serviceName,
                         version: this.version,
                         ip: this.ip,
+                        wwwPort: www.port,
+                        commPort: commBroker.port,
                         environment: this.environment
                     },
                     www: www.getReport(),
-                    db: dbManager.getReport(),
+                    db: {},
                     commBroker: commBroker.getReport(),
                     commMesh: commMesh.getReport()
                 };
+                if(dbManager){
+                    report.db = dbManager.getReport();
+                }
+
                 response.status(httpStatus.OK).send(report);
             } catch (error) {
                 response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
@@ -184,9 +189,6 @@ export default class MicroService extends EventEmitter {
             }
         });
 
-        // modelFiles.forEach(modelFile => {
-        //     dbManager.initModel(modelFile);
-        // });
         publisherFiles.forEach(publisherFile => {
             commBroker.initPublisher(publisherFile);
         });
@@ -198,11 +200,12 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public useDB(type: RDBDialect | 'mongo', paperTrail?: boolean){
+    public useDB(type: Mongo | RDBDialect, paperTrail?: boolean){
         if(type === 'mongo'){
             dbManager = new NoSQLManager(paperTrail);
         }else{
             dbManager = new RDBManager(type as RDBDialect, paperTrail);
+            //DO: Add sync route.
         }
     }
 
@@ -246,9 +249,8 @@ export default class MicroService extends EventEmitter {
 
         //Start all components
         Promise.all([www.listen(), commBroker.listen(), _commMeshConnect(), _dbManagerConnect()])
-            .then((connected) => {
+            .then(() => {
                 this.emit(Events.STARTED);
-                console.log('Components', connected);
             }).catch((error) => {
                 if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
                     console.log(error.message);
@@ -262,13 +264,6 @@ export default class MicroService extends EventEmitter {
     public stop(){
         this.emit(Events.STOPPING);
 
-        //Validate if dbManager exits.
-        let _dbManagerDisconnect = () => {
-            if(dbManager){
-                return dbManager.disconnect()
-            }
-        }
-
         //Validate if any node exits.
         let _commMeshDisconnect = () => {
             if(commMesh.hasNode()){
@@ -276,14 +271,19 @@ export default class MicroService extends EventEmitter {
             }
         };
 
+        //Validate if dbManager exits.
+        let _dbManagerDisconnect = () => {
+            if(dbManager){
+                return dbManager.disconnect()
+            }
+        }
+
         //Stopping all components.
-        Promise.all([_dbManagerDisconnect(), _commMeshDisconnect(), commBroker.close(), www.close()])
-            .then((disconnected) => {
-                console.log('Components', disconnected);
-            }).finally(() => {
+        Promise.all([www.close(), commBroker.close(), _commMeshDisconnect(), _dbManagerDisconnect()])
+            .then(() => {
                 this.emit(Events.STOPPED);
                 process.exit(0);
-            })
+            });
     }
 
     /////////////////////////
@@ -313,40 +313,58 @@ export default class MicroService extends EventEmitter {
         });
         
         this.on(Events.STOPPED, () => {
-            console.log('%s stopped..', this.serviceName);
+            console.log('%s stopped.', this.serviceName);
         });
 
-        // www.on(Events.WWW_STARTED, (options) => {
-        //     console.log('Express server running on %s:%s%s', this.ip, options.port, options.baseUrl);
-        // });
+        www.on(Events.WWW_STARTED, (_www) => {
+            console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl);
+        });
 
-        // www.on(Events.WWW_STOPPED, () => {
-        //     console.log('Stopped Express.');
-        // });
+        www.on(Events.WWW_STOPPED, () => {
+            console.log('Stopped Express.');
+        });
 
-        // commBroker.on(Events.BROKER_STARTED, (options) => {
-        //     console.log('Comm broker broadcasting on %s:%s', this.ip, options.port);
-        // });
+        commBroker.on(Events.BROKER_STARTED, (_commBroker) => {
+            console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port);
+        });
 
-        // commBroker.on(Events.BROKER_STOPPED, () => {
-        //     console.log('Stopped Broker.');
-        // });
+        commBroker.on(Events.BROKER_STOPPED, () => {
+            console.log('Stopped Broker.');
+        });
 
-        // commMesh.on(Events.NODE_CONNECTED, (options) => {
-        //     console.log('Node: Connected to %s', options.url);
-        // });
+        commMesh.on(Events.MESH_CONNECTING, () => {
+            console.log('Comm mesh connecting...');
+        });
 
-        // commMesh.on(Events.NODE_DISCONNECTED, (options) => {
-        //     console.log('Node: Disconnected from : %s', options.url);
-        // });
+        commMesh.on(Events.MESH_CONNECTED, () => {
+            console.log('Comm mesh connected.');
+        });
 
-        // // dbManager.on(Events.DB_CONNECTED, (options) => {
-        // //     console.log('DB client connected to %s://%s/%s', options.type, options.host, options.name);
-        // // });
+        commMesh.on(Events.MESH_DISCONNECTING, () => {
+            console.log('Comm mesh disconnecting...');
+        });
 
-        // // dbManager.on(Events.DB_DISCONNECTED, () => {
-        // //     console.log('DB Disconnected');
-        // // });
+        commMesh.on(Events.MESH_DISCONNECTED, () => {
+            console.log('Comm mesh disconnected.');
+        });
+
+        commMesh.on(Events.NODE_CONNECTED, (_node) => {
+            console.log('Node: Connected to %s', _node.url);
+        });
+
+        commMesh.on(Events.NODE_DISCONNECTED, (_node) => {
+            console.log('Node: Disconnected from : %s', _node.url);
+        });
+
+        if(dbManager){
+            dbManager.on(Events.DB_CONNECTED, (_dbManager) => {
+                console.log('DB client connected to %s://%s/%s', _dbManager.dbType, _dbManager.dbHost, _dbManager.dbName);
+            });
+
+            dbManager.on(Events.DB_DISCONNECTED, () => {
+                console.log('DB Disconnected');
+            });
+        }
 
         // //Init
         // www.on(Events.INIT_CONTROLLER, (name, controller) => {
@@ -383,6 +401,7 @@ export class Events {
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
+    public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
     public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
     public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
 
@@ -398,22 +417,29 @@ export class Events {
     public static readonly INIT_CONTROLLER = Symbol('INIT_CONTROLLER');
     public static readonly INIT_MODEL = Symbol('INIT_MODEL');
     public static readonly INIT_PUBLISHER = Symbol('INIT_PUBLISHER');
+}
 
+/////////////////////////
+///////Defaults
+/////////////////////////
+export class Defaults {
+    public static readonly ENVIRONMENT: string = 'production';
+    public static readonly EXPRESS_PORT: number = 3000;
+    public static readonly COMM_PORT: number = 6000;
+    public static readonly BROADCAST_TOPIC: string = '/';
 }
 
 /////////////////////////
 ///////Components
 /////////////////////////
-export interface Component {
+export interface Server{
     getReport(): Object;
-}
-
-export interface ServerComponent extends Component{
     listen(): Promise<boolean>;
     close(): Promise<boolean>;
 }
 
-export interface ClientComponent extends Component{
+export interface Client{
+    getReport(): Object;
     connect(): Promise<boolean>;
     disconnect(): Promise<boolean>;
 }
@@ -426,7 +452,7 @@ export function getNode(url: string): Alias {
 }
 
 /////////////////////////
-///////Router Decorators
+///////WWW Decorators
 /////////////////////////
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
@@ -457,7 +483,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
-        commBroker.reply(target, descriptor.value, propertyKey);
+        commBroker.addReply(target, descriptor.value);
     }
 }
 

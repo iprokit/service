@@ -4,9 +4,6 @@ import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
 
-//Local Imports
-import { projectPath } from './microservice';
-
 //Types: FileOptions
 export type FileOptions = {
     excludes?: Array<string>,
@@ -43,6 +40,7 @@ export default class Utility {
         options.excludes.push('.babelrc');
         options.excludes.push('.env');
 
+        const projectPath = global.service.projectPath;
         return(this.findFilePaths(projectPath + paths, options));
     }
 
