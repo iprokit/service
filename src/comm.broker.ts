@@ -1,9 +1,11 @@
 //Import modules
+import Promise from 'bluebird';
 import { Server, Packet, Client } from 'mosca';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { ServerComponent, Defaults, Events } from './microservice';
+import { ServerComponent, Defaults } from './microservice';
+import Utility from './utility';
 
 //Types: ReplyCallback
 export declare type ReplyCallback = (message: Message, reply: Reply) => void;
@@ -15,99 +17,67 @@ export type ReplyOptions = {
     replyCB: ReplyCallback
 }
 
-export default class CommBroker extends EventEmitter implements ServerComponent {
+export default class CommBroker implements ServerComponent {
     //Broker Variables.
-    private port: number;
-    private serviceName: string;
+    public readonly name: string;
+    public readonly port: number;
 
     //Mosca Server
-    private mosca: Server;
+    private _mosca: Server;
 
     //Topic Objects
-    private readonly broadcastTopic: string;
-    private readonly topics: Array<string>;
+    private readonly _broadcastTopic: string;
+    private readonly _topics: Array<string>;
 
     //Publishers
-    private readonly publishers: Array<typeof Publisher>;
+    private readonly _publishers: Array<typeof Publisher>;
 
     //Reply Events
-    private readonly replyCallbackEvent: EventEmitter;
+    private readonly _replyCallbackEvent: EventEmitter;
 
     //Default Constructor
-    constructor(){
-        //Call super for EventEmitter.
-        super();
-
+    constructor(name: string, port?: number){
         //Init Broker variables.
-        this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
+        this.name = name;
+        this.port = port || Defaults.COMM_PORT;
 
         //Init variables.
-        this.broadcastTopic = Defaults.BROADCAST_TOPIC;
-        this.topics = new Array();
-        this.publishers = new Array();
-        this.replyCallbackEvent = new EventEmitter();
-    }
-
-    /////////////////////////
-    ///////Gets/Sets
-    /////////////////////////
-    public getReport(){
-        let publishers = new Array();
-
-        this.publishers.forEach(publisher => {
-            publishers.push({[publisher.constructor.name]: publisher.replies});
-        });
-
-        return {
-            init: {
-                broadcastTopic: this.broadcastTopic,
-                port: this.port
-            },
-            publishers: publishers
-        }
+        this._broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this._topics = new Array();
+        this._publishers = new Array();
+        this._replyCallbackEvent = new EventEmitter();
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(serviceName: string){
-        //Init connection variables
-        this.serviceName = serviceName;
-    }
-
     public initPublisher(publisher: any){
         const _publisher: typeof Publisher = new publisher();
-        this.emit(Events.INIT_PUBLISHER, _publisher.constructor.name, _publisher);
-
-        _publisher.replies.forEach(reply => {
-            this.reply(reply.topic, reply.replyCB);
-        });
-        this.publishers.push(_publisher);
+        this._publishers.push(_publisher);
     }
 
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
     public listen(){
-        return new Promise((resolve, reject) => {
+        return new Promise<boolean>((resolve, reject) => {
             //Init server object
             const options = {
-                id: this.serviceName,
+                id: this.name,
                 port: this.port
             };
-            this.mosca = new Server(options, () => {
-                this.emit(Events.BROKER_STARTED, {port: this.port});
-                resolve();
+            this._mosca = new Server(options, () => {
+                resolve(true);
             });
 
-            this.mosca.on('subscribed', (topic: any, client: Client) => {
+            this._mosca.on('subscribed', (topic: any, client: Client) => {
                 //Broadcast
-                if(topic === this.broadcastTopic){
+                if(topic === this._broadcastTopic){
                     this.sendBroadcast();
                 }
             });
 
-            this.mosca.on('published', (packet: Packet, client: Client) => {
+            this._mosca.on('published', (packet: Packet, client: Client) => {
                 const topic = packet.topic;
                 if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
                     try{
@@ -124,20 +94,39 @@ export default class CommBroker extends EventEmitter implements ServerComponent 
     }
 
     public close(){
-        return new Promise((resolve, reject) => {
-            this.mosca.close(() => {
-                this.emit(Events.BROKER_STOPPED);
-                resolve();
+        return new Promise<boolean>((resolve, reject) => {
+            this._mosca.close(() => {
+                resolve(true);
             });
         });
+    }
+
+    /////////////////////////
+    ///////Report
+    /////////////////////////
+    public getReport(){
+        let publishers = new Array();
+
+        //DO get publisher data
+        // this.publishers.forEach(publisher => {
+        //     publishers.push({[publisher.constructor.name]: publisher.replies});
+        // });
+
+        return {
+            init: {
+                broadcastTopic: this._broadcastTopic,
+                port: this.port
+            },
+            publishers: publishers
+        }
     }
 
     /////////////////////////
     ///////Broadcast Functions
     /////////////////////////
     private sendBroadcast(){
-        const reply = new Reply(this.broadcastTopic, this);
-        reply.send({name: this.serviceName, topics: this.topics});
+        const reply = new Reply(this._broadcastTopic, this);
+        reply.send({name: this.name, topics: this._topics});
     }
 
     /////////////////////////
@@ -157,7 +146,7 @@ export default class CommBroker extends EventEmitter implements ServerComponent 
             const reply = new Reply(packet.topic, this);
 
             //Passing parms to reply callback Emitter
-            this.replyCallbackEvent.emit(packet.topic, message, reply);
+            this._replyCallbackEvent.emit(packet.topic, message, reply);
         }
     }
 
@@ -171,7 +160,7 @@ export default class CommBroker extends EventEmitter implements ServerComponent 
         };
 
         //Publish message on broker
-        this.mosca.publish(packet, () => {
+        this._mosca.publish(packet, () => {
             //Logging Reply
             console.log('Broker: published a reply on topic: %s', reply.topic);
         });
@@ -180,13 +169,16 @@ export default class CommBroker extends EventEmitter implements ServerComponent 
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public reply(topic: string, replyCallback: ReplyCallback){
-        if(this.topics.indexOf(topic) === -1){
+    public reply(publisher: Publisher, replyCallback: ReplyCallback, replyCallbackName: string){
+        const publisherName = publisher.constructor.name.replace('Publisher', '');
+        const topic = Utility.convertToTopic(publisherName, replyCallbackName);
+
+        if(this._topics.indexOf(topic) === -1){
             //Add topic to array
-            this.topics.push(topic);
+            this._topics.push(topic);
     
             //Add reply callback listener.
-            this.replyCallbackEvent.on(topic, replyCallback);
+            this._replyCallbackEvent.on(topic, replyCallback);
         }
     }
 }
@@ -256,8 +248,6 @@ export class Reply implements IReply{
 ///////Publisher
 /////////////////////////
 export class Publisher {
-    public static replies: Array<ReplyOptions>;
-
     constructor(){}
 }
 

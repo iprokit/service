@@ -1,12 +1,6 @@
 //Import modules
 import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document } from 'mongoose';
 
-//Local Imports
-import { NoRecordsFoundError } from './db.manager';
-
-//Export model Types.
-export const NoSQLTypes: typeof Schema.Types = Schema.Types;
-
 //Types: InitOptions
 export type InitOptions = {
     collectionName: string,
@@ -47,7 +41,7 @@ export default class NoSQLModel {
                 if(data){
                     return data
                 }else{
-                    throw new NoRecordsFoundError();
+                    throw new Error('No records found!');
                 }
             })
             .catch(error => {
@@ -59,7 +53,7 @@ export default class NoSQLModel {
         return await this.model.updateOne({_id: id}, update)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.nModified === 0) {
-                    throw new NoRecordsFoundError();
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }
@@ -73,7 +67,7 @@ export default class NoSQLModel {
         return await this.model.deleteOne({_id: id})
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
-                    throw new NoRecordsFoundError();
+                    throw new Error('No records found!');
                 }else{
                     return true;
                 }

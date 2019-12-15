@@ -1,5 +1,5 @@
 //Import modules
-import { EventEmitter } from 'events';
+import Promise from 'bluebird';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server } from 'http';
@@ -7,45 +7,110 @@ import cors from 'cors';
 import createError from 'http-errors';
 
 //Local Imports
-import { ServerComponent, Events, Defaults } from './microservice';
+import { ServerComponent, Defaults } from './microservice';
 import Utility from './utility';
 import Controller from './controller';
 
-export default class WWW extends EventEmitter implements ServerComponent {
+//Types: RouteOptions
+export type RouteMethod = 'get' | 'post' | 'put' | 'delete';
+export type RouteOptions = {
+    name: string,
+    method: RouteMethod,
+    path: PathParams
+}
+
+export default class WWW implements ServerComponent {
     //Server Variables.
-    private baseUrl: string;
-    private port: number;
+    public readonly baseUrl: string;
+    public readonly port: number;
 
     //Express Server
-    private expressApp: Express;
-    private expressRouter: Router;
-    private server: Server;
+    private _expressApp: Express;
+    private _expressRouter: Router;
+    private _server: Server;
 
     //Controllers
-    private readonly controllers: Array<typeof Controller>;
+    private readonly _controllers: Array<{controler: typeof Controller, route: RouteOptions}>;
 
-    constructor(){
-        //Call super for EventEmitter.
-        super();
-
+    constructor(baseUrl: string, port?: number){
         //Init Server variables.
-        this.port = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
+        this.baseUrl = baseUrl;
+        this.port = port || Defaults.EXPRESS_PORT;
 
         //Init Express
-        this.expressApp = express();
-        this.expressRouter = express.Router();
+        this._expressApp = express();
+        this._expressRouter = express.Router();
 
         //Init Variables.
-        this.controllers = new Array();
+        this._controllers = new Array();
+
+        this.initExpress();
     }
 
     /////////////////////////
-    ///////Gets/Sets
+    ///////Init Functions
+    /////////////////////////
+    private initExpress(){
+        //Setup Express
+        this._expressApp.use(cors());
+        this._expressApp.options('*', cors());
+        this._expressApp.use(express.json());
+        this._expressApp.use(express.urlencoded({extended: false}));
+
+        //Setup proxy pass.
+        this._expressApp.use((request: Request, response: Response, next: NextFunction) => {
+            //Generate Proxy object from headers.
+            Utility.generateProxyObjects(request);
+            next();
+        });
+
+        //Setup Router
+        this._expressApp.use(this.baseUrl, this._expressRouter);
+
+        // Error handler for 404
+        this._expressApp.use((request: Request, response: Response, next: NextFunction) => {
+            next(createError(404));
+        });
+
+        // Default error handler
+        this._expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
+            response.locals.message = error.message;
+            response.locals.error = request.app.get('env') === 'development' ? error : {};
+            response.status(error.status || 500).send(error.message);
+        });
+    }
+
+    public initController(controller: any){
+        const _controller: typeof Controller = new controller();
+        this._controllers.push({controler: _controller, route: undefined});
+    }
+
+    /////////////////////////
+    ///////Start/Stop Functions
+    /////////////////////////
+    public listen() {
+        return new Promise<boolean>((resolve, reject) => {
+            this._server = this._expressApp.listen(this.port, () => {
+                resolve(true);
+            });
+        });
+    }
+    
+    public close() {
+        return new Promise<boolean>((resolve, reject) => {
+            this._server.close(() => {
+                resolve(true);
+            });
+        });
+    }
+
+    /////////////////////////
+    ///////Report
     /////////////////////////
     public getReport(){
         //Get all routes
         let serviceRoutes = new Array();
-        this.expressRouter.stack.forEach(item => {
+        this._expressRouter.stack.forEach(item => {
             serviceRoutes.push({
                 name: item.route.stack[0].name,
                 method: item.route.stack[0].method,
@@ -55,22 +120,22 @@ export default class WWW extends EventEmitter implements ServerComponent {
 
         //Get all controllers
         let controllers = new Array();
-        this.controllers.forEach(controller => {
-            let routes = new Array();
+        // this._controllers.forEach(controller => {
+        //     let routes = new Array();
 
-            controller.routes.forEach(route => {
-                let _route = {
-                    name: route.name,
-                    method: route.method,
-                    path: this.baseUrl + route.path
-                }
-                routes.push(_route);
+        //     controller.routes.forEach(route => {
+        //         let _route = {
+        //             name: route.name,
+        //             method: route.method,
+        //             path: this.baseUrl + route.path
+        //         }
+        //         routes.push(_route);
 
-                //Remove controller routes from serviceRoutes.
-                serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(_route)), 1);
-            });
-            controllers.push({[controller.constructor.name]: routes});
-        });
+        //         //Remove controller routes from serviceRoutes.
+        //         serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(_route)), 1);
+        //     });
+        //     controllers.push({[controller.constructor.name]: routes});
+        // });
 
         return {
             init: {
@@ -83,103 +148,48 @@ export default class WWW extends EventEmitter implements ServerComponent {
     }
 
     /////////////////////////
-    ///////Init Functions
-    /////////////////////////
-    public init(baseUrl: string){
-        this.baseUrl = baseUrl;
-
-        //Setup Express
-        this.expressApp.use(cors());
-        this.expressApp.options('*', cors());
-        this.expressApp.use(express.json());
-        this.expressApp.use(express.urlencoded({extended: false}));
-
-        //Setup proxy pass.
-        this.expressApp.use((request: any, response: Response, next: NextFunction) => {
-            //Generate Proxy object from headers.
-            Utility.generateProxyObjects(request);
-            next();
-        });
-
-        //Setup Router
-        this.expressApp.use(this.baseUrl, this.expressRouter);
-
-        // Error handler for 404
-        this.expressApp.use((request: Request, response: Response, next: NextFunction) => {
-            next(createError(404));
-        });
-
-        // Default error handler
-        this.expressApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
-            response.locals.message = error.message;
-            response.locals.error = request.app.get('env') === 'development' ? error : {};
-            response.status(error.status || 500).send(error.message);
-        });
-    }
-
-    public initController(controller: any){
-        const _controller: typeof Controller = new controller();
-        this.emit(Events.INIT_CONTROLLER, _controller.constructor.name, _controller);
-
-        _controller.routes.forEach(route => {
-            if(route.method === 'get'){
-                this.expressRouter.get(route.path, route.fn);
-            }else if(route.method === 'post'){
-                this.expressRouter.post(route.path, route.fn);
-            }else if(route.method === 'put'){
-                this.expressRouter.put(route.path, route.fn);
-            }else if(route.method === 'delete'){
-                this.expressRouter.delete(route.path, route.fn);
-            }
-        });
-        this.controllers.push(_controller);
-    }
-
-    /////////////////////////
-    ///////Start/Stop Functions
-    /////////////////////////
-    public listen() {
-        return new Promise((resolve, reject) => {
-            this.server = this.expressApp.listen(this.port, () => {
-                this.emit(Events.WWW_STARTED, {port: this.port, baseUrl: this.baseUrl});
-                resolve();
-            });
-        });
-    }
-    
-    public close() {
-        return new Promise((resolve, reject) => {
-            this.server.close((error) => {
-                this.emit(Events.WWW_STOPPED);
-                if(error){
-                    reject(error);
-                }else{
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /////////////////////////
     ///////Router Functions
     /////////////////////////
+    public addRoute(method: RouteMethod, path: PathParams, rootPath: boolean, handler: RequestHandler, controller: typeof Controller){
+        if(!rootPath){
+            const controllerName = controller.constructor.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //DO: Add to array.
+        switch(method){
+            case 'get':
+                this.get(path, handler);
+                break;
+            case 'post':
+                this.post(path, handler);
+                break;
+            case 'put':
+                this.put(path, handler);
+                break;
+            case 'delete':
+                this.delete(path, handler);
+                break;
+        }
+    }
+
     public all(path: PathParams, ...handlers: RequestHandler[]){
-        this.expressRouter.all(path, ...handlers);
+        this._expressRouter.all(path, ...handlers);
     }
 
     public get(path: PathParams, ...handlers: RequestHandler[]){
-        this.expressRouter.get(path, ...handlers);
+        this._expressRouter.get(path, ...handlers);
     }
 
     public post(path: PathParams, ...handlers: RequestHandler[]){
-        this.expressRouter.post(path, ...handlers);
+        this._expressRouter.post(path, ...handlers);
     }
 
     public put(path: PathParams, ...handlers: RequestHandler[]){
-        this.expressRouter.put(path, ...handlers);
+        this._expressRouter.put(path, ...handlers);
     }
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
-        this.expressRouter.delete(path, ...handlers);
+        this._expressRouter.delete(path, ...handlers);
     }
 }

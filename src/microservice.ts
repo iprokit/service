@@ -7,6 +7,7 @@ export class Defaults {
 }
 
 //Import modules
+import Promise, { resolve, reject } from 'bluebird';
 import { EventEmitter } from 'events';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import httpStatus from 'http-status-codes';
@@ -29,7 +30,8 @@ import Utility from './utility';
 import WWW from './www';
 import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
-import DBManager, { InvalidConnectionOptionsError, DBTypes } from './db.manager';
+import RDBManager, { RDBDialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
+import NoSQLManager, { ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
 import Controller from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
@@ -65,14 +67,6 @@ export declare type ReplyFunction = (target: typeof Publisher, propertyKey: stri
 //Types: ModelClass
 export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
 
-//Types: RouteOptions
-export type RouteOptions = {
-    name: string,
-    method: 'get' | 'post' | 'put' | 'delete',
-    path: PathParams,
-    fn: RequestHandler
-}
-
 //Types: EntityOptions.
 export type EntityOptions = {
     name: string,
@@ -80,10 +74,10 @@ export type EntityOptions = {
 }
 
 //Global Service Variables.
-const www = new WWW();
-const commBroker = new CommBroker();
-const commMesh = new CommMesh();
-const dbManager = new DBManager();
+let www: WWW;
+let commBroker: CommBroker;
+let commMesh: CommMesh;
+let dbManager: RDBManager | NoSQLManager;
 
 export default class MicroService extends EventEmitter {
     //Service Variables.
@@ -111,10 +105,18 @@ export default class MicroService extends EventEmitter {
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
 
+        //Load WWW.
         const url = baseUrl || '/' + this.serviceName.toLowerCase();
-        www.init(url);
-        commBroker.init(this.serviceName);
-        commMesh.init(this.serviceName);
+        const expressPort = Number(process.env.EXPRESS_PORT);
+        www = new WWW(url, expressPort);
+
+        //Load CommBroker.
+        const name = this.serviceName;
+        const commPort = Number(process.env.COM_BROKER_PORT);
+        commBroker = new CommBroker(name, commPort);
+
+        //Load CommMesh
+        commMesh = new CommMesh(this.serviceName);
 
         //Default Service Routes
         www.get('/health', (request, response, next) => {
@@ -182,9 +184,9 @@ export default class MicroService extends EventEmitter {
             }
         });
 
-        modelFiles.forEach(modelFile => {
-            dbManager.initModel(modelFile);
-        });
+        // modelFiles.forEach(modelFile => {
+        //     dbManager.initModel(modelFile);
+        // });
         publisherFiles.forEach(publisherFile => {
             commBroker.initPublisher(publisherFile);
         });
@@ -196,24 +198,17 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public plugin(){
-
-    }
-
-    public useDB(type: DBTypes, paperTrail?: boolean){
-        try{
-            //Init sequelize
-            dbManager.init(type, paperTrail);
-        }catch(error){
-            if(error instanceof InvalidConnectionOptionsError){
-                console.log(error.message);
-            }else{
-                console.error(error);
-            }
-            console.log('Will continue...');
+    public useDB(type: RDBDialect | 'mongo', paperTrail?: boolean){
+        if(type === 'mongo'){
+            dbManager = new NoSQLManager(paperTrail);
+        }else{
+            dbManager = new RDBManager(type as RDBDialect, paperTrail);
         }
     }
 
+    /////////////////////////
+    ///////DB Functions
+    /////////////////////////
     public setAutoWireModelOptions(options?: AutoLoadOptions){
         this.autoWireModelOptions = options;
     }
@@ -229,34 +224,66 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public async start() {
+    public start(){
         this.emit(Events.STARTING);
 
+        //Load files
         this.initFiles();
-        try{
-            await www.listen();
-            await commBroker.listen();
-            await commMesh.connect();
-            await dbManager.connect();
-        }catch(error){
-            if(error instanceof InvalidConnectionOptionsError){
-                console.log(error.message);
-            }else{
-                console.error(error);
+
+        //Validate if any node exits.
+        let _commMeshConnect = () => {
+            if(commMesh.hasNode()){
+                return commMesh.connect()
             }
-            console.log('Will continue...');
+        };
+
+        //Validate if dbManager exits.
+        let _dbManagerConnect = () => {
+            if(dbManager){
+                return dbManager.connect()
+            }
         }
+
+        //Start all components
+        Promise.all([www.listen(), commBroker.listen(), _commMeshConnect(), _dbManagerConnect()])
+            .then((connected) => {
+                this.emit(Events.STARTED);
+                console.log('Components', connected);
+            }).catch((error) => {
+                if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+                    console.log(error.message);
+                }else{
+                    console.error(error);
+                }
+                console.log('Will continue...');
+            });
     }
 
-    public async stop(){
-        //Chained stopping all components.
+    public stop(){
         this.emit(Events.STOPPING);
-        await dbManager.disconnect();
-        await commMesh.disconnect();
-        await commBroker.close();
-        await www.close();
-        this.emit(Events.STOPPED);
-        process.exit(0);
+
+        //Validate if dbManager exits.
+        let _dbManagerDisconnect = () => {
+            if(dbManager){
+                return dbManager.disconnect()
+            }
+        }
+
+        //Validate if any node exits.
+        let _commMeshDisconnect = () => {
+            if(commMesh.hasNode()){
+                return commMesh.disconnect()
+            }
+        };
+
+        //Stopping all components.
+        Promise.all([_dbManagerDisconnect(), _commMeshDisconnect(), commBroker.close(), www.close()])
+            .then((disconnected) => {
+                console.log('Components', disconnected);
+            }).finally(() => {
+                this.emit(Events.STOPPED);
+                process.exit(0);
+            })
     }
 
     /////////////////////////
@@ -274,58 +301,65 @@ export default class MicroService extends EventEmitter {
 
         //Adding log listeners.
         this.on(Events.STARTING, () => {
-            console.log('%s : %o', this.serviceName, {version: this.version, environment: this.environment});
-            console.log('Starting micro service...');
+            console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment});
+        });
+
+        this.on(Events.STARTED, () => {
+            console.log('%s ready.', this.serviceName);
         });
         
         this.on(Events.STOPPING, () => {
-            console.log('Stopping micro service...');
-        })
-
-        www.on(Events.WWW_STARTED, (options) => {
-            console.log('Express server running on %s:%s%s', this.ip, options.port, options.baseUrl);
+            console.log('Stopping %s...', this.serviceName);
+        });
+        
+        this.on(Events.STOPPED, () => {
+            console.log('%s stopped..', this.serviceName);
         });
 
-        www.on(Events.WWW_STOPPED, () => {
-            console.log('Stopped Express.');
-        });
+        // www.on(Events.WWW_STARTED, (options) => {
+        //     console.log('Express server running on %s:%s%s', this.ip, options.port, options.baseUrl);
+        // });
 
-        commBroker.on(Events.BROKER_STARTED, (options) => {
-            console.log('Comm broker broadcasting on %s:%s', this.ip, options.port);
-        });
+        // www.on(Events.WWW_STOPPED, () => {
+        //     console.log('Stopped Express.');
+        // });
 
-        commBroker.on(Events.BROKER_STOPPED, () => {
-            console.log('Stopped Broker.');
-        });
+        // commBroker.on(Events.BROKER_STARTED, (options) => {
+        //     console.log('Comm broker broadcasting on %s:%s', this.ip, options.port);
+        // });
 
-        commMesh.on(Events.NODE_CONNECTED, (options) => {
-            console.log('Node: Connected to %s', options.url);
-        });
+        // commBroker.on(Events.BROKER_STOPPED, () => {
+        //     console.log('Stopped Broker.');
+        // });
 
-        commMesh.on(Events.NODE_DISCONNECTED, (options) => {
-            console.log('Node: Disconnected from : %s', options.url);
-        });
+        // commMesh.on(Events.NODE_CONNECTED, (options) => {
+        //     console.log('Node: Connected to %s', options.url);
+        // });
 
-        dbManager.on(Events.DB_CONNECTED, (options) => {
-            console.log('DB client connected to %s://%s/%s', options.type, options.host, options.name);
-        });
+        // commMesh.on(Events.NODE_DISCONNECTED, (options) => {
+        //     console.log('Node: Disconnected from : %s', options.url);
+        // });
 
-        dbManager.on(Events.DB_DISCONNECTED, () => {
-            console.log('DB Disconnected');
-        });
+        // // dbManager.on(Events.DB_CONNECTED, (options) => {
+        // //     console.log('DB client connected to %s://%s/%s', options.type, options.host, options.name);
+        // // });
 
-        //Init
-        www.on(Events.INIT_CONTROLLER, (name, controller) => {
-            console.log('Adding endpoints from controller: %s', name);
-        });
+        // // dbManager.on(Events.DB_DISCONNECTED, () => {
+        // //     console.log('DB Disconnected');
+        // // });
 
-        commBroker.on(Events.INIT_PUBLISHER, (name, publisher) => {
-            console.log('Mapping publisher: %s', name);
-        });
+        // //Init
+        // www.on(Events.INIT_CONTROLLER, (name, controller) => {
+        //     console.log('Adding endpoints from controller: %s', name);
+        // });
 
-        dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
-            console.log('Initiating model: %s(%s)', name, entityName);
-        });
+        // commBroker.on(Events.INIT_PUBLISHER, (name, publisher) => {
+        //     console.log('Mapping publisher: %s', name);
+        // });
+
+        // // dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
+        // //     console.log('Initiating model: %s(%s)', name, entityName);
+        // // });
     }
 }
 
@@ -335,6 +369,7 @@ export default class MicroService extends EventEmitter {
 export class Events {
     //Main
     public static readonly STARTING = Symbol('STARTING');
+    public static readonly STARTED = Symbol('STARTED');
     public static readonly STOPPING = Symbol('STOPPING');
     public static readonly STOPPED = Symbol('STOPPED');
 
@@ -374,13 +409,13 @@ export interface Component {
 }
 
 export interface ServerComponent extends Component{
-    listen(): Promise<any>;
-    close():  Promise<any>;
+    listen(): Promise<boolean>;
+    close(): Promise<boolean>;
 }
 
 export interface ClientComponent extends Component{
-    connect():  Promise<any>;
-    disconnect():  Promise<any>;
+    connect(): Promise<boolean>;
+    disconnect(): Promise<boolean>;
 }
 
 /////////////////////////
@@ -395,53 +430,25 @@ export function getNode(url: string): Alias {
 /////////////////////////
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
-        if(!target.routes){
-            target.routes = new Array();
-        }
-        target.routes.push({name: propertyKey, method: 'get', path: path, fn: descriptor.value});
+        www.addRoute('get', path, rootPath, descriptor.value, target);
     }
 }
 
 export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
-        if(!target.routes){
-            target.routes = new Array();
-        }
-        target.routes.push({name: propertyKey, method: 'post', path: path, fn: descriptor.value});
+        www.addRoute('post', path, rootPath, descriptor.value, target);
     }
 }
 
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
-        if(!target.routes){
-            target.routes = new Array();
-        }
-        target.routes.push({name: propertyKey, method: 'put', path: path, fn: descriptor.value});
+        www.addRoute('put', path, rootPath, descriptor.value, target);
     }
 }
 
 export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
-        if(!target.routes){
-            target.routes = new Array();
-        }
-        target.routes.push({name: propertyKey, method: 'delete', path: path, fn: descriptor.value});
+        www.addRoute('delete', path, rootPath, descriptor.value, target);
     }
 }
 
@@ -450,13 +457,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
-        const publisherName = target.constructor.name.replace('Publisher', '');
-        const topic = Utility.convertToTopic(publisherName, propertyKey);
-
-        if(!target.replies){
-            target.replies = new Array();
-        }
-        target.replies.push({name: propertyKey, topic: topic, replyCB: descriptor.value});
+        commBroker.reply(target, descriptor.value, propertyKey);
     }
 }
 
@@ -464,8 +465,9 @@ export function Reply(): ReplyFunction {
 ///////Entity Decorators
 /////////////////////////
 export function Entity(entityOptions: EntityOptions): ModelClass {
-    return (target) => {
-        target.entityName = entityOptions.name;
-        target.entityAttributes = entityOptions.attributes;
+    return (target: any) => {
+        if(dbManager){
+            dbManager.initModel(entityOptions.name, entityOptions.attributes, target);
+        }
     }
 }
