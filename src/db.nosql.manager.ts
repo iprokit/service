@@ -121,8 +121,6 @@ export default class NoSQLManager extends EventEmitter implements Client {
                     error = new ConnectionOptionsError('Invalid database host.');
                 }else if(error.message.includes('connection timed out')){
                     error = new ConnectionOptionsError('Connection timed out to the database.');
-                }else{
-                    error = error;//Pass other errors.
                 }
                 reject(error);
             });
@@ -136,6 +134,8 @@ export default class NoSQLManager extends EventEmitter implements Client {
                     this._connected = false; //Connected Flag
                     this.emit(Events.DB_DISCONNECTED, this);
                     resolve(true);
+                }).catch((error) => {
+                    reject(error);
                 });
         });
     }

@@ -148,6 +148,7 @@ export default class MicroService extends EventEmitter {
             }
         });
 
+        //Console logs.
         this.addListeners();        
     }
 
@@ -233,57 +234,54 @@ export default class MicroService extends EventEmitter {
         //Load files
         this.initFiles();
 
-        //Validate if any node exits.
-        let _commMeshConnect = () => {
-            if(commMesh.hasNode()){
-                return commMesh.connect()
-            }
-        };
-
-        //Validate if dbManager exits.
-        let _dbManagerConnect = () => {
-            if(dbManager){
-                return dbManager.connect()
-            }
-        }
-
         //Start all components
-        Promise.all([www.listen(), commBroker.listen(), _commMeshConnect(), _dbManagerConnect()])
+        Promise.all([www.listen(), commBroker.listen()])
             .then(() => {
                 this.emit(Events.STARTED);
-            }).catch((error) => {
-                if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
-                    console.log(error.message);
-                }else{
-                    console.error(error);
+                if(commMesh.hasNode()){
+                    commMesh.connect()
+                        .catch(error => {
+                            console.error(error);
+                        })
                 }
-                console.log('Will continue...');
+                if(dbManager){
+                    dbManager.connect()
+                        .catch(error => {
+                            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+                                console.log(error.message);
+                            }else{
+                                console.error(error);
+                            }
+                        })
+                }
+            }).catch((error) => {
+                console.error(error);
             });
     }
 
     public stop(){
         this.emit(Events.STOPPING);
 
-        //Validate if any node exits.
-        let _commMeshDisconnect = () => {
-            if(commMesh.hasNode()){
-                return commMesh.disconnect()
-            }
-        };
-
-        //Validate if dbManager exits.
-        let _dbManagerDisconnect = () => {
-            if(dbManager){
-                return dbManager.disconnect()
-            }
-        }
-
         //Stopping all components.
-        Promise.all([www.close(), commBroker.close(), _commMeshDisconnect(), _dbManagerDisconnect()])
+        Promise.all([www.close(), commBroker.close()])
             .then(() => {
+                if(commMesh.hasNode()){
+                    commMesh.disconnect();
+                }
+                if(dbManager){
+                    dbManager.disconnect();
+                }
+                //TODO fix the order.
                 this.emit(Events.STOPPED);
                 process.exit(0);
+            }).catch((error) => {
+                process.exit(1);
             });
+
+        setTimeout(() => {
+            console.error('Forcefully shutting down.');
+            process.exit(1);
+            }, 2000);
     }
 
     /////////////////////////
@@ -292,10 +290,12 @@ export default class MicroService extends EventEmitter {
     private addListeners(){
         //Main listeners.
         process.on('SIGTERM', () => {
-            this.stop()
+            //Kill
+            this.stop();
         });
 
         process.on('SIGINT', () => {
+            //Ctrl + C
             this.stop();
         });
 

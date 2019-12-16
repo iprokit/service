@@ -67,12 +67,13 @@ export default class CommMesh extends EventEmitter implements Client {
     ///////Start/Stop Functions
     /////////////////////////
     public connect(){
-        this.emit(Events.MESH_CONNECTING);
         return new Promise<boolean>((resolve, reject) => {
+            this.emit(Events.MESH_CONNECTING);
+
             Promise.map(this.nodes, (node) => {
-                this.emit(Events.MESH_CONNECTED, this);
                 return node.connect();
             }).then(() => {
+                this.emit(Events.MESH_CONNECTED, this);
                 resolve(true);
             }).catch((error) => {
                 reject(error);
@@ -81,13 +82,16 @@ export default class CommMesh extends EventEmitter implements Client {
     }
 
     public disconnect(){
-        this.emit(Events.MESH_DISCONNECTING);
         return new Promise<boolean>((resolve, reject) => {
+            this.emit(Events.MESH_DISCONNECTING);
+
             Promise.map(this.nodes, (node) => {
-                this.emit(Events.MESH_DISCONNECTED, this);
                 return node.disconnect();
             }).then(() => {
+                this.emit(Events.MESH_DISCONNECTED, this);
                 resolve(true);
+            }).catch((error) => {
+                reject(error);
             });
         });
     }

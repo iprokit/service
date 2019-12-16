@@ -120,9 +120,13 @@ export default class WWW extends EventEmitter implements Server {
     
     public close() {
         return new Promise<boolean>((resolve, reject) => {
-            this._httpServer.close(() => {
-                this.emit(Events.WWW_STOPPED, this);
-                resolve(true);
+            this._httpServer.close((error) => {
+                if(!error){
+                    this.emit(Events.WWW_STOPPED, this);
+                    resolve(true);
+                }else{
+                    reject(error);
+                }
             });
         });
     }
