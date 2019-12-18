@@ -4,6 +4,7 @@ import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
+import { AutoLoadOptions } from './microservice';
 
 //Types: FileOptions
 export type FileOptions = {
@@ -30,7 +31,7 @@ export default class Utility {
     /////////////////////////
     public static getFilePaths(paths: string, options?: FileOptions){
         //Sub function to find files.
-        const findFilePaths = (paths: string, options?: FileOptions) => {
+        const _findFilePaths = (paths: string, options?: FileOptions) => {
             const allFiles = new Array<string>();
 
             const filesOrDirectories = fs.readdirSync(paths);
@@ -44,7 +45,7 @@ export default class Utility {
 
                     if(fs.statSync(fileOrDirectoryPath).isDirectory()) {
                         //Getting all files in the sub directory and adding to allFiles[].
-                        Array.prototype.push.apply(allFiles, findFilePaths(fileOrDirectoryPath, options));
+                        Array.prototype.push.apply(allFiles, _findFilePaths(fileOrDirectoryPath, options));
                     } else {
                         if(options.startsWith){
                             if(fileOrDirectory.startsWith(options.startsWith)){
@@ -79,7 +80,7 @@ export default class Utility {
 
         const projectPath = global.service.projectPath;
 
-        return findFilePaths(projectPath + paths, options);
+        return _findFilePaths(projectPath + paths, options);
     }
 
     /////////////////////////

@@ -328,6 +328,8 @@ export class Node extends EventEmitter implements Client {
         topics.forEach(topic => {
             const converter = Utility.convertToFunction(topic);
 
+            //TODO: Bug - On reconnect new subscribers being identifed. Removed subscribes are not being updated.
+
             if(converter){
                 let subscriber;
 

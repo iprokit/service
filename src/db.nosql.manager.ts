@@ -68,7 +68,7 @@ export default class NoSQLManager extends EventEmitter implements Client {
             useUnifiedTopology: true
         });
 
-        //TODO: UnhandledPromiseRejectionWarning fix this.
+        //TODO: Bug - UnhandledPromiseRejectionWarning fix this.
 
         //Set default connected.
         this._connected = false;

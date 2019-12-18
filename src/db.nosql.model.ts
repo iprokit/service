@@ -98,6 +98,7 @@ export default class NoSQLModel {
         this.mongoose = options.mongoose;
         this.model = this.mongoose.model(options.modelName, schema, options.collectionName);
 
+        //TODO: Work from here.
         //TODO: Object.Assing as see if it works.
     }
 

@@ -37,7 +37,7 @@ export default class WWW extends EventEmitter implements Server {
 
     //Controllers
     private readonly _controllerStack: Array<{controller: typeof Controller, routes: Array<Route>}>;
-    private readonly _serviceStack: Array<Route>;
+    private readonly _serviceRouteStack: Array<Route>;
 
     constructor(baseUrl?: string){
         //Call super for EventEmitter.
@@ -79,7 +79,7 @@ export default class WWW extends EventEmitter implements Server {
 
         //Init Variables.
         this._controllerStack = new Array();
-        this._serviceStack = new Array();
+        this._serviceRouteStack = new Array();
     }
 
     /////////////////////////
@@ -87,7 +87,7 @@ export default class WWW extends EventEmitter implements Server {
     /////////////////////////
     public addControllerRoute(method: RouteMethod, path: PathParams, controller: typeof Controller, handler: RequestHandler){
         //Sub function to add Controller to _controllerStack
-        const addControllerStack = () => {
+        const _addControllerStack = () => {
             //Create new routes.
             const routes = new Array({method: method, path: this.baseUrl + path, handler: handler});
     
@@ -97,7 +97,7 @@ export default class WWW extends EventEmitter implements Server {
 
         //Validate if controllerStack is empty.
         if(this._controllerStack.length === 0){
-            addControllerStack();
+            _addControllerStack();
         }else{
             //Find existing controllerStack.
             const controllerStack = this._controllerStack.find(stack => stack.controller.name === controller.name);
@@ -105,12 +105,12 @@ export default class WWW extends EventEmitter implements Server {
             if(controllerStack){    //controllerStack exists. 
                 controllerStack.routes.push({method: method, path: this.baseUrl + path, handler: handler});
             }else{  //No controllerStack found.
-                addControllerStack();
+                _addControllerStack();
             }
         }
     }
 
-    private createServiceStack(){
+    private createServiceRouteStack(){
         //Get all routes from expressRouter.
         this._expressRouter.stack.forEach(item => {
             const expressRoute = {
@@ -118,14 +118,14 @@ export default class WWW extends EventEmitter implements Server {
                 path: this.baseUrl + item.route.path,
                 handler: item.route.stack[0].handle
             }
-            this._serviceStack.push(expressRoute);
+            this._serviceRouteStack.push(expressRoute);
         });
 
         //Get all routes from controllerStack
         this._controllerStack.forEach(stack => {
-            stack.routes.forEach(route => {
+            stack.routes.forEach(cRoute => {
                 //Remove controller routes from serviceRoutes.
-                this._serviceStack.splice(this._serviceStack.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(route)), 1);
+                this._serviceRouteStack.splice(this._serviceRouteStack.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(cRoute)), 1);
             });
         });
     }
@@ -134,7 +134,7 @@ export default class WWW extends EventEmitter implements Server {
     ///////Start/Stop Functions
     /////////////////////////
     public listen() {
-        this.createServiceStack();
+        this.createServiceRouteStack();
 
         return new Promise<boolean>((resolve, reject) => {
             this._httpServer = this._expressApp.listen(this.port, () => {
@@ -162,12 +162,13 @@ export default class WWW extends EventEmitter implements Server {
     /////////////////////////
     public getReport(){
         //Sub function to create Routes.
-        const createRoutes = (routes: Array<Route>) => {
+        const _createRoutes = (routes: Array<Route>) => {
             let _routes = new Array();
             routes.forEach(route => {
+                let method = (route.method === undefined) ? 'all' : route.method;
                 _routes.push({
                     fn: route.handler.name,
-                    [route.method.toUpperCase()]: route.path
+                    [method.toUpperCase()]: route.path
                 });
             });
             return _routes;
@@ -178,11 +179,11 @@ export default class WWW extends EventEmitter implements Server {
 
         //Get stack from _controllerStack
         this._controllerStack.forEach(stack => {
-            controllers[stack.controller.name] = createRoutes(stack.routes);
+            controllers[stack.controller.name] = _createRoutes(stack.routes);
         });
 
         return {
-            serviceRoutes: createRoutes(this._serviceStack),
+            serviceRoutes: _createRoutes(this._serviceRouteStack),
             controllers: controllers
         }
     }

@@ -78,17 +78,17 @@ let commBroker: CommBroker;
 let commMesh: CommMesh;
 let dbManager: RDBManager | NoSQLManager;
 
+//AutoLoad Variables.
+let autoWireModelOptions: AutoLoadOptions;
+let autoInjectPublisherOptions: AutoLoadOptions;
+let autoInjectControllerOptions: AutoLoadOptions;
+
 export default class MicroService extends EventEmitter {
     //Service Variables.
     public readonly serviceName: string;
     public readonly version: string;
     public readonly environment: string;
     public readonly ip: string;
-
-    //AutoLoad Variables.
-    private autoWireModelOptions: AutoLoadOptions;
-    private autoInjectPublisherOptions: AutoLoadOptions;
-    private autoInjectControllerOptions: AutoLoadOptions;
 
     //Default Constructor
     public constructor(baseUrl?: string, options?: Options) {
@@ -114,6 +114,11 @@ export default class MicroService extends EventEmitter {
         www = new WWW(baseUrl);
         commBroker = new CommBroker();
         commMesh = new CommMesh();
+
+        //Init AutoLoad Variables.
+        autoWireModelOptions = { includes: ['*'], excludes: undefined };
+        autoInjectPublisherOptions = { includes: ['*'], excludes: undefined };
+        autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
 
         //Default Service Routes
         www.get('/health', (request, response, next) => {
@@ -153,51 +158,13 @@ export default class MicroService extends EventEmitter {
     }
 
     /////////////////////////
-    ///////Init Functions
+    ///////Inject Functions
     /////////////////////////
-    private initFiles(){
-        let modelsOptions = (this.autoWireModelOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoWireModelOptions;
-        let publishersOptions = (this.autoInjectPublisherOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectPublisherOptions;
-        let controllersOptions = (this.autoInjectControllerOptions === undefined) ? { includes: ['/'], excludes: undefined } : this.autoInjectControllerOptions;
-
-        let modelFiles = new Array();
-        let publisherFiles = new Array();
-        let controllerFiles = new Array();
-
+    private injectFiles(){
         let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js']});
         files.forEach(file => {
-            const fileClass = require(file).default;
-
-            try{
-                if(fileClass.prototype instanceof RDBModel || fileClass.prototype instanceof NoSQLModel){
-                    if((modelsOptions.includes && modelsOptions.includes.find(includedFile => file.includes(includedFile)))
-                        || (modelsOptions.excludes && !modelsOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                            modelFiles.push(fileClass);
-                    }
-                }else if(fileClass.prototype instanceof Publisher){
-                    if((publishersOptions.includes && publishersOptions.includes.find(includedFile => file.includes(includedFile)))
-                        || (publishersOptions.excludes && !publishersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                            publisherFiles.push(fileClass);
-                    }
-                }else if(fileClass.prototype instanceof Controller){
-                    if((controllersOptions.includes && controllersOptions.includes.find(includedFile => file.includes(includedFile)))
-                        || (controllersOptions.excludes && !controllersOptions.excludes.find(excludedFile => file.includes(excludedFile)))){
-                            controllerFiles.push(fileClass);
-                    }
-                }
-            }catch(error){
-                //Ignore file.
-            }
+            require(file).default;
         });
-
-        //Work from here.
-
-        // publisherFiles.forEach(publisherFile => {
-        //     commBroker.initPublisher(publisherFile);
-        // });
-        // controllerFiles.forEach(controllerFile => {
-        //     www.initController(controllerFile);
-        // });
     }
 
     /////////////////////////
@@ -216,15 +183,15 @@ export default class MicroService extends EventEmitter {
     ///////DB Functions
     /////////////////////////
     public setAutoWireModelOptions(options?: AutoLoadOptions){
-        this.autoWireModelOptions = options;
+        autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
     }
 
     public setAutoInjectPublisherOptions(options?: AutoLoadOptions){
-        this.autoInjectPublisherOptions = options;
+        autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
     }
 
     public setAutoInjectControllerOptions(options?: AutoLoadOptions){
-        this.autoInjectControllerOptions = options;
+        autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
     }
 
     /////////////////////////
@@ -232,7 +199,7 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     public start(){
         //Load files
-        this.initFiles();
+        this.injectFiles();
 
         //Start all components
         Promise.all([www.listen(), commBroker.listen()])
@@ -284,7 +251,37 @@ export default class MicroService extends EventEmitter {
         setTimeout(() => {
             console.error('Forcefully shutting down.');
             process.exit(1);
-            }, 2000);
+        }, 2000);
+    }
+
+    /////////////////////////
+    ///////Router Functions
+    /////////////////////////
+    public all(path: WWWPathParams, ...handlers: WWWHandler[]){
+        www.all(path, ...handlers);
+    }
+
+    public get(path: WWWPathParams, ...handlers: WWWHandler[]){
+        www.get(path, ...handlers);
+    }
+
+    public post(path: WWWPathParams, ...handlers: WWWHandler[]){
+        www.post(path, ...handlers);
+    }
+
+    public put(path: WWWPathParams, ...handlers: WWWHandler[]){
+        www.put(path, ...handlers);
+    }
+
+    public delete(path: WWWPathParams, ...handlers: WWWHandler[]){
+        www.delete(path, ...handlers);
+    }
+
+    /////////////////////////
+    ///////commBroker Functions
+    /////////////////////////
+    public reply(topic: string, replyHandler: ReplyHandler){
+        commBroker.reply(topic, replyHandler);
     }
 
     /////////////////////////
@@ -464,61 +461,73 @@ export function getNode(url: string): Alias {
 /////////////////////////
 export function Get(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if(canLoad(autoInjectControllerOptions, controllerName)){
+            if(!rootPath){
+                path = ('/' + controllerName + path);
+            }
+    
+            //Add Route
+            www.addControllerRoute('get', path, target, descriptor.value);
+    
+            //Call get
+            www.get(path, descriptor.value);
         }
-
-        //Add Route
-        www.addControllerRoute('get', path, target, descriptor.value);
-
-        //Call get
-        www.get(path, descriptor.value);
     }
 }
 
 export function Post(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if(canLoad(autoInjectControllerOptions, controllerName)){
+            if(!rootPath){
+                path = ('/' + controllerName + path);
+            }
+    
+            //Add Route
+            www.addControllerRoute('post', path, target, descriptor.value);
+    
+            //Call post
+            www.post(path, descriptor.value);
         }
-
-        //Add Route
-        www.addControllerRoute('post', path, target, descriptor.value);
-
-        //Call post
-        www.post(path, descriptor.value);
     }
 }
 
 export function Put(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+        
+        if(canLoad(autoInjectControllerOptions, controllerName)){
+            if(!rootPath){
+                path = ('/' + controllerName + path);
+            }
+    
+            //Add Route
+            www.addControllerRoute('put', path, target, descriptor.value);
+    
+            //Call put
+            www.put(path, descriptor.value);
         }
-
-        //Add Route
-        www.addControllerRoute('put', path, target, descriptor.value);
-
-        //Call put
-        www.put(path, descriptor.value);
     }
 }
 
 export function Delete(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        if(!rootPath){
-            const controllerName = target.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if(canLoad(autoInjectControllerOptions, controllerName)){
+            if(!rootPath){
+                path = ('/' + controllerName + path);
+            }
+    
+            //Add Route
+            www.addControllerRoute('delete', path, target, descriptor.value);
+    
+            //Call delete
+            www.delete(path, descriptor.value);
         }
-
-        //Add Route
-        www.addControllerRoute('delete', path, target, descriptor.value);
-
-        //Call delete
-        www.delete(path, descriptor.value);
     }
 }
 
@@ -528,13 +537,16 @@ export function Delete(path: WWWPathParams, rootPath?: boolean): RequestResponse
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
-        const topic = Utility.convertToTopic(publisherName, propertyKey);
 
-        //Add Comm
-        commBroker.addComm(topic, target, descriptor.value);
-
-        //Call reply.
-        commBroker.reply(topic, descriptor.value);
+        if(canLoad(autoInjectPublisherOptions, publisherName)){
+            const topic = Utility.convertToTopic(publisherName, propertyKey);
+    
+            //Add Comm
+            commBroker.addComm(topic, target, descriptor.value);
+    
+            //Call reply.
+            commBroker.reply(topic, descriptor.value);
+        }
     }
 }
 
@@ -546,8 +558,44 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
         if(dbManager){
             const modelName = target.name.replace('Model', '');
 
-            //Init Model.
-            dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+            if(canLoad(autoWireModelOptions, modelName)){
+                //Init Model.
+                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+            }
         }
     }
+}
+
+/////////////////////////
+///////Decorator Helpers
+/////////////////////////
+function canLoad(injectOptions: AutoLoadOptions, search: string) {
+    //Sub function for validating *
+    const _validateStar = (list: Array<string>) => {
+        return list.includes('*') && list.length === 1;
+    }
+
+    //Sub function for validating list
+    const _validateList = (list: Array<string>, search: string) => {
+        return list.find(key => key.toLowerCase() === search.toLowerCase());
+    }
+
+    if(injectOptions.includes){
+        if(_validateStar(injectOptions.includes)){
+            return true;
+        }
+        if(_validateList(injectOptions.includes, search)){
+            return true;
+        }
+        return false;
+    }else if(injectOptions.excludes){
+        if(_validateStar(injectOptions.excludes)){
+            return false;
+        }
+        if(!_validateList(injectOptions.excludes, search)){
+            return true;
+        }
+        return false;
+    }
+    return false;
 }

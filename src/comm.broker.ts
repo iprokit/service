@@ -55,7 +55,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     public addComm(topic: string, publisher: typeof Publisher, replyCallback: ReplyHandler){
         //Sub function to add Publisher to _publisherStack
-        const addPublisherStack = () => {
+        const _addPublisherStack = () => {
             //Create new topicStack.
             const topicStack = new Array({ topic: topic, cb: replyCallback });
     
@@ -65,15 +65,15 @@ export default class CommBroker extends EventEmitter implements Server {
 
         //Validate if publisherStack is empty.
         if(this._publisherStack.length === 0){
-            addPublisherStack();
+            _addPublisherStack();
         }else{
             //Find existing publisherStack.
             const publisherStack = this._publisherStack.find(stack => stack.publisher.name === publisher.name);
 
-            if(publisherStack){//publisherStack exists. 
+            if(publisherStack){ //publisherStack exists. 
                 publisherStack.topicStack.push({topic: topic, cb: replyCallback});
-            }else{//No publisherStack found.
-                addPublisherStack();
+            }else{  //No publisherStack found.
+                _addPublisherStack();
             }
         }
     }
