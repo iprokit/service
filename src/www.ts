@@ -7,6 +7,9 @@ import { Server as HttpServer } from 'http';
 import cors from 'cors';
 import createError from 'http-errors';
 
+//Export Libs
+export { PathParams as WWWPathParams, RequestHandler as WWWHandler };
+
 //Local Imports
 import { Server, Events, Defaults } from './microservice';
 import Utility from './utility';
@@ -14,10 +17,12 @@ import Controller from './controller';
 
 //Types: RouteOptions
 export type RouteMethod = 'get' | 'post' | 'put' | 'delete';
-export type RouteOptions = {
-    name: string,
+
+//Types: Route
+export type Route = {
     method: RouteMethod,
-    path: PathParams
+    path: PathParams,
+    handler: RequestHandler
 }
 
 export default class WWW extends EventEmitter implements Server {
@@ -31,7 +36,8 @@ export default class WWW extends EventEmitter implements Server {
     private _httpServer: HttpServer;
 
     //Controllers
-    private readonly _controllers: Array<{controler: typeof Controller, route: RouteOptions}>;
+    private readonly _controllerStack: Array<{controller: typeof Controller, routes: Array<Route>}>;
+    private readonly _serviceStack: Array<Route>;
 
     constructor(baseUrl?: string){
         //Call super for EventEmitter.
@@ -72,44 +78,64 @@ export default class WWW extends EventEmitter implements Server {
         });
 
         //Init Variables.
-        this._controllers = new Array();
+        this._controllerStack = new Array();
+        this._serviceStack = new Array();
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public initController(controller: any){
-        const _controller: typeof Controller = new controller();
-        this._controllers.push({controler: _controller, route: undefined});
+    public addControllerRoute(method: RouteMethod, path: PathParams, controller: typeof Controller, handler: RequestHandler){
+        //Sub function to add Controller to _controllerStack
+        const addControllerStack = () => {
+            //Create new routes.
+            const routes = new Array({method: method, path: this.baseUrl + path, handler: handler});
+    
+            //Push Controller & routes to controllerStack.
+            this._controllerStack.push({controller: controller, routes: routes});
+        }
+
+        //Validate if controllerStack is empty.
+        if(this._controllerStack.length === 0){
+            addControllerStack();
+        }else{
+            //Find existing controllerStack.
+            const controllerStack = this._controllerStack.find(stack => stack.controller.name === controller.name);
+
+            if(controllerStack){    //controllerStack exists. 
+                controllerStack.routes.push({method: method, path: this.baseUrl + path, handler: handler});
+            }else{  //No controllerStack found.
+                addControllerStack();
+            }
+        }
     }
 
-    public addRoute(method: RouteMethod, path: PathParams, rootPath: boolean, handler: RequestHandler, controller: typeof Controller){
-        if(!rootPath){
-            const controllerName = controller.constructor.name.replace('Controller', '').toLowerCase();
-            path = ('/' + controllerName + path);
-        }
+    private createServiceStack(){
+        //Get all routes from expressRouter.
+        this._expressRouter.stack.forEach(item => {
+            const expressRoute = {
+                method: item.route.stack[0].method,
+                path: this.baseUrl + item.route.path,
+                handler: item.route.stack[0].handle
+            }
+            this._serviceStack.push(expressRoute);
+        });
 
-        //DO: Add to array.
-        switch(method){
-            case 'get':
-                this.get(path, handler);
-                break;
-            case 'post':
-                this.post(path, handler);
-                break;
-            case 'put':
-                this.put(path, handler);
-                break;
-            case 'delete':
-                this.delete(path, handler);
-                break;
-        }
+        //Get all routes from controllerStack
+        this._controllerStack.forEach(stack => {
+            stack.routes.forEach(route => {
+                //Remove controller routes from serviceRoutes.
+                this._serviceStack.splice(this._serviceStack.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(route)), 1);
+            });
+        });
     }
 
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
     public listen() {
+        this.createServiceStack();
+
         return new Promise<boolean>((resolve, reject) => {
             this._httpServer = this._expressApp.listen(this.port, () => {
                 this.emit(Events.WWW_STARTED, this);
@@ -135,37 +161,28 @@ export default class WWW extends EventEmitter implements Server {
     ///////Report
     /////////////////////////
     public getReport(){
-        //Get all routes
-        let serviceRoutes = new Array();
-        this._expressRouter.stack.forEach(item => {
-            serviceRoutes.push({
-                name: item.route.stack[0].name,
-                method: item.route.stack[0].method,
-                path: this.baseUrl + item.route.path
+        //Sub function to create Routes.
+        const createRoutes = (routes: Array<Route>) => {
+            let _routes = new Array();
+            routes.forEach(route => {
+                _routes.push({
+                    fn: route.handler.name,
+                    [route.method.toUpperCase()]: route.path
+                });
             });
+            return _routes;
+        }
+
+        //New controllers
+        let controllers: {[name: string]: Array<string>} = {};
+
+        //Get stack from _controllerStack
+        this._controllerStack.forEach(stack => {
+            controllers[stack.controller.name] = createRoutes(stack.routes);
         });
 
-        //Get all controllers
-        let controllers = new Array();
-        // this._controllers.forEach(controller => {
-        //     let routes = new Array();
-
-        //     controller.routes.forEach(route => {
-        //         let _route = {
-        //             name: route.name,
-        //             method: route.method,
-        //             path: this.baseUrl + route.path
-        //         }
-        //         routes.push(_route);
-
-        //         //Remove controller routes from serviceRoutes.
-        //         serviceRoutes.splice(serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(_route)), 1);
-        //     });
-        //     controllers.push({[controller.constructor.name]: routes});
-        // });
-
         return {
-            serviceRoutes: serviceRoutes,
+            serviceRoutes: createRoutes(this._serviceStack),
             controllers: controllers
         }
     }

@@ -3,6 +3,7 @@ import { RequestOptions } from 'https';
 import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
+import { Request } from 'express';
 
 //Types: FileOptions
 export type FileOptions = {
@@ -28,6 +29,42 @@ export default class Utility {
     ///////Files
     /////////////////////////
     public static getFilePaths(paths: string, options?: FileOptions){
+        //Sub function to find files.
+        const findFilePaths = (paths: string, options?: FileOptions) => {
+            const allFiles = new Array<string>();
+
+            const filesOrDirectories = fs.readdirSync(paths);
+            filesOrDirectories.forEach(fileOrDirectory => {
+                const fileOrDirectoryPath = path.join(paths, fileOrDirectory);
+                
+                //Validate if excluded
+                if(!options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))){
+                    //Validate if the fileOrDirectoryPath is directory or a file.
+                    //If its a directory get sub files and add it to allFiles[].
+
+                    if(fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                        //Getting all files in the sub directory and adding to allFiles[].
+                        Array.prototype.push.apply(allFiles, findFilePaths(fileOrDirectoryPath, options));
+                    } else {
+                        if(options.startsWith){
+                            if(fileOrDirectory.startsWith(options.startsWith)){
+                                allFiles.push(fileOrDirectoryPath);
+                            }
+                        }else if(options.endsWith){
+                            if(fileOrDirectory.endsWith(options.endsWith)){
+                                allFiles.push(fileOrDirectoryPath);
+                            }
+                        }else if(options.likeName){
+                            if(fileOrDirectory.includes(options.likeName)){
+                                allFiles.push(fileOrDirectoryPath);
+                            }
+                        }
+                    }
+                }
+            });
+            return allFiles;
+        }
+
         //Set Defaults.
         options = options || {};
         options.excludes = options.excludes || [];
@@ -41,42 +78,8 @@ export default class Utility {
         options.excludes.push('.env');
 
         const projectPath = global.service.projectPath;
-        return(this.findFilePaths(projectPath + paths, options));
-    }
 
-    private static findFilePaths(paths: string, options?: FileOptions) {
-        const allFiles = new Array<string>();
-
-        const filesOrDirectories = fs.readdirSync(paths);
-        filesOrDirectories.forEach(fileOrDirectory => {
-            const fileOrDirectoryPath = path.join(paths, fileOrDirectory);
-            
-            //Validate if excluded
-            if(!options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))){
-                //Validate if the fileOrDirectoryPath is directory or a file.
-                //If its a directory get sub files and add it to allFiles[].
-
-                if(fs.statSync(fileOrDirectoryPath).isDirectory()) {
-                    //Getting all files in the sub directory and adding to allFiles[].
-                    Array.prototype.push.apply(allFiles, this.findFilePaths(fileOrDirectoryPath, options));
-                } else {
-                    if(options.startsWith){
-                        if(fileOrDirectory.startsWith(options.startsWith)){
-                            allFiles.push(fileOrDirectoryPath);
-                        }
-                    }else if(options.endsWith){
-                        if(fileOrDirectory.endsWith(options.endsWith)){
-                            allFiles.push(fileOrDirectoryPath);
-                        }
-                    }else if(options.likeName){
-                        if(fileOrDirectory.includes(options.likeName)){
-                            allFiles.push(fileOrDirectoryPath);
-                        }
-                    }
-                }
-            }
-        });
-        return allFiles;
+        return findFilePaths(projectPath + paths, options);
     }
 
     /////////////////////////
@@ -103,31 +106,31 @@ export default class Utility {
     /////////////////////////
     ///////Proxy
     /////////////////////////
-    public static generateProxyHeaders(sourceRequest: any, targetRequest: RequestOptions){
-        const proxyObject = sourceRequest.proxy;
+    public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions){
+        const proxyObject = sourceRequest.constructor.prototype.proxy;
         if(proxyObject){
-            for(let key in proxyObject){
-                const headerName = 'proxy-' + key;
-                const headerObject = proxyObject[key];
-                targetRequest.headers[headerName] = JSON.stringify(headerObject);
-            }
+            //Convert Proxy dict to array and get each proxy.
+            Object.entries(proxyObject).forEach(([name, proxy]) => {
+                targetRequest.headers['proxy-' + name] = JSON.stringify(proxy);
+            });
         }
     }
 
-    public static generateProxyObjects(request: any){
+    public static generateProxyObjects(request: Request){
         //Create Empty Proxy object.
-        request.proxy = {};
+        request.constructor.prototype.proxy = {};
 
         let proxyHeaders = request.headers;
-        for(let key in proxyHeaders){
-            if(key.includes('proxy-')){
-                const objectKey = key.split('-')[1];
-                const objectValue = proxyHeaders[key];
-                request.proxy[objectKey] = JSON.parse(objectValue);
+        //Convert Proxy headers to array and get each proxy.
+        Object.entries(proxyHeaders).find(([name, proxy]) => {
+            if(name.startsWith('proxy-')){
+                const objectKey = name.split('-')[1];
+                const objectValue = proxy;
+                request.constructor.prototype.proxy[objectKey] = JSON.parse(objectValue as string);
 
                 //Delete proxy headers.
-                delete request.headers[key];
+                delete request.headers[name];
             }
-        }
+        });
     }
 }

@@ -1,5 +1,5 @@
 //Import modules
-import {Model, ModelAttributes} from 'sequelize';
+import  { Model } from 'sequelize';
 
 export default class RDBModel extends Model {
     /////////////////////////

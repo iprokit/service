@@ -2,9 +2,17 @@
 import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
+//Export Libs
+export {httpStatus as HttpCodes};
+
 export default class Controller {
     //Default Constructor
-    public constructor(){}
+    constructor(){}
+
+    //Get Name
+    get name(){
+        return this.constructor.name;
+    }
 
     public create(model: any, request: Request, response: Response) {
         model.create(request.body)

@@ -5,16 +5,14 @@ import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
 import { Server, Events, Defaults } from './microservice';
-import Utility from './utility';
 
-//Types: ReplyCallback
-export declare type ReplyCallback = (message: Message, reply: Reply) => void;
+//Types: ReplyHandler
+export declare type ReplyHandler = (message: Message, reply: Reply) => void;
 
 //Export ReplyOptions
 export type ReplyOptions = {
-    name: string,
     topic: string,
-    replyCB: ReplyCallback
+    cb: ReplyHandler
 }
 
 export default class CommBroker extends EventEmitter implements Server {
@@ -29,11 +27,12 @@ export default class CommBroker extends EventEmitter implements Server {
     private readonly _broadcastTopic: string;
     private readonly _topics: Array<string>;
 
-    //Publishers
-    private readonly _publishers: Array<typeof Publisher>;
+    //Comm Handler Events
+    private readonly _commHandlers: EventEmitter;
 
-    //Reply Events
-    private readonly _replyCallbackEvent: EventEmitter;
+    //Publishers
+    private readonly _publisherStack: Array<{publisher: typeof Publisher, topicStack: Array<ReplyOptions>}>;
+    //TODO: Add type for reply, transcation event in _publisherStack.
 
     //Default Constructor
     constructor(){
@@ -47,23 +46,36 @@ export default class CommBroker extends EventEmitter implements Server {
         //Init variables.
         this._broadcastTopic = Defaults.BROADCAST_TOPIC;
         this._topics = new Array();
-        this._publishers = new Array();
-        this._replyCallbackEvent = new EventEmitter();
+        this._publisherStack = new Array();
+        this._commHandlers = new EventEmitter();
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public initPublisher(publisher: any){
-        const _publisher: typeof Publisher = new publisher();
-        this._publishers.push(_publisher);
-    }
+    public addComm(topic: string, publisher: typeof Publisher, replyCallback: ReplyHandler){
+        //Sub function to add Publisher to _publisherStack
+        const addPublisherStack = () => {
+            //Create new topicStack.
+            const topicStack = new Array({ topic: topic, cb: replyCallback });
+    
+            //Push Publisher & topicStack to publisherStack.
+            this._publisherStack.push({publisher: publisher, topicStack: topicStack});
+        }
 
-    public addReply(publisher: Publisher, replyCallback: ReplyCallback){
-        const publisherName = publisher.constructor.name.replace('Publisher', '');
-        const topic = Utility.convertToTopic(publisherName, replyCallback.name);
+        //Validate if publisherStack is empty.
+        if(this._publisherStack.length === 0){
+            addPublisherStack();
+        }else{
+            //Find existing publisherStack.
+            const publisherStack = this._publisherStack.find(stack => stack.publisher.name === publisher.name);
 
-        this.reply(topic, replyCallback);
+            if(publisherStack){//publisherStack exists. 
+                publisherStack.topicStack.push({topic: topic, cb: replyCallback});
+            }else{//No publisherStack found.
+                addPublisherStack();
+            }
+        }
     }
 
     /////////////////////////
@@ -71,12 +83,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     public listen(){
         return new Promise<boolean>((resolve, reject) => {
-            //Init server object
-            const options = {
-                id: this.name,
-                port: this.port
-            };
-            this._mqttServer = new MqttServer(options, () => {
+            this._mqttServer = new MqttServer({ id: this.name, port: this.port }, () => {
                 this.emit(Events.BROKER_STARTED, this);
                 resolve(true);
             });
@@ -117,16 +124,16 @@ export default class CommBroker extends EventEmitter implements Server {
     ///////Report
     /////////////////////////
     public getReport(){
-        let publishers = new Array();
+        let publishers: {[name: string]: string[]} = {};
 
-        //DO get publisher data
-        // this.publishers.forEach(publisher => {
-        //     publishers.push({[publisher.constructor.name]: publisher.replies});
-        // });
-
-        return {
-            publishers: publishers
-        }
+        this._publisherStack.forEach(stack => {
+            let cbName = new Array();
+            stack.topicStack.forEach(topicStack => {
+                cbName.push(topicStack.cb.name);
+            })
+            publishers[stack.publisher.name] = cbName;
+        });   
+        return publishers;
     }
 
     /////////////////////////
@@ -153,8 +160,8 @@ export default class CommBroker extends EventEmitter implements Server {
             const message = new Message(payload.message.parms);
             const reply = new Reply(packet.topic, this);
 
-            //Passing parms to reply callback Emitter
-            this._replyCallbackEvent.emit(packet.topic, message, reply);
+            //Passing parms to comm handler Emitter
+            this._commHandlers.emit(packet.topic, message, reply);
         }
     }
 
@@ -177,13 +184,13 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public reply(topic: string, replyCallback: ReplyCallback){
+    public reply(topic: string, replyHandler: ReplyHandler){
         if(this._topics.indexOf(topic) === -1){
             //Add topic to array
             this._topics.push(topic);
     
-            //Add reply callback listener.
-            this._replyCallbackEvent.on(topic, replyCallback);
+            //Add reply handler listener.
+            this._commHandlers.on(topic, replyHandler);
         }
     }
 }
@@ -214,14 +221,14 @@ interface IReply {
 }
 
 export class Reply implements IReply{
-    public readonly topic: any;
+    public readonly topic: string;
     private commBroker: CommBroker;
 
     public body: any;
     public error: any;
     private sendCount: number = 0;
 
-    constructor(topic: any, commBroker: CommBroker){
+    constructor(topic: string, commBroker: CommBroker){
         this.topic = topic;
         this.commBroker = commBroker;
     }
@@ -252,8 +259,14 @@ export class Reply implements IReply{
 /////////////////////////
 ///////Publisher
 /////////////////////////
-export class Publisher {
+export class Publisher{
+    //Default Constructor
     constructor(){}
+
+    //Get Name
+    get name(){
+        return this.constructor.name;
+    }
 }
 
 /////////////////////////

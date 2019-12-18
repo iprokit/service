@@ -5,7 +5,7 @@ import MicroService from './microservice';
 export { default as Gateway } from './gateway';
 export { Publisher } from './comm.broker';
 export { NodeUnavailableError } from './comm.mesh';
-export { default as Controller } from './controller';
+export { default as Controller, HttpCodes } from './controller';
 export { RDB, RDBOp, RDBDataTypes } from './db.rdb.manager';
 export { default as RDBModel } from './db.rdb.model';
 export { NoSQLDataTypes } from './db.nosql.manager';

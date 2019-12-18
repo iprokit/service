@@ -12,16 +12,16 @@ import RDBModel from './db.rdb.model';
 
 export default class RDBManager extends EventEmitter implements Client {
     //RDB Variables.
-    private _paperTrail: boolean;
+    private readonly _paperTrail: boolean;
     private _connected: boolean;
 
     //Connection Objects
-    public dbType: Dialect;
-    public dbHost: string;
-    public dbName: string;
-    public dbUsername: string;
-    public dbPassword: string;
-    private _connection: Sequelize;
+    public readonly type: Dialect;
+    public readonly host: string;
+    public readonly name: string;
+    public readonly username: string;
+    public readonly password: string;
+    private readonly _connection: Sequelize;
     
     //Default Constructor
     public constructor(dialect: Dialect, paperTrail?: boolean){
@@ -29,44 +29,46 @@ export default class RDBManager extends EventEmitter implements Client {
         super();
 
         //Validate type
-        this.dbType = dialect;
-        if(!this.dbType){
+        this.type = dialect;
+        if(!this.type){
             throw new ConnectionOptionsError('Invalid Database dialect provided.');
         }
 
         //Validate host
-        this.dbHost = process.env.DB_HOST;
-        if(!this.dbHost){
+        this.host = process.env.DB_HOST;
+        if(!this.host){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate name
-        this.dbName = process.env.DB_NAME;
-        if(!this.dbName){
+        this.name = process.env.DB_NAME;
+        if(!this.name){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate username
-        this.dbUsername = process.env.DB_USERNAME;
-        if(!this.dbUsername){
+        this.username = process.env.DB_USERNAME;
+        if(!this.username){
             throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
         }
 
         //Validate password
-        this.dbPassword = process.env.DB_PASSWORD;
-        if(!this.dbPassword){
+        this.password = process.env.DB_PASSWORD;
+        if(!this.password){
             throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
         }
 
-        //Call super for Sequelize.
-        this._connection = new Sequelize(this.dbName, this.dbUsername, this.dbPassword, {
-            host: this.dbHost,
-            dialect: this.dbType
+        //Sequelize constructor.
+        this._connection = new Sequelize(this.name, this.username, this.password, {
+            host: this.host,
+            dialect: this.type
         });
+        
+        //Set default connected.
         this._connected = false;
 
         //Init variables.
-        this._paperTrail = (paperTrail === undefined) ? true: paperTrail;
+        this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
     }
 
     /////////////////////////
@@ -76,12 +78,14 @@ export default class RDBManager extends EventEmitter implements Client {
         return this._connected;
     }
 
+    private getModels(){
+        return Object.values(this._connection.models);
+    }
+
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public initModel(tableName: string, attributes: ModelAttributes, model: typeof RDBModel){
-        let modelName = model.name.replace('Model', '');
-
+    public initModel(modelName: string, tableName: string, attributes: ModelAttributes, model: typeof RDBModel){
         //Initializing model
         model.init(attributes, {
             tableName: tableName,
@@ -91,15 +95,16 @@ export default class RDBManager extends EventEmitter implements Client {
         });
         model.hooks();
     }
+    
     /////////////////////////
     ///////Connection Management
     /////////////////////////
     public connect(){
         return new Promise<boolean>((resolve, reject) => {
-            //Associate models
-            // this.models.forEach((model: any) => {
-            //     model.associate();
-            // });
+            //Associate models.
+            this.getModels().forEach(model => {
+                (model as typeof RDBModel).associate();
+            });
 
             //Start Connection.
             this._connection.authenticate()
@@ -140,19 +145,18 @@ export default class RDBManager extends EventEmitter implements Client {
     ///////Report
     /////////////////////////
     public getReport(){
-        let models = new Array();
+        //New Models Dict.
+        let models: {[name: string]: string} = {};
 
-        this._connection.modelManager.models.forEach(model => {
-            models.push({[model.name]: model.tableName});
+        this.getModels().forEach(model => {
+            models[model.name] = model.tableName;
         });
 
         return {
-            init: {
-                name: this.dbName,
-                host: this.dbHost,
-                type: this.dbType,
-                connected: this._connected
-            },
+            name: this.name,
+            host: this.host,
+            type: this.type,
+            connected: this._connected,
             models: models
         }
     }

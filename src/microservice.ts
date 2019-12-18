@@ -13,8 +13,6 @@ declare global {
 //Import Modules
 import Promise from 'bluebird';
 import { EventEmitter } from 'events';
-import { PathParams, RequestHandler } from 'express-serve-static-core';
-import httpStatus from 'http-status-codes';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -28,12 +26,12 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './utility';
-import WWW from './www';
-import CommBroker, { ReplyCallback, Publisher } from './comm.broker';
+import WWW, { WWWHandler, WWWPathParams } from './www';
+import CommBroker, { ReplyHandler, Publisher } from './comm.broker';
 import CommMesh, { Alias } from './comm.mesh';
 import RDBManager, { RDBDialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
 import NoSQLManager, { Mongo, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
-import Controller from './controller';
+import Controller, { HttpCodes } from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -51,7 +49,7 @@ export type AutoLoadOptions = {
 
 //Interface: RequestResponseFunctionDescriptor
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
-    value?: RequestHandler;
+    value?: WWWHandler;
 }
 
 //Types: RequestResponseFunction
@@ -59,7 +57,7 @@ export declare type RequestResponseFunction = (target: typeof Controller, proper
 
 //Interface: ReplyFunctionDescriptor
 interface ReplyFunctionDescriptor extends PropertyDescriptor {
-    value?: ReplyCallback;
+    value?: ReplyHandler;
 }
 
 //Types: ReplyFunction
@@ -119,7 +117,7 @@ export default class MicroService extends EventEmitter {
 
         //Default Service Routes
         www.get('/health', (request, response, next) => {
-            response.status(httpStatus.OK).send({status: true});
+            response.status(HttpCodes.OK).send({status: true});
         });
         www.get('/report', (request, response, next) => {
             try {
@@ -133,23 +131,25 @@ export default class MicroService extends EventEmitter {
                         commPort: commBroker.port,
                         environment: this.environment
                     },
-                    www: www.getReport(),
                     db: {},
-                    commBroker: commBroker.getReport(),
-                    commMesh: commMesh.getReport()
+                    routes: www.getReport(),
+                    publishers: commBroker.getReport(),
+                    mesh: commMesh.getReport()
                 };
                 if(dbManager){
                     report.db = dbManager.getReport();
                 }
 
-                response.status(httpStatus.OK).send(report);
+                response.status(HttpCodes.OK).send(report);
             } catch (error) {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
         });
 
         //Console logs.
-        this.addListeners();        
+        this.addListeners();
+        
+        this.emit(Events.STARTING);
     }
 
     /////////////////////////
@@ -190,12 +190,14 @@ export default class MicroService extends EventEmitter {
             }
         });
 
-        publisherFiles.forEach(publisherFile => {
-            commBroker.initPublisher(publisherFile);
-        });
-        controllerFiles.forEach(controllerFile => {
-            www.initController(controllerFile);
-        });
+        //Work from here.
+
+        // publisherFiles.forEach(publisherFile => {
+        //     commBroker.initPublisher(publisherFile);
+        // });
+        // controllerFiles.forEach(controllerFile => {
+        //     www.initController(controllerFile);
+        // });
     }
 
     /////////////////////////
@@ -206,7 +208,7 @@ export default class MicroService extends EventEmitter {
             dbManager = new NoSQLManager(paperTrail);
         }else{
             dbManager = new RDBManager(type as RDBDialect, paperTrail);
-            //DO: Add sync route.
+            //TODO: Add sync route.
         }
     }
 
@@ -229,8 +231,6 @@ export default class MicroService extends EventEmitter {
     ///////Service Functions
     /////////////////////////
     public start(){
-        this.emit(Events.STARTING);
-
         //Load files
         this.initFiles();
 
@@ -242,7 +242,8 @@ export default class MicroService extends EventEmitter {
                     commMesh.connect()
                         .catch(error => {
                             console.error(error);
-                        })
+                            console.log('Will continue...');
+                        });
                 }
                 if(dbManager){
                     dbManager.connect()
@@ -252,10 +253,12 @@ export default class MicroService extends EventEmitter {
                             }else{
                                 console.error(error);
                             }
-                        })
+                            console.log('Will continue...');
+                        });
                 }
             }).catch((error) => {
                 console.error(error);
+                console.log('Will continue...');
             });
     }
 
@@ -298,6 +301,10 @@ export default class MicroService extends EventEmitter {
             //Ctrl + C
             this.stop();
         });
+
+        // process.on('unhandledRejection', (reason, promise) => {
+        //     console.log('caught --', reason, promise);
+        // });
 
         //Adding log listeners.
         this.on(Events.STARTING, () => {
@@ -358,7 +365,7 @@ export default class MicroService extends EventEmitter {
 
         if(dbManager){
             dbManager.on(Events.DB_CONNECTED, (_dbManager) => {
-                console.log('DB client connected to %s://%s/%s', _dbManager.dbType, _dbManager.dbHost, _dbManager.dbName);
+                console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name);
             });
 
             dbManager.on(Events.DB_DISCONNECTED, () => {
@@ -385,6 +392,7 @@ export default class MicroService extends EventEmitter {
 ///////Events
 /////////////////////////
 export class Events {
+    //TODO: Move this to appropriate classes.
     //Main
     public static readonly STARTING = Symbol('STARTING');
     public static readonly STARTED = Symbol('STARTED');
@@ -454,27 +462,63 @@ export function getNode(url: string): Alias {
 /////////////////////////
 ///////WWW Decorators
 /////////////////////////
-export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+export function Get(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        www.addRoute('get', path, rootPath, descriptor.value, target);
+        if(!rootPath){
+            const controllerName = target.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //Add Route
+        www.addControllerRoute('get', path, target, descriptor.value);
+
+        //Call get
+        www.get(path, descriptor.value);
     }
 }
 
-export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+export function Post(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        www.addRoute('post', path, rootPath, descriptor.value, target);
+        if(!rootPath){
+            const controllerName = target.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //Add Route
+        www.addControllerRoute('post', path, target, descriptor.value);
+
+        //Call post
+        www.post(path, descriptor.value);
     }
 }
 
-export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+export function Put(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        www.addRoute('put', path, rootPath, descriptor.value, target);
+        if(!rootPath){
+            const controllerName = target.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //Add Route
+        www.addControllerRoute('put', path, target, descriptor.value);
+
+        //Call put
+        www.put(path, descriptor.value);
     }
 }
 
-export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+export function Delete(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        www.addRoute('delete', path, rootPath, descriptor.value, target);
+        if(!rootPath){
+            const controllerName = target.name.replace('Controller', '').toLowerCase();
+            path = ('/' + controllerName + path);
+        }
+
+        //Add Route
+        www.addControllerRoute('delete', path, target, descriptor.value);
+
+        //Call delete
+        www.delete(path, descriptor.value);
     }
 }
 
@@ -483,7 +527,14 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
-        commBroker.addReply(target, descriptor.value);
+        const publisherName = target.name.replace('Publisher', '');
+        const topic = Utility.convertToTopic(publisherName, propertyKey);
+
+        //Add Comm
+        commBroker.addComm(topic, target, descriptor.value);
+
+        //Call reply.
+        commBroker.reply(topic, descriptor.value);
     }
 }
 
@@ -493,7 +544,10 @@ export function Reply(): ReplyFunction {
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target: any) => {
         if(dbManager){
-            dbManager.initModel(entityOptions.name, entityOptions.attributes, target);
+            const modelName = target.name.replace('Model', '');
+
+            //Init Model.
+            dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
         }
     }
 }

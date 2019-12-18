@@ -16,16 +16,16 @@ export type Mongo = 'mongo';
 
 export default class NoSQLManager extends EventEmitter implements Client {
     //NoSQL Variables.
-    private _paperTrail: boolean;
+    private readonly _paperTrail: boolean;
     private _connected: boolean;
     
     //Connection Objects
-    public dbType: string;
-    public dbHost: string;
-    public dbName: string;
-    public dbUsername: string;
-    public dbPassword: string;
-    private _connection: Mongoose;
+    public readonly type: Mongo;
+    public readonly host: string;
+    public readonly name: string;
+    public readonly username: string;
+    public readonly password: string;
+    private readonly _connection: Mongoose;
     
     //Default Constructor
     public constructor(paperTrail?: boolean){
@@ -33,45 +33,48 @@ export default class NoSQLManager extends EventEmitter implements Client {
         super();
 
         //Set type
-        this.dbType = 'mongo';
+        this.type = 'mongo';
 
         //Validate host
-        this.dbHost = process.env.DB_HOST;
-        if(!this.dbHost){
+        this.host = process.env.DB_HOST;
+        if(!this.host){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate name
-        this.dbName = process.env.DB_NAME;
-        if(!this.dbName){
+        this.name = process.env.DB_NAME;
+        if(!this.name){
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate username
-        this.dbUsername = process.env.DB_USERNAME;
-        if(!this.dbUsername){
+        this.username = process.env.DB_USERNAME;
+        if(!this.username){
             throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
         }
 
         //Validate password
-        this.dbPassword = process.env.DB_PASSWORD;
-        if(!this.dbPassword){
+        this.password = process.env.DB_PASSWORD;
+        if(!this.password){
             throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
         }
 
-        //Load Mongoose
-        const uri = 'mongodb://' + this.dbHost;
-        const options = {
-            dbName: this.dbName,
-            user: this.dbUsername,
-            pass: this.dbPassword,
-            useNewUrlParser: true
-        }
-        this._connection = mongoose.createConnection(uri, options);
+        //Mongoose connection.
+        this._connection = mongoose.createConnection('mongodb://' + this.host, {
+            dbName: this.name,
+            user: this.username,
+            pass: this.password,
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+
+        //TODO: UnhandledPromiseRejectionWarning fix this.
+
+        //Set default connected.
         this._connected = false;
 
         //Init variables.
-        this._paperTrail = (paperTrail === undefined) ? true: paperTrail;
+        this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
     }
 
     /////////////////////////
@@ -81,12 +84,14 @@ export default class NoSQLManager extends EventEmitter implements Client {
         return this._connected;
     }
 
+    private getModels(){
+        return Object.values(this._connection.models);
+    }
+
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public initModel(collectionName: string, attributes: SchemaDefinition, model: typeof NoSQLModel){
-        const modelName = model.name.replace('Model', '');
-
+    public initModel(modelName: string, collectionName: string, attributes: SchemaDefinition, model: typeof NoSQLModel){
         //Initializing model
         model.init(attributes, {
             collectionName: collectionName,
@@ -144,21 +149,20 @@ export default class NoSQLManager extends EventEmitter implements Client {
     ///////Report
     /////////////////////////
     public getReport(){
-        let models = new Array();
+        //Models Dict.
+        let models: {[name: string]: string} = {};
 
-        // this.models.forEach(model => {
-        //     models.push({[model.name]: model.entityName});
-        // });
+        this.getModels().forEach(model => {
+            models[model.modelName] = model.collection.name;
+        });
 
         return {
-            init: {
-                name: this.dbName,
-                host: this.dbHost,
-                type: this.dbType,
-                connected: this._connected
-            },
+            name: this.name,
+            host: this.host,
+            type: this.type,
+            connected: this._connected,
             models: models
-        }
+        };
     }
 }
 

@@ -124,11 +124,11 @@ export class Node extends EventEmitter implements Client {
     private readonly _broadcastTopic: string;
     private _topics: Array<string>;
 
+    //Comm Handler Events
+    private readonly _commHandlers: EventEmitter;
+
     //Alias
     public readonly alias: Alias;
-
-    //Message Events
-    private readonly _messageCallbackEvent: EventEmitter;
 
     //Default Constructor
     constructor(name: string, url: string){
@@ -147,8 +147,8 @@ export class Node extends EventEmitter implements Client {
         //Init variables.
         this._broadcastTopic = Defaults.BROADCAST_TOPIC;
         this._topics = new Array();
+        this._commHandlers = new EventEmitter();
         this.alias = new Alias();
-        this._messageCallbackEvent = new EventEmitter();
     }
 
     /////////////////////////
@@ -212,15 +212,37 @@ export class Node extends EventEmitter implements Client {
     ///////Report
     /////////////////////////
     public getReport(){
+        let alias: {[name: string]: string[]} = {};
+
+        //Convert Alias prototype to array and get each _subscriber.
+        Object.values(Object.getPrototypeOf(this.alias)).forEach(_subscriber => {
+            //Look for _Subscriber class. 
+            if(_subscriber instanceof Subscriber){
+                let subscriber = new Array();
+
+                //Iterate through _Subscriber and get _subscribe functions.
+                Object.entries(_subscriber).forEach(([_subscribeName, _subscribeFn])=> {
+
+                    //Look for _subscribe function.
+                    if(_subscribeFn instanceof Function){
+
+                        //Push _subscribe function to Subscriber array.
+                        subscriber.push(_subscribeName);
+                    }
+                });
+                
+                //Add Subscriber to Alias.
+                alias[_subscriber.name] = subscriber;
+            }
+        });
         return {
-            init: {
-                host: this.host,
-                port: this.port,
-                connected: this.connected,
-                reconnecting: this.reconnecting,
-                disconnected: this.disconnected
-            },
-            topics: this._topics
+            name: this.alias.name,
+            host: this.host,
+            port: this.port,
+            connected: this.connected,
+            reconnecting: this.reconnecting,
+            disconnected: this.disconnected,
+            alias: alias
         }
     }
 
@@ -229,7 +251,7 @@ export class Node extends EventEmitter implements Client {
     /////////////////////////
     private receiveBroadcast(packet: any){
         //Add listener then receive reply
-        this._messageCallbackEvent.once(this._broadcastTopic, (reply: Reply) => {
+        this._commHandlers.once(this._broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
                 this.alias.name = reply.body.name;
                 this._topics = reply.body.topics;
@@ -268,7 +290,7 @@ export class Node extends EventEmitter implements Client {
             //creating new reply parm.
             const reply = new Reply(payload.reply.body, payload.reply.error);
 
-            this._messageCallbackEvent.emit(packet.topic, reply);
+            this._commHandlers.emit(packet.topic, reply);
         }
     }
 
@@ -279,7 +301,7 @@ export class Node extends EventEmitter implements Client {
         return new Promise((resolve, reject) => {
             if(this.connected){
                 //Listen for reply on broker
-                this._messageCallbackEvent.once(topic, (reply: Reply) => {
+                this._commHandlers.once(topic, (reply: Reply) => {
                     if(reply.body !== undefined){
                         resolve(reply.body);
                     }else{
@@ -309,23 +331,25 @@ export class Node extends EventEmitter implements Client {
             if(converter){
                 let subscriber;
 
-                //Validate and generate a subscriber object or get it from alias class object.
+                //Validate and generate a Subscriber class or get it from Alias class.
                 if(this.alias.constructor.prototype[converter.className] === undefined){
                     subscriber = new Subscriber(converter.className, this);
                 }else{
                     subscriber = this.alias.constructor.prototype[converter.className];
                 }
 
-                //Validate and generate dynamic funcation and add it to subscriber object.
+                //Validate and generate dynamic subscribe funcation.
                 if(subscriber[converter.functionName] === undefined){
                     const subscribe = function(parms?: any) {
                         const _topic = topic;
-                        return this.node.message(_topic, parms);
+                        return this._node.message(_topic, parms);
                     }
-                    Object.defineProperty(subscriber, converter.functionName, {value: subscribe});
+
+                    //Assing dynamic subscribe function Subscriber class.
+                    Object.defineProperty(subscriber, converter.functionName, {value: subscribe, enumerable: true});
                 }
 
-                //Adding the subscriber object to alias class object.
+                //Adding the Subscriber class to Alias class.
                 this.alias.constructor.prototype[converter.className] = subscriber;
             }
         });
@@ -340,7 +364,7 @@ interface IMessage {
 }
 
 export class Message implements IMessage{
-    readonly parms: any;
+    public readonly parms: any;
 
     constructor(parms: any){
         this.parms = parms;
@@ -356,8 +380,8 @@ interface IReply {
 }
 
 export class Reply implements IReply{
-    readonly body: any;
-    readonly error: any;
+    public readonly body: any;
+    public readonly error: any;
 
     constructor(body: any, error: any){
         this.body = body;
@@ -370,7 +394,7 @@ export class Reply implements IReply{
 /////////////////////////
 //Holds subscribers.
 export class Alias {
-    name: string;
+    public name: string;
 }
 
 /////////////////////////
@@ -378,11 +402,11 @@ export class Alias {
 /////////////////////////
 export class Subscriber {
     public name: string;
-    private node: Node;
+    private _node: Node;
 
     constructor(name: string, node: Node){
         this.name = name;
-        this.node = node;
+        this._node = node;
     }
 }
 
