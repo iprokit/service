@@ -6,9 +6,10 @@ import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
 import createError from 'http-errors';
+import httpStatus from 'http-status-codes';
 
 //Export Libs
-export { PathParams as WWWPathParams, RequestHandler as WWWHandler };
+export { PathParams, RequestHandler, httpStatus as HttpCodes};
 
 //Local Imports
 import { Server, Events, Defaults } from './microservice';
@@ -36,8 +37,8 @@ export default class WWW extends EventEmitter implements Server {
     private _httpServer: HttpServer;
 
     //Controllers
-    private readonly _controllerStack: Array<{controller: typeof Controller, routes: Array<Route>}>;
-    private readonly _serviceRouteStack: Array<Route>;
+    private readonly _controllerRoutes: Array<{controller: typeof Controller, routes: Array<Route>}>;
+    private readonly _serviceRoutes: Array<Route>;
 
     constructor(baseUrl?: string){
         //Call super for EventEmitter.
@@ -78,63 +79,66 @@ export default class WWW extends EventEmitter implements Server {
         });
 
         //Init Variables.
-        this._controllerStack = new Array();
-        this._serviceRouteStack = new Array();
+        this._controllerRoutes = new Array();
+        this._serviceRoutes = new Array();
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
     public addControllerRoute(method: RouteMethod, path: PathParams, controller: typeof Controller, handler: RequestHandler){
-        //Sub function to add Controller to _controllerStack
-        const _addControllerStack = () => {
+        //Sub function to add Controller to _controllerRoutes
+        const _addControllerRoute = () => {
             //Create new routes.
             const routes = new Array({method: method, path: this.baseUrl + path, handler: handler});
     
-            //Push Controller & routes to controllerStack.
-            this._controllerStack.push({controller: controller, routes: routes});
+            //Push Controller & routes to _controllerRoutes.
+            this._controllerRoutes.push({controller: controller, routes: routes});
+
+            //Emit Controller added event.
+            this.emit(Events.WWW_ADDED_CONTROLLER, controller.name, controller);
         }
 
-        //Validate if controllerStack is empty.
-        if(this._controllerStack.length === 0){
-            _addControllerStack();
+        //Validate if _controllerRoutes is empty.
+        if(this._controllerRoutes.length === 0){
+            _addControllerRoute();
         }else{
-            //Find existing controllerStack.
-            const controllerStack = this._controllerStack.find(stack => stack.controller.name === controller.name);
+            //Find existing controllerRoute.
+            const controllerRoute = this._controllerRoutes.find(stack => stack.controller.name === controller.name);
 
-            if(controllerStack){    //controllerStack exists. 
-                controllerStack.routes.push({method: method, path: this.baseUrl + path, handler: handler});
-            }else{  //No controllerStack found.
-                _addControllerStack();
+            if(controllerRoute){    //controllerRoute exists. 
+                controllerRoute.routes.push({method: method, path: this.baseUrl + path, handler: handler});
+            }else{  //No controllerRoute found.
+                _addControllerRoute();
             }
         }
     }
 
-    private createServiceRouteStack(){
+    private createServiceRoute(){
         //Get all routes from expressRouter.
         this._expressRouter.stack.forEach(item => {
             const expressRoute = {
-                method: item.route.stack[0].method,
+                method: (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method,
                 path: this.baseUrl + item.route.path,
                 handler: item.route.stack[0].handle
             }
-            this._serviceRouteStack.push(expressRoute);
+            this._serviceRoutes.push(expressRoute);
         });
 
-        //Get all routes from controllerStack
-        this._controllerStack.forEach(stack => {
+        //Get all routes from controller routes
+        this._controllerRoutes.forEach(stack => {
             stack.routes.forEach(cRoute => {
                 //Remove controller routes from serviceRoutes.
-                this._serviceRouteStack.splice(this._serviceRouteStack.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(cRoute)), 1);
+                this._serviceRoutes.splice(this._serviceRoutes.findIndex(sRoute => JSON.stringify(sRoute) === JSON.stringify(cRoute)), 1);
             });
         });
     }
 
     /////////////////////////
-    ///////Start/Stop Functions
+    ///////Connection Management
     /////////////////////////
     public listen() {
-        this.createServiceRouteStack();
+        this.createServiceRoute();
 
         return new Promise<boolean>((resolve, reject) => {
             this._httpServer = this._expressApp.listen(this.port, () => {
@@ -165,10 +169,9 @@ export default class WWW extends EventEmitter implements Server {
         const _createRoutes = (routes: Array<Route>) => {
             let _routes = new Array();
             routes.forEach(route => {
-                let method = (route.method === undefined) ? 'all' : route.method;
                 _routes.push({
                     fn: route.handler.name,
-                    [method.toUpperCase()]: route.path
+                    [route.method.toUpperCase()]: route.path
                 });
             });
             return _routes;
@@ -177,13 +180,13 @@ export default class WWW extends EventEmitter implements Server {
         //New controllers
         let controllers: {[name: string]: Array<string>} = {};
 
-        //Get stack from _controllerStack
-        this._controllerStack.forEach(stack => {
+        //Get stack from _controllerRoutes
+        this._controllerRoutes.forEach(stack => {
             controllers[stack.controller.name] = _createRoutes(stack.routes);
         });
 
         return {
-            serviceRoutes: _createRoutes(this._serviceRouteStack),
+            serviceRoutes: _createRoutes(this._serviceRoutes),
             controllers: controllers
         }
     }

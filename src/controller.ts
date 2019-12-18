@@ -1,9 +1,8 @@
 //Import modules
-import httpStatus from 'http-status-codes';
 import { Request, Response } from 'express';
 
-//Export Libs
-export {httpStatus as HttpCodes};
+//Local Imports
+import { HttpCodes } from './www';
 
 export default class Controller {
     //Default Constructor
@@ -17,60 +16,60 @@ export default class Controller {
     public create(model: any, request: Request, response: Response) {
         model.create(request.body)
             .then(() => {
-                response.status(httpStatus.CREATED).send({ status: true, message: 'Created!' });
+                response.status(HttpCodes.CREATED).send({ status: true, message: 'Created!' });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 
     public getAll(model: any, request: Request, response: Response) {
         model.getAll()
             .then((data: any) => {
-                response.status(httpStatus.OK).send({ status: true, data: data });
+                response.status(HttpCodes.OK).send({ status: true, data: data });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 
     public getAllOrderByCreatedAt(model: any, request: Request, response: Response) {
         model.getAllOrderByCreatedAt(request.params.orderType)
             .then((data: any) => {
-                response.status(httpStatus.OK).send({ status: true, data: data });
+                response.status(HttpCodes.OK).send({ status: true, data: data });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 
     public getOneByID(model: any, request: Request, response: Response) {
         model.getOneByID(request.params.id)
             .then((data: any) => {
-                response.status(httpStatus.OK).send({ status: true, data: data });
+                response.status(HttpCodes.OK).send({ status: true, data: data });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 
     public updateOneByID(model: any, request: Request, response: Response) {
         model.updateOneByID(request.body.id, request.body)
             .then(() => {
-                response.status(httpStatus.OK).send({ status: true, message: 'Updated!' });
+                response.status(HttpCodes.OK).send({ status: true, message: 'Updated!' });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 
     public deleteOneByID(model: any, request: Request, response: Response) {
         model.deleteOneByID(request.params.id)
             .then(() => {
-                response.status(httpStatus.OK).send({ status: true, message: 'Deleted!' });
+                response.status(HttpCodes.OK).send({ status: true, message: 'Deleted!' });
             })
             .catch((error: any) => {
-                response.status(httpStatus.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             });
     };
 }

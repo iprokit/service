@@ -26,12 +26,13 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './utility';
-import WWW, { WWWHandler, WWWPathParams } from './www';
+import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
 import CommBroker, { ReplyHandler, Publisher } from './comm.broker';
-import CommMesh, { Alias } from './comm.mesh';
+import CommMesh from './comm.mesh';
+import { Alias } from './comm.node';
 import RDBManager, { RDBDialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
 import NoSQLManager, { Mongo, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
-import Controller, { HttpCodes } from './controller';
+import Controller from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -49,7 +50,7 @@ export type AutoLoadOptions = {
 
 //Interface: RequestResponseFunctionDescriptor
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
-    value?: WWWHandler;
+    value?: RequestHandler;
 }
 
 //Types: RequestResponseFunction
@@ -121,10 +122,10 @@ export default class MicroService extends EventEmitter {
         autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
 
         //Default Service Routes
-        www.get('/health', (request, response, next) => {
+        www.get('/health', (request, response) => {
             response.status(HttpCodes.OK).send({status: true});
         });
-        www.get('/report', (request, response, next) => {
+        www.get('/report', (request, response) => {
             try {
                 let report = {
                     status: true,
@@ -152,10 +153,6 @@ export default class MicroService extends EventEmitter {
         });
 
         this.addProcessListeners();
-        this.emit(Events.STARTING);
-
-        //Console logs.
-        this.addListeners();
     }
 
     /////////////////////////
@@ -179,9 +176,9 @@ export default class MicroService extends EventEmitter {
             this.stop();
         });
 
-        // process.on('unhandledRejection', (reason, promise) => {
-        //     console.log('caught --', reason, promise);
-        // });
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('Caught: unhandledRejection', reason, promise);
+        });
     }
 
     /////////////////////////
@@ -192,7 +189,16 @@ export default class MicroService extends EventEmitter {
             dbManager = new NoSQLManager(paperTrail);
         }else{
             dbManager = new RDBManager(type as RDBDialect, paperTrail);
-            //TODO: Add sync route.
+            
+            //DB routes.
+            www.post('/db/sync', (request, response) => {
+                (dbManager as RDBManager).sync(request.body.force)
+                    .then(() => {
+                        response.status(HttpCodes.OK).send({ status: true, data: 'Database & tables synced!' });
+                    }).catch((error: any) => {
+                        response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                    });
+            });
         }
     }
 
@@ -215,6 +221,12 @@ export default class MicroService extends EventEmitter {
     ///////Service Functions
     /////////////////////////
     public start(){
+        //Console logs.
+        this.addListeners();
+
+        //Emit starting Event.
+        this.emit(Events.STARTING);
+
         //Load files
         this.injectFiles();
 
@@ -222,6 +234,7 @@ export default class MicroService extends EventEmitter {
         Promise.all([www.listen(), commBroker.listen()])
             .then(() => {
                 this.emit(Events.STARTED);
+
                 if(commMesh.hasNode()){
                     commMesh.connect()
                         .catch(error => {
@@ -274,31 +287,30 @@ export default class MicroService extends EventEmitter {
         setTimeout(() => {
             console.error('Forcefully shutting down.');
             process.exit(1);
-        }, 2000);
-        //TODO: Add default stop time.
+        }, Defaults.STOP_TIME);
         //TODO: Bug on shutdown, events are repeating.
     }
 
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public all(path: WWWPathParams, ...handlers: WWWHandler[]){
+    public all(path: PathParams, ...handlers: RequestHandler[]){
         www.all(path, ...handlers);
     }
 
-    public get(path: WWWPathParams, ...handlers: WWWHandler[]){
+    public get(path: PathParams, ...handlers: RequestHandler[]){
         www.get(path, ...handlers);
     }
 
-    public post(path: WWWPathParams, ...handlers: WWWHandler[]){
+    public post(path: PathParams, ...handlers: RequestHandler[]){
         www.post(path, ...handlers);
     }
 
-    public put(path: WWWPathParams, ...handlers: WWWHandler[]){
+    public put(path: PathParams, ...handlers: RequestHandler[]){
         www.put(path, ...handlers);
     }
 
-    public delete(path: WWWPathParams, ...handlers: WWWHandler[]){
+    public delete(path: PathParams, ...handlers: RequestHandler[]){
         www.delete(path, ...handlers);
     }
 
@@ -330,6 +342,7 @@ export default class MicroService extends EventEmitter {
             console.log('%s stopped.', this.serviceName);
         });
 
+        //WWW
         www.on(Events.WWW_STARTED, (_www) => {
             console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl);
         });
@@ -338,6 +351,11 @@ export default class MicroService extends EventEmitter {
             console.log('Stopped Express.');
         });
 
+        www.on(Events.WWW_ADDED_CONTROLLER, (name, controller) => {
+            console.log('Added controller: %s', name);
+        });
+
+        //commBroker
         commBroker.on(Events.BROKER_STARTED, (_commBroker) => {
             console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port);
         });
@@ -346,6 +364,11 @@ export default class MicroService extends EventEmitter {
             console.log('Stopped Broker.');
         });
 
+        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name, publisher) => {
+            console.log('Added publisher: %s', name);
+        });
+
+        //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => {
             console.log('Comm mesh connecting...');
         });
@@ -370,6 +393,7 @@ export default class MicroService extends EventEmitter {
             console.log('Node: Disconnected from : %s', _node.url);
         });
 
+        //dbManager
         if(dbManager){
             dbManager.on(Events.DB_CONNECTED, (_dbManager) => {
                 console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name);
@@ -378,22 +402,11 @@ export default class MicroService extends EventEmitter {
             dbManager.on(Events.DB_DISCONNECTED, () => {
                 console.log('DB Disconnected');
             });
+
+            dbManager.on(Events.DB_ADDED_MODEL, (name, entityName, model) => {
+                console.log('Added model: %s(%s)', name, entityName);
+            });
         }
-
-        //TODO: add init events.
-
-        // //Init
-        // www.on(Events.INIT_CONTROLLER, (name, controller) => {
-        //     console.log('Adding endpoints from controller: %s', name);
-        // });
-
-        // commBroker.on(Events.INIT_PUBLISHER, (name, publisher) => {
-        //     console.log('Mapping publisher: %s', name);
-        // });
-
-        // // dbManager.on(Events.INIT_MODEL, (name, entityName, model) => {
-        // //     console.log('Initiating model: %s(%s)', name, entityName);
-        // // });
     }
 }
 
@@ -411,10 +424,12 @@ export class Events {
     //WWW
     public static readonly WWW_STARTED = Symbol('WWW_STARTED');
     public static readonly WWW_STOPPED = Symbol('WWW_STOPPED');
+    public static readonly WWW_ADDED_CONTROLLER = Symbol('WWW_ADDED_CONTROLLER');
 
     //Broker
     public static readonly BROKER_STARTED = Symbol('BROKER_STARTED');
     public static readonly BROKER_STOPPED = Symbol('BROKER_STOPPED');
+    public static readonly BROKER_ADDED_PUBLISHER = Symbol('BROKER_ADDED_PUBLISHER');
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
@@ -429,11 +444,7 @@ export class Events {
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
     public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
-
-    //Init
-    public static readonly INIT_CONTROLLER = Symbol('INIT_CONTROLLER');
-    public static readonly INIT_MODEL = Symbol('INIT_MODEL');
-    public static readonly INIT_PUBLISHER = Symbol('INIT_PUBLISHER');
+    public static readonly DB_ADDED_MODEL = Symbol('DB_ADDED_MODEL');
 }
 
 /////////////////////////
@@ -444,6 +455,7 @@ export class Defaults {
     public static readonly EXPRESS_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
     public static readonly BROADCAST_TOPIC: string = '/';
+    public static readonly STOP_TIME: number = 5000;
 }
 
 /////////////////////////
@@ -473,7 +485,7 @@ export function getNode(url: string): Alias {
 ///////WWW Decorators
 /////////////////////////
 //TODO: Optimize the below functions.
-export function Get(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
+export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
@@ -491,7 +503,7 @@ export function Get(path: WWWPathParams, rootPath?: boolean): RequestResponseFun
     }
 }
 
-export function Post(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
+export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
@@ -509,7 +521,7 @@ export function Post(path: WWWPathParams, rootPath?: boolean): RequestResponseFu
     }
 }
 
-export function Put(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
+export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
         
@@ -527,7 +539,7 @@ export function Put(path: WWWPathParams, rootPath?: boolean): RequestResponseFun
     }
 }
 
-export function Delete(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
+export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
@@ -575,7 +587,6 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
             if(canLoad(autoWireModelOptions, modelName)){
                 //Init Model.
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
-                //TODO: Throw error if any entityOptions are null.
             }
         }
     }
@@ -586,28 +597,28 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
 /////////////////////////
 function canLoad(injectOptions: AutoLoadOptions, search: string) {
     //Sub function for validating *
-    const _validateStar = (list: Array<string>) => {
+    const _validateAll = (list: Array<string>) => {
         return list.includes('*') && list.length === 1;
     }
 
     //Sub function for validating list
-    const _validateList = (list: Array<string>, search: string) => {
+    const _validateOne = (list: Array<string>, search: string) => {
         return list.find(key => key.toLowerCase() === search.toLowerCase());
     }
 
     if(injectOptions.includes){
-        if(_validateStar(injectOptions.includes)){
+        if(_validateAll(injectOptions.includes)){
             return true;
         }
-        if(_validateList(injectOptions.includes, search)){
+        if(_validateOne(injectOptions.includes, search)){
             return true;
         }
         return false;
     }else if(injectOptions.excludes){
-        if(_validateStar(injectOptions.excludes)){
+        if(_validateAll(injectOptions.excludes)){
             return false;
         }
-        if(!_validateList(injectOptions.excludes, search)){
+        if(!_validateOne(injectOptions.excludes, search)){
             return true;
         }
         return false;

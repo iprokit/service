@@ -1,16 +1,27 @@
 //Local Imports
 import MicroService from './microservice';
 
-//Export Locals
-export { default as Gateway } from './gateway';
+//Export WWW Components
+export { HttpCodes } from './www';
+export { default as Controller } from './controller';
+
+//Export Broker Components
 export { Publisher } from './comm.broker';
-export { NodeUnavailableError } from './comm.mesh';
-export { default as Controller, HttpCodes } from './controller';
+
+//Export Mesh Components
+export { CommNodeUnavailableError } from './comm.node';
+
+//Export RDB Components
 export { RDB, RDBOp, RDBDataTypes } from './db.rdb.manager';
 export { default as RDBModel } from './db.rdb.model';
+
+//Export noSQL Components
 export { NoSQLDataTypes } from './db.nosql.manager';
 export { default as NoSQLModel } from './db.nosql.model';
+
+//Main Components
 export { Get, Post, Put, Delete, Reply, Entity, getNode } from './microservice';
+export { default as Gateway } from './gateway';
 
 //Export Default
 export default MicroService;

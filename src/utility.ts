@@ -4,7 +4,6 @@ import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
-import { AutoLoadOptions } from './microservice';
 
 //Types: FileOptions
 export type FileOptions = {
@@ -108,7 +107,7 @@ export default class Utility {
     ///////Proxy
     /////////////////////////
     public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions){
-        const proxyObject = sourceRequest.constructor.prototype.proxy;
+        const proxyObject = Object.getPrototypeOf(sourceRequest).proxy;
         if(proxyObject){
             //Convert Proxy dict to array and get each proxy.
             Object.entries(proxyObject).forEach(([name, proxy]) => {
@@ -119,7 +118,7 @@ export default class Utility {
 
     public static generateProxyObjects(request: Request){
         //Create Empty Proxy object.
-        request.constructor.prototype.proxy = {};
+        Object.getPrototypeOf(request).proxy = {};
 
         let proxyHeaders = request.headers;
         //Convert Proxy headers to array and get each proxy.
@@ -127,7 +126,7 @@ export default class Utility {
             if(name.startsWith('proxy-')){
                 const objectKey = name.split('-')[1];
                 const objectValue = proxy;
-                request.constructor.prototype.proxy[objectKey] = JSON.parse(objectValue as string);
+                Object.getPrototypeOf(request).proxy[objectKey] = JSON.parse(objectValue as string);
 
                 //Delete proxy headers.
                 delete request.headers[name];

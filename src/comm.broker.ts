@@ -31,8 +31,8 @@ export default class CommBroker extends EventEmitter implements Server {
     private readonly _commHandlers: EventEmitter;
 
     //Publishers
-    private readonly _publisherStack: Array<{publisher: typeof Publisher, topicStack: Array<ReplyOptions>}>;
-    //TODO: Add type for reply, transcation event in _publisherStack.
+    private readonly _publisherTopics: Array<{publisher: typeof Publisher, topicStack: Array<ReplyOptions>}>;
+    //TODO: Add type for reply, transcation event in _publisherTopics.
     //TODO: Implement transcations.
     //TODO: Implement Events.
 
@@ -48,7 +48,7 @@ export default class CommBroker extends EventEmitter implements Server {
         //Init variables.
         this._broadcastTopic = Defaults.BROADCAST_TOPIC;
         this._topics = new Array();
-        this._publisherStack = new Array();
+        this._publisherTopics = new Array();
         this._commHandlers = new EventEmitter();
     }
 
@@ -56,32 +56,35 @@ export default class CommBroker extends EventEmitter implements Server {
     ///////init Functions
     /////////////////////////
     public addComm(topic: string, publisher: typeof Publisher, replyCallback: ReplyHandler){
-        //Sub function to add Publisher to _publisherStack
-        const _addPublisherStack = () => {
+        //Sub function to add Publisher to _publisherTopics
+        const _addPublisherTopic = () => {
             //Create new topicStack.
             const topicStack = new Array({ topic: topic, cb: replyCallback });
     
             //Push Publisher & topicStack to publisherStack.
-            this._publisherStack.push({publisher: publisher, topicStack: topicStack});
+            this._publisherTopics.push({publisher: publisher, topicStack: topicStack});
+
+            //Emit Publisher added event.
+            this.emit(Events.BROKER_ADDED_PUBLISHER, publisher.name, publisher);
         }
 
-        //Validate if publisherStack is empty.
-        if(this._publisherStack.length === 0){
-            _addPublisherStack();
+        //Validate if _publisherTopics is empty.
+        if(this._publisherTopics.length === 0){
+            _addPublisherTopic();
         }else{
-            //Find existing publisherStack.
-            const publisherStack = this._publisherStack.find(stack => stack.publisher.name === publisher.name);
+            //Find existing publisherTopic.
+            const publisherTopic = this._publisherTopics.find(stack => stack.publisher.name === publisher.name);
 
-            if(publisherStack){ //publisherStack exists. 
-                publisherStack.topicStack.push({topic: topic, cb: replyCallback});
-            }else{  //No publisherStack found.
-                _addPublisherStack();
+            if(publisherTopic){ //publisherTopic exists. 
+                publisherTopic.topicStack.push({topic: topic, cb: replyCallback});
+            }else{  //No publisherTopic found.
+                _addPublisherTopic();
             }
         }
     }
 
     /////////////////////////
-    ///////Start/Stop Functions
+    ///////Connection Management
     /////////////////////////
     public listen(){
         return new Promise<boolean>((resolve, reject) => {
@@ -128,7 +131,7 @@ export default class CommBroker extends EventEmitter implements Server {
     public getReport(){
         let publishers: {[name: string]: string[]} = {};
 
-        this._publisherStack.forEach(stack => {
+        this._publisherTopics.forEach(stack => {
             let cbName = new Array();
             stack.topicStack.forEach(topicStack => {
                 cbName.push(topicStack.cb.name);

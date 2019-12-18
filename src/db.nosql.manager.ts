@@ -92,6 +92,9 @@ export default class NoSQLManager extends EventEmitter implements Client {
     ///////init Functions
     /////////////////////////
     public initModel(modelName: string, collectionName: string, attributes: SchemaDefinition, model: typeof NoSQLModel){
+        //Emit Model event.
+        this.emit(Events.DB_ADDED_MODEL, modelName, collectionName, model);
+
         //Initializing model
         model.init(attributes, {
             collectionName: collectionName,
@@ -108,15 +111,10 @@ export default class NoSQLManager extends EventEmitter implements Client {
     public connect(){
         return new Promise<boolean>((resolve, reject) => {
             //Start Connection.
-            this._connection.once('connected', (error) => {
-                if(!error){
-                    this._connected = true; //Connected Flag
-                    this.emit(Events.DB_CONNECTED, this);
-                    resolve(true);
-                }else{
-                    this._connected = false; //Connected Flag
-                    reject(error);
-                }
+            this._connection.once('connected', () => {
+                this._connected = true; //Connected Flag
+                this.emit(Events.DB_CONNECTED, this);
+                resolve(true);
             });
             this._connection.on('error', (error) => {
                 this._connected = false; //Connected Flag

@@ -86,6 +86,9 @@ export default class RDBManager extends EventEmitter implements Client {
     ///////init Functions
     /////////////////////////
     public initModel(modelName: string, tableName: string, attributes: ModelAttributes, model: typeof RDBModel){
+        //Emit Model event.
+        this.emit(Events.DB_ADDED_MODEL, modelName, tableName, model);
+
         //Initializing model
         model.init(attributes, {
             tableName: tableName,
@@ -103,9 +106,12 @@ export default class RDBManager extends EventEmitter implements Client {
         return new Promise<boolean>((resolve, reject) => {
             //Associate models.
             this.getModels().forEach(model => {
-                (model as typeof RDBModel).associate();
+                try{
+                    (model as typeof RDBModel).associate();
+                }catch(error){
+                    console.error(error);
+                }
             });
-            //TODO: Bug - On start when the sub objects are not available this is throwing an error.
 
             //Start Connection.
             this._connection.authenticate()
@@ -160,6 +166,11 @@ export default class RDBManager extends EventEmitter implements Client {
             connected: this._connected,
             models: models
         }
+    }
+
+    public sync(force?: boolean){
+        force = (force === undefined) ? false : force; //Setting default.
+        return this._connection.sync({force: force});
     }
 }
 
