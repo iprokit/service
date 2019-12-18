@@ -151,10 +151,11 @@ export default class MicroService extends EventEmitter {
             }
         });
 
+        this.addProcessListeners();
+        this.emit(Events.STARTING);
+
         //Console logs.
         this.addListeners();
-        
-        this.emit(Events.STARTING);
     }
 
     /////////////////////////
@@ -165,6 +166,22 @@ export default class MicroService extends EventEmitter {
         files.forEach(file => {
             require(file).default;
         });
+    }
+
+    private addProcessListeners(){
+        process.on('SIGTERM', () => {
+            //Kill
+            this.stop();
+        });
+
+        process.on('SIGINT', () => {
+            //Ctrl + C
+            this.stop();
+        });
+
+        // process.on('unhandledRejection', (reason, promise) => {
+        //     console.log('caught --', reason, promise);
+        // });
     }
 
     /////////////////////////
@@ -230,21 +247,27 @@ export default class MicroService extends EventEmitter {
     }
 
     public stop(){
-        this.emit(Events.STOPPING);
+        //Sub functions for client disconnects.
+        const _disconnectCommMesh = () => {
+            if(commMesh.hasNode()){
+                return commMesh.disconnect();
+            }
+        }
+
+        const _disconnectDBManager = () => {
+            if(dbManager){
+                dbManager.disconnect();
+            }
+        }
 
         //Stopping all components.
-        Promise.all([www.close(), commBroker.close()])
+        this.emit(Events.STOPPING);
+        Promise.all([www.close(), commBroker.close(), _disconnectCommMesh(), _disconnectDBManager()])
             .then(() => {
-                if(commMesh.hasNode()){
-                    commMesh.disconnect();
-                }
-                if(dbManager){
-                    dbManager.disconnect();
-                }
-                //TODO fix the order.
                 this.emit(Events.STOPPED);
                 process.exit(0);
             }).catch((error) => {
+                console.error('Forcefully shutting down.');
                 process.exit(1);
             });
 
@@ -252,6 +275,8 @@ export default class MicroService extends EventEmitter {
             console.error('Forcefully shutting down.');
             process.exit(1);
         }, 2000);
+        //TODO: Add default stop time.
+        //TODO: Bug on shutdown, events are repeating.
     }
 
     /////////////////////////
@@ -288,21 +313,6 @@ export default class MicroService extends EventEmitter {
     ///////Listeners
     /////////////////////////
     private addListeners(){
-        //Main listeners.
-        process.on('SIGTERM', () => {
-            //Kill
-            this.stop();
-        });
-
-        process.on('SIGINT', () => {
-            //Ctrl + C
-            this.stop();
-        });
-
-        // process.on('unhandledRejection', (reason, promise) => {
-        //     console.log('caught --', reason, promise);
-        // });
-
         //Adding log listeners.
         this.on(Events.STARTING, () => {
             console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment});
@@ -369,6 +379,8 @@ export default class MicroService extends EventEmitter {
                 console.log('DB Disconnected');
             });
         }
+
+        //TODO: add init events.
 
         // //Init
         // www.on(Events.INIT_CONTROLLER, (name, controller) => {
@@ -452,6 +464,7 @@ export interface Client{
 /////////////////////////
 ///////getNode Functions
 /////////////////////////
+//TODO: Expose this as decorator
 export function getNode(url: string): Alias {
     return commMesh.getNodeAlias(url);
 }
@@ -459,6 +472,7 @@ export function getNode(url: string): Alias {
 /////////////////////////
 ///////WWW Decorators
 /////////////////////////
+//TODO: Optimize the below functions.
 export function Get(path: WWWPathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
@@ -561,6 +575,7 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
             if(canLoad(autoWireModelOptions, modelName)){
                 //Init Model.
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+                //TODO: Throw error if any entityOptions are null.
             }
         }
     }

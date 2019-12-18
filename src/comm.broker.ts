@@ -33,6 +33,8 @@ export default class CommBroker extends EventEmitter implements Server {
     //Publishers
     private readonly _publisherStack: Array<{publisher: typeof Publisher, topicStack: Array<ReplyOptions>}>;
     //TODO: Add type for reply, transcation event in _publisherStack.
+    //TODO: Implement transcations.
+    //TODO: Implement Events.
 
     //Default Constructor
     constructor(){

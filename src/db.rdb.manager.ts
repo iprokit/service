@@ -95,7 +95,7 @@ export default class RDBManager extends EventEmitter implements Client {
         });
         model.hooks();
     }
-    
+
     /////////////////////////
     ///////Connection Management
     /////////////////////////
@@ -105,6 +105,7 @@ export default class RDBManager extends EventEmitter implements Client {
             this.getModels().forEach(model => {
                 (model as typeof RDBModel).associate();
             });
+            //TODO: Bug - On start when the sub objects are not available this is throwing an error.
 
             //Start Connection.
             this._connection.authenticate()
