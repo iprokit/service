@@ -1,9 +1,8 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 
 //Local Imports
-import { Client, Events } from './microservice';
+import { Client, Events, ConnectionState } from './microservice';
 import CommNode from './comm.node';
 
 export default class CommMesh extends EventEmitter implements Client {
@@ -65,36 +64,35 @@ export default class CommMesh extends EventEmitter implements Client {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public connect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async connect(): Promise<ConnectionState> {
+        if(this.hasNode()){
             this.emit(Events.MESH_CONNECTING);
 
-            Promise.map(this.nodes, (node) => {
-                return node.connect();
-            }).then(() => {
+            try{
+                await Promise.all(this.nodes.map(async node => await node.connect()));
                 this.emit(Events.MESH_CONNECTED, this);
-                resolve(true);
-            }).catch((error) => {
-                reject(error);
-            });
-        })
+                return 1;
+            }catch(error){
+                throw error;
+            }
+        }
+        return -1;
     }
 
-    public disconnect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async disconnect(): Promise<ConnectionState>{
+        if(this.hasNode()){
             this.emit(Events.MESH_DISCONNECTING);
 
-            Promise.map(this.nodes, (node) => {
-                return node.disconnect();
-            }).then(() => {
+            try{
+                await Promise.all(this.nodes.map(async node => await node.disconnect()));
                 this.emit(Events.MESH_DISCONNECTED, this);
-                resolve(true);
-            }).catch((error) => {
-                reject(error);
-            });
-        });
+                return 0;
+            }catch(error){
+                throw error;
+            }
+        }
+        return -1;
     }
-
     /////////////////////////
     ///////Report
     /////////////////////////

@@ -1,10 +1,9 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import mqtt, { MqttClient } from 'mqtt'
 
 //Local Imports
-import { Client, Events, Defaults } from './microservice';
+import { Client, Events, Defaults, ConnectionState } from './microservice';
 import Utility from './utility';
 
 export default class CommNode extends EventEmitter implements Client {
@@ -66,8 +65,8 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Start/Stop Functions
     /////////////////////////
-    public connect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async connect(){
+        return new Promise<ConnectionState>((resolve, reject) => {
             //Init Connection object
             const mqttUrl = 'mqtt://' + this.host + ':' + this.port;
             const options = {
@@ -82,7 +81,7 @@ export default class CommNode extends EventEmitter implements Client {
                 this._mqttClient.subscribe(this._broadcastTopic);
 
                 this.emit(Events.NODE_CONNECTED, this);
-                resolve(true);
+                resolve(1);
             });
             
             this._mqttClient.on('message', (topic, payload, packet) => {
@@ -96,11 +95,11 @@ export default class CommNode extends EventEmitter implements Client {
         });
     }
 
-    public disconnect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async disconnect(){
+        return new Promise<ConnectionState>((resolve, reject) => {
             this._mqttClient.end(false, () => {
                 this.emit(Events.NODE_DISCONNECTED, this);
-                resolve(true);
+                resolve(0);
             });
         });
     }
@@ -245,7 +244,7 @@ export default class CommNode extends EventEmitter implements Client {
                     }
 
                     //Assing dynamic subscribe function Subscriber class.
-                    Object.defineProperty(subscriber, converter.functionName, {value: subscribe, enumerable: true});
+                    Object.defineProperty(subscriber, converter.functionName, {value: subscribe, enumerable: true, writable: true});
                 }
 
                 //Adding the Subscriber class to Alias class.

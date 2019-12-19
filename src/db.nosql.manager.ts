@@ -1,5 +1,4 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import mongoose, { Connection as Mongoose, SchemaDefinition } from 'mongoose';
 
@@ -8,7 +7,7 @@ const DataTypes: typeof mongoose.Types = mongoose.Types;
 export { mongoose as NoSQL, DataTypes as NoSQLDataTypes };
 
 //Local Imports
-import { Client, Events } from './microservice';
+import { Client, Events, ConnectionState } from './microservice';
 import NoSQLModel from './db.nosql.model';
 
 //Export Mongo
@@ -108,13 +107,13 @@ export default class NoSQLManager extends EventEmitter implements Client {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public connect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async connect(){
+        return new Promise<ConnectionState>((resolve, reject) => {
             //Start Connection.
             this._connection.once('connected', () => {
                 this._connected = true; //Connected Flag
                 this.emit(Events.DB_CONNECTED, this);
-                resolve(true);
+                resolve(1);
             });
             this._connection.on('error', (error) => {
                 this._connected = false; //Connected Flag
@@ -130,17 +129,15 @@ export default class NoSQLManager extends EventEmitter implements Client {
         });
     }
 
-    public disconnect(){
-        return new Promise<boolean>((resolve, reject) => {
-            this._connection.close()
-                .then(() => {
-                    this._connected = false; //Connected Flag
-                    this.emit(Events.DB_DISCONNECTED, this);
-                    resolve(true);
-                }).catch((error) => {
-                    reject(error);
-                });
-        });
+    public async disconnect(): Promise<ConnectionState>{
+        try{
+            await this._connection.close();
+            this._connected = false; //Connected Flag
+            this.emit(Events.DB_DISCONNECTED, this);
+            return 0;
+        }catch(error){
+            throw error;
+        }
     }
 
     /////////////////////////

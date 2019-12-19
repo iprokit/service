@@ -11,7 +11,6 @@ declare global {
 }
 
 //Import Modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -48,32 +47,7 @@ export type AutoLoadOptions = {
     excludes?: Array<string>
 }
 
-//Interface: RequestResponseFunctionDescriptor
-export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
-    value?: RequestHandler;
-}
-
-//Types: RequestResponseFunction
-export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
-
-//Interface: ReplyFunctionDescriptor
-interface ReplyFunctionDescriptor extends PropertyDescriptor {
-    value?: ReplyHandler;
-}
-
-//Types: ReplyFunction
-export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
-
-//Types: ModelClass
-export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
-
-//Types: EntityOptions.
-export type EntityOptions = {
-    name: string,
-    attributes: any,
-}
-
-//Global Service Variables.
+//Component Variables.
 let www: WWW;
 let commBroker: CommBroker;
 let commMesh: CommMesh;
@@ -125,6 +99,7 @@ export default class MicroService extends EventEmitter {
         www.get('/health', (request, response) => {
             response.status(HttpCodes.OK).send({status: true});
         });
+
         www.get('/report', (request, response) => {
             try {
                 let report = {
@@ -166,14 +141,18 @@ export default class MicroService extends EventEmitter {
     }
 
     private addProcessListeners(){
-        process.on('SIGTERM', () => {
-            //Kill
-            this.stop();
+        //Exit
+        process.once('SIGTERM', async () => {
+            console.log('Received SIGTERM.');
+            let code = await this.stop();
+            process.exit(code);
         });
 
-        process.on('SIGINT', () => {
-            //Ctrl + C
-            this.stop();
+        //Ctrl + C
+        process.on('SIGINT', async () => {
+            console.log('Received SIGINT.');
+            let code = await this.stop();
+            process.exit(code);
         });
 
         process.on('unhandledRejection', (reason, promise) => {
@@ -191,13 +170,13 @@ export default class MicroService extends EventEmitter {
             dbManager = new RDBManager(type as RDBDialect, paperTrail);
             
             //DB routes.
-            www.post('/db/sync', (request, response) => {
-                (dbManager as RDBManager).sync(request.body.force)
-                    .then(() => {
-                        response.status(HttpCodes.OK).send({ status: true, data: 'Database & tables synced!' });
-                    }).catch((error: any) => {
-                        response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                    });
+            www.post('/db/sync', async (request, response) => {
+                try{
+                    const sync = await(dbManager as RDBManager).sync(request.body.force);
+                    response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
+                }catch(error){
+                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                }
             });
         }
     }
@@ -220,7 +199,7 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public start(){
+    public async start(): Promise<ConnectionState>{
         //Console logs.
         this.addListeners();
 
@@ -230,65 +209,47 @@ export default class MicroService extends EventEmitter {
         //Load files
         this.injectFiles();
 
-        //Start all components
-        Promise.all([www.listen(), commBroker.listen()])
-            .then(() => {
-                this.emit(Events.STARTED);
+        try{
+            //Start server components
+            await Promise.all([www.listen(), commBroker.listen()]);
 
-                if(commMesh.hasNode()){
-                    commMesh.connect()
-                        .catch(error => {
-                            console.error(error);
-                            console.log('Will continue...');
-                        });
-                }
-                if(dbManager){
-                    dbManager.connect()
-                        .catch(error => {
-                            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
-                                console.log(error.message);
-                            }else{
-                                console.error(error);
-                            }
-                            console.log('Will continue...');
-                        });
-                }
-            }).catch((error) => {
+            //Start client components
+            await Promise.all([commMesh.connect(), (dbManager === undefined ? -1 : await dbManager.connect())]);
+
+            this.emit(Events.STARTED);
+
+            return 1;
+        }catch(error){
+            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+                console.log(error.message);
+            }else{
                 console.error(error);
-                console.log('Will continue...');
-            });
+            }
+            console.log('Will continue...');
+        }
     }
 
-    public stop(){
-        //Sub functions for client disconnects.
-        const _disconnectCommMesh = () => {
-            if(commMesh.hasNode()){
-                return commMesh.disconnect();
-            }
-        }
-
-        const _disconnectDBManager = () => {
-            if(dbManager){
-                dbManager.disconnect();
-            }
-        }
-
-        //Stopping all components.
+    public async stop(): Promise<ConnectionState>{
         this.emit(Events.STOPPING);
-        Promise.all([www.close(), commBroker.close(), _disconnectCommMesh(), _disconnectDBManager()])
-            .then(() => {
-                this.emit(Events.STOPPED);
-                process.exit(0);
-            }).catch((error) => {
-                console.error('Forcefully shutting down.');
-                process.exit(1);
-            });
 
         setTimeout(() => {
             console.error('Forcefully shutting down.');
-            process.exit(1);
+            return 1;
         }, Defaults.STOP_TIME);
-        //TODO: Bug on shutdown, events are repeating.
+        
+        try{
+            //Stop server components
+            await Promise.all([www.close(), commBroker.close()]);
+
+            //Stop client components
+            await Promise.all([commMesh.disconnect(), (dbManager === undefined ? -1 : await dbManager.disconnect())]);
+
+            this.emit(Events.STOPPED);
+
+            return 0;
+        }catch(error){
+            console.error(error);
+        }
     }
 
     /////////////////////////
@@ -455,36 +416,46 @@ export class Defaults {
     public static readonly EXPRESS_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
     public static readonly BROADCAST_TOPIC: string = '/';
-    public static readonly STOP_TIME: number = 5000;
+    public static readonly STOP_TIME: number = 2000;
 }
 
 /////////////////////////
 ///////Components
 /////////////////////////
+/**
+ * Connection States:
+ * Disconnected = 0, Connected = 1, NoConnection = -1
+ */
+export type ConnectionState = 0 | 1 | -1;
+
 export interface Server{
     getReport(): Object;
-    listen(): Promise<boolean>;
-    close(): Promise<boolean>;
+    listen(): Promise<ConnectionState>;
+    close(): Promise<ConnectionState>;
 }
 
 export interface Client{
     getReport(): Object;
-    connect(): Promise<boolean>;
-    disconnect(): Promise<boolean>;
+    connect(): Promise<ConnectionState>;
+    disconnect(): Promise<ConnectionState>;
 }
 
 /////////////////////////
 ///////getNode Functions
 /////////////////////////
-//TODO: Expose this as decorator
 export function getNode(url: string): Alias {
     return commMesh.getNodeAlias(url);
 }
 
+//TODO: Optimize the below functions.
+
 /////////////////////////
 ///////WWW Decorators
 /////////////////////////
-//TODO: Optimize the below functions.
+export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
+    value?: RequestHandler;
+}
+export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
@@ -560,6 +531,11 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 ///////Broker Decorators
 /////////////////////////
+interface ReplyFunctionDescriptor extends PropertyDescriptor {
+    value?: ReplyHandler;
+}
+export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
+
 export function Reply(): ReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
@@ -579,14 +555,19 @@ export function Reply(): ReplyFunction {
 /////////////////////////
 ///////Entity Decorators
 /////////////////////////
+export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
+export type EntityOptions = {
+    name: string,
+    attributes: any,
+}
 export function Entity(entityOptions: EntityOptions): ModelClass {
-    return (target: any) => {
+    return (target) => {
         if(dbManager){
             const modelName = target.name.replace('Model', '');
 
             if(canLoad(autoWireModelOptions, modelName)){
                 //Init Model.
-                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, (target as any));
             }
         }
     }

@@ -1,5 +1,4 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import { Sequelize, Dialect, Op, ModelAttributes, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 
@@ -7,7 +6,7 @@ import { Sequelize, Dialect, Op, ModelAttributes, DataTypes, AccessDeniedError, 
 export { Sequelize as RDB, Op as RDBOp, DataTypes as RDBDataTypes, Dialect as RDBDialect};
 
 //Local Imports
-import { Client, Events } from './microservice';
+import { Client, Events, ConnectionState } from './microservice';
 import RDBModel from './db.rdb.model';
 
 export default class RDBManager extends EventEmitter implements Client {
@@ -102,8 +101,8 @@ export default class RDBManager extends EventEmitter implements Client {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public connect(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async connect(): Promise<ConnectionState>{
+        try{
             //Associate models.
             this.getModels().forEach(model => {
                 try{
@@ -114,38 +113,34 @@ export default class RDBManager extends EventEmitter implements Client {
             });
 
             //Start Connection.
-            this._connection.authenticate()
-                .then(() => {
-                    this._connected = true; //Connected Flag
-                    this.emit(Events.DB_CONNECTED, this);
-                    resolve(true);
-                }).catch((error) => {
-                    this._connected = false; //Connected Flag 
-                    if(error instanceof AccessDeniedError){
-                        error = new ConnectionOptionsError('Access denied to the database.');
-                    }else if(error instanceof ConnectionRefusedError){
-                        error =  new ConnectionOptionsError('Connection refused to the database.');
-                    }else if(error instanceof HostNotFoundError){
-                        error =  new ConnectionOptionsError('Invalid database host.');
-                    }else if(error instanceof ConnectionError){
-                        error =  new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
-                    }
-                    reject(error);
-                });
-        });
+            await this._connection.authenticate();
+            this._connected = true; //Connected Flag
+            this.emit(Events.DB_CONNECTED, this);
+            return 1;
+        }catch(error){
+            this._connected = false; //Connected Flag 
+            if(error instanceof AccessDeniedError){
+                error = new ConnectionOptionsError('Access denied to the database.');
+            }else if(error instanceof ConnectionRefusedError){
+                error =  new ConnectionOptionsError('Connection refused to the database.');
+            }else if(error instanceof HostNotFoundError){
+                error =  new ConnectionOptionsError('Invalid database host.');
+            }else if(error instanceof ConnectionError){
+                error =  new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+            }
+            throw error;
+        }
     }
 
-    public disconnect(){
-        return new Promise<boolean>((resolve, reject) => {
-            this._connection.close()
-                .then(() => {
-                    this._connected = false; //Connected Flag
-                    this.emit(Events.DB_DISCONNECTED, this);
-                    resolve(true);
-                }).catch((error) => {
-                    reject(error);
-                });
-        });
+    public async disconnect(): Promise<ConnectionState>{
+        try{
+            await this._connection.close();
+            this._connected = false; //Connected Flag
+            this.emit(Events.DB_DISCONNECTED, this);
+            return 0;
+        }catch(error){
+            throw error;
+        }
     }
 
     /////////////////////////
@@ -168,9 +163,12 @@ export default class RDBManager extends EventEmitter implements Client {
         }
     }
 
-    public sync(force?: boolean){
-        force = (force === undefined) ? false : force; //Setting default.
-        return this._connection.sync({force: force});
+    public async sync(force?: boolean){
+        //Setting default.
+        force = (force === undefined) ? false : force;
+        //Call DB Sync
+        await this._connection.sync({force: force});
+        return true;
     }
 }
 

@@ -1,5 +1,4 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
@@ -12,7 +11,7 @@ import httpStatus from 'http-status-codes';
 export { PathParams, RequestHandler, httpStatus as HttpCodes};
 
 //Local Imports
-import { Server, Events, Defaults } from './microservice';
+import { Server, Events, Defaults, ConnectionState } from './microservice';
 import Utility from './utility';
 import Controller from './controller';
 
@@ -137,23 +136,23 @@ export default class WWW extends EventEmitter implements Server {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public listen() {
-        this.createServiceRoute();
-
-        return new Promise<boolean>((resolve, reject) => {
+    public async listen() {
+        return new Promise<ConnectionState>((resolve, reject) => {
+            this.createServiceRoute();
+            
             this._httpServer = this._expressApp.listen(this.port, () => {
                 this.emit(Events.WWW_STARTED, this);
-                resolve(true);
+                resolve(1);
             });
         });
     }
     
-    public close() {
-        return new Promise<boolean>((resolve, reject) => {
+    public async close() {
+        return new Promise<ConnectionState>((resolve, reject) => {
             this._httpServer.close((error) => {
                 if(!error){
                     this.emit(Events.WWW_STOPPED, this);
-                    resolve(true);
+                    resolve(0);
                 }else{
                     reject(error);
                 }

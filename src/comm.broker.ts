@@ -1,10 +1,9 @@
 //Import modules
-import Promise from 'bluebird';
 import { EventEmitter } from 'events';
 import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
-import { Server, Events, Defaults } from './microservice';
+import { Server, Events, Defaults, ConnectionState } from './microservice';
 
 //Types: ReplyHandler
 export declare type ReplyHandler = (message: Message, reply: Reply) => void;
@@ -86,11 +85,11 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public listen(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async listen(){
+        return new Promise<ConnectionState>((resolve, reject) => {
             this._mqttServer = new MqttServer({ id: this.name, port: this.port }, () => {
                 this.emit(Events.BROKER_STARTED, this);
-                resolve(true);
+                resolve(1);
             });
 
             this._mqttServer.on('subscribed', (topic: any, client: Client) => {
@@ -116,11 +115,11 @@ export default class CommBroker extends EventEmitter implements Server {
         });
     }
 
-    public close(){
-        return new Promise<boolean>((resolve, reject) => {
+    public async close(){
+        return new Promise<ConnectionState>((resolve, reject) => {
             this._mqttServer.close(() => {
                 this.emit(Events.BROKER_STOPPED, this);
-                resolve(true);
+                resolve(0);
             });
         });
     }
