@@ -169,17 +169,17 @@ export default class MicroService extends EventEmitter {
                 dbManager = new NoSQLManager(paperTrail);
             }else{
                 dbManager = new RDBManager(type as Dialect, paperTrail);
-                
-                //DB routes.
-                www.post('/db/sync', async (request, response) => {
-                    try{
-                        const sync = await(dbManager as RDBManager).sync(request.body.force);
-                        response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
-                    }catch(error){
-                        response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                    }
-                });
             }
+                
+            //DB routes.
+            www.post('/db/sync', async (request, response) => {
+                try{
+                    const sync = await dbManager.sync(request.body.force);
+                    response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
+                }catch(error){
+                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                }
+            });
         }catch(error){
             if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
                 console.log(error.message);
@@ -289,6 +289,13 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     public reply(topic: string, replyHandler: ReplyHandler){
         commBroker.reply(topic, replyHandler);
+    }
+
+    /////////////////////////
+    ///////commNode Functions
+    /////////////////////////
+    public node(url: string){
+        commMesh.createNode(url);
     }
 
     /////////////////////////

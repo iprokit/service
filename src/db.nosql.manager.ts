@@ -163,6 +163,39 @@ export default class NoSQLManager extends EventEmitter implements Client {
             models: models
         };
     }
+
+    public async sync(force?: boolean){
+        //Setting default.
+        force = (force === undefined) ? false : force;
+        
+        try{
+            if(force){
+                this.getModels().forEach(async model => {
+                    const name = model.collection.name;
+    
+                    try{
+                        console.log('EXECUTING: DROP COLLECTION IF EXISTS `%s`;', name);
+                        await this._connection.db.dropCollection(name);
+                    }catch(error){
+                        if(error.code === 26){
+                            //Ignore this error.
+                        }else{
+                            throw error;
+                        }
+                    }
+                });
+            }
+            this.getModels().forEach(async model => {
+                const name = model.collection.name;
+
+                console.log('EXECUTING: CREATE COLLECTION IF NOT EXISTS `%s`;', name);
+                await model.createCollection();
+            });
+            return true;
+        }catch(error){
+            throw error;
+        }
+    }
 }
 
 /////////////////////////

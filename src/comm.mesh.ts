@@ -43,7 +43,7 @@ export default class CommMesh extends EventEmitter implements Client {
         return node.alias;
     }
     
-    private createNode(url: string){
+    public createNode(url: string){
         //Creating node object.
         const node = new CommNode(this.name, url);
 
