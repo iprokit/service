@@ -4,14 +4,14 @@ import mongoose, { Connection as Mongoose, SchemaDefinition } from 'mongoose';
 
 //Export Libs
 const DataTypes: typeof mongoose.Types = mongoose.Types;
-export { mongoose as NoSQL, DataTypes as NoSQLDataTypes };
+export { Mongoose, DataTypes };
 
 //Local Imports
 import { Client, Events, ConnectionState } from './microservice';
 import NoSQLModel from './db.nosql.model';
 
 //Export Mongo
-export type Mongo = 'mongo';
+export type MongoType = 'mongo';
 
 export default class NoSQLManager extends EventEmitter implements Client {
     //NoSQL Variables.
@@ -19,7 +19,7 @@ export default class NoSQLManager extends EventEmitter implements Client {
     private _connected: boolean;
     
     //Connection Objects
-    public readonly type: Mongo;
+    public readonly type: MongoType;
     public readonly host: string;
     public readonly name: string;
     public readonly username: string;
@@ -67,7 +67,7 @@ export default class NoSQLManager extends EventEmitter implements Client {
             useUnifiedTopology: true
         });
 
-        //TODO: Bug - UnhandledPromiseRejectionWarning fix this.
+        //TODO: Bug - UnhandledPromiseRejectionWarning.
 
         //Set default connected.
         this._connected = false;
@@ -85,6 +85,10 @@ export default class NoSQLManager extends EventEmitter implements Client {
 
     private getModels(){
         return Object.values(this._connection.models);
+    }
+
+    public getConnection(){
+        return this._connection;
     }
 
     /////////////////////////

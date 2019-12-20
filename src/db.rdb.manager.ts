@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import { Sequelize, Dialect, Op, ModelAttributes, DataTypes, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 
 //Export Libs
-export { Sequelize as RDB, Op as RDBOp, DataTypes as RDBDataTypes, Dialect as RDBDialect};
+export { Sequelize, Op, DataTypes, Dialect};
 
 //Local Imports
 import { Client, Events, ConnectionState } from './microservice';
@@ -79,6 +79,10 @@ export default class RDBManager extends EventEmitter implements Client {
 
     private getModels(){
         return Object.values(this._connection.models);
+    }
+
+    public getConnection(){
+        return this._connection;
     }
 
     /////////////////////////

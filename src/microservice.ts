@@ -29,8 +29,8 @@ import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
 import CommBroker, { ReplyHandler, Publisher } from './comm.broker';
 import CommMesh from './comm.mesh';
 import { Alias } from './comm.node';
-import RDBManager, { RDBDialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
-import NoSQLManager, { Mongo, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
+import RDBManager, { Sequelize, Dialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
+import NoSQLManager, { Mongoose, MongoType, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
 import Controller from './controller';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
@@ -163,21 +163,30 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public useDB(type: Mongo | RDBDialect, paperTrail?: boolean){
-        if(type === 'mongo'){
-            dbManager = new NoSQLManager(paperTrail);
-        }else{
-            dbManager = new RDBManager(type as RDBDialect, paperTrail);
-            
-            //DB routes.
-            www.post('/db/sync', async (request, response) => {
-                try{
-                    const sync = await(dbManager as RDBManager).sync(request.body.force);
-                    response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
-                }catch(error){
-                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-                }
-            });
+    public useDB(type: MongoType | Dialect, paperTrail?: boolean){
+        try{
+            if(type === 'mongo'){
+                dbManager = new NoSQLManager(paperTrail);
+            }else{
+                dbManager = new RDBManager(type as Dialect, paperTrail);
+                
+                //DB routes.
+                www.post('/db/sync', async (request, response) => {
+                    try{
+                        const sync = await(dbManager as RDBManager).sync(request.body.force);
+                        response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
+                    }catch(error){
+                        response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                    }
+                });
+            }
+        }catch(error){
+            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+                console.log(error.message);
+            }else{
+                console.error(error);
+            }
+            console.log('Will continue...');
         }
     }
 
@@ -214,7 +223,7 @@ export default class MicroService extends EventEmitter {
             await Promise.all([www.listen(), commBroker.listen()]);
 
             //Start client components
-            await Promise.all([commMesh.connect(), (dbManager === undefined ? -1 : await dbManager.connect())]);
+            await Promise.all([commMesh.connect(), (dbManager === undefined ? -1 : dbManager.connect())]);
 
             this.emit(Events.STARTED);
 
@@ -242,7 +251,7 @@ export default class MicroService extends EventEmitter {
             await Promise.all([www.close(), commBroker.close()]);
 
             //Stop client components
-            await Promise.all([commMesh.disconnect(), (dbManager === undefined ? -1 : await dbManager.disconnect())]);
+            await Promise.all([commMesh.disconnect(), (dbManager === undefined ? -1 : dbManager.disconnect())]);
 
             this.emit(Events.STOPPED);
 
@@ -287,86 +296,34 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     private addListeners(){
         //Adding log listeners.
-        this.on(Events.STARTING, () => {
-            console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment});
-        });
-
-        this.on(Events.STARTED, () => {
-            console.log('%s ready.', this.serviceName);
-        });
-        
-        this.on(Events.STOPPING, () => {
-            console.log('Stopping %s...', this.serviceName);
-        });
-        
-        this.on(Events.STOPPED, () => {
-            console.log('%s stopped.', this.serviceName);
-        });
+        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment}));
+        this.on(Events.STARTED, () => console.log('%s ready.', this.serviceName));
+        this.on(Events.STOPPING, () => console.log('Stopping %s...', this.serviceName));
+        this.on(Events.STOPPED, () => console.log('%s stopped.', this.serviceName));
 
         //WWW
-        www.on(Events.WWW_STARTED, (_www) => {
-            console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl);
-        });
-
-        www.on(Events.WWW_STOPPED, () => {
-            console.log('Stopped Express.');
-        });
-
-        www.on(Events.WWW_ADDED_CONTROLLER, (name, controller) => {
-            console.log('Added controller: %s', name);
-        });
+        www.on(Events.WWW_STARTED, (_www) => console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
+        www.on(Events.WWW_STOPPED, () => console.log('Stopped Express.'));
+        www.on(Events.WWW_ADDED_CONTROLLER, (name, controller) => console.log('Added controller: %s', name));
 
         //commBroker
-        commBroker.on(Events.BROKER_STARTED, (_commBroker) => {
-            console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port);
-        });
-
-        commBroker.on(Events.BROKER_STOPPED, () => {
-            console.log('Stopped Broker.');
-        });
-
-        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name, publisher) => {
-            console.log('Added publisher: %s', name);
-        });
+        commBroker.on(Events.BROKER_STARTED, (_commBroker) => console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port));
+        commBroker.on(Events.BROKER_STOPPED, () => console.log('Stopped Broker.'));
+        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name, publisher) => console.log('Added publisher: %s', name));
 
         //commMesh
-        commMesh.on(Events.MESH_CONNECTING, () => {
-            console.log('Comm mesh connecting...');
-        });
-
-        commMesh.on(Events.MESH_CONNECTED, () => {
-            console.log('Comm mesh connected.');
-        });
-
-        commMesh.on(Events.MESH_DISCONNECTING, () => {
-            console.log('Comm mesh disconnecting...');
-        });
-
-        commMesh.on(Events.MESH_DISCONNECTED, () => {
-            console.log('Comm mesh disconnected.');
-        });
-
-        commMesh.on(Events.NODE_CONNECTED, (_node) => {
-            console.log('Node: Connected to %s', _node.url);
-        });
-
-        commMesh.on(Events.NODE_DISCONNECTED, (_node) => {
-            console.log('Node: Disconnected from : %s', _node.url);
-        });
+        commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
+        commMesh.on(Events.MESH_CONNECTED, () => console.log('Comm mesh connected.'));
+        commMesh.on(Events.MESH_DISCONNECTING, () => console.log('Comm mesh disconnecting...'));
+        commMesh.on(Events.MESH_DISCONNECTED, () => console.log('Comm mesh disconnected.'));
+        commMesh.on(Events.NODE_CONNECTED, (_node) => console.log('Node: Connected to %s', _node.url));
+        commMesh.on(Events.NODE_DISCONNECTED, (_node) => console.log('Node: Disconnected from : %s', _node.url));
 
         //dbManager
         if(dbManager){
-            dbManager.on(Events.DB_CONNECTED, (_dbManager) => {
-                console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name);
-            });
-
-            dbManager.on(Events.DB_DISCONNECTED, () => {
-                console.log('DB Disconnected');
-            });
-
-            dbManager.on(Events.DB_ADDED_MODEL, (name, entityName, model) => {
-                console.log('Added model: %s(%s)', name, entityName);
-            });
+            dbManager.on(Events.DB_CONNECTED, (_dbManager) => console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name));
+            dbManager.on(Events.DB_DISCONNECTED, () => console.log('DB Disconnected'));
+            dbManager.on(Events.DB_ADDED_MODEL, (modelName, entityName, model) => console.log('Added model: %s(%s)', modelName, entityName));
         }
     }
 }
@@ -441,10 +398,22 @@ export interface Client{
 }
 
 /////////////////////////
-///////getNode Functions
+///////export Functions
 /////////////////////////
 export function getNode(url: string): Alias {
     return commMesh.getNodeAlias(url);
+}
+
+export function getRDBConnection(): Sequelize {
+    if(dbManager){
+        return (dbManager.getConnection() as Sequelize);
+    }
+}
+
+export function getNoSQLConnection(): Mongoose {
+    if(dbManager){
+        return (dbManager.getConnection() as Mongoose);
+    }
 }
 
 //TODO: Optimize the below functions.

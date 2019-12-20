@@ -47,13 +47,9 @@ export default class CommMesh extends EventEmitter implements Client {
         //Creating node object.
         const node = new CommNode(this.name, url);
 
-        node.once(Events.NODE_CONNECTED, (node) => {
-            this.emit(Events.NODE_CONNECTED, node);
-        });
-
-        node.once(Events.NODE_DISCONNECTED, (node) => {
-            this.emit(Events.NODE_DISCONNECTED, node);
-        });
+        //Pass events from node class to mesh.
+        node.once(Events.NODE_CONNECTED, (node) => this.emit(Events.NODE_CONNECTED, node));
+        node.once(Events.NODE_DISCONNECTED, (node) => this.emit(Events.NODE_DISCONNECTED, node));
 
         //Add to Array
         this.nodes.push(node);
@@ -69,7 +65,7 @@ export default class CommMesh extends EventEmitter implements Client {
             this.emit(Events.MESH_CONNECTING);
 
             try{
-                await Promise.all(this.nodes.map(async node => await node.connect()));
+                await Promise.all(this.nodes.map(node => node.connect()));
                 this.emit(Events.MESH_CONNECTED, this);
                 return 1;
             }catch(error){
@@ -84,7 +80,7 @@ export default class CommMesh extends EventEmitter implements Client {
             this.emit(Events.MESH_DISCONNECTING);
 
             try{
-                await Promise.all(this.nodes.map(async node => await node.disconnect()));
+                await Promise.all(this.nodes.map(node => node.disconnect()));
                 this.emit(Events.MESH_DISCONNECTED, this);
                 return 0;
             }catch(error){
