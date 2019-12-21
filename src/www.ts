@@ -15,10 +15,8 @@ import { Server, Events, Defaults, ConnectionState } from './microservice';
 import Utility from './utility';
 import Controller from './controller';
 
-//Types: RouteOptions
-export type RouteMethod = 'get' | 'post' | 'put' | 'delete';
-
 //Types: Route
+export type RouteMethod = 'get' | 'post' | 'put' | 'delete';
 export type Route = {
     method: RouteMethod,
     path: PathParams,
@@ -113,8 +111,8 @@ export default class WWW extends EventEmitter implements Server {
         }
     }
 
-    private createServiceRoute(){
-        //Get all routes from expressRouter.
+    private createServiceRoutes(){
+        //Clone all routes from _expressRouter to _serviceRoutes.
         this._expressRouter.stack.forEach(item => {
             const expressRoute = {
                 method: (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method,
@@ -138,8 +136,10 @@ export default class WWW extends EventEmitter implements Server {
     /////////////////////////
     public async listen() {
         return new Promise<ConnectionState>((resolve, reject) => {
-            this.createServiceRoute();
+            //Load Service Routes
+            this.createServiceRoutes();
             
+            //Start Server
             this._httpServer = this._expressApp.listen(this.port, () => {
                 this.emit(Events.WWW_STARTED, this);
                 resolve(1);

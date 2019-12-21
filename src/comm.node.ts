@@ -212,7 +212,7 @@ export default class CommNode extends EventEmitter implements Client {
     public message(topic: string, parms: any){
         return new Promise((resolve, reject) => {
             if(this.connected){
-                //Listen for reply on broker
+                //Add Listener first. This will listen to reply from broker.
                 this._commHandlers.once(topic, (reply: Reply) => {
                     if(reply.body !== undefined){
                         resolve(reply.body);
@@ -253,9 +253,9 @@ export default class CommNode extends EventEmitter implements Client {
 
                 //Validate and generate dynamic subscribe funcation.
                 if(Object.getPrototypeOf(subscriber)[converter.functionName] === undefined){
-                    const subscribe = async function(parms?: any) {
+                    const subscribe = function(parms?: any) {
                         const _topic = topic;
-                        return await that.message(_topic, parms);
+                        return that.message(_topic, parms);
                     }
 
                     //Assing dynamic subscribe function Subscriber class.

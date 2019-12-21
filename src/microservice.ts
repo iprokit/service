@@ -110,7 +110,7 @@ export default class MicroService extends EventEmitter {
                     },
                     db: {},
                     routes: www.getReport(),
-                    publishers: commBroker.getReport(),
+                    comms: commBroker.getReport(),
                     mesh: commMesh.getReport()
                 };
                 if(dbManager){
@@ -545,7 +545,7 @@ export function Reply(): ReplyFunction {
             const topic = Utility.convertToTopic(publisherName, propertyKey);
     
             //Add Comm
-            commBroker.addComm(topic, target, descriptor.value);
+            commBroker.addPublisherComm('reply', topic, target, descriptor.value);
     
             //Call reply.
             commBroker.reply(topic, descriptor.value);
