@@ -331,7 +331,7 @@ export default class MicroService extends EventEmitter {
         commMesh.on(Events.MESH_DISCONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh disconnected.'));
         commMesh.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
 
-            //node
+            //commNode
             commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
             commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
             commNode.on(Events.NODE_SENT_MESSAGE, (message: NodeMessage) => console.log('Node: published a message on topic: %s', message.topic));
@@ -369,6 +369,10 @@ export class Events {
     public static readonly BROKER_ADDED_PUBLISHER = Symbol('BROKER_ADDED_PUBLISHER');
     public static readonly BROKER_RECEIVED_MESSAGE = Symbol('BROKER_RECEIVED_MESSAGE');
     public static readonly BROKER_SENT_REPLY = Symbol('BROKER_SENT_REPLY');
+
+    //Broker - Reply
+    public static readonly REPLY_SEND = Symbol('REPLY_SEND');
+    public static readonly REPLY_ERROR = Symbol('REPLY_ERROR');
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');

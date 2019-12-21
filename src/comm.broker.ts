@@ -149,8 +149,8 @@ export default class CommBroker extends EventEmitter implements Server {
         const reply = new Reply(this._broadcastTopic);
 
         //Attaching events to send reply back.
-        reply.once('send', (reply) => this.sendReply(reply));
-        reply.once('error', (reply) => this.sendReply(reply));
+        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
+        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
 
         //Send Reply
         reply.send({name: this.name, topics: this._topics});
@@ -170,8 +170,8 @@ export default class CommBroker extends EventEmitter implements Server {
             const reply = new Reply(packet.topic);
 
             //Attaching events to send reply back.
-            reply.once('send', (reply) => this.sendReply(reply));
-            reply.once('error', (reply) => this.sendReply(reply));
+            reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
+            reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
 
             //Passing parms to comm handler Emitter
             this._commHandlers.emit(packet.topic, message, reply);
@@ -258,7 +258,7 @@ export class Reply extends EventEmitter implements IReply{
         if(this._sendCount === 0){
             this._sendCount = 1;
             this._body = body;
-            this.emit('send', this);
+            this.emit(Events.REPLY_SEND, this);
         }else{
             throw new ReplySentWarning();
         }
@@ -269,7 +269,7 @@ export class Reply extends EventEmitter implements IReply{
         if(this._sendCount === 0){
             this._sendCount = 1;
             this._error = error;
-            this.emit('error', this);
+            this.emit(Events.REPLY_ERROR, this);
         }else{
             throw new ReplySentWarning();
         }

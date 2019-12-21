@@ -115,6 +115,7 @@ export default class DBManager extends EventEmitter implements Client {
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
+            //TODO: Bug - unhandledRejection when incorrect details are passed.
         }else{
             //Sequelize constructor.
             this._connection = new RDB(this.name, this.username, this.password, {

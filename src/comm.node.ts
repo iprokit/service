@@ -6,6 +6,8 @@ import mqtt, { MqttClient } from 'mqtt'
 import { Client, Events, Defaults, ConnectionState } from './microservice';
 import Utility from './utility';
 
+let that: CommNode;
+
 export default class CommNode extends EventEmitter implements Client {
     //CommNode Variables.
     public readonly identifier: string;
@@ -25,12 +27,15 @@ export default class CommNode extends EventEmitter implements Client {
     private readonly _commHandlers: EventEmitter;
 
     //Alias
-    public readonly alias: Alias;
+    public alias: Alias;
 
     //Default Constructor
     constructor(name: string, url: string, identifier: string){
         //Call super for EventEmitter.
         super();
+
+        //Alternative to this.
+        that = this;
 
         //Init comm node variables.
         this.name = name;
@@ -148,10 +153,17 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Broadcast Functions
     /////////////////////////
+    /**
+     * This fuction is called everytime a connection/re-connection is made to the broker.
+     * 
+     * @param packet 
+     */
     private receiveBroadcast(packet: any){
         //Add listener then receive reply
         this._commHandlers.once(this._broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
+                //Re-Initialize alias class. This contians all the subscribers.
+                this.alias = new Alias();
                 this.alias.name = reply.body.name;
                 this._topics = reply.body.topics;
 
@@ -160,18 +172,19 @@ export default class CommNode extends EventEmitter implements Client {
             }
         });
 
+        //Receive reply
         this.receiveReply(packet);
     }
 
     /////////////////////////
     ///////Comm Functions 
     /////////////////////////
-    private sendMessage(topic: string, message: Message){
+    private sendMessage(message: Message){
         //Convert string to Json.
         const payload = JSON.stringify({message: {parms: message.parms}});
 
         //Publish message on broker
-        this._mqttClient.publish(topic, payload, { qos: 0 }, () => {
+        this._mqttClient.publish(message.topic, payload, { qos: 0 }, () => {
             //Global Emit.
             this.emit(Events.NODE_SENT_MESSAGE, message);
         });
@@ -212,7 +225,7 @@ export default class CommNode extends EventEmitter implements Client {
                 const message = new Message(topic, parms);
 
                 //Sending message
-                this.sendMessage(topic, message);
+                this.sendMessage(message);
             }else{
                 reject(new CommNodeUnavailableError(this.url));
             }
@@ -227,23 +240,22 @@ export default class CommNode extends EventEmitter implements Client {
         topics.forEach(topic => {
             const converter = Utility.convertToFunction(topic);
 
-            //TODO: Bug - On reconnect new subscribers being identifed. Removed subscribes are not being updated.
-
             if(converter){
                 let subscriber: Subscriber;
 
                 //Validate and generate a Subscriber class or get it from Alias class.
+                //This step is to retian unique subscribes.
                 if(Object.getPrototypeOf(this.alias)[converter.className] === undefined){
-                    subscriber = new Subscriber(converter.className, this);
+                    subscriber = new Subscriber(converter.className);
                 }else{
                     subscriber = Object.getPrototypeOf(this.alias)[converter.className];
                 }
 
                 //Validate and generate dynamic subscribe funcation.
                 if(Object.getPrototypeOf(subscriber)[converter.functionName] === undefined){
-                    const subscribe = function(parms?: any) {
+                    const subscribe = async function(parms?: any) {
                         const _topic = topic;
-                        return this._node.message(_topic, parms);
+                        return await that.message(_topic, parms);
                     }
 
                     //Assing dynamic subscribe function Subscriber class.
@@ -306,11 +318,9 @@ export class Alias {
 /////////////////////////
 export class Subscriber {
     public name: string;
-    private _node: CommNode;
 
-    constructor(name: string, node: CommNode){
+    constructor(name: string){
         this.name = name;
-        this._node = node;
     }
 }
 
