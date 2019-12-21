@@ -87,7 +87,9 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     public async listen(){
         return new Promise<ConnectionState>((resolve, reject) => {
-            this._mqttServer = new MqttServer({ id: this.name, port: this.port }, () => {
+            this._mqttServer = new MqttServer({ id: this.name, port: this.port });
+
+            this._mqttServer.on('ready', () => {
                 this.emit(Events.BROKER_STARTED, this);
                 resolve(1);
             });
@@ -144,7 +146,13 @@ export default class CommBroker extends EventEmitter implements Server {
     ///////Broadcast Functions
     /////////////////////////
     private sendBroadcast(){
-        const reply = new Reply(this._broadcastTopic, this);
+        const reply = new Reply(this._broadcastTopic);
+
+        //Attaching events to send reply back.
+        reply.once('send', (reply) => this.sendReply(reply));
+        reply.once('error', (reply) => this.sendReply(reply));
+
+        //Send Reply
         reply.send({name: this.name, topics: this._topics});
     }
 
@@ -157,15 +165,19 @@ export default class CommBroker extends EventEmitter implements Server {
 
         //Validate if the payload is from the broker or client.
         if(payload.message !== undefined && payload.reply === undefined){
-            //Logging Message
-            console.log('Broker: received a message on topic: %s', packet.topic);
-
             //creating new parms.
-            const message = new Message(payload.message.parms);
-            const reply = new Reply(packet.topic, this);
+            const message = new Message(packet.topic, payload.message.parms);
+            const reply = new Reply(packet.topic);
+
+            //Attaching events to send reply back.
+            reply.once('send', (reply) => this.sendReply(reply));
+            reply.once('error', (reply) => this.sendReply(reply));
 
             //Passing parms to comm handler Emitter
             this._commHandlers.emit(packet.topic, message, reply);
+
+            //Global Emit.
+            this.emit(Events.BROKER_RECEIVED_MESSAGE, message);
         }
     }
 
@@ -180,8 +192,8 @@ export default class CommBroker extends EventEmitter implements Server {
 
         //Publish message on broker
         this._mqttServer.publish(packet, () => {
-            //Logging Reply
-            console.log('Broker: published a reply on topic: %s', reply.topic);
+            //Global Emit.
+            this.emit(Events.BROKER_SENT_REPLY, reply);
         });
     }
 
@@ -203,13 +215,16 @@ export default class CommBroker extends EventEmitter implements Server {
 ///////Message
 /////////////////////////
 interface IMessage {
+    topic: string;
     parms: any;
 }
 
 export class Message implements IMessage{
-    public parms: any;
+    public readonly topic: string;
+    public readonly parms: any;
 
-    constructor(parms: any){
+    constructor(topic: string, parms: any){
+        this.topic = topic;
         this.parms = parms;
     }
 }
@@ -224,25 +239,26 @@ interface IReply {
     sendError(error: any): void;
 }
 
-export class Reply implements IReply{
+export class Reply extends EventEmitter implements IReply{
     public readonly topic: string;
-    private commBroker: CommBroker;
 
-    public body: any;
-    public error: any;
-    private sendCount: number = 0;
+    private _body: any;
+    private _error: any;
+    private _sendCount: number = 0;
 
-    constructor(topic: string, commBroker: CommBroker){
+    constructor(topic: string){
+        //Call super for EventEmitter.
+        super();
+
         this.topic = topic;
-        this.commBroker = commBroker;
     }
 
     send(body: any): void {
         //Ensure the reply is sent only once.
-        if(this.sendCount === 0){
-            this.sendCount = 1;
-            this.body = body;
-            this.commBroker.sendReply(this);
+        if(this._sendCount === 0){
+            this._sendCount = 1;
+            this._body = body;
+            this.emit('send', this);
         }else{
             throw new ReplySentWarning();
         }
@@ -250,13 +266,21 @@ export class Reply implements IReply{
 
     sendError(error: any): void {
         //Ensure the reply is sent only once.
-        if(this.sendCount === 0){
-            this.sendCount = 1;
-            this.error = error;
-            this.commBroker.sendReply(this);
+        if(this._sendCount === 0){
+            this._sendCount = 1;
+            this._error = error;
+            this.emit('error', this);
         }else{
             throw new ReplySentWarning();
         }
+    }
+
+    get body(){
+        return this._body;
+    }
+
+    get error(){
+        return this._error;
     }
 }
 

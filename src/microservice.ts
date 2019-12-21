@@ -26,9 +26,9 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
-import CommBroker, { ReplyHandler, Publisher } from './comm.broker';
+import CommBroker, { ReplyHandler, Publisher, Message as BrokerMessage, Reply as BrokerReply } from './comm.broker';
 import CommMesh from './comm.mesh';
-import { Alias } from './comm.node';
+import CommNode, { Alias, Message as NodeMessage, Reply as NodeReply } from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './controller';
 
@@ -212,9 +212,6 @@ export default class MicroService extends EventEmitter {
     ///////Service Functions
     /////////////////////////
     public async start(): Promise<ConnectionState>{
-        //Console logs.
-        this.addListeners();
-
         //Emit starting Event.
         this.emit(Events.STARTING);
 
@@ -308,7 +305,7 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////Listeners
     /////////////////////////
-    private addListeners(){
+    public addListeners(){
         //Adding log listeners.
         this.on(Events.STARTING, () => console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment}));
         this.on(Events.STARTED, () => console.log('%s ready.', this.serviceName));
@@ -316,28 +313,36 @@ export default class MicroService extends EventEmitter {
         this.on(Events.STOPPED, () => console.log('%s stopped.', this.serviceName));
 
         //WWW
-        www.on(Events.WWW_STARTED, (_www) => console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
+        www.on(Events.WWW_STARTED, (_www: WWW) => console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
         www.on(Events.WWW_STOPPED, () => console.log('Stopped Express.'));
-        www.on(Events.WWW_ADDED_CONTROLLER, (name, controller) => console.log('Added controller: %s', name));
+        www.on(Events.WWW_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //commBroker
-        commBroker.on(Events.BROKER_STARTED, (_commBroker) => console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port));
+        commBroker.on(Events.BROKER_STARTED, (_commBroker: CommBroker) => console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port));
         commBroker.on(Events.BROKER_STOPPED, () => console.log('Stopped Broker.'));
-        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name, publisher) => console.log('Added publisher: %s', name));
+        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
+        commBroker.on(Events.BROKER_RECEIVED_MESSAGE, (message: BrokerMessage) => console.log('Broker: received a message on topic: %s', message.topic));
+        commBroker.on(Events.BROKER_SENT_REPLY, (reply: BrokerReply) => console.log('Broker: published a reply on topic: %s', reply.topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
-        commMesh.on(Events.MESH_CONNECTED, () => console.log('Comm mesh connected.'));
+        commMesh.on(Events.MESH_CONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh connected.'));
         commMesh.on(Events.MESH_DISCONNECTING, () => console.log('Comm mesh disconnecting...'));
-        commMesh.on(Events.MESH_DISCONNECTED, () => console.log('Comm mesh disconnected.'));
-        commMesh.on(Events.NODE_CONNECTED, (_node) => console.log('Node: Connected to %s', _node.url));
-        commMesh.on(Events.NODE_DISCONNECTED, (_node) => console.log('Node: Disconnected from : %s', _node.url));
+        commMesh.on(Events.MESH_DISCONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh disconnected.'));
+        commMesh.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
+
+            //node
+            commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
+            commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
+            commNode.on(Events.NODE_SENT_MESSAGE, (message: NodeMessage) => console.log('Node: published a message on topic: %s', message.topic));
+            commNode.on(Events.NODE_RECEIVED_REPLY, (reply: NodeReply) => console.log('Node: received a reply on topic: %s', reply.topic));
+        });
 
         //dbManager
         if(dbManager){
-            dbManager.on(Events.DB_CONNECTED, (_dbManager) => console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name));
+            dbManager.on(Events.DB_CONNECTED, (_dbManager: DBManager) => console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name));
             dbManager.on(Events.DB_DISCONNECTED, () => console.log('DB Disconnected'));
-            dbManager.on(Events.DB_ADDED_MODEL, (modelName, entityName, model) => console.log('Added model: %s(%s)', modelName, entityName));
+            dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
         }
     }
 }
@@ -362,16 +367,21 @@ export class Events {
     public static readonly BROKER_STARTED = Symbol('BROKER_STARTED');
     public static readonly BROKER_STOPPED = Symbol('BROKER_STOPPED');
     public static readonly BROKER_ADDED_PUBLISHER = Symbol('BROKER_ADDED_PUBLISHER');
+    public static readonly BROKER_RECEIVED_MESSAGE = Symbol('BROKER_RECEIVED_MESSAGE');
+    public static readonly BROKER_SENT_REPLY = Symbol('BROKER_SENT_REPLY');
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
     public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
     public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
     public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
+    public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
 
     //Node
     public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
     public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
+    public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
+    public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
 
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');

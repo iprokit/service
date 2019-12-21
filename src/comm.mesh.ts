@@ -35,12 +35,11 @@ export default class CommMesh extends EventEmitter implements Client {
         //Creating node object.
         const node = new CommNode(this.name, url, identifier);
 
-        //Pass events from node class to mesh.
-        node.once(Events.NODE_CONNECTED, (node) => this.emit(Events.NODE_CONNECTED, node));
-        node.once(Events.NODE_DISCONNECTED, (node) => this.emit(Events.NODE_DISCONNECTED, node));
-
         //Add to Array
         this.nodes.push(node);
+
+        //Emit node added.
+        this.emit(Events.MESH_ADDED_NODE, node);
 
         return node;
     }

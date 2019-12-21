@@ -168,12 +168,12 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     private sendMessage(topic: string, message: Message){
         //Convert string to Json.
-        const payload = JSON.stringify({message: message});
+        const payload = JSON.stringify({message: {parms: message.parms}});
 
         //Publish message on broker
         this._mqttClient.publish(topic, payload, { qos: 0 }, () => {
-            //Logging Message
-            console.log('Node: published a message on topic: %s', topic);
+            //Global Emit.
+            this.emit(Events.NODE_SENT_MESSAGE, message);
         });
     }
 
@@ -183,13 +183,13 @@ export default class CommNode extends EventEmitter implements Client {
 
         //Validate if the payload is from the broker or node.
         if(payload.reply !== undefined && payload.message === undefined){
-            //Logging Message
-            console.log('Node: received a reply on topic: %s', packet.topic);
-
             //creating new reply parm.
-            const reply = new Reply(payload.reply.body, payload.reply.error);
+            const reply = new Reply(packet.topic, payload.reply.body, payload.reply.error);
 
             this._commHandlers.emit(packet.topic, reply);
+
+            //Global Emit.
+            this.emit(Events.NODE_RECEIVED_REPLY, reply);
         }
     }
 
@@ -209,7 +209,7 @@ export default class CommNode extends EventEmitter implements Client {
                 });
 
                 //Creating new message parm.
-                const message = new Message(parms);
+                const message = new Message(topic, parms);
 
                 //Sending message
                 this.sendMessage(topic, message);
@@ -265,9 +265,11 @@ interface IMessage {
 }
 
 export class Message implements IMessage{
+    public readonly topic: string;
     public readonly parms: any;
 
-    constructor(parms: any){
+    constructor(topic: string, parms: any){
+        this.topic = topic;
         this.parms = parms;
     }
 }
@@ -281,10 +283,12 @@ interface IReply {
 }
 
 export class Reply implements IReply{
+    public readonly topic: string;
     public readonly body: any;
     public readonly error: any;
 
-    constructor(body: any, error: any){
+    constructor(topic: string, body: any, error: any){
+        this.topic = topic;
         this.body = body;
         this.error = error;
     }
