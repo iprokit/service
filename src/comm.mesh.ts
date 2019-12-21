@@ -31,21 +31,9 @@ export default class CommMesh extends EventEmitter implements Client {
         return (this.nodes.length > 0);
     }
 
-    public getNodeAlias(url: string){
-        //Try finding nodes.
-        let node = this.nodes.find(node => node.url === url);
-
-        if(!node){
-            //No node found. creating a new node.
-            node = this.createNode(url);
-        }
-
-        return node.alias;
-    }
-    
-    public createNode(url: string){
+    private createNode(url: string, identifier: string){
         //Creating node object.
-        const node = new CommNode(this.name, url);
+        const node = new CommNode(this.name, url, identifier);
 
         //Pass events from node class to mesh.
         node.once(Events.NODE_CONNECTED, (node) => this.emit(Events.NODE_CONNECTED, node));
@@ -55,6 +43,32 @@ export default class CommMesh extends EventEmitter implements Client {
         this.nodes.push(node);
 
         return node;
+    }
+    
+    public defineNode(url: string, identifier: string){
+        this.createNode(url, identifier);
+    }
+
+    public getAlias(identifier: string){
+        //Try finding node.
+        return this.nodes.find(node => node.identifier === identifier).alias;
+    }
+
+    public async defineNodeAndGetAlias(url: string){
+        //Try finding nodes.
+        let node = this.nodes.find(node => node.url === url);
+
+        if(!node){
+            //No node found. creating a new node.
+            node = this.createNode(url, url);
+        }
+
+        //This is a new node it has to be connected.
+        if(!node.connected && !node.reconnecting){
+            await node.connect();
+        }
+
+        return node.alias;
     }
 
     /////////////////////////

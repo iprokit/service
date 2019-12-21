@@ -8,6 +8,7 @@ import Utility from './utility';
 
 export default class CommNode extends EventEmitter implements Client {
     //CommNode Variables.
+    public readonly identifier: string;
     public readonly name: string;
     public readonly url: string; //host+port
     public readonly host: string;
@@ -27,13 +28,14 @@ export default class CommNode extends EventEmitter implements Client {
     public readonly alias: Alias;
 
     //Default Constructor
-    constructor(name: string, url: string){
+    constructor(name: string, url: string, identifier: string){
         //Call super for EventEmitter.
         super();
 
         //Init comm node variables.
         this.name = name;
         this.url = url;
+        this.identifier = identifier;
 
         //Split url into host and port.
         const _url = this.url.split(':');
@@ -132,6 +134,7 @@ export default class CommNode extends EventEmitter implements Client {
             }
         });
         return {
+            identifed: this.identifier,
             name: this.alias.name,
             host: this.host,
             port: this.port,

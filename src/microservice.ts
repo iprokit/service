@@ -29,11 +29,8 @@ import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
 import CommBroker, { ReplyHandler, Publisher } from './comm.broker';
 import CommMesh from './comm.mesh';
 import { Alias } from './comm.node';
-import RDBManager, { Sequelize, Dialect, ConnectionOptionsError as RDBConnectionOptionsError } from './db.rdb.manager';
-import NoSQLManager, { Mongoose, MongoType, ConnectionOptionsError as NoSQLConnectionOptionsError } from './db.nosql.manager';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './controller';
-import RDBModel from './db.rdb.model';
-import NoSQLModel from './db.nosql.model';
 
 //Types: Options
 export type Options = {
@@ -51,7 +48,7 @@ export type AutoLoadOptions = {
 let www: WWW;
 let commBroker: CommBroker;
 let commMesh: CommMesh;
-let dbManager: RDBManager | NoSQLManager;
+let dbManager: DBManager;
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;
@@ -103,7 +100,6 @@ export default class MicroService extends EventEmitter {
         www.get('/report', (request, response) => {
             try {
                 let report = {
-                    status: true,
                     service: {
                         name: this.serviceName,
                         version: this.version,
@@ -125,6 +121,14 @@ export default class MicroService extends EventEmitter {
             } catch (error) {
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
             }
+        });
+
+        www.post('/shutdown', (request, response) => {
+            response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
+            setTimeout(() => {
+                console.log('Received shutdown from %s', request.url);
+                process.kill(process.pid, 'SIGTERM');
+            }, 2000);
         });
 
         this.addProcessListeners();
@@ -157,19 +161,18 @@ export default class MicroService extends EventEmitter {
 
         process.on('unhandledRejection', (reason, promise) => {
             console.error('Caught: unhandledRejection', reason, promise);
+            console.log('Will continue...');
         });
     }
 
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public useDB(type: MongoType | Dialect, paperTrail?: boolean){
+    public useDB(type: DBType, paperTrail?: boolean){
         try{
-            if(type === 'mongo'){
-                dbManager = new NoSQLManager(paperTrail);
-            }else{
-                dbManager = new RDBManager(type as Dialect, paperTrail);
-            }
+            //Setup DBManager.
+            dbManager = new DBManager(type, paperTrail);
+            dbManager.init();
                 
             //DB routes.
             www.post('/db/sync', async (request, response) => {
@@ -181,7 +184,7 @@ export default class MicroService extends EventEmitter {
                 }
             });
         }catch(error){
-            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+            if(error instanceof ConnectionOptionsError){
                 console.log(error.message);
             }else{
                 console.error(error);
@@ -229,7 +232,7 @@ export default class MicroService extends EventEmitter {
 
             return 1;
         }catch(error){
-            if(error instanceof RDBConnectionOptionsError || error instanceof NoSQLConnectionOptionsError){
+            if(error instanceof ConnectionOptionsError){
                 console.log(error.message);
             }else{
                 console.error(error);
@@ -294,8 +297,12 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////commNode Functions
     /////////////////////////
-    public node(url: string){
-        commMesh.createNode(url);
+    public defineNode(url: string, identifier: string){
+        commMesh.defineNode(url, identifier)
+    }
+
+    public getAlias(identifier: string): Alias {
+        return commMesh.getAlias(identifier);
     }
 
     /////////////////////////
@@ -380,7 +387,7 @@ export class Defaults {
     public static readonly EXPRESS_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
     public static readonly BROADCAST_TOPIC: string = '/';
-    public static readonly STOP_TIME: number = 2000;
+    public static readonly STOP_TIME: number = 5000;
 }
 
 /////////////////////////
@@ -407,19 +414,23 @@ export interface Client{
 /////////////////////////
 ///////export Functions
 /////////////////////////
-export function getNode(url: string): Alias {
-    return commMesh.getNodeAlias(url);
+export function getAlias(identifier: string): Alias {
+    return commMesh.getAlias(identifier);
 }
 
-export function getRDBConnection(): Sequelize {
+export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
+    return await commMesh.defineNodeAndGetAlias(url);
+}
+
+export function getRDBConnection(): RDB {
     if(dbManager){
-        return (dbManager.getConnection() as Sequelize);
+        return (dbManager.connection as RDB);
     }
 }
 
-export function getNoSQLConnection(): Mongoose {
+export function getNoSQLConnection(): NoSQL {
     if(dbManager){
-        return (dbManager.getConnection() as Mongoose);
+        return (dbManager.connection as NoSQL);
     }
 }
 
@@ -531,10 +542,10 @@ export function Reply(): ReplyFunction {
 /////////////////////////
 ///////Entity Decorators
 /////////////////////////
-export declare type ModelClass = (target: typeof RDBModel | typeof NoSQLModel) => void;
+export declare type ModelClass = (target: Model) => void;
 export type EntityOptions = {
     name: string,
-    attributes: any,
+    attributes: ModelAttributes,
 }
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
@@ -543,7 +554,7 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
 
             if(canLoad(autoWireModelOptions, modelName)){
                 //Init Model.
-                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, (target as any));
+                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
         }
     }

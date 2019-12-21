@@ -11,17 +11,17 @@ export { Publisher } from './comm.broker';
 //Export Mesh Components
 export { CommNodeUnavailableError } from './comm.node';
 
-//Export RDB Components
-export { Sequelize as RDB, DataTypes as RDBDataTypes, Op as RDBOp } from './db.rdb.manager';
+//Export DB Components
+export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';
 export { default as RDBModel } from './db.rdb.model';
-
-//Export noSQL Components
-export { Mongoose as NoSQL, DataTypes as NoSQLDataTypes } from './db.nosql.manager';
 export { default as NoSQLModel } from './db.nosql.model';
 
-//Main Components
-export { Get, Post, Put, Delete, Reply, Entity, getNode, getRDBConnection, getNoSQLConnection } from './microservice';
-export { default as Gateway } from './gateway';
+//Export Decorators
+export { Get, Post, Put, Delete, Reply, Entity } from './microservice';
 
-//Export Default
+//Export Functions
+export { getAlias, defineNodeAndGetAlias, getRDBConnection, getNoSQLConnection } from './microservice';
+
+//Main Components + Default
 export default MicroService;
+export { default as Gateway } from './gateway';
