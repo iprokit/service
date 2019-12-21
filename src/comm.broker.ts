@@ -5,8 +5,8 @@ import { Server as MqttServer, Packet, Client } from 'mosca';
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
 
-//Types: CommHandlers
-export declare type CommHandlers = ReplyHandler | TransactionHandler;
+//Types: CommHandler
+export declare type CommHandler = ReplyHandler | TransactionHandler;
 export declare type ReplyHandler = (message: Message, reply: Reply) => void;
 export declare type TransactionHandler = (message: Message, transactionReply: TransactionReply) => void;
 
@@ -15,7 +15,7 @@ export type CommMethod = 'reply' | 'transaction';
 export type Comm = {
     method: CommMethod,
     topic: string,
-    handler: CommHandlers
+    handler: CommHandler
 }
 
 export default class CommBroker extends EventEmitter implements Server {
@@ -61,7 +61,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public addPublisherComm(method: CommMethod, topic: string, publisher: typeof Publisher, handler: CommHandlers){
+    public addPublisherComm(method: CommMethod, topic: string, publisher: typeof Publisher, handler: CommHandler){
         //Sub function to add Publisher to _publisherComms
         const _addPublisherComm = () => {
             //Create new comms.
@@ -193,12 +193,8 @@ export default class CommBroker extends EventEmitter implements Server {
         reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
         reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
 
-        //TODO: Remove this later.
-        let topics = new Array();
-        this.comms.forEach(comm => topics.push(comm.topic));
-
         //Send Reply
-        reply.send({name: this.name, topics: topics});
+        reply.send({name: this.name, comms: this.comms});
     }
 
     /////////////////////////
@@ -246,16 +242,33 @@ export default class CommBroker extends EventEmitter implements Server {
     ///////Handle Functions
     /////////////////////////
     public reply(topic: string, replyHandler: ReplyHandler){
-        //Define comm.
-        const comm: Comm = {method: 'reply', topic: topic, handler: replyHandler};
-        
+        //Add unique comm.
+        this.addComm({method: 'reply', topic: topic, handler: replyHandler});
+    }
+
+    public transaction(topic: string, transactionHandler: TransactionHandler){
+        //Add unique comm.
+        this.addComm({method: 'transaction', topic: topic, handler: transactionHandler});
+        //TODO: Possibly need to add additional topics to prepare/commit/rollback
+    }
+
+    /////////////////////////
+    ///////Helper Functions
+    /////////////////////////
+    /**
+     * Adds a unique comm object into comms array based on topic uniqueness
+     * and adds a listener. 
+     * 
+     * @param comm the new comm object.
+     */
+    private addComm(comm: Comm){
         //Validate if comm exists.
-        if(!this.comms.find(comm => comm.topic === topic)){
+        if(!this.comms.find(_comm => _comm.topic === comm.topic)){
             //Add comm to array
             this.comms.push(comm);
     
-            //Add reply handler listener.
-            this._commHandlers.on(topic, replyHandler);
+            //Add topic + handler to listener.
+            this._commHandlers.on(comm.topic, comm.handler);
         }
     }
 }

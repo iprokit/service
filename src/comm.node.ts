@@ -162,10 +162,18 @@ export default class CommNode extends EventEmitter implements Client {
         //Add listener then receive reply
         this._commHandlers.once(this._broadcastTopic, (reply: Reply) => {
             if(reply.body !== undefined){
-                //Re-Initialize alias class. This contians all the subscribers.
+                //Re-/Initialize alias class. This contians all the subscribers.
                 this.alias = new Alias();
                 this.alias.name = reply.body.name;
-                this._topics = reply.body.topics;
+
+                //Re-/Initialize topics.
+                const topics = new Array();
+                reply.body.comms.forEach((comm: any) => {
+                    //TODO: Work from here.
+                    console.log(comm);
+                    topics.push(comm.topic);
+                });
+                this._topics = topics;
 
                 this._mqttClient.subscribe(this._topics);
                 this.generateAlias(this._topics);

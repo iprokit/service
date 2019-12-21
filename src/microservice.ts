@@ -26,7 +26,7 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
-import CommBroker, { ReplyHandler, Publisher, Message as BrokerMessage, Reply as BrokerReply } from './comm.broker';
+import CommBroker, { CommHandler, ReplyHandler, TransactionHandler, Publisher, Message as BrokerMessage, Reply as BrokerReply } from './comm.broker';
 import CommMesh from './comm.mesh';
 import CommNode, { Alias, Message as NodeMessage, Reply as NodeReply } from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -291,6 +291,10 @@ export default class MicroService extends EventEmitter {
         commBroker.reply(topic, replyHandler);
     }
 
+    public transaction(topic: string, transactionHandler: TransactionHandler){
+        commBroker.transaction(topic, transactionHandler);
+    }
+
     /////////////////////////
     ///////commNode Functions
     /////////////////////////
@@ -454,7 +458,7 @@ export function getNoSQLConnection(): NoSQL {
 ///////WWW Decorators
 /////////////////////////
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
-    value?: RequestHandler;
+    value: RequestHandler;
 }
 export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
@@ -532,12 +536,12 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 ///////Broker Decorators
 /////////////////////////
-interface ReplyFunctionDescriptor extends PropertyDescriptor {
-    value?: ReplyHandler;
+interface CommFunctionDescriptor extends PropertyDescriptor {
+    value: CommHandler;
 }
-export declare type ReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: ReplyFunctionDescriptor) => void;
+export declare type CommFunction = (target: typeof Publisher, propertyKey: string, descriptor: CommFunctionDescriptor) => void;
 
-export function Reply(): ReplyFunction {
+export function Reply(): CommFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
@@ -549,6 +553,22 @@ export function Reply(): ReplyFunction {
     
             //Call reply.
             commBroker.reply(topic, descriptor.value);
+        }
+    }
+}
+
+export function Transaction(): CommFunction {
+    return (target, propertyKey, descriptor) => {
+        const publisherName = target.name.replace('Publisher', '');
+
+        if(canLoad(autoInjectPublisherOptions, publisherName)){
+            const topic = Utility.convertToTopic(publisherName, propertyKey);
+    
+            //Add Comm
+            commBroker.addPublisherComm('transaction', topic, target, descriptor.value);
+    
+            //Call reply.
+            commBroker.transaction(topic, descriptor.value);
         }
     }
 }
