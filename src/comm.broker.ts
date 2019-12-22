@@ -187,11 +187,8 @@ export default class CommBroker extends EventEmitter implements Server {
     ///////Broadcast Functions
     /////////////////////////
     private sendBroadcast(){
-        const reply = new Reply(this._broadcastTopic);
-
-        //Attaching events to send reply back.
-        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
-        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
+        //Create Reply Object.
+        const reply = this.createReply(this._broadcastTopic);
 
         //Send Reply
         reply.send({name: this.name, comms: this.comms});
@@ -207,12 +204,8 @@ export default class CommBroker extends EventEmitter implements Server {
         //Validate if the payload is from the broker or client.
         if(payload.message !== undefined && payload.reply === undefined){
             //creating new parms.
-            const message = new Message(packet.topic, payload.message.parms);
-            const reply = new Reply(packet.topic);
-
-            //Attaching events to send reply back.
-            reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
-            reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
+            const message = this.createMessage(packet.topic, payload.message.parms);
+            const reply = this.createReply(packet.topic);
 
             //Passing parms to comm handler Emitter
             this._commHandlers.emit(packet.topic, message, reply);
@@ -270,6 +263,33 @@ export default class CommBroker extends EventEmitter implements Server {
             //Add topic + handler to listener.
             this._commHandlers.on(comm.topic, comm.handler);
         }
+    }
+
+    /**
+     * Creates a new Message object.
+     * 
+     * @param topic
+     * @param parms 
+     * @returns the new message object created.
+     */
+    private createMessage(topic: string, parms: any){
+        const message = new Message(topic, parms);
+        return message;
+    }
+
+    /**
+     * Creates a new Reply object.
+     * @param topic 
+     * @returns the new reply object created.
+     */
+    private createReply(topic: string){
+        const reply = new Reply(topic);
+
+        //Attaching events to send reply back.
+        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
+        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
+
+        return reply;
     }
 }
 
