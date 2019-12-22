@@ -1,9 +1,10 @@
 //Import modules
 import { EventEmitter } from 'events';
-import mqtt, { MqttClient } from 'mqtt'
+import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 //Local Imports
 import { Client, Events, Defaults, ConnectionState } from './microservice';
+import { Comm, CommMethod, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber, Broadcast } from './comm';
 import Utility from './utility';
 
 let that: CommNode;
@@ -20,8 +21,8 @@ export default class CommNode extends EventEmitter implements Client {
     private _mqttClient: MqttClient;
     
     //Topic Objects
-    private readonly _broadcastTopic: string;
-    private _topics: Array<string>;
+    private readonly _broadcastTopic: Topic;
+    private _topics: Array<Topic>;
 
     //Comm Handler Events
     private readonly _commHandlers: EventEmitter;
@@ -91,7 +92,7 @@ export default class CommNode extends EventEmitter implements Client {
                 resolve(1);
             });
             
-            this._mqttClient.on('message', (topic, payload, packet) => {
+            this._mqttClient.on('message', (topic: string, payload: Buffer, packet: Packet) => {
                 //Receive broadcast
                 if(topic === this._broadcastTopic){
                     this.receiveBroadcast(packet);
@@ -158,18 +159,18 @@ export default class CommNode extends EventEmitter implements Client {
      * 
      * @param packet 
      */
-    private receiveBroadcast(packet: any){
-        //Add listener then receive reply
-        this._commHandlers.once(this._broadcastTopic, (reply: Reply) => {
+    private receiveBroadcast(packet: Packet){
+        //Add listener first then receive reply
+        this._commHandlers.once(this._broadcastTopic, (reply: NodeReply) => {
             if(reply.body !== undefined){
+                let broadcast = (reply.body as Broadcast);
+
                 //Re-/Initialize alias class. This contians all the subscribers.
-                this.alias = new Alias();
-                this.alias.name = reply.body.name;
+                this.alias = new Alias(broadcast.name);
 
                 //Re-/Initialize topics.
                 const topics = new Array();
-                reply.body.comms.forEach((comm: any) => {
-                    //TODO: Work from here.
+                broadcast.comms.forEach((comm) => {
                     console.log(comm);
                     topics.push(comm.topic);
                 });
@@ -187,7 +188,7 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Comm Functions 
     /////////////////////////
-    private sendMessage(message: Message){
+    private sendMessage(message: NodeMessage){
         //Convert string to Json.
         const payload = JSON.stringify({message: {parms: message.parms}});
 
@@ -198,14 +199,14 @@ export default class CommNode extends EventEmitter implements Client {
         });
     }
 
-    private receiveReply(packet: any){
+    private receiveReply(packet: Packet){
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
         //Validate if the payload is from the broker or node.
         if(payload.reply !== undefined && payload.message === undefined){
             //creating new reply parm.
-            const reply = new Reply(packet.topic, payload.reply.body, payload.reply.error);
+            const reply = this.createReply(packet.topic, payload.reply.body, payload.reply.error);
 
             this._commHandlers.emit(packet.topic, reply);
 
@@ -217,11 +218,11 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public message(topic: string, parms: any){
+    public message(topic: Topic, parms: MessageParms){
         return new Promise((resolve, reject) => {
             if(this.connected){
                 //Add Listener first. This will listen to reply from broker.
-                this._commHandlers.once(topic, (reply: Reply) => {
+                this._commHandlers.once(topic, (reply: NodeReply) => {
                     if(reply.body !== undefined){
                         resolve(reply.body);
                     }else{
@@ -230,7 +231,7 @@ export default class CommNode extends EventEmitter implements Client {
                 });
 
                 //Creating new message parm.
-                const message = new Message(topic, parms);
+                const message = this.createMessage(topic, parms);
 
                 //Sending message
                 this.sendMessage(message);
@@ -241,9 +242,35 @@ export default class CommNode extends EventEmitter implements Client {
     }
 
     /////////////////////////
-    ///////Generate Functions
+    ///////create Functions
     /////////////////////////
-    private generateAlias(topics: Array<string>){
+    /**
+     * Creates a new Message object.
+     * 
+     * @param topic
+     * @param parms 
+     * @returns the new message object created.
+     */
+    private createMessage(topic: Topic, parms: MessageParms){
+        const message = new NodeMessage(topic, parms);
+        return message;
+    }
+
+    /**
+     * Creates a new Reply object.
+     * @param topic 
+     * @returns the new reply object created.
+     */
+    private createReply(topic: Topic, body: ReplyBody, error: ReplyError){
+        const reply = new NodeReply(topic, body, error);
+
+        return reply;
+    }
+
+    /////////////////////////
+    ///////Helper Functions
+    /////////////////////////
+    private generateAlias(topics: Array<Topic>){
         //Convert topics into subscribers with dynamic functions.
         topics.forEach(topic => {
             const converter = Utility.convertToFunction(topic);
@@ -261,7 +288,7 @@ export default class CommNode extends EventEmitter implements Client {
 
                 //Validate and generate dynamic subscribe funcation.
                 if(Object.getPrototypeOf(subscriber)[converter.functionName] === undefined){
-                    const subscribe = function(parms?: any) {
+                    const subscribe = function(parms?: MessageParms) {
                         const _topic = topic;
                         return that.message(_topic, parms);
                     }
@@ -280,55 +307,18 @@ export default class CommNode extends EventEmitter implements Client {
 /////////////////////////
 ///////Message
 /////////////////////////
-interface IMessage {
-    parms: any;
-}
-
-export class Message implements IMessage{
-    public readonly topic: string;
-    public readonly parms: any;
-
-    constructor(topic: string, parms: any){
-        this.topic = topic;
-        this.parms = parms;
+export class NodeMessage extends Message{
+    constructor(topic: Topic, parms: MessageParms){
+        super(topic, parms);
     }
 }
 
 /////////////////////////
 ///////Reply
 /////////////////////////
-interface IReply {
-    body: any;
-    error: any;
-}
-
-export class Reply implements IReply{
-    public readonly topic: string;
-    public readonly body: any;
-    public readonly error: any;
-
-    constructor(topic: string, body: any, error: any){
-        this.topic = topic;
-        this.body = body;
-        this.error = error;
-    }
-}
-
-/////////////////////////
-///////Alias - Holds subscribers.
-/////////////////////////
-export class Alias {
-    public name: string;
-}
-
-/////////////////////////
-///////Subscriber
-/////////////////////////
-export class Subscriber {
-    public name: string;
-
-    constructor(name: string){
-        this.name = name;
+export class NodeReply extends Reply{
+    constructor(topic: Topic, body: ReplyBody, error: ReplyError){
+        super(topic, body, error);
     }
 }
 

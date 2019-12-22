@@ -4,19 +4,12 @@ import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
+import { Comm, CommMethod, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Transaction, Publisher, Broadcast } from './comm';
 
 //Types: CommHandler
 export declare type CommHandler = ReplyHandler | TransactionHandler;
-export declare type ReplyHandler = (message: Message, reply: Reply) => void;
-export declare type TransactionHandler = (message: Message, transactionReply: TransactionReply) => void;
-
-//Export Comm
-export type CommMethod = 'reply' | 'transaction';
-export type Comm = {
-    method: CommMethod,
-    topic: string,
-    handler: CommHandler
-}
+export declare type ReplyHandler = (message: BrokerMessage, reply: BrokerReply) => void;
+export declare type TransactionHandler = (message: BrokerMessage, transaction: Transaction) => void;
 
 export default class CommBroker extends EventEmitter implements Server {
     //Broker Variables.
@@ -27,15 +20,15 @@ export default class CommBroker extends EventEmitter implements Server {
     private _mqttServer: MqttServer;
 
     //Topic
-    private readonly _broadcastTopic: string;
-    public readonly comms: Array<Comm>;
+    private readonly _broadcastTopic: Topic;
+    public readonly comms: Array<BrokerComm>;
 
     //Comm Handler Events
     private readonly _commHandlers: EventEmitter;
 
     //Publishers
-    private readonly _publisherComms: Array<{publisher: typeof Publisher, comms: Array<Comm>}>;
-    private readonly _serviceComms: Array<Comm>;
+    private readonly _publisherComms: Array<{publisher: typeof Publisher, comms: Array<BrokerComm>}>;
+    private readonly _serviceComms: Array<BrokerComm>;
 
     //Default Constructor
     constructor(){
@@ -61,7 +54,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public addPublisherComm(method: CommMethod, topic: string, publisher: typeof Publisher, handler: CommHandler){
+    public addPublisherComm(method: CommMethod, topic: Topic, publisher: typeof Publisher, handler: CommHandler){
         //Sub function to add Publisher to _publisherComms
         const _addPublisherComm = () => {
             //Create new comms.
@@ -158,7 +151,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     public getReport(){
         //Sub function to create Comms.
-        const _createComms = (comms: Array<Comm>) => {
+        const _createComms = (comms: Array<BrokerComm>) => {
             let _comms = new Array();
             comms.forEach(comm => {
                 _comms.push({
@@ -190,8 +183,11 @@ export default class CommBroker extends EventEmitter implements Server {
         //Create Reply Object.
         const reply = this.createReply(this._broadcastTopic);
 
-        //Send Reply
-        reply.send({name: this.name, comms: this.comms});
+        //Define Broadcast
+        const broadcast: Broadcast = {name: this.name, comms: this.comms};
+
+        //Send Broadcast
+        reply.send(broadcast);
     }
 
     /////////////////////////
@@ -215,7 +211,7 @@ export default class CommBroker extends EventEmitter implements Server {
         }
     }
 
-    public sendReply(reply: Reply){
+    public sendReply(reply: BrokerReply){
         //Covert Json to string.
         const packet = {
             topic: reply.topic,
@@ -234,15 +230,45 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     ///////Handle Functions
     /////////////////////////
-    public reply(topic: string, replyHandler: ReplyHandler){
+    public reply(topic: Topic, replyHandler: ReplyHandler){
         //Add unique comm.
         this.addComm({method: 'reply', topic: topic, handler: replyHandler});
     }
 
-    public transaction(topic: string, transactionHandler: TransactionHandler){
+    public transaction(topic: Topic, transactionHandler: TransactionHandler){
         //Add unique comm.
         this.addComm({method: 'transaction', topic: topic, handler: transactionHandler});
         //TODO: Possibly need to add additional topics to prepare/commit/rollback
+    }
+
+    /////////////////////////
+    ///////create Functions
+    /////////////////////////
+    /**
+     * Creates a new Message object.
+     * 
+     * @param topic
+     * @param parms 
+     * @returns the new message object created.
+     */
+    private createMessage(topic: Topic, parms: MessageParms){
+        const message = new BrokerMessage(topic, parms);
+        return message;
+    }
+
+    /**
+     * Creates a new Reply object.
+     * @param topic 
+     * @returns the new reply object created.
+     */
+    private createReply(topic: Topic){
+        const reply = new BrokerReply(topic);
+
+        //Attaching events to send reply back.
+        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
+        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
+
+        return reply;
     }
 
     /////////////////////////
@@ -254,7 +280,7 @@ export default class CommBroker extends EventEmitter implements Server {
      * 
      * @param comm the new comm object.
      */
-    private addComm(comm: Comm){
+    private addComm(comm: BrokerComm){
         //Validate if comm exists.
         if(!this.comms.find(_comm => _comm.topic === comm.topic)){
             //Add comm to array
@@ -264,78 +290,36 @@ export default class CommBroker extends EventEmitter implements Server {
             this._commHandlers.on(comm.topic, comm.handler);
         }
     }
+}
 
-    /**
-     * Creates a new Message object.
-     * 
-     * @param topic
-     * @param parms 
-     * @returns the new message object created.
-     */
-    private createMessage(topic: string, parms: any){
-        const message = new Message(topic, parms);
-        return message;
-    }
-
-    /**
-     * Creates a new Reply object.
-     * @param topic 
-     * @returns the new reply object created.
-     */
-    private createReply(topic: string){
-        const reply = new Reply(topic);
-
-        //Attaching events to send reply back.
-        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
-        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
-
-        return reply;
-    }
+/////////////////////////
+///////Comm
+/////////////////////////
+export interface BrokerComm extends Comm {
+    handler: CommHandler
 }
 
 /////////////////////////
 ///////Message
 /////////////////////////
-interface IMessage {
-    topic: string;
-    parms: any;
-}
-
-export class Message implements IMessage{
-    public readonly topic: string;
-    public readonly parms: any;
-
-    constructor(topic: string, parms: any){
-        this.topic = topic;
-        this.parms = parms;
+export class BrokerMessage extends Message {
+    constructor(topic: Topic, parms: MessageParms){
+        super(topic, parms);
     }
 }
 
 /////////////////////////
 ///////Reply
 /////////////////////////
-interface IReply {
-    body: any;
-    error: any;
-    send(body: any): void;
-    sendError(error: any): void;
-}
+export class BrokerReply extends Reply {
+    private _sendCount: number;
 
-export class Reply extends EventEmitter implements IReply{
-    public readonly topic: string;
-
-    private _body: any;
-    private _error: any;
-    private _sendCount: number = 0;
-
-    constructor(topic: string){
-        //Call super for EventEmitter.
-        super();
-
-        this.topic = topic;
+    constructor(topic: Topic){
+        super(topic);
+        this._sendCount = 0;
     }
 
-    send(body: any): void {
+    send(body: ReplyBody): void {
         //Ensure the reply is sent only once.
         if(this._sendCount === 0){
             this._sendCount = 1;
@@ -346,7 +330,7 @@ export class Reply extends EventEmitter implements IReply{
         }
     }
 
-    sendError(error: any): void {
+    sendError(error: ReplyError): void {
         //Ensure the reply is sent only once.
         if(this._sendCount === 0){
             this._sendCount = 1;
@@ -355,34 +339,6 @@ export class Reply extends EventEmitter implements IReply{
         }else{
             throw new ReplySentWarning();
         }
-    }
-
-    get body(){
-        return this._body;
-    }
-
-    get error(){
-        return this._error;
-    }
-}
-
-export class TransactionReply extends EventEmitter{
-    constructor(){
-        //Call super for EventEmitter.
-        super();
-    }
-}
-
-/////////////////////////
-///////Publisher
-/////////////////////////
-export class Publisher{
-    //Default Constructor
-    constructor(){}
-
-    //Get Name
-    get name(){
-        return this.constructor.name;
     }
 }
 

@@ -5,6 +5,9 @@ import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
 
+//Local Imports
+import { Topic } from './comm';
+
 //Types: FileOptions
 export type FileOptions = {
     excludes?: Array<string>,
@@ -91,7 +94,7 @@ export default class Utility {
         return topic;
     }
 
-    public static convertToFunction(topic: string){
+    public static convertToFunction(topic: Topic){
         const topicLevels = topic.split('/');
 
         let className = topicLevels[1];

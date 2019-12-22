@@ -26,9 +26,10 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
-import CommBroker, { CommHandler, ReplyHandler, TransactionHandler, Publisher, Message as BrokerMessage, Reply as BrokerReply } from './comm.broker';
+import { Topic, Message as CommMessage , Reply as CommReply, Publisher, Alias } from './comm';
+import CommBroker, { CommHandler, ReplyHandler, TransactionHandler } from './comm.broker';
 import CommMesh from './comm.mesh';
-import CommNode, { Alias, Message as NodeMessage, Reply as NodeReply } from './comm.node';
+import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './controller';
 
@@ -108,14 +109,11 @@ export default class MicroService extends EventEmitter {
                         commPort: commBroker.port,
                         environment: this.environment
                     },
-                    db: {},
+                    db: dbManager && dbManager.getReport(),
                     routes: www.getReport(),
                     comms: commBroker.getReport(),
                     mesh: commMesh.getReport()
                 };
-                if(dbManager){
-                    report.db = dbManager.getReport();
-                }
 
                 response.status(HttpCodes.OK).send(report);
             } catch (error) {
@@ -223,7 +221,7 @@ export default class MicroService extends EventEmitter {
             await Promise.all([www.listen(), commBroker.listen()]);
 
             //Start client components
-            await Promise.all([commMesh.connect(), (dbManager === undefined ? -1 : dbManager.connect())]);
+            await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
 
             this.emit(Events.STARTED);
 
@@ -251,7 +249,7 @@ export default class MicroService extends EventEmitter {
             await Promise.all([www.close(), commBroker.close()]);
 
             //Stop client components
-            await Promise.all([commMesh.disconnect(), (dbManager === undefined ? -1 : dbManager.disconnect())]);
+            await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
 
             this.emit(Events.STOPPED);
 
@@ -287,11 +285,11 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     ///////commBroker Functions
     /////////////////////////
-    public reply(topic: string, replyHandler: ReplyHandler){
+    public reply(topic: Topic, replyHandler: ReplyHandler){
         commBroker.reply(topic, replyHandler);
     }
 
-    public transaction(topic: string, transactionHandler: TransactionHandler){
+    public transaction(topic: Topic, transactionHandler: TransactionHandler){
         commBroker.transaction(topic, transactionHandler);
     }
 
@@ -325,8 +323,8 @@ export default class MicroService extends EventEmitter {
         commBroker.on(Events.BROKER_STARTED, (_commBroker: CommBroker) => console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port));
         commBroker.on(Events.BROKER_STOPPED, () => console.log('Stopped Broker.'));
         commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        commBroker.on(Events.BROKER_RECEIVED_MESSAGE, (message: BrokerMessage) => console.log('Broker: received a message on topic: %s', message.topic));
-        commBroker.on(Events.BROKER_SENT_REPLY, (reply: BrokerReply) => console.log('Broker: published a reply on topic: %s', reply.topic));
+        commBroker.on(Events.BROKER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Broker: received a message on topic: %s', message.topic));
+        commBroker.on(Events.BROKER_SENT_REPLY, (reply: CommReply) => console.log('Broker: published a reply on topic: %s', reply.topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -338,8 +336,8 @@ export default class MicroService extends EventEmitter {
             //commNode
             commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
             commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
-            commNode.on(Events.NODE_SENT_MESSAGE, (message: NodeMessage) => console.log('Node: published a message on topic: %s', message.topic));
-            commNode.on(Events.NODE_RECEIVED_REPLY, (reply: NodeReply) => console.log('Node: received a reply on topic: %s', reply.topic));
+            commNode.on(Events.NODE_SENT_MESSAGE, (message: CommMessage) => console.log('Node: published a message on topic: %s', message.topic));
+            commNode.on(Events.NODE_RECEIVED_REPLY, (reply: CommReply) => console.log('Node: received a reply on topic: %s', reply.topic));
         });
 
         //dbManager
@@ -404,7 +402,7 @@ export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly EXPRESS_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
-    public static readonly BROADCAST_TOPIC: string = '/';
+    public static readonly BROADCAST_TOPIC: Topic = '/';
     public static readonly STOP_TIME: number = 5000;
 }
 
@@ -441,15 +439,11 @@ export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
 }
 
 export function getRDBConnection(): RDB {
-    if(dbManager){
-        return (dbManager.connection as RDB);
-    }
+    return dbManager && (dbManager.connection as RDB);
 }
 
 export function getNoSQLConnection(): NoSQL {
-    if(dbManager){
-        return (dbManager.connection as NoSQL);
-    }
+    return dbManager && (dbManager.connection as NoSQL);
 }
 
 //TODO: Optimize the below functions.

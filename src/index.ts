@@ -5,8 +5,8 @@ import MicroService from './microservice';
 export { HttpCodes } from './www';
 export { default as Controller } from './controller';
 
-//Export Broker Components
-export { Publisher } from './comm.broker';
+//Export Comm Components
+export { Publisher } from './comm';
 
 //Export Mesh Components
 export { CommNodeUnavailableError } from './comm.node';
