@@ -20,7 +20,7 @@ export default class CommBroker extends EventEmitter implements Server {
     private _mqttServer: MqttServer;
 
     //Topic
-    private readonly _broadcastTopic: Topic;
+    public readonly broadcastTopic: Topic;
     public readonly comms: Array<BrokerComm>;
 
     //Comm Handler Events
@@ -40,7 +40,7 @@ export default class CommBroker extends EventEmitter implements Server {
         this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
 
         //Init Topic.
-        this._broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this.broadcastTopic = Defaults.BROADCAST_TOPIC;
         this.comms = new Array();
 
         //Init Comm Handler Events
@@ -116,7 +116,7 @@ export default class CommBroker extends EventEmitter implements Server {
 
             this._mqttServer.on('subscribed', (topic: any, client: Client) => {
                 //Broadcast
-                if(topic === this._broadcastTopic){
+                if(topic === this.broadcastTopic){
                     this.sendBroadcast();
                 }
             });
@@ -181,7 +181,7 @@ export default class CommBroker extends EventEmitter implements Server {
     /////////////////////////
     private sendBroadcast(){
         //Create Reply Object.
-        const reply = this.createReply(this._broadcastTopic);
+        const reply = this.createReply(this.broadcastTopic);
 
         //Define Broadcast
         const broadcast: Broadcast = {name: this.name, comms: this.comms};
@@ -198,6 +198,7 @@ export default class CommBroker extends EventEmitter implements Server {
         const payload = JSON.parse(packet.payload.toString());
 
         //Validate if the payload is from the broker or client.
+        //If the below step is not done, it will run into a infinite loop.
         if(payload.message !== undefined && payload.reply === undefined){
             //creating new parms.
             const message = this.createMessage(packet.topic, payload.message.parms);
@@ -265,8 +266,8 @@ export default class CommBroker extends EventEmitter implements Server {
         const reply = new BrokerReply(topic);
 
         //Attaching events to send reply back.
-        reply.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
-        reply.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
+        reply._event.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
+        reply._event.once(Events.REPLY_ERROR, (reply) => this.sendReply(reply));
 
         return reply;
     }
@@ -313,10 +314,12 @@ export class BrokerMessage extends Message {
 /////////////////////////
 export class BrokerReply extends Reply {
     private _sendCount: number;
+    public readonly _event: EventEmitter;
 
     constructor(topic: Topic){
         super(topic);
         this._sendCount = 0;
+        this._event = new EventEmitter();
     }
 
     send(body: ReplyBody): void {
@@ -324,7 +327,7 @@ export class BrokerReply extends Reply {
         if(this._sendCount === 0){
             this._sendCount = 1;
             this._body = body;
-            this.emit(Events.REPLY_SEND, this);
+            this._event.emit(Events.REPLY_SEND, this);
         }else{
             throw new ReplySentWarning();
         }
@@ -335,7 +338,7 @@ export class BrokerReply extends Reply {
         if(this._sendCount === 0){
             this._sendCount = 1;
             this._error = error;
-            this.emit(Events.REPLY_ERROR, this);
+            this._event.emit(Events.REPLY_ERROR, this);
         }else{
             throw new ReplySentWarning();
         }

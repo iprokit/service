@@ -1,6 +1,3 @@
-//Import modules
-import { EventEmitter } from 'events';
-
 //Types
 export type Topic = string | BroadcastTopic;
 export type MessageParms = Object;
@@ -8,7 +5,7 @@ export type ReplyBody = Object | Broadcast;
 export type ReplyError = Object;
 
 export type BroadcastTopic = '/';
-export type Broadcast = {
+export interface Broadcast extends Object {
     name: string,
     comms: Array<Comm>
 };
@@ -47,15 +44,12 @@ interface IReply {
     body: ReplyBody;
     error: ReplyError;
 }
-export class Reply extends EventEmitter implements IReply {
+export class Reply implements IReply {
     public readonly topic: Topic;
     protected _body: ReplyBody;
     protected _error: ReplyError;
 
     constructor(topic: Topic, body?: ReplyBody, error?: ReplyError){
-        //Call super for EventEmitter.
-        super();
-
         this.topic = topic;
         this._body = body;
         this._error = error;
@@ -73,10 +67,9 @@ export class Reply extends EventEmitter implements IReply {
 /////////////////////////
 ///////Transaction
 /////////////////////////
-export class Transaction extends EventEmitter {
+export class Transaction {
     constructor(){
-        //Call super for EventEmitter.
-        super();
+
     }
 }
 
