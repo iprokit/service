@@ -1,5 +1,5 @@
 //Types
-export type Topic = string | BroadcastTopic;
+export type Topic = string;
 export type MessageParms = Object;
 export type ReplyBody = Object | Broadcast;
 export type ReplyError = Object;
@@ -7,7 +7,6 @@ export type ReplyError = Object;
 /////////////////////////
 ///////Broadcast
 /////////////////////////
-export type BroadcastTopic = '/';
 export interface Broadcast extends Object {
     name: string,
     comms: Array<Comm>
@@ -31,11 +30,15 @@ interface IMessage {
 }
 export class Message implements IMessage {
     public readonly topic: Topic;
-    public readonly parms: MessageParms;
+    protected _parms: MessageParms;
 
     constructor(topic: Topic, parms: MessageParms){
         this.topic = topic;
-        this.parms = parms;
+        this._parms = parms;
+    }
+
+    public get parms(){
+        return this._parms;
     }
 }
 
@@ -58,19 +61,19 @@ export class Reply implements IReply {
         this._error = error;
     }
 
-    get body(){
+    public get body(){
         return this._body;
     }
 
-    get error(){
+    public get error(){
         return this._error;
     }
 }
 
 /////////////////////////
-///////Transaction
+///////ReplyTransaction
 /////////////////////////
-export class Transaction {
+export class ReplyTransaction {
     constructor(){
 
     }
@@ -110,5 +113,32 @@ export class Alias {
     //Default Constructor
     constructor(name?: string){
         this.name = name;
+    }
+}
+
+/////////////////////////
+///////TopicHelper
+/////////////////////////
+export class TopicHelper {
+    private topic: string;
+
+    constructor(topic: string){
+        this.topic = topic;
+    }
+
+    public get className(){
+        return this.topic.split('/')[1];
+    }
+
+    public get functionName(){
+        return this.topic.split('/')[2];
+    }
+
+    public get transaction(){
+        return {commit: this.topic + '/commit', rollback: this.topic + '/rollback'};
+    }
+
+    public isTransactionTopic(){
+        return (this.topic.endsWith('/commit') || this.topic.endsWith('/rollback'));
     }
 }

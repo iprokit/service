@@ -4,13 +4,12 @@ import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 //Local Imports
 import { Client, Events, Defaults, ConnectionState } from './microservice';
-import { Comm, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber, Broadcast } from './comm';
-import Utility from './utility';
+import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Broadcast, Alias, Subscriber } from './comm';
 
 //Types: Function
 export declare type CommFunction = MessageFunction | TransactionFunction;
 export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
-export declare type TransactionFunction = (parms?: MessageParms) => Promise<any>;
+export declare type TransactionFunction = (parms?: MessageParms) => NodeTransaction;
 
 let that: CommNode;
 export default class CommNode extends EventEmitter implements Client {
@@ -103,7 +102,14 @@ export default class CommNode extends EventEmitter implements Client {
                 if(topic === this.broadcastTopic){
                     this.receiveBroadcast(packet);
                 }else{
-                    this.receiveReply(packet);
+                    const comm = this.comms.find(comm => comm.topic === topic);
+
+                    //Routing logic.
+                    if(comm && comm.method === 'reply'){
+                        this.receiveReply(packet);
+                    }else if((comm && (comm.method === 'transaction')) || new TopicHelper(topic).isTransactionTopic()){
+                        this.receiveTransaction(packet);
+                    }
                 }
             });
         });
@@ -162,7 +168,7 @@ export default class CommNode extends EventEmitter implements Client {
     }
 
     /////////////////////////
-    ///////Broadcast Functions
+    ///////Broadcast
     /////////////////////////
     /**
      * This fuction is called everytime a connection/re-connection is made to the broker.
@@ -182,9 +188,12 @@ export default class CommNode extends EventEmitter implements Client {
     }
 
     /////////////////////////
-    ///////Comm Functions 
+    ///////Message/Reply 
     /////////////////////////
     private sendMessage(message: NodeMessage){
+        //Subscribe to the topic.
+        this._mqttClient.subscribe(message.topic);
+    
         //Convert string to Json.
         const payload = JSON.stringify({message: {parms: message.parms}});
 
@@ -201,14 +210,28 @@ export default class CommNode extends EventEmitter implements Client {
 
         //Validate if the payload is from the broker or node.
         if(payload.reply !== undefined && payload.message === undefined){
+            //Unsubscribe to the topic.
+            this._mqttClient.unsubscribe(packet.topic);
+
             //creating new reply parm.
             const reply = this.createReply(packet.topic, payload.reply.body, payload.reply.error);
 
             this._commHandlers.emit(packet.topic, reply);
-
+            
             //Global Emit.
             this.emit(Events.NODE_RECEIVED_REPLY, reply);
         }
+    }
+
+    /////////////////////////
+    ///////Transaction 
+    /////////////////////////
+    private receiveTransaction(packet: Packet){
+        console.log('Node', packet);
+
+        //TODO: Stage 2
+        //Step 1: Check topics.
+        //Step 2: Based on topics emit events.
     }
 
     /////////////////////////
@@ -219,10 +242,6 @@ export default class CommNode extends EventEmitter implements Client {
             if(this.connected){
                 //Add Listener first. This will listen to reply from broker.
                 this._commHandlers.once(topic, (reply: NodeReply) => {
-                    //Unsubscribe to the topic.
-                    this._mqttClient.unsubscribe(topic);
-
-                    //Send promise back to the user.
                     if(reply.body !== undefined){
                         resolve(reply.body);
                     }else{
@@ -233,9 +252,6 @@ export default class CommNode extends EventEmitter implements Client {
                 //Creating new message.
                 const message = this.createMessage(topic, parms);
 
-                //Subscribe to the topic.
-                this._mqttClient.subscribe(topic);
-
                 //Sending message
                 this.sendMessage(message);
             }else{
@@ -245,9 +261,27 @@ export default class CommNode extends EventEmitter implements Client {
     }
 
     public transaction(topic: Topic, parms: MessageParms){
-        return new Promise((resolve, reject) => {
-            
-        });
+        if(this.connected){
+            //Creating new transaction.
+            const transaction = new NodeTransaction();
+
+            //Creating Transaction Topics
+            const transactionTopic = new TopicHelper(topic).transaction;
+
+            //Creating new message.
+            const prepareMessage = this.createMessage(topic, parms);
+            const commitMessage = this.createMessage(transactionTopic.commit, { commit: true });
+            const rollbackMessage = this.createMessage(transactionTopic.rollback, { rollback: true });
+
+            //Add Listeners
+            transaction._event.once(Events.TRANSACTION_PREPARE, () => this.sendMessage(prepareMessage));
+            transaction._event.once(Events.TRANSACTION_COMMIT, () => this.sendMessage(commitMessage));
+            transaction._event.once(Events.TRANSACTION_ROLLBACK, () => this.sendMessage(rollbackMessage));
+
+            return transaction;
+        }else{
+            throw new CommNodeUnavailableError(this.url);
+        }
     }
 
     /////////////////////////
@@ -272,7 +306,6 @@ export default class CommNode extends EventEmitter implements Client {
      */
     private createReply(topic: Topic, body: ReplyBody, error: ReplyError){
         const reply = new NodeReply(topic, body, error);
-
         return reply;
     }
 
@@ -291,52 +324,50 @@ export default class CommNode extends EventEmitter implements Client {
             const topic = comm.topic;
 
             //Covert the topic to class and function.
-            const converter = Utility.convertToFunction(topic);
-            const subscriberName = converter.className;
-            const functionName = converter.functionName;
+            const breakTopic = new TopicHelper(topic);
+            const subscriberName = breakTopic.className;
+            const functionName = breakTopic.functionName;
 
-            if(converter){
-                let subscriber: Subscriber;
+            let subscriber: Subscriber;
 
-                //Validate and generate a Subscriber class or get it from Alias class.
-                //This step is to retian unique subscribes.
-                if(Object.getPrototypeOf(this.alias)[subscriberName] === undefined){
-                    subscriber = new Subscriber(subscriberName);
-                }else{
-                    subscriber = Object.getPrototypeOf(this.alias)[subscriberName];
-                }
-
-                //Validate and generate dynamic funcation.
-                if(Object.getPrototypeOf(subscriber)[functionName] === undefined){
-                    //Create a new dynamic funcation based on the method.
-                    switch(method){
-                        case 'reply':
-                            const message: MessageFunction = function(parms?: MessageParms) {
-                                const _topic = topic;
-                                return that.message(_topic, parms);
-                            }
-
-                            //Assing reply function to Subscriber class.
-                            Object.defineProperty(subscriber, functionName, {value: message, enumerable: true, writable: true});
-                            break;
-                        case 'transaction':
-                            const transaction: TransactionFunction = function(parms?: MessageParms) {
-                                const _topic = topic;
-                                return that.transaction(_topic, parms);
-                            }
-
-                            //Assing transaction function to Subscriber class.
-                            Object.defineProperty(subscriber, functionName, {value: transaction, enumerable: true, writable: true});
-                            break;
-                    }
-                }
-
-                //Add comm to comms.
-                this.comms.push({method: method, topic: topic, functionName: functionName});
-
-                //Adding the Subscriber class to Alias class.
-                Object.getPrototypeOf(this.alias)[subscriberName] = subscriber;
+            //Validate and generate a Subscriber class or get it from Alias class.
+            //This step is to retian unique subscribes.
+            if(Object.getPrototypeOf(this.alias)[subscriberName] === undefined){
+                subscriber = new Subscriber(subscriberName);
+            }else{
+                subscriber = Object.getPrototypeOf(this.alias)[subscriberName];
             }
+
+            //Validate and generate dynamic funcation.
+            if(Object.getPrototypeOf(subscriber)[functionName] === undefined){
+                //Create a new dynamic funcation based on the method.
+                switch(method){
+                    case 'reply':
+                        const message: MessageFunction = function(parms?: MessageParms) {
+                            const _topic = topic;
+                            return that.message(_topic, parms);
+                        }
+
+                        //Assing reply function to Subscriber class.
+                        Object.defineProperty(subscriber, functionName, {value: message, enumerable: true, writable: true});
+                        break;
+                    case 'transaction':
+                        const transaction: TransactionFunction = function(parms?: MessageParms) {
+                            const _topic = topic;
+                            return that.transaction(_topic, parms);
+                        }
+
+                        //Assing transaction function to Subscriber class.
+                        Object.defineProperty(subscriber, functionName, {value: transaction, enumerable: true, writable: true});
+                        break;
+                }
+            }
+
+            //Add comm to comms.
+            this.comms.push({method: method, topic: topic, functionName: functionName});
+
+            //Adding the Subscriber class to Alias class.
+            Object.getPrototypeOf(this.alias)[subscriberName] = subscriber;
         });
     }
 }
@@ -351,7 +382,7 @@ export interface NodeComm extends Comm {
 /////////////////////////
 ///////Message
 /////////////////////////
-export class NodeMessage extends Message{
+export class NodeMessage extends Message {
     constructor(topic: Topic, parms: MessageParms){
         super(topic, parms);
     }
@@ -360,9 +391,93 @@ export class NodeMessage extends Message{
 /////////////////////////
 ///////Reply
 /////////////////////////
-export class NodeReply extends Reply{
+export class NodeReply extends Reply {
     constructor(topic: Topic, body: ReplyBody, error: ReplyError){
         super(topic, body, error);
+    }
+}
+
+/////////////////////////
+///////Transaction
+/////////////////////////
+export class NodeTransaction {
+    //TODO: Need to add unique id.
+
+    private _prepared: boolean;
+    private _committed: boolean;
+    private _rolledback: boolean;
+
+    public readonly _event: EventEmitter;
+
+    constructor(){
+        this._prepared = false;
+        this._committed = false;
+        this._rolledback = false;
+
+        this._event = new EventEmitter();
+    }
+
+    public prepare(){
+        return new Promise<ReplyBody>((resolve, reject) => {
+            if(!this._prepared){
+                this._prepared = true;
+                resolve();
+
+                //Add Listener first.
+                //this._event.once(Events.TRANSACTION_PREPARED, (data) => resolve(data));
+    
+                //Emit.
+                this._event.emit(Events.TRANSACTION_PREPARE);
+            }else{
+                reject(new TransactionWarning('Transaction already prepared.'));
+            }
+        });
+    }
+
+    public commit(){
+        return new Promise<boolean>((resolve, reject) => {
+            if(!this._committed){
+                this._committed = true;
+                resolve();
+
+                //Add Listener first.
+                //this._event.once(Events.TRANSACTION_COMMITTED, (data) => resolve(data));
+    
+                //Emit.
+                this._event.emit(Events.TRANSACTION_COMMIT);
+            }else{
+                reject(new TransactionWarning('Transaction already committed.'));
+            }
+        });
+    }
+
+    public rollback(){
+        return new Promise<boolean>((resolve, reject) => {
+            if(!this._rolledback){
+                this._rolledback = true;
+                resolve();
+
+                //Add Listener first.
+                //this._event.once(Events.TRANSACTION_ROLLEDBACK, (data) => resolve(data));
+    
+                //Emit.
+                this._event.emit(Events.TRANSACTION_ROLLBACK);
+            }else{
+                reject(new TransactionWarning('Transaction already rolledback.'));
+            }
+        });
+    }
+
+    public get prepared(){
+        return this._prepared;
+    }
+
+    public get committed(){
+        return this._committed;
+    }
+
+    public get rolledback(){
+        return this._rolledback;
     }
 }
 
@@ -379,4 +494,16 @@ export class CommNodeUnavailableError extends Error{
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
     }
+}
+
+export class TransactionWarning extends Error {
+    constructor (message: string) {
+        super(message);
+        
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+      }
 }

@@ -4,12 +4,12 @@ import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Comm, CommMethod, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Transaction, Publisher, Broadcast } from './comm';
+import { Comm, CommMethod, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, ReplyTransaction, Publisher, Broadcast, TopicHelper } from './comm';
 
 //Types: CommHandler
 export declare type CommHandler = ReplyHandler | TransactionHandler;
 export declare type ReplyHandler = (message: BrokerMessage, reply: BrokerReply) => void;
-export declare type TransactionHandler = (message: BrokerMessage, transaction: Transaction) => void;
+export declare type TransactionHandler = (message: BrokerMessage, reply: ReplyTransaction) => void;
 
 export default class CommBroker extends EventEmitter implements Server {
     //Broker Variables.
@@ -122,17 +122,7 @@ export default class CommBroker extends EventEmitter implements Server {
             });
 
             this._mqttServer.on('published', (packet: Packet, client: Client) => {
-                const topic = packet.topic;
-                if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-                    try{
-                        this.receiveMessage(packet);
-                    }catch(error){
-                        if(error instanceof ReplySentWarning){
-                            console.error(error);
-                        }
-                        //Do nothing.
-                    }
-                }
+                this.routePackets(packet);
             });
         });
     }
@@ -177,7 +167,7 @@ export default class CommBroker extends EventEmitter implements Server {
     }
 
     /////////////////////////
-    ///////Broadcast Functions
+    ///////Broadcast
     /////////////////////////
     private sendBroadcast(){
         //Create Reply Object.
@@ -191,7 +181,32 @@ export default class CommBroker extends EventEmitter implements Server {
     }
 
     /////////////////////////
-    ///////Comm Functions 
+    ///////Route
+    /////////////////////////
+    private routePackets(packet: Packet){
+        const topic = packet.topic;
+
+        if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
+            try{
+                const comm = this.comms.find(comm => comm.topic === topic);
+
+                //Routing logic.
+                if(comm && comm.method === 'reply'){
+                    this.receiveMessage(packet);
+                }else if((comm && (comm.method === 'transaction')) || new TopicHelper(topic).isTransactionTopic()){
+                    this.receiveTransaction(packet);
+                }
+            }catch(error){
+                if(error instanceof ReplySentWarning){
+                    console.error(error);
+                }
+                //Do nothing.
+            }
+        }
+    }
+
+    /////////////////////////
+    ///////Message/Reply
     /////////////////////////
     private receiveMessage(packet: Packet){
         //Convert string to Json.
@@ -226,6 +241,15 @@ export default class CommBroker extends EventEmitter implements Server {
             //Global Emit.
             this.emit(Events.BROKER_SENT_REPLY, reply);
         });
+    }
+
+    /////////////////////////
+    ///////Transaction 
+    /////////////////////////
+    private receiveTransaction(packet: Packet){
+        console.log('Broker', packet);
+
+        //TODO: Work from here.
     }
 
     /////////////////////////
@@ -313,19 +337,19 @@ export class BrokerMessage extends Message {
 ///////Reply
 /////////////////////////
 export class BrokerReply extends Reply {
-    private _sendCount: number;
+    private _sent: boolean;
     public readonly _event: EventEmitter;
 
     constructor(topic: Topic){
         super(topic);
-        this._sendCount = 0;
+        this._sent = false;
         this._event = new EventEmitter();
     }
 
     send(body: ReplyBody): void {
         //Ensure the reply is sent only once.
-        if(this._sendCount === 0){
-            this._sendCount = 1;
+        if(!this._sent){
+            this._sent = true;
             this._body = body;
             this._event.emit(Events.REPLY_SEND, this);
         }else{
@@ -335,8 +359,8 @@ export class BrokerReply extends Reply {
 
     sendError(error: ReplyError): void {
         //Ensure the reply is sent only once.
-        if(this._sendCount === 0){
-            this._sendCount = 1;
+        if(!this._sent){
+            this._sent = true;
             this._error = error;
             this._event.emit(Events.REPLY_ERROR, this);
         }else{

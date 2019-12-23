@@ -389,6 +389,14 @@ export class Events {
     public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
     public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
 
+    //Node - Transaction
+    public static readonly TRANSACTION_PREPARE = Symbol('TRANSACTION_PREPARE');
+    public static readonly TRANSACTION_PREPARED = Symbol('TRANSACTION_PREPARED');
+    public static readonly TRANSACTION_COMMIT = Symbol('TRANSACTION_COMMIT');
+    public static readonly TRANSACTION_COMMITTED = Symbol('TRANSACTION_COMMITTED');
+    public static readonly TRANSACTION_ROLLBACK = Symbol('TRANSACTION_ROLLBACK');
+    public static readonly TRANSACTION_ROLLEDBACK = Symbol('TRANSACTION_ROLLEDBACK');
+
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
     public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
@@ -540,7 +548,7 @@ export function Reply(): CommFunction {
         const publisherName = target.name.replace('Publisher', '');
 
         if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = Utility.convertToTopic(publisherName, propertyKey);
+            const topic = ('/' + publisherName + '/' + propertyKey);
     
             //Add Comm
             commBroker.addPublisherComm('reply', topic, target, descriptor.value);
@@ -556,7 +564,7 @@ export function Transaction(): CommFunction {
         const publisherName = target.name.replace('Publisher', '');
 
         if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = Utility.convertToTopic(publisherName, propertyKey);
+            const topic = ('/' + publisherName + '/' + propertyKey);
     
             //Add Comm
             commBroker.addPublisherComm('transaction', topic, target, descriptor.value);
