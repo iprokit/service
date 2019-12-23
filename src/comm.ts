@@ -4,6 +4,9 @@ export type MessageParms = Object;
 export type ReplyBody = Object | Broadcast;
 export type ReplyError = Object;
 
+/////////////////////////
+///////Broadcast
+/////////////////////////
 export type BroadcastTopic = '/';
 export interface Broadcast extends Object {
     name: string,

@@ -7,7 +7,6 @@
     "noImplicitAny": true,
     "sourceMap": true,
     "declaration": true,
-    "removeComments": true,
     "outDir": "lib",
     "experimentalDecorators": true,
     "typeRoots": [

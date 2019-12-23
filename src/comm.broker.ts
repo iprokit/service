@@ -43,7 +43,7 @@ export default class CommBroker extends EventEmitter implements Server {
         this.broadcastTopic = Defaults.BROADCAST_TOPIC;
         this.comms = new Array();
 
-        //Init Comm Handler Events
+        //Init Comm Handler Events.
         this._commHandlers = new EventEmitter();
 
         //Init Variables.

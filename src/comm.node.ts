@@ -4,11 +4,15 @@ import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 //Local Imports
 import { Client, Events, Defaults, ConnectionState } from './microservice';
-import { Comm, CommMethod, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber, Broadcast } from './comm';
+import { Comm, Topic, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber, Broadcast } from './comm';
 import Utility from './utility';
 
-let that: CommNode;
+//Types: Function
+export declare type CommFunction = MessageFunction | TransactionFunction;
+export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
+export declare type TransactionFunction = (parms?: MessageParms) => Promise<any>;
 
+let that: CommNode;
 export default class CommNode extends EventEmitter implements Client {
     //CommNode Variables.
     public readonly identifier: string;
@@ -22,6 +26,7 @@ export default class CommNode extends EventEmitter implements Client {
     
     //Topic Objects
     public readonly broadcastTopic: Topic;
+    public comms: Array<NodeComm>;
 
     //Comm Handler Events
     private readonly _commHandlers: EventEmitter;
@@ -47,9 +52,14 @@ export default class CommNode extends EventEmitter implements Client {
         this.host = _url[0];
         this.port = Number(_url[1]) || Defaults.COMM_PORT;
 
-        //Init variables.
+        //Init Topic.
         this.broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this.comms = new Array();
+
+        //Init Comm Handler Events.
         this._commHandlers = new EventEmitter();
+
+        //Init Variables.
         this.alias = new Alias();
     }
 
@@ -114,22 +124,24 @@ export default class CommNode extends EventEmitter implements Client {
     public getReport(){
         let alias: {[name: string]: string[]} = {};
 
-        //Convert Alias prototype to array and get each _subscriber.
+        //Convert Alias prototype to array and get each subscriber.
         Object.values(Object.getPrototypeOf(this.alias)).forEach(subscriber => {
             //Look for Subscriber class. 
             if(subscriber instanceof Subscriber){
                 let subscribers = new Array();
 
-                //Iterate through Subscriber and get message functions.
-                Object.entries(subscriber).forEach(([name, fn])=> {
-                    //TODO: Work from here.
-                    console.log(name, fn);
+                //Iterate through Subscriber and get dynamic functions.
+                Object.entries(subscriber).forEach(([name, fn]) => {
 
-                    //Look for message function.
+                    //Look for dynamic function.
                     if(fn instanceof Function){
+                        //Refer the dynamic function with the comm object to get additional details.
+                        const comm = this.comms.find(comm => comm.functionName === name);
 
-                        //Push message function to Subscriber array.
-                        subscribers.push(name);
+                        subscribers.push({
+                            fn: name,
+                            [fn.name.toUpperCase()]: comm.topic
+                        });
                     }
                 });
                 
@@ -233,7 +245,7 @@ export default class CommNode extends EventEmitter implements Client {
     }
 
     public transaction(topic: Topic, parms: MessageParms){
-        return new Promise<ReplyBody>((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             
         });
     }
@@ -268,13 +280,18 @@ export default class CommNode extends EventEmitter implements Client {
     ///////Core Functions
     /////////////////////////
     private generateAlias(broadcast: Broadcast){
-        //Re-/Initialize alias class. All the subscribers will be added to this dynamically.
+        //Re-/Initialize alias and comms. All the subscribers will be added to this dynamically.
         this.alias = new Alias(broadcast.name);
+        this.comms = new Array();
 
         //Convert comms into subscribers with dynamic functions.
         broadcast.comms.forEach(comm => {
+            //Refer local comm objects.
+            const method = comm.method;
+            const topic = comm.topic;
+
             //Covert the topic to class and function.
-            const converter = Utility.convertToFunction(comm.topic);
+            const converter = Utility.convertToFunction(topic);
             const subscriberName = converter.className;
             const functionName = converter.functionName;
 
@@ -292,19 +309,19 @@ export default class CommNode extends EventEmitter implements Client {
                 //Validate and generate dynamic funcation.
                 if(Object.getPrototypeOf(subscriber)[functionName] === undefined){
                     //Create a new dynamic funcation based on the method.
-                    switch(comm.method){
+                    switch(method){
                         case 'reply':
-                            const message = function(parms?: MessageParms) {
-                                const _topic = comm.topic;
+                            const message: MessageFunction = function(parms?: MessageParms) {
+                                const _topic = topic;
                                 return that.message(_topic, parms);
                             }
 
-                            //Assing message function to Subscriber class.
+                            //Assing reply function to Subscriber class.
                             Object.defineProperty(subscriber, functionName, {value: message, enumerable: true, writable: true});
                             break;
                         case 'transaction':
-                            const transaction = function(parms?: MessageParms) {
-                                const _topic = comm.topic;
+                            const transaction: TransactionFunction = function(parms?: MessageParms) {
+                                const _topic = topic;
                                 return that.transaction(_topic, parms);
                             }
 
@@ -313,6 +330,9 @@ export default class CommNode extends EventEmitter implements Client {
                             break;
                     }
                 }
+
+                //Add comm to comms.
+                this.comms.push({method: method, topic: topic, functionName: functionName});
 
                 //Adding the Subscriber class to Alias class.
                 Object.getPrototypeOf(this.alias)[subscriberName] = subscriber;
@@ -324,7 +344,9 @@ export default class CommNode extends EventEmitter implements Client {
 /////////////////////////
 ///////Comm
 /////////////////////////
-export interface NodeComm extends Comm {}
+export interface NodeComm extends Comm {
+    functionName: string;
+}
 
 /////////////////////////
 ///////Message
