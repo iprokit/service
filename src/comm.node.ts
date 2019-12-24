@@ -92,6 +92,7 @@ export default class CommNode extends EventEmitter implements Client {
             this._mqttClient.on('connect', () => {
                 //Subscribe to all topics.
                 this._mqttClient.subscribe(this.broadcastTopic);
+                this._mqttClient.publish(this.broadcastTopic, JSON.stringify({message: ''}));
 
                 this.emit(Events.NODE_CONNECTED, this);
                 resolve(1);
@@ -227,7 +228,7 @@ export default class CommNode extends EventEmitter implements Client {
     ///////Transaction 
     /////////////////////////
     private receiveTransaction(packet: Packet){
-        console.log('Node', packet);
+        //console.log('Node', packet);
 
         //TODO: Stage 2
         //Step 1: Check topics.

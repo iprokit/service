@@ -4,7 +4,7 @@ import { Server as MqttServer, Packet, Client } from 'mosca';
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Publisher } from './comm';
+import { Topic, Publisher, Broadcast, Comm } from './comm';
 import CommRouter, { Method, CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.router';
 
 //Export Local Imports.
@@ -20,6 +20,9 @@ export default class CommServer extends EventEmitter implements Server {
     //Broker Variables.
     public readonly name: string;
     public readonly port: number;
+
+    //Broadcast Topic
+    private readonly _broadcastTopic: Topic;
 
     //MQTT Server
     private _commRouter: CommRouter;
@@ -38,12 +41,31 @@ export default class CommServer extends EventEmitter implements Server {
         this.name = global.service.name;
         this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
 
+        //Init Broadcast Topic.
+        this._broadcastTopic = Defaults.BROADCAST_TOPIC;
+
         //Init Router
         this._commRouter = new CommRouter();
 
         //Init Variables.
         this._publisherRoutes = new Array();
         this._serviceRoutes = new Array();
+
+        //Add broadcast Route.
+        this._commRouter.reply(this._broadcastTopic, (message, reply) => {
+            const comms: Array<Comm> = new Array();
+
+            this._commRouter.routes.forEach(comm => {
+                if(comm.topic !== this._broadcastTopic){
+                    comms.push({method: comm.method, topic: comm.topic});
+                }
+            });
+
+            //Define Broadcast
+            const broadcast: Broadcast = {name: this.name, comms: comms};
+
+            reply.send(broadcast);
+        });
     }
 
     /////////////////////////
@@ -105,18 +127,10 @@ export default class CommServer extends EventEmitter implements Server {
 
             //Listen to events.
             this._mqttServer.on('ready', () => {
+                this._commRouter.listen(this._mqttServer);
                 this.emit(Events.COMM_SERVER_STARTED, this);
                 resolve(1);
             });
-
-            this._commRouter.on(Events.COMM_ROUTER_SEND_PACKET, (packet) => {
-                this._mqttServer.publish(packet, () => {
-                //this.emit(Events.COMM_SERVER_SENT_REPLY, packet);
-                });
-            })
-
-            this._mqttServer.on('subscribed', (topic: any, client: Client) => this._commRouter.handleSubscribed(topic, client));
-            this._mqttServer.on('published', (packet: Packet, client: Client) => this._commRouter.handlePublished(packet, client));
         });
     }
 

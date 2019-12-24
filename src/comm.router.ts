@@ -1,14 +1,14 @@
 //Import modules
 import EventEmitter from 'events';
-import { Client } from 'mosca';
+import { Server as MqttServer, Client } from 'mosca';
 
 //Local Imports
 import { Defaults, Events } from './microservice';
-import { Topic, Message, Reply, Broadcast, ReplyTransaction, TopicHelper, MessageParms, ReplyBody, ReplyError } from './comm';
+import { Topic, Message as CommMessage, Reply as CommReply, Broadcast, ReplyTransaction as CommReplyTransaction, TopicHelper, MessageParms, ReplyBody, ReplyError } from './comm';
 
 export declare type CommHandler = MessageReplyHandler | MessageReplyTransactionHandler;
 export declare type MessageReplyHandler = (message: Message, reply: Reply) => void;
-export declare type MessageReplyTransactionHandler = (message: Message, replyTransaction: ReplyTransaction) => void;
+export declare type MessageReplyTransactionHandler = (message: Message, replyTransaction: CommReplyTransaction) => void;
 
 export declare type Method = 'reply' | 'transaction';
 export declare type Route = {
@@ -26,26 +26,14 @@ export type Packet = {
     retain: boolean;
 }
 
-export default class CommRouter extends EventEmitter{
-    //Router Variables.
-    public readonly name: string;
-
-    //Broadcast Topic
-    private readonly _broadcastTopic: Topic;
-
+export default class CommRouter extends EventEmitter {
     //Routes
     private readonly _routes: Array<Route>;
     private readonly _routesHandler: EventEmitter;
 
-    constructor(broadcastTopic?: Topic){
+    constructor(){
         //Call super for EventEmitter.
         super();
-
-        //Init Router variables.
-        this.name = global.service.name;
-
-        //Init Broadcast Topic.
-        this._broadcastTopic = broadcastTopic || Defaults.BROADCAST_TOPIC;
 
         //Init Routes.
         this._routes = new Array();
@@ -74,15 +62,22 @@ export default class CommRouter extends EventEmitter{
     }
 
     /////////////////////////
-    ///////Listeners
+    ///////Connection Management
     /////////////////////////
-    public handleSubscribed(topic: string, client: Client){
-        if(topic === this._broadcastTopic){
-            this.sendBroadcast();
-        }
+    public listen(server: MqttServer){
+        this.on(Events.COMM_ROUTER_SEND_PACKET, (packet) => {
+            server.publish(packet, () => {});
+        });
+
+        server.on('published', (packet: Packet, client: Client) => {
+            this.route(packet, client);
+        });
     }
 
-    public handlePublished(packet: Packet, client: Client){
+    /////////////////////////
+    ///////Listeners
+    /////////////////////////
+    public route(packet: Packet, client: Client){
         const topic = packet.topic;
 
         if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
@@ -90,32 +85,18 @@ export default class CommRouter extends EventEmitter{
                 const route = this._routes.find(route => route.topic === topic);
 
                 //Routing logic.
-                if(route && route.method === 'reply'){
+                if (route && route.method === 'reply'){
                     this.receiveMessage(packet);
                 }else if((route && (route.method === 'transaction')) || new TopicHelper(topic).isTransactionTopic()){
                     this.receiveTransaction(packet);
                 }
             }catch(error){
                 if(error instanceof ReplySentWarning){
-                    console.error(error);
+                    // console.error(error);
                 }
                 //Do nothing.
             }
         }
-    }
-
-    /////////////////////////
-    ///////Route
-    /////////////////////////
-    private sendBroadcast(){
-        //Create Reply Object.
-        const reply = this.createReply(this._broadcastTopic);
-
-        //Define Broadcast
-        const broadcast: Broadcast = {name: this.name, comms: this._routes};
-
-        //Send Broadcast
-        reply.send(broadcast);
     }
 
     /////////////////////////
@@ -134,14 +115,10 @@ export default class CommRouter extends EventEmitter{
 
             //Passing parms to comm handler Emitter
             this._routesHandler.emit(packet.topic, message, reply);
-
-            //Global Emit.
-            //TODO:
-            //this.emit(Events.COMM_SERVER_RECEIVED_MESSAGE, message);
         }
     }
 
-    public sendReply(reply: BrokerReply){
+    public sendReply(reply: Reply){
         //Covert Json to string.
         const packet = {
             topic: reply.topic,
@@ -157,7 +134,7 @@ export default class CommRouter extends EventEmitter{
     ///////Transaction 
     /////////////////////////
     private receiveTransaction(packet: Packet){
-        console.log('Broker', packet);
+        //console.log('Broker', packet);
 
         //TODO: Work from here.
     }
@@ -184,7 +161,7 @@ export default class CommRouter extends EventEmitter{
      * @returns the new message object created.
      */
     private createMessage(topic: Topic, parms: MessageParms){
-        const message = new BrokerMessage(topic, parms);
+        const message = new Message(topic, parms);
         return message;
     }
 
@@ -194,7 +171,7 @@ export default class CommRouter extends EventEmitter{
      * @returns the new reply object created.
      */
     private createReply(topic: Topic){
-        const reply = new BrokerReply(topic);
+        const reply = new Reply(topic);
 
         //Attaching events to send reply back.
         reply._event.once(Events.REPLY_SEND, (reply) => this.sendReply(reply));
@@ -207,7 +184,7 @@ export default class CommRouter extends EventEmitter{
 /////////////////////////
 ///////Message
 /////////////////////////
-export class BrokerMessage extends Message {
+export class Message extends CommMessage {
     constructor(topic: Topic, parms: MessageParms){
         super(topic, parms);
     }
@@ -216,7 +193,7 @@ export class BrokerMessage extends Message {
 /////////////////////////
 ///////Reply
 /////////////////////////
-export class BrokerReply extends Reply {
+export class Reply extends CommReply {
     private _sent: boolean;
     public readonly _event: EventEmitter;
 
