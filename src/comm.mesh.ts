@@ -1,5 +1,5 @@
 //Import modules
-import { EventEmitter } from 'events';
+import EventEmitter from 'events';
 
 //Local Imports
 import { Client, Events, ConnectionState } from './microservice';

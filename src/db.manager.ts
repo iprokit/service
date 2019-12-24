@@ -1,5 +1,5 @@
 //Import modules
-import { EventEmitter } from 'events';
+import EventEmitter from 'events';
 import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes} from 'sequelize';
 import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';

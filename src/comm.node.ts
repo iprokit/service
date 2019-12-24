@@ -1,5 +1,5 @@
 //Import modules
-import { EventEmitter } from 'events';
+import EventEmitter from 'events';
 import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 //Local Imports

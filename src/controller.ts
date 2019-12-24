@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 
 //Local Imports
-import { HttpCodes } from './www';
+import { HttpCodes } from './www.server';
 
 export default class Controller {
     //Default Constructor

@@ -11,7 +11,7 @@ declare global {
 }
 
 //Import Modules
-import { EventEmitter } from 'events';
+import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -25,9 +25,9 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './utility';
-import WWW, { PathParams, RequestHandler, HttpCodes } from './www';
+import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
 import { Topic, Message as CommMessage , Reply as CommReply, Publisher, Alias } from './comm';
-import CommBroker, { CommHandler, ReplyHandler, TransactionHandler } from './comm.broker';
+import CommServer, { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -46,8 +46,8 @@ export type AutoLoadOptions = {
 }
 
 //Component Variables.
-let www: WWW;
-let commBroker: CommBroker;
+let wwwServer: WWWServer;
+let commServer: CommServer;
 let commMesh: CommMesh;
 let dbManager: DBManager;
 
@@ -84,8 +84,8 @@ export default class MicroService extends EventEmitter {
         }
 
         //Init Components.
-        www = new WWW(baseUrl);
-        commBroker = new CommBroker();
+        wwwServer = new WWWServer(baseUrl);
+        commServer = new CommServer();
         commMesh = new CommMesh();
 
         //Init AutoLoad Variables.
@@ -94,24 +94,24 @@ export default class MicroService extends EventEmitter {
         autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
 
         //Default Service Routes
-        www.get('/health', (request, response) => {
+        wwwServer.get('/health', (request, response) => {
             response.status(HttpCodes.OK).send({status: true});
         });
 
-        www.get('/report', (request, response) => {
+        wwwServer.get('/report', (request, response) => {
             try {
                 let report = {
                     service: {
                         name: this.serviceName,
                         version: this.version,
                         ip: this.ip,
-                        wwwPort: www.port,
-                        commPort: commBroker.port,
+                        wwwPort: wwwServer.port,
+                        commPort: commServer.port,
                         environment: this.environment
                     },
                     db: dbManager && dbManager.getReport(),
-                    routes: www.getReport(),
-                    comms: commBroker.getReport(),
+                    routes: wwwServer.getReport(),
+                    comms: commServer.getReport(),
                     mesh: commMesh.getReport()
                 };
 
@@ -121,7 +121,7 @@ export default class MicroService extends EventEmitter {
             }
         });
 
-        www.post('/shutdown', (request, response) => {
+        wwwServer.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
             setTimeout(() => {
                 console.log('Received shutdown from %s', request.url);
@@ -173,7 +173,7 @@ export default class MicroService extends EventEmitter {
             dbManager.init();
                 
             //DB routes.
-            www.post('/db/sync', async (request, response) => {
+            wwwServer.post('/db/sync', async (request, response) => {
                 try{
                     const sync = await dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
@@ -218,7 +218,7 @@ export default class MicroService extends EventEmitter {
 
         try{
             //Start server components
-            await Promise.all([www.listen(), commBroker.listen()]);
+            await Promise.all([wwwServer.listen(), commServer.listen()]);
 
             //Start client components
             await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
@@ -246,7 +246,7 @@ export default class MicroService extends EventEmitter {
         
         try{
             //Stop server components
-            await Promise.all([www.close(), commBroker.close()]);
+            await Promise.all([wwwServer.close(), commServer.close()]);
 
             //Stop client components
             await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
@@ -260,41 +260,41 @@ export default class MicroService extends EventEmitter {
     }
 
     /////////////////////////
-    ///////Router Functions
+    ///////WWW Server Functions
     /////////////////////////
     public all(path: PathParams, ...handlers: RequestHandler[]){
-        www.all(path, ...handlers);
+        wwwServer.all(path, ...handlers);
     }
 
     public get(path: PathParams, ...handlers: RequestHandler[]){
-        www.get(path, ...handlers);
+        wwwServer.get(path, ...handlers);
     }
 
     public post(path: PathParams, ...handlers: RequestHandler[]){
-        www.post(path, ...handlers);
+        wwwServer.post(path, ...handlers);
     }
 
     public put(path: PathParams, ...handlers: RequestHandler[]){
-        www.put(path, ...handlers);
+        wwwServer.put(path, ...handlers);
     }
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
-        www.delete(path, ...handlers);
+        wwwServer.delete(path, ...handlers);
     }
 
     /////////////////////////
-    ///////commBroker Functions
+    ///////Comm Server Functions
     /////////////////////////
-    public reply(topic: Topic, replyHandler: ReplyHandler){
-        commBroker.reply(topic, replyHandler);
+    public reply(topic: Topic, handler: MessageReplyHandler){
+        commServer.reply(topic, handler);
     }
 
-    public transaction(topic: Topic, transactionHandler: TransactionHandler){
-        commBroker.transaction(topic, transactionHandler);
+    public transaction(topic: Topic, handler: MessageReplyTransactionHandler){
+        commServer.transaction(topic, handler);
     }
 
     /////////////////////////
-    ///////commNode Functions
+    ///////Comm Mesh Functions
     /////////////////////////
     public defineNode(url: string, identifier: string){
         commMesh.defineNode(url, identifier)
@@ -315,16 +315,16 @@ export default class MicroService extends EventEmitter {
         this.on(Events.STOPPED, () => console.log('%s stopped.', this.serviceName));
 
         //WWW
-        www.on(Events.WWW_STARTED, (_www: WWW) => console.log('Express server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
-        www.on(Events.WWW_STOPPED, () => console.log('Stopped Express.'));
-        www.on(Events.WWW_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
+        wwwServer.on(Events.WWW_SERVER_STARTED, (_www: WWWServer) => console.log('www server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
+        wwwServer.on(Events.WWW_SERVER_STOPPED, () => console.log('Stopped www.'));
+        wwwServer.on(Events.WWW_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //commBroker
-        commBroker.on(Events.BROKER_STARTED, (_commBroker: CommBroker) => console.log('Comm broker broadcasting on %s:%s', this.ip, _commBroker.port));
-        commBroker.on(Events.BROKER_STOPPED, () => console.log('Stopped Broker.'));
-        commBroker.on(Events.BROKER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        commBroker.on(Events.BROKER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Broker: received a message on topic: %s', message.topic));
-        commBroker.on(Events.BROKER_SENT_REPLY, (reply: CommReply) => console.log('Broker: published a reply on topic: %s', reply.topic));
+        commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server broadcasting on %s:%s', this.ip, _commServer.port));
+        commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
+        commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
+        commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Server: received a message on topic: %s', message.topic));
+        commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommReply) => console.log('Server: published a reply on topic: %s', reply.topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -360,19 +360,23 @@ export class Events {
     public static readonly STOPPING = Symbol('STOPPING');
     public static readonly STOPPED = Symbol('STOPPED');
 
-    //WWW
-    public static readonly WWW_STARTED = Symbol('WWW_STARTED');
-    public static readonly WWW_STOPPED = Symbol('WWW_STOPPED');
-    public static readonly WWW_ADDED_CONTROLLER = Symbol('WWW_ADDED_CONTROLLER');
+    //WWW Server
+    public static readonly WWW_SERVER_STARTED = Symbol('WWW_SERVER_STARTED');
+    public static readonly WWW_SERVER_STOPPED = Symbol('WWW_SERVER_STOPPED');
+    public static readonly WWW_SERVER_ADDED_CONTROLLER = Symbol('WWW_SERVER_ADDED_CONTROLLER');
 
-    //Broker
-    public static readonly BROKER_STARTED = Symbol('BROKER_STARTED');
-    public static readonly BROKER_STOPPED = Symbol('BROKER_STOPPED');
-    public static readonly BROKER_ADDED_PUBLISHER = Symbol('BROKER_ADDED_PUBLISHER');
-    public static readonly BROKER_RECEIVED_MESSAGE = Symbol('BROKER_RECEIVED_MESSAGE');
-    public static readonly BROKER_SENT_REPLY = Symbol('BROKER_SENT_REPLY');
+    //Comm Server
+    public static readonly COMM_SERVER_STARTED = Symbol('COMM_SERVER_STARTED');
+    public static readonly COMM_SERVER_STOPPED = Symbol('COMM_SERVER_STOPPED');
+    public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
+    public static readonly COMM_SERVER_RECEIVED_MESSAGE = Symbol('COMM_SERVER_RECEIVED_MESSAGE');
+    public static readonly COMM_SERVER_SENT_REPLY = Symbol('COMM_SERVER_SENT_REPLY');
 
-    //Broker - Reply
+    //Comm Router
+    public static readonly COMM_ROUTER_RECEIVE_PACKET = Symbol('COMM_ROUTER_RECEIVE_PACKET');
+    public static readonly COMM_ROUTER_SEND_PACKET = Symbol('COMM_ROUTER_SEND_PACKET');
+
+    //Reply
     public static readonly REPLY_SEND = Symbol('REPLY_SEND');
     public static readonly REPLY_ERROR = Symbol('REPLY_ERROR');
 
@@ -457,7 +461,7 @@ export function getNoSQLConnection(): NoSQL {
 //TODO: Optimize the below functions.
 
 /////////////////////////
-///////WWW Decorators
+///////WWW Server Decorators
 /////////////////////////
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
     value: RequestHandler;
@@ -473,10 +477,10 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             }
     
             //Add Route
-            www.addControllerRoute('get', path, target, descriptor.value);
+            wwwServer.addControllerRoute('get', path, target, descriptor.value);
     
             //Call get
-            www.get(path, descriptor.value);
+            wwwServer.get(path, descriptor.value);
         }
     }
 }
@@ -491,10 +495,10 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
             }
     
             //Add Route
-            www.addControllerRoute('post', path, target, descriptor.value);
+            wwwServer.addControllerRoute('post', path, target, descriptor.value);
     
             //Call post
-            www.post(path, descriptor.value);
+            wwwServer.post(path, descriptor.value);
         }
     }
 }
@@ -509,10 +513,10 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             }
     
             //Add Route
-            www.addControllerRoute('put', path, target, descriptor.value);
+            wwwServer.addControllerRoute('put', path, target, descriptor.value);
     
             //Call put
-            www.put(path, descriptor.value);
+            wwwServer.put(path, descriptor.value);
         }
     }
 }
@@ -527,16 +531,16 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
             }
     
             //Add Route
-            www.addControllerRoute('delete', path, target, descriptor.value);
+            wwwServer.addControllerRoute('delete', path, target, descriptor.value);
     
             //Call delete
-            www.delete(path, descriptor.value);
+            wwwServer.delete(path, descriptor.value);
         }
     }
 }
 
 /////////////////////////
-///////Broker Decorators
+///////Comm Server Decorators
 /////////////////////////
 interface CommFunctionDescriptor extends PropertyDescriptor {
     value: CommHandler;
@@ -550,11 +554,11 @@ export function Reply(): CommFunction {
         if(canLoad(autoInjectPublisherOptions, publisherName)){
             const topic = ('/' + publisherName + '/' + propertyKey);
     
-            //Add Comm
-            commBroker.addPublisherComm('reply', topic, target, descriptor.value);
+            //Add Route
+            commServer.addPublisherRoute('reply', topic, target, descriptor.value);
     
             //Call reply.
-            commBroker.reply(topic, descriptor.value);
+            commServer.reply(topic, descriptor.value);
         }
     }
 }
@@ -566,11 +570,11 @@ export function Transaction(): CommFunction {
         if(canLoad(autoInjectPublisherOptions, publisherName)){
             const topic = ('/' + publisherName + '/' + propertyKey);
     
-            //Add Comm
-            commBroker.addPublisherComm('transaction', topic, target, descriptor.value);
+            //Add Route
+            commServer.addPublisherRoute('transaction', topic, target, descriptor.value);
     
             //Call reply.
-            commBroker.transaction(topic, descriptor.value);
+            commServer.transaction(topic, descriptor.value);
         }
     }
 }

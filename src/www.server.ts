@@ -1,5 +1,5 @@
 //Import modules
-import { EventEmitter } from 'events';
+import EventEmitter from 'events';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
@@ -23,7 +23,7 @@ export type Route = {
     handler: RequestHandler
 }
 
-export default class WWW extends EventEmitter implements Server {
+export default class WWWServer extends EventEmitter implements Server {
     //Server Variables.
     public readonly baseUrl: string;
     public readonly port: number;
@@ -93,7 +93,7 @@ export default class WWW extends EventEmitter implements Server {
             this._controllerRoutes.push({controller: controller, routes: routes});
 
             //Emit Controller added event.
-            this.emit(Events.WWW_ADDED_CONTROLLER, controller.name, controller);
+            this.emit(Events.WWW_SERVER_ADDED_CONTROLLER, controller.name, controller);
         }
 
         //Validate if _controllerRoutes is empty.
@@ -141,7 +141,7 @@ export default class WWW extends EventEmitter implements Server {
             
             //Start Server
             this._httpServer = this._expressApp.listen(this.port, () => {
-                this.emit(Events.WWW_STARTED, this);
+                this.emit(Events.WWW_SERVER_STARTED, this);
                 resolve(1);
             });
         });
@@ -151,7 +151,7 @@ export default class WWW extends EventEmitter implements Server {
         return new Promise<ConnectionState>((resolve, reject) => {
             this._httpServer.close((error) => {
                 if(!error){
-                    this.emit(Events.WWW_STOPPED, this);
+                    this.emit(Events.WWW_SERVER_STOPPED, this);
                     resolve(0);
                 }else{
                     reject(error);

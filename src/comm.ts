@@ -5,14 +5,6 @@ export type ReplyBody = Object | Broadcast;
 export type ReplyError = Object;
 
 /////////////////////////
-///////Broadcast
-/////////////////////////
-export interface Broadcast extends Object {
-    name: string,
-    comms: Array<Comm>
-};
-
-/////////////////////////
 ///////Comm
 /////////////////////////
 export type CommMethod = 'reply' | 'transaction';
@@ -20,6 +12,14 @@ export interface Comm {
     method: CommMethod;
     topic: Topic;
 }
+
+/////////////////////////
+///////Broadcast
+/////////////////////////
+export type Broadcast = {
+    name: string;
+    comms: Array<Comm>;
+};
 
 /////////////////////////
 ///////Message
@@ -80,6 +80,33 @@ export class ReplyTransaction {
 }
 
 /////////////////////////
+///////TopicHelper
+/////////////////////////
+export class TopicHelper {
+    private topic: string;
+
+    constructor(topic: string){
+        this.topic = topic;
+    }
+
+    public get className(){
+        return this.topic.split('/')[1];
+    }
+
+    public get functionName(){
+        return this.topic.split('/')[2];
+    }
+
+    public get transaction(){
+        return {commit: this.topic + '/commit', rollback: this.topic + '/rollback'};
+    }
+
+    public isTransactionTopic(){
+        return (this.topic.endsWith('/commit') || this.topic.endsWith('/rollback'));
+    }
+}
+
+/////////////////////////
 ///////Publisher
 /////////////////////////
 export class Publisher {
@@ -113,32 +140,5 @@ export class Alias {
     //Default Constructor
     constructor(name?: string){
         this.name = name;
-    }
-}
-
-/////////////////////////
-///////TopicHelper
-/////////////////////////
-export class TopicHelper {
-    private topic: string;
-
-    constructor(topic: string){
-        this.topic = topic;
-    }
-
-    public get className(){
-        return this.topic.split('/')[1];
-    }
-
-    public get functionName(){
-        return this.topic.split('/')[2];
-    }
-
-    public get transaction(){
-        return {commit: this.topic + '/commit', rollback: this.topic + '/rollback'};
-    }
-
-    public isTransactionTopic(){
-        return (this.topic.endsWith('/commit') || this.topic.endsWith('/rollback'));
     }
 }

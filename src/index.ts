@@ -2,7 +2,7 @@
 import MicroService from './microservice';
 
 //Export WWW Components
-export { HttpCodes } from './www';
+export { HttpCodes } from './www.server';
 export { default as Controller } from './controller';
 
 //Export Comm Components
