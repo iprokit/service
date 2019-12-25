@@ -6,17 +6,16 @@ export { MqttServer, Client, Packet };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
+import { Topic, Publisher, BroadcastMap, Broadcast } from './comm';
+import CommRouter, { MessageReplyHandler } from './comm.router';
 // import { Topic, Publisher, Broadcast, Comm } from './comm2';
-import CommRouter, { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.router';
-import { Method, Topic, Publisher, BroadcastMap, BroadcastReply } from './comm';
 
 //Export Local Imports.
-export { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler };
+export { MessageReplyHandler };
 
 export declare type Route = {
-    method: Method;
     topic: Topic;
-    handler: CommHandler;
+    handler: MessageReplyHandler;
 }
 
 export default class CommServer extends EventEmitter implements Server {
@@ -58,14 +57,14 @@ export default class CommServer extends EventEmitter implements Server {
         this._commRouter.reply(this._broadcastTopic, (message, reply) => {
             const map: Array<BroadcastMap> = new Array();
 
-            this._commRouter.stack.forEach(comm => {
-                if(comm.topic !== this._broadcastTopic){
-                    map.push({method: comm.method, topic: comm.topic});
+            this._commRouter.routes.forEach(route => {
+                if(route.topic !== this._broadcastTopic){
+                    map.push({topic: route.topic});
                 }
             });
 
             //Define Broadcast
-            const broadcast: BroadcastReply = new BroadcastReply(this.name, map);
+            const broadcast: Broadcast = {name: this.name, map: map};
             reply.send(broadcast);
         });
     }
@@ -73,11 +72,11 @@ export default class CommServer extends EventEmitter implements Server {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public addPublisherRoute(method: Method, topic: Topic, publisher: typeof Publisher, handler: CommHandler){
+    public addPublisherRoute(topic: Topic, publisher: typeof Publisher, handler: MessageReplyHandler){
         //Sub function to add Publisher to _publisherRoutes
         const _addPublisherRoute = () => {
             //Create new routes.
-            const routes = new Array({ method: method, topic: topic, handler: handler });
+            const routes = new Array({ topic: topic, handler: handler });
     
             //Push Publisher & routes to _publisherRoutes.
             this._publisherRoutes.push({publisher: publisher, routes: routes});
@@ -94,7 +93,7 @@ export default class CommServer extends EventEmitter implements Server {
             const publisherRoute = this._publisherRoutes.find(stack => stack.publisher.name === publisher.name);
 
             if(publisherRoute){ //publisherRoute exists. 
-                publisherRoute.routes.push({method: method, topic: topic, handler: handler});
+                publisherRoute.routes.push({ topic: topic, handler: handler });
             }else{  //No publisherRoute found.
                 _addPublisherRoute();
             }
@@ -103,7 +102,7 @@ export default class CommServer extends EventEmitter implements Server {
 
     private createServiceRoutes(){
         //Clone all routes to _serviceRoutes.
-        this._commRouter.stack.forEach(route => {
+        this._commRouter.routes.forEach(route => {
             this._serviceRoutes.push(route);
         })
 
@@ -153,10 +152,7 @@ export default class CommServer extends EventEmitter implements Server {
         const _createRoutes = (routes: Array<Route>) => {
             let _routes = new Array();
             routes.forEach(route => {
-                _routes.push({
-                    fn: route.handler.name,
-                    [route.method.toUpperCase()]: route.topic
-                });
+                _routes.push(route.handler.name);
             });
             return _routes;
         }
@@ -180,9 +176,5 @@ export default class CommServer extends EventEmitter implements Server {
     /////////////////////////
     public reply(topic: Topic, handler: MessageReplyHandler){
         this._commRouter.reply(topic, handler);
-    }
-
-    public transaction(topic: Topic, handler: MessageReplyTransactionHandler){
-        this._commRouter.transaction(topic, handler);
     }
 }

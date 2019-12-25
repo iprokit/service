@@ -3,18 +3,15 @@ import EventEmitter from 'events';
 
 //Local Imports
 import { Events } from './microservice';
-import { Topic, Method, Message, Reply, TransactionMessage, TransactionReply } from './comm';
+import { Topic, Message, Reply, Comm } from './comm';
 import { MqttServer, Client, Packet } from './comm.server';
 import { TopicHelper } from './comm2';
 
-export declare type CommHandler = MessageReplyHandler | MessageReplyTransactionHandler;
 export declare type MessageReplyHandler = (message: RouterMessage, reply: RouterReply) => void;
-export declare type MessageReplyTransactionHandler = (message: RouterTransactionMessage, reply: RouterTransactionReply) => void;
 
 export declare interface Route {
-    method: Method;
     topic: Topic;
-    handler: CommHandler;
+    handler: MessageReplyHandler;
     name: string;
 }
 
@@ -43,23 +40,20 @@ export default class CommRouter implements ICommRouter {
     ///////Routes
     /////////////////////////
     public reply(topic: Topic, handler: MessageReplyHandler){
-        //TODO: Check if topic is valid by calling regular expression.
         if(this.isUniqueTopic(topic)){
-            this._routes.push({method: 'reply', topic: topic, handler: handler, name: handler.name});
+            this._routes.push({topic: topic, handler: handler, name: handler.name});
     
             //Add topic + handler to listener.
-            this._routesHandler.on((topic as string), handler);
+            this._routesHandler.on(topic, handler);
         }
     }
 
-    public transaction(topic: Topic, handler: MessageReplyTransactionHandler){
-        //TODO: Check if topic is valid by calling regular expression.
-        if(this.isUniqueTopic(topic)){
-            this._routes.push({method: 'transaction', topic: topic, handler: handler, name: handler.name});
-    
-            //Add topic + handler to listener.
-            this._routesHandler.on((topic as string), handler);
-        }
+    public registerAction(name: string, action: any){
+
+    }
+
+    public emitAction(name: string, action: any){
+        //TODO: Implement this.
     }
 
     /////////////////////////
@@ -71,9 +65,17 @@ export default class CommRouter implements ICommRouter {
             server.publish(packet, () => {});
         });
 
+        server.on('subscribe', (topic: any, client: Client) => {
+            console.log(topic, client.id);
+        });
+
         //Listen to packets coming from clients/nodes.
         server.on('published', (packet: Packet, client: Client) => {
-            this.route(packet, client);
+
+            //Validate if client id exists. Then pass control to route.
+            if(client && client.id){
+                this.route(packet, client);
+            }
         });
     }
 
@@ -81,28 +83,41 @@ export default class CommRouter implements ICommRouter {
     ///////Route
     /////////////////////////
     public route(packet: Packet, client: Client){
-        const topic = packet.topic;
+        const routingTopic = packet.topic;
 
-        if (!topic.includes('$SYS/')) { //Ignoring all default $SYS/ topics.
-            try{
-                const route = this._routes.find(route => route.topic === topic);
+        console.log(routingTopic);
 
-                const id = client && client.id;
-                console.log(id, packet);
+        //Step 1: Based on topic find route.
+        //Step 2: Generate new UUID.
+        //Step 3: Generate comm Object.
+        //Step 4: Push comm Object to _sendingQueue.
+        //Step 5: Pass control to specific route.
 
-                //Routing logic.
-                if (route && route.method === 'reply'){
-                    this.receiveMessage(packet);
-                }else if((route && (route.method === 'transaction')) || new TopicHelper(topic).isTransactionTopic()){
-                    // this.receiveTransaction(packet);
-                }
-            }catch(error){
-                if(error instanceof ReplySentWarning){
-                    console.error(error);
-                }
-                //Do nothing.
-            }
-        }
+        //Control is back.
+        //Step 1: Remove comm Object from _sendingQueue.
+        //Step 2: Add comm Object to _sentQueue.
+        //Step 3: Respond back to the client.
+
+        // let commId = 'uuid';
+        // const comm: Comm<RouterMessage, RouterReply> = {
+        //     clientId: client.id,
+        //     commId: commId,
+        //     method: 'reply',
+        //     topic: packet.topic,
+        //     message: new RouterMessage(commId),
+        //     reply: new RouterReply(commId)
+        // };
+
+
+        // const topic = packet.topic;
+        // const route = this._routes.find(route => route.topic === topic);
+
+        // //Routing logic.
+        // if (route && route.method === 'reply'){
+        //     this.receiveMessage(packet);
+        // }else if((route && (route.method === 'transaction')) || new TopicHelper(topic).isTransactionTopic()){
+        //     // this.receiveTransaction(packet);
+        // }
     }
 
     /////////////////////////
@@ -112,19 +127,15 @@ export default class CommRouter implements ICommRouter {
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Validate if the payload is from the Server or client.
-        //If the below step is not done, it will run into a infinite loop.
-        if(payload.message !== undefined && payload.reply === undefined){
-            //creating new parms.
-            const message = new RouterMessage(packet.topic, payload.message.parms);
-            const reply = new RouterReply(packet.topic);
+        //creating new parms.
+        const message = new RouterMessage(packet.topic, payload.message.parms);
+        const reply = new RouterReply(packet.topic);
 
-            //Attaching events to send reply back.
-            reply._event.once(Events.REPLY_SEND, (reply) => this.send(reply));
+        //Attaching events to send reply back.
+        reply.once(Events.REPLY_SEND, (reply) => this.send(reply));
 
-            //Passing parms to comm handler Emitter
-            this._routesHandler.emit(packet.topic, message, reply);
-        }
+        //Passing parms to comm handler Emitter
+        this._routesHandler.emit(packet.topic, message, reply);
     }
 
     public send(reply: RouterReply){
@@ -146,7 +157,7 @@ export default class CommRouter implements ICommRouter {
         return !this._routes.find(route => route.topic === topic);
     }
 
-    public get stack(){
+    public get routes(){
         return this._routes;
     }
 }
@@ -154,52 +165,37 @@ export default class CommRouter implements ICommRouter {
 /////////////////////////
 ///////Message/Reply
 /////////////////////////
-export class RouterMessage extends Message {
-    constructor(id: string, parms: any){
-        super(id, parms);
+export class RouterMessage implements Message {
+    id: string;
+    parms: any;
+
+    constructor(id: string, parms: string){
+        this.id = id;
+        this.parms = parms;
     }
 }
 
-export class RouterReply extends Reply implements ICommRouter {
-    private _sent: boolean;
-    public readonly _event: EventEmitter;
+export class RouterReply extends EventEmitter implements Reply, ICommRouter {
+    id: string;
+    body: any;
+    error: boolean;
 
     constructor(id: string){
-        super(id);
-        this._sent = false;
-        this._event = new EventEmitter();
+        //Call super for EventEmitter.
+        super();
+
+        this.id = id;
+        this.error = false;
     }
 
     public send(body: any) {
-        //Ensure the reply is sent only once.
-        if(!this._sent){
-            this._sent = true;
-            this.body = body;
-            this._event.emit(Events.REPLY_SEND, this);
-        }else{
-            throw new ReplySentWarning();
-        }
+        this.body = body;
+        this.emit(Events.REPLY_SEND, this);
     }
-}
 
-/////////////////////////
-///////Transaction
-/////////////////////////
-export class RouterTransactionMessage extends TransactionMessage {
-    commit: boolean;
-    rollback: boolean;
-
-    constructor(id: string, parms: any){
-        super(id, parms);
-    }
-}
-
-export class RouterTransactionReply extends TransactionReply {
-    committed: boolean;
-    rolledback: boolean;
-
-    constructor(id: string, body: any, error?: boolean){
-        super(id, body, error);
+    public isError(error: boolean){
+        this.error = error;
+        return this;
     }
 }
 

@@ -27,7 +27,7 @@ if(fs.existsSync(envPath)){
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
 import { Topic, Publisher } from './comm';
-import CommServer, { MessageReplyHandler, MessageReplyTransactionHandler } from './comm.server';
+import CommServer, { MessageReplyHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -290,10 +290,6 @@ export default class MicroService extends EventEmitter {
         commServer.reply(topic, handler);
     }
 
-    public transaction(topic: Topic, handler: MessageReplyTransactionHandler){
-        commServer.transaction(topic, handler);
-    }
-
     /////////////////////////
     ///////Comm Mesh Functions
     /////////////////////////
@@ -548,40 +544,20 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 interface MessageReplyFunctionDescriptor extends PropertyDescriptor {
     value: MessageReplyHandler;
 }
-interface MessageReplyTransactionFunctionDescriptor extends PropertyDescriptor {
-    value: MessageReplyTransactionHandler;
-}
-export declare type CommMessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyFunctionDescriptor) => void;
-export declare type MessageReplyTransactionFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyTransactionFunctionDescriptor) => void;
+export declare type MessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyFunctionDescriptor) => void;
 
-export function Reply(): CommMessageReplyFunction {
+export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
         if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = ('/' + publisherName + '/' + propertyKey);
+            const topic = (publisherName + '/' + propertyKey);
     
             //Add Route
-            commServer.addPublisherRoute('reply', topic, target, descriptor.value);
+            commServer.addPublisherRoute(topic, target, descriptor.value);
     
             //Call reply.
             commServer.reply(topic, descriptor.value);
-        }
-    }
-}
-
-export function Transaction(): MessageReplyTransactionFunction {
-    return (target, propertyKey, descriptor) => {
-        const publisherName = target.name.replace('Publisher', '');
-
-        if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = ('/' + publisherName + '/' + propertyKey);
-    
-            //Add Route
-            commServer.addPublisherRoute('transaction', topic, target, descriptor.value);
-    
-            //Call reply.
-            commServer.transaction(topic, descriptor.value);
         }
     }
 }

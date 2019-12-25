@@ -1,5 +1,3 @@
-import { Method } from "./comm";
-
 //Types
 export type Topic = string;
 export type MessageParms = Object;
@@ -9,9 +7,7 @@ export type ReplyError = Object;
 /////////////////////////
 ///////Comm
 /////////////////////////
-export type CommMethod = Method;
 export interface Comm {
-    method: CommMethod;
     topic: Topic;
 }
 
