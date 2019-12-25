@@ -5,9 +5,6 @@ import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
 
-//Local Imports
-import { Topic } from './comm';
-
 //Types: FileOptions
 export type FileOptions = {
     excludes?: Array<string>,

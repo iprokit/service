@@ -1,11 +1,14 @@
 //Import modules
 import EventEmitter from 'events';
-import { Server as MqttServer, Packet, Client } from 'mosca';
+import { Server as MqttServer, Client, Packet } from 'mosca';
+
+export { MqttServer, Client, Packet };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Publisher, Broadcast, Comm } from './comm';
-import CommRouter, { Method, CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.router';
+// import { Topic, Publisher, Broadcast, Comm } from './comm2';
+import CommRouter, { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.router';
+import { Method, Topic, Publisher, BroadcastMap, BroadcastReply } from './comm';
 
 //Export Local Imports.
 export { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler };
@@ -17,7 +20,7 @@ export declare type Route = {
 }
 
 export default class CommServer extends EventEmitter implements Server {
-    //Broker Variables.
+    //Server Variables.
     public readonly name: string;
     public readonly port: number;
 
@@ -37,7 +40,7 @@ export default class CommServer extends EventEmitter implements Server {
         //Call super for EventEmitter.
         super();
 
-        //Init Broker variables.
+        //Init Server variables.
         this.name = global.service.name;
         this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
 
@@ -53,17 +56,16 @@ export default class CommServer extends EventEmitter implements Server {
 
         //Add broadcast Route.
         this._commRouter.reply(this._broadcastTopic, (message, reply) => {
-            const comms: Array<Comm> = new Array();
+            const map: Array<BroadcastMap> = new Array();
 
-            this._commRouter.routes.forEach(comm => {
+            this._commRouter.stack.forEach(comm => {
                 if(comm.topic !== this._broadcastTopic){
-                    comms.push({method: comm.method, topic: comm.topic});
+                    map.push({method: comm.method, topic: comm.topic});
                 }
             });
 
             //Define Broadcast
-            const broadcast: Broadcast = {name: this.name, comms: comms};
-
+            const broadcast: BroadcastReply = new BroadcastReply(this.name, map);
             reply.send(broadcast);
         });
     }
@@ -101,7 +103,7 @@ export default class CommServer extends EventEmitter implements Server {
 
     private createServiceRoutes(){
         //Clone all routes to _serviceRoutes.
-        this._commRouter.routes.forEach(route => {
+        this._commRouter.stack.forEach(route => {
             this._serviceRoutes.push(route);
         })
 

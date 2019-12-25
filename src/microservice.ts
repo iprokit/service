@@ -26,12 +26,13 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
-import { Topic, Message as CommMessage , Reply as CommReply, Publisher, Alias } from './comm';
-import CommServer, { CommHandler, MessageReplyHandler, MessageReplyTransactionHandler } from './comm.server';
+import { Topic, Publisher } from './comm';
+import CommServer, { MessageReplyHandler, MessageReplyTransactionHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './controller';
+import { Alias } from './comm2';
 
 //Types: Options
 export type Options = {
@@ -319,12 +320,13 @@ export default class MicroService extends EventEmitter {
         wwwServer.on(Events.WWW_SERVER_STOPPED, () => console.log('Stopped www.'));
         wwwServer.on(Events.WWW_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
-        //commBroker
+        //commServer
         commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server broadcasting on %s:%s', this.ip, _commServer.port));
         commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
         commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Server: received a message on topic: %s', message.topic));
-        commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommReply) => console.log('Server: published a reply on topic: %s', reply.topic));
+        //TODO: uncomment.
+        // commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Server: received a message on topic: %s', message.topic));
+        // commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommReply) => console.log('Server: published a reply on topic: %s', reply.topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -336,8 +338,9 @@ export default class MicroService extends EventEmitter {
             //commNode
             commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
             commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
-            commNode.on(Events.NODE_SENT_MESSAGE, (message: CommMessage) => console.log('Node: published a message on topic: %s', message.topic));
-            commNode.on(Events.NODE_RECEIVED_REPLY, (reply: CommReply) => console.log('Node: received a reply on topic: %s', reply.topic));
+            //TODO: uncomment.
+            // commNode.on(Events.NODE_SENT_MESSAGE, (message: CommMessage) => console.log('Node: published a message on topic: %s', message.topic));
+            // commNode.on(Events.NODE_RECEIVED_REPLY, (reply: CommReply) => console.log('Node: received a reply on topic: %s', reply.topic));
         });
 
         //dbManager
@@ -542,12 +545,16 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 ///////Comm Server Decorators
 /////////////////////////
-interface CommFunctionDescriptor extends PropertyDescriptor {
-    value: CommHandler;
+interface MessageReplyFunctionDescriptor extends PropertyDescriptor {
+    value: MessageReplyHandler;
 }
-export declare type CommFunction = (target: typeof Publisher, propertyKey: string, descriptor: CommFunctionDescriptor) => void;
+interface MessageReplyTransactionFunctionDescriptor extends PropertyDescriptor {
+    value: MessageReplyTransactionHandler;
+}
+export declare type CommMessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyFunctionDescriptor) => void;
+export declare type MessageReplyTransactionFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyTransactionFunctionDescriptor) => void;
 
-export function Reply(): CommFunction {
+export function Reply(): CommMessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
@@ -563,7 +570,7 @@ export function Reply(): CommFunction {
     }
 }
 
-export function Transaction(): CommFunction {
+export function Transaction(): MessageReplyTransactionFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 

@@ -1,108 +1,117 @@
-//Types
-export type Topic = string;
-export type MessageParms = Object;
-export type ReplyBody = Object | Broadcast;
-export type ReplyError = Object;
+//TODO: Add regular expression to this.
+export declare type Topic = string;
 
 /////////////////////////
 ///////Comm
 /////////////////////////
-export type CommMethod = 'reply' | 'transaction';
-export interface Comm {
-    method: CommMethod;
+export declare type Method = 'reply' | 'transaction' | 'event';
+
+export interface IComm<M extends IMessage, R extends IReply>{
+    commId: string;
+    clientId: string;
     topic: Topic;
+    method: Method;
+    message: M;
+    reply: R
+}
+
+export class Comm<M extends Message, R extends Reply> implements IComm<M, R>{
+    commId: string;
+    clientId: string;
+    topic: Topic;
+    method: Method;
+    message: M;
+    reply: R;
+}
+
+/////////////////////////
+///////Basic Message/Reply
+/////////////////////////
+export declare type MessageType = Message | TransactionMessage;
+export declare type ReplyType = Reply | TransactionReply | BroadcastReply | EventReply;
+
+export interface IMessage {
+    id: string;
+}
+export interface IReply {
+    id: string;
+}
+
+/////////////////////////
+///////Message/Reply
+/////////////////////////
+export class Message implements IMessage {
+    id: string;
+    parms: any;
+
+    constructor(id: string, parms: any){
+        this.id = id;
+        this.parms = parms;
+    }
+}
+
+export class Reply implements IReply {
+    id: string;
+    body: any;
+    error: boolean;
+
+    constructor(id: string, body?: any, error?: boolean){
+        this.id = id;
+        this.body = body;
+        this.error = error === undefined ? false : error;
+    }
+}
+
+/////////////////////////
+///////Transaction
+/////////////////////////
+export class TransactionMessage extends Message implements IMessage {
+    commit: boolean;
+    rollback: boolean;
+
+    constructor(id: string, parms: any){
+        super(id, parms);
+    }
+}
+
+export class TransactionReply extends Reply implements IReply {
+    committed: boolean;
+    rolledback: boolean;
+
+    constructor(id: string, body: any, error?: boolean){
+        super(id, body, error);
+    }
 }
 
 /////////////////////////
 ///////Broadcast
 /////////////////////////
-export type Broadcast = {
+export declare type BroadcastMap = {
+    method: Method, topic: Topic
+}
+export class BroadcastReply implements IReply {
+    id: string;
     name: string;
-    comms: Array<Comm>;
-};
+    map: Array<BroadcastMap>;
 
-/////////////////////////
-///////Message
-/////////////////////////
-interface IMessage {
-    topic: Topic;
-    parms: MessageParms;
-}
-export class Message implements IMessage {
-    public readonly topic: Topic;
-    protected _parms: MessageParms;
-
-    constructor(topic: Topic, parms: MessageParms){
-        this.topic = topic;
-        this._parms = parms;
-    }
-
-    public get parms(){
-        return this._parms;
+    constructor(name: string, map: Array<BroadcastMap>){
+        this.name = name;
+        this.map = map;
     }
 }
 
 /////////////////////////
-///////Reply
+///////Event
 /////////////////////////
-interface IReply {
-    topic: Topic;
-    body: ReplyBody;
-    error: ReplyError;
-}
-export class Reply implements IReply {
-    public readonly topic: Topic;
-    protected _body: ReplyBody;
-    protected _error: ReplyError;
+export class EventReply implements IReply {
+    id: string;
+    name: string;
+    action: any;
 
-    constructor(topic: Topic, body?: ReplyBody, error?: ReplyError){
-        this.topic = topic;
-        this._body = body;
-        this._error = error;
-    }
-
-    public get body(){
-        return this._body;
-    }
-
-    public get error(){
-        return this._error;
-    }
-}
-
-/////////////////////////
-///////ReplyTransaction
-/////////////////////////
-export class ReplyTransaction {
-    constructor(){
-
-    }
-}
-
-/////////////////////////
-///////TopicHelper
-/////////////////////////
-export class TopicHelper {
-    private topic: string;
-
-    constructor(topic: string){
-        this.topic = topic;
-    }
-
-    public get className(){
-        return this.topic.split('/')[1];
-    }
-
-    public get functionName(){
-        return this.topic.split('/')[2];
-    }
-
-    public get transaction(){
-        return {commit: this.topic + '/commit', rollback: this.topic + '/rollback'};
-    }
-
-    public isTransactionTopic(){
-        return (this.topic.endsWith('/commit') || this.topic.endsWith('/rollback'));
+    constructor(id: string, name: string, action: any){
+        this.id = id;
+        this.name = name;
+        this.action = action;
     }
 }
 
@@ -116,29 +125,5 @@ export class Publisher {
     //Get Name
     get name(){
         return this.constructor.name;
-    }
-}
-
-/////////////////////////
-///////Subscriber
-/////////////////////////
-export class Subscriber {
-    public name: string;
-
-    //Default Constructor
-    constructor(name: string){
-        this.name = name;
-    }
-}
-
-/////////////////////////
-///////Alias - Holds subscribers.
-/////////////////////////
-export class Alias {
-    public name: string;
-
-    //Default Constructor
-    constructor(name?: string){
-        this.name = name;
     }
 }

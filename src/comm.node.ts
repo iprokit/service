@@ -4,7 +4,8 @@ import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 //Local Imports
 import { Client, Events, Defaults, ConnectionState } from './microservice';
-import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Broadcast, Alias, Subscriber } from './comm';
+import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber } from './comm2';
+import { BroadcastReply } from './comm';
 
 //Types: Function
 export declare type CommFunction = MessageFunction | TransactionFunction;
@@ -91,8 +92,9 @@ export default class CommNode extends EventEmitter implements Client {
             //mqttClient listeners.
             this._mqttClient.on('connect', () => {
                 //Subscribe to all topics.
-                this._mqttClient.subscribe(this.broadcastTopic);
-                this._mqttClient.publish(this.broadcastTopic, JSON.stringify({message: ''}));
+                this._mqttClient.subscribe(this.broadcastTopic, () => {
+                    this._mqttClient.publish(this.broadcastTopic, JSON.stringify({message: ''}));
+                });
 
                 this.emit(Events.NODE_CONNECTED, this);
                 resolve(1);
@@ -172,7 +174,7 @@ export default class CommNode extends EventEmitter implements Client {
     ///////Broadcast
     /////////////////////////
     /**
-     * This fuction is called everytime a connection/re-connection is made to the broker.
+     * This fuction is called everytime a connection/re-connection is made to the Server.
      * 
      * @param packet 
      */
@@ -180,7 +182,7 @@ export default class CommNode extends EventEmitter implements Client {
         //Add listener first then receive reply
         this._commHandlers.once(this.broadcastTopic, (reply: NodeReply) => {
             if(reply.body !== undefined){
-                this.generateAlias(reply.body as Broadcast);
+                this.generateAlias(reply.body as BroadcastReply);
             }
         });
 
@@ -198,8 +200,8 @@ export default class CommNode extends EventEmitter implements Client {
         //Convert string to Json.
         const payload = JSON.stringify({message: {parms: message.parms}});
 
-        //Publish message on broker
-        this._mqttClient.publish(message.topic, payload, { qos: 0 }, () => {
+        //Publish message on Server
+        this._mqttClient.publish(message.topic, payload, { qos: 2 }, () => {
             //Global Emit.
             this.emit(Events.NODE_SENT_MESSAGE, message);
         });
@@ -209,7 +211,7 @@ export default class CommNode extends EventEmitter implements Client {
         //Convert string to Json.
         const payload = JSON.parse(packet.payload.toString());
 
-        //Validate if the payload is from the broker or node.
+        //Validate if the payload is from the Server or node.
         if(payload.reply !== undefined && payload.message === undefined){
             //Unsubscribe to the topic.
             this._mqttClient.unsubscribe(packet.topic);
@@ -241,7 +243,7 @@ export default class CommNode extends EventEmitter implements Client {
     public message(topic: Topic, parms: MessageParms){
         return new Promise<ReplyBody>((resolve, reject) => {
             if(this.connected){
-                //Add Listener first. This will listen to reply from broker.
+                //Add Listener first. This will listen to reply from Server.
                 this._commHandlers.once(topic, (reply: NodeReply) => {
                     if(reply.body !== undefined){
                         resolve(reply.body);
@@ -313,16 +315,16 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Core Functions
     /////////////////////////
-    private generateAlias(broadcast: Broadcast){
+    private generateAlias(broadcast: BroadcastReply){
         //Re-/Initialize alias and comms. All the subscribers will be added to this dynamically.
         this.alias = new Alias(broadcast.name);
         this.comms = new Array();
 
         //Convert comms into subscribers with dynamic functions.
-        broadcast.comms.forEach(comm => {
+        broadcast.map.forEach(map => {
             //Refer local comm objects.
-            const method = comm.method;
-            const topic = comm.topic;
+            const method = map.method;
+            const topic = map.topic;
 
             //Covert the topic to class and function.
             const breakTopic = new TopicHelper(topic);

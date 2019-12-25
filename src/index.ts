@@ -6,7 +6,7 @@ export { HttpCodes } from './www.server';
 export { default as Controller } from './controller';
 
 //Export Comm Components
-export { Publisher } from './comm';
+export { Publisher } from './comm2';
 
 //Export Mesh Components
 export { CommNodeUnavailableError } from './comm.node';
