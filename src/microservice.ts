@@ -421,7 +421,7 @@ export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly EXPRESS_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
-    public static readonly BROADCAST_TOPIC: Topic = '/';
+    public static readonly BROADCAST_TOPIC: Topic = 'broadcast';
     public static readonly STOP_TIME: number = 5000;
 }
 

@@ -6,7 +6,7 @@ export { MqttServer, Client, Packet };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Publisher, BroadcastMap, Broadcast } from './comm';
+import { Topic, Publisher, Broadcast } from './comm';
 import CommRouter, { MessageReplyHandler } from './comm.router';
 // import { Topic, Publisher, Broadcast, Comm } from './comm2';
 
@@ -30,9 +30,13 @@ export default class CommServer extends EventEmitter implements Server {
     private _commRouter: CommRouter;
     private _mqttServer: MqttServer;
 
-    //Publishers
+    //Routes
     private readonly _publisherRoutes: Array<{publisher: typeof Publisher, routes: Array<Route>}>;
     private readonly _serviceRoutes: Array<Route>;
+    private readonly _actionRoutes: Array<Topic>;
+    
+    //Broadcast
+    private _broadcast: Broadcast;
 
     //Default Constructor
     constructor(){
@@ -49,9 +53,10 @@ export default class CommServer extends EventEmitter implements Server {
         //Init Router
         this._commRouter = new CommRouter();
 
-        //Init Variables.
+        //Init Routes.
         this._publisherRoutes = new Array();
         this._serviceRoutes = new Array();
+        this._actionRoutes = new Array();
 
         //Define Broadcast Action
         this.defineAction(this._broadcastTopic);
@@ -90,7 +95,7 @@ export default class CommServer extends EventEmitter implements Server {
 
     private createServiceRoutes(){
         //Clone all routes to _serviceRoutes.
-        this._commRouter.routes.forEach(route => {
+        this._commRouter.routes.messageReplys.forEach(route => {
             this._serviceRoutes.push(route);
         })
 
@@ -103,39 +108,51 @@ export default class CommServer extends EventEmitter implements Server {
         });
     }
 
+    private createActionRoutes(){
+        this._commRouter.routes.actions.forEach(action => {
+            this._actionRoutes.push(action.name);
+        });
+    }
+    
+    private createBroadcast(){
+        const messageReply: Array<Topic> = new Array();
+        this._commRouter.routes.messageReplys.forEach(route => {
+            messageReply.push(route.topic);
+        });
+
+        //Define Broadcast
+        this._broadcast = {
+            name: this.name,
+            messageReplys: messageReply,
+            actions: this._actionRoutes
+        };
+    }
+
     /////////////////////////
     ///////Connection Management
     /////////////////////////
     public async listen(){
         return new Promise<ConnectionState>((resolve, reject) => {
-            //Load Service Routes
+            //Load Service + Action Routes + Broadcast
             this.createServiceRoutes();
+            this.createActionRoutes();
+            this.createBroadcast();
 
             //Start Server
             this._mqttServer = new MqttServer({ id: this.name, port: this.port });
 
             //Listen to events.
             this._mqttServer.on('ready', () => {
+                //Pass control to router.
                 this._commRouter.listen(this._mqttServer);
                 this.emit(Events.COMM_SERVER_STARTED, this);
                 resolve(1);
             });
 
             this._mqttServer.on('subscribed', (topic: any, client: Client) => {
+                //Broadcast on _broadcastTopic topic.
                 if(topic === this._broadcastTopic){
-                    console.log(topic, client);
-                    const map: Array<BroadcastMap> = new Array();
-
-                    this._commRouter.routes.forEach(route => {
-                        if(route.topic !== this._broadcastTopic){
-                            map.push({topic: route.topic});
-                        }
-                    });
-
-                    //Define Broadcast
-                    const broadcast: Broadcast = {name: this.name, map: map};
-
-                    this.getServiceAction().emit(this._broadcastTopic, broadcast);
+                    this.getServiceAction().emit(this._broadcastTopic, this._broadcast);
                 }
             });
         });
@@ -173,7 +190,8 @@ export default class CommServer extends EventEmitter implements Server {
 
         return {
             serviceRoutes: _createRoutes(this._serviceRoutes),
-            publishers: publishers
+            publishers: publishers,
+            actions: this._actionRoutes
         }
     }
 
@@ -189,6 +207,6 @@ export default class CommServer extends EventEmitter implements Server {
     }
 
     public getServiceAction(){
-        return this._commRouter.action;
+        return this._commRouter.serviceAction;
     }
 }

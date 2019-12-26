@@ -315,10 +315,7 @@ export default class CommNode extends EventEmitter implements Client {
         this.comms = new Array();
 
         //Convert comms into subscribers with dynamic functions.
-        broadcast.map.forEach(map => {
-            //Refer local comm objects.
-            const topic = map.topic;
-
+        broadcast.messageReplys.forEach(topic => {
             //Covert the topic to class and function.
             const breakTopic = new TopicHelper(topic);
             const subscriberName = breakTopic.className;

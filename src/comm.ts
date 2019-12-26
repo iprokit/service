@@ -25,30 +25,11 @@ export interface Action {
 /////////////////////////
 ///////Broadcast
 /////////////////////////
-export interface BroadcastMap {
-    topic: Topic;
-}
-
-export interface Broadcast{
+export interface Broadcast {
     name: string;
-    map: Array<BroadcastMap>;
+    messageReplys: Array<Topic>;
+    actions: Array<Topic>;
 }
-
-/////////////////////////
-///////Transaction
-/////////////////////////
-// export declare type TransactionMethod = 'transaction';
-// export declare type TransactionOptions = 'prepare' | 'commit' | 'rollback';
-
-// export interface TransactionMessage extends Message {
-//     commit?: boolean;
-//     rollback?: boolean;
-// }
-
-// export interface TransactionReply extends Reply {
-//     committed?: boolean;
-//     rolledback?: boolean;
-// }
 
 /////////////////////////
 ///////Publisher
