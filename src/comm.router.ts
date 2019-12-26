@@ -84,9 +84,10 @@ export default class CommRouter implements ICommRouter {
             this._actionRoutes.push({topic: topic});
     
             //Add topic + handler to listener.
-            this._actionHandler.on(topic, (data) => {
-                console.log(topic);
-                //TODO: Send message here.
+            this._actionHandler.on(topic, (body) => {
+                const reply = new RouterReply(topic);
+                reply.body = body;
+                this.send(reply);
             });
         }
     }
@@ -100,13 +101,8 @@ export default class CommRouter implements ICommRouter {
             server.publish(packet, () => {});
         });
 
-        server.on('subscribe', (topic: any, client: Client) => {
-            console.log(topic, client.id);
-        });
-
         //Listen to packets coming from clients/nodes.
         server.on('published', (packet: Packet, client: Client) => {
-
             //Validate if client id exists. Then pass control to route.
             if(client && client.id){
                 this.route(packet, client);
@@ -119,8 +115,6 @@ export default class CommRouter implements ICommRouter {
     /////////////////////////
     public route(packet: Packet, client: Client){
         const routingTopic = packet.topic;
-
-        console.log(routingTopic);
 
         //Step 1: Based on topic find route.
         //Step 2: Generate new UUID.

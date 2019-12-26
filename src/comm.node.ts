@@ -92,9 +92,7 @@ export default class CommNode extends EventEmitter implements Client {
             //mqttClient listeners.
             this._mqttClient.on('connect', () => {
                 //Subscribe to all topics.
-                this._mqttClient.subscribe(this.broadcastTopic, () => {
-                    this._mqttClient.publish(this.broadcastTopic, JSON.stringify({message: ''}));
-                });
+                this._mqttClient.subscribe(this.broadcastTopic);
 
                 this.emit(Events.NODE_CONNECTED, this);
                 resolve(1);

@@ -53,20 +53,8 @@ export default class CommServer extends EventEmitter implements Server {
         this._publisherRoutes = new Array();
         this._serviceRoutes = new Array();
 
-        //Add broadcast Route.
-        this._commRouter.reply(this._broadcastTopic, (message, reply) => {
-            const map: Array<BroadcastMap> = new Array();
-
-            this._commRouter.routes.forEach(route => {
-                if(route.topic !== this._broadcastTopic){
-                    map.push({topic: route.topic});
-                }
-            });
-
-            //Define Broadcast
-            const broadcast: Broadcast = {name: this.name, map: map};
-            reply.send(broadcast);
-        });
+        //Define Broadcast Action
+        this.defineAction(this._broadcastTopic);
     }
 
     /////////////////////////
@@ -132,6 +120,24 @@ export default class CommServer extends EventEmitter implements Server {
                 this.emit(Events.COMM_SERVER_STARTED, this);
                 resolve(1);
             });
+
+            this._mqttServer.on('subscribed', (topic: any, client: Client) => {
+                if(topic === this._broadcastTopic){
+                    console.log(topic, client);
+                    const map: Array<BroadcastMap> = new Array();
+
+                    this._commRouter.routes.forEach(route => {
+                        if(route.topic !== this._broadcastTopic){
+                            map.push({topic: route.topic});
+                        }
+                    });
+
+                    //Define Broadcast
+                    const broadcast: Broadcast = {name: this.name, map: map};
+
+                    this.getServiceAction().emit(this._broadcastTopic, broadcast);
+                }
+            });
         });
     }
 
@@ -182,7 +188,7 @@ export default class CommServer extends EventEmitter implements Server {
         this._commRouter.defineAction(topic);
     }
 
-    public get action(){
+    public getServiceAction(){
         return this._commRouter.action;
     }
 }

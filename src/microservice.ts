@@ -295,7 +295,7 @@ export default class MicroService extends EventEmitter {
     }
 
     public getServiceAction(){
-        return commServer.action;
+        return commServer.getServiceAction();
     }
 
     /////////////////////////
@@ -458,7 +458,7 @@ export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
 }
 
 export function getServiceAction(){
-    return commServer.action;
+    return commServer.getServiceAction();
 }
 
 export function getRDBConnection(): RDB {
