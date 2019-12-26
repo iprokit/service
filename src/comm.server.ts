@@ -177,4 +177,12 @@ export default class CommServer extends EventEmitter implements Server {
     public reply(topic: Topic, handler: MessageReplyHandler){
         this._commRouter.reply(topic, handler);
     }
+
+    public defineAction(topic: Topic){
+        this._commRouter.defineAction(topic);
+    }
+
+    public get action(){
+        return this._commRouter.action;
+    }
 }

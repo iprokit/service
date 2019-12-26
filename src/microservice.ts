@@ -290,6 +290,14 @@ export default class MicroService extends EventEmitter {
         commServer.reply(topic, handler);
     }
 
+    public defineAction(topic: Topic){
+        commServer.defineAction(topic);
+    }
+
+    public getServiceAction(){
+        return commServer.action;
+    }
+
     /////////////////////////
     ///////Comm Mesh Functions
     /////////////////////////
@@ -447,6 +455,10 @@ export function getAlias(identifier: string): Alias {
 
 export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
     return await commMesh.defineNodeAndGetAlias(url);
+}
+
+export function getServiceAction(){
+    return commServer.action;
 }
 
 export function getRDBConnection(): RDB {

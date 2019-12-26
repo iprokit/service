@@ -3,26 +3,40 @@ import EventEmitter from 'events';
 
 //Local Imports
 import { Events } from './microservice';
-import { Topic, Message, Reply, Comm } from './comm';
+import { Topic, Message, Reply } from './comm';
 import { MqttServer, Client, Packet } from './comm.server';
-import { TopicHelper } from './comm2';
 
-export declare type MessageReplyHandler = (message: RouterMessage, reply: RouterReply) => void;
+//Route Types
+export declare type Route = MessageReplyRoute | ActionRoute;
 
-export declare interface Route {
+export declare interface MessageReplyRoute {
     topic: Topic;
     handler: MessageReplyHandler;
     name: string;
 }
 
+export declare interface ActionRoute {
+    topic: Topic;
+}
+
+//Handlers
+export declare type MessageReplyHandler = (message: RouterMessage, reply: RouterReply) => void;
+
+//CommRouter Interface
 export interface ICommRouter {
     send(reply: Reply): void;
 }
 
 export default class CommRouter implements ICommRouter {
-    //Routes
-    private readonly _routes: Array<Route>;
-    private readonly _routesHandler: EventEmitter;
+    //MessageReply
+    private readonly _messageReplyRoutes: Array<MessageReplyRoute>;
+    private readonly _messageReplyRoutesHandler: EventEmitter;
+
+    //Action
+    private readonly _actionRoutes: Array<ActionRoute>;
+    private readonly _actionHandler: EventEmitter;
+
+    //Packets
     private readonly _packetHandler: EventEmitter;
 
     //TODO: Need to implement this.
@@ -30,30 +44,51 @@ export default class CommRouter implements ICommRouter {
     private readonly _sendingQueue: any;
 
     constructor(){
-        //Init Routes.
-        this._routes = new Array();
-        this._routesHandler = new EventEmitter();
+        //Init MessageReply.
+        this._messageReplyRoutes = new Array();
+        this._messageReplyRoutesHandler = new EventEmitter();
+
+        //Init MessageReply.
+        this._actionRoutes = new Array();
+        this._actionHandler = new EventEmitter();
+
+        //Init Packets
         this._packetHandler = new EventEmitter();
+    }
+
+    /////////////////////////
+    ///////Gets/Sets
+    /////////////////////////
+    public get routes(){
+        return this._messageReplyRoutes;
+    }
+
+    public get action(){
+        return this._actionHandler;
     }
 
     /////////////////////////
     ///////Routes
     /////////////////////////
     public reply(topic: Topic, handler: MessageReplyHandler){
-        if(this.isUniqueTopic(topic)){
-            this._routes.push({topic: topic, handler: handler, name: handler.name});
+        if(this.isUniqueTopic(this._messageReplyRoutes, topic)){
+            this._messageReplyRoutes.push({topic: topic, handler: handler, name: handler.name});
     
             //Add topic + handler to listener.
-            this._routesHandler.on(topic, handler);
+            this._messageReplyRoutesHandler.on(topic, handler);
         }
     }
 
-    public registerAction(name: string, action: any){
-
-    }
-
-    public emitAction(name: string, action: any){
-        //TODO: Implement this.
+    public defineAction(topic: Topic){
+        if(this.isUniqueTopic(this._actionRoutes, topic)){
+            this._actionRoutes.push({topic: topic});
+    
+            //Add topic + handler to listener.
+            this._actionHandler.on(topic, (data) => {
+                console.log(topic);
+                //TODO: Send message here.
+            });
+        }
     }
 
     /////////////////////////
@@ -108,7 +143,6 @@ export default class CommRouter implements ICommRouter {
         //     reply: new RouterReply(commId)
         // };
 
-
         // const topic = packet.topic;
         // const route = this._routes.find(route => route.topic === topic);
 
@@ -135,7 +169,7 @@ export default class CommRouter implements ICommRouter {
         reply.once(Events.REPLY_SEND, (reply) => this.send(reply));
 
         //Passing parms to comm handler Emitter
-        this._routesHandler.emit(packet.topic, message, reply);
+        this._messageReplyRoutesHandler.emit(packet.topic, message, reply);
     }
 
     public send(reply: RouterReply){
@@ -153,12 +187,8 @@ export default class CommRouter implements ICommRouter {
     /////////////////////////
     ///////Helpers 
     /////////////////////////
-    private isUniqueTopic(topic: Topic){
-        return !this._routes.find(route => route.topic === topic);
-    }
-
-    public get routes(){
-        return this._routes;
+    private isUniqueTopic(routes: Array<Route>, topic: Topic){
+        return !routes.find(route => route.topic === topic);
     }
 }
 

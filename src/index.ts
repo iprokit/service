@@ -20,7 +20,7 @@ export { default as NoSQLModel } from './db.nosql.model';
 export { Entity, Get, Post, Put, Delete, Reply } from './microservice';
 
 //Export Functions
-export { getAlias, defineNodeAndGetAlias, getRDBConnection, getNoSQLConnection } from './microservice';
+export { getAlias, defineNodeAndGetAlias, getServiceAction, getRDBConnection, getNoSQLConnection } from './microservice';
 
 //Main Components + Default
 export default MicroService;

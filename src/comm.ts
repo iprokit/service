@@ -1,71 +1,36 @@
 export declare type Topic = string;
 
 /////////////////////////
-///////On Action
-/////////////////////////
-export declare type Action = EventAction | BroadcastAction;
-
-export declare type ActionType = Event | Broadcast;
-
-/////////////////////////
-///////Comm
-/////////////////////////
-export interface Comm<M extends IMessage, R extends IReply> {
-    clientId: string;
-    commId: string;
-    topic: Topic;
-    message: M;
-    reply: R
-}
-
-/////////////////////////
-///////Basic 
-/////////////////////////
-export interface IMessage { 
-    id: string;
-}
-
-export interface IReply {
-    id: string;
-}
-
-export interface IAction {
-    name: string;
-}
-
-/////////////////////////
 ///////Message/Reply
 /////////////////////////
-export interface Message extends IMessage {
+export interface Message {
     id: string;
     parms: any;
 }
 
-export interface Reply extends IReply {
+export interface Reply {
     id: string;
     body: any;
     error: boolean;
 }
 
 /////////////////////////
-///////Event
+///////Action
 /////////////////////////
-export declare type EventAction = 'event';
-
-export interface Event extends IAction {
+export interface Action {
+    name: string;
     action: any;
 }
 
 /////////////////////////
 ///////Broadcast
 /////////////////////////
-export declare type BroadcastAction = 'broadcast';
-
 export interface BroadcastMap {
     topic: Topic;
 }
 
-export interface Broadcast extends IAction{
+export interface Broadcast{
+    name: string;
     map: Array<BroadcastMap>;
 }
 
