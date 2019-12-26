@@ -26,7 +26,7 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
-import { Topic, Publisher } from './comm';
+import { Topic, Publisher, Broadcast } from './comm';
 import CommServer, { MessageReplyHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
@@ -290,12 +290,12 @@ export default class MicroService extends EventEmitter {
         commServer.reply(topic, handler);
     }
 
-    public defineAction(topic: Topic){
-        commServer.defineAction(topic);
+    public defineBroadcast(topic: Topic){
+        commServer.defineBroadcast(topic);
     }
 
-    public getServiceAction(){
-        return commServer.getServiceAction();
+    public broadcast(topic: Topic, broadcast: Broadcast){
+        commServer.broadcast(topic, broadcast);
     }
 
     /////////////////////////
@@ -449,24 +449,26 @@ export interface Client{
 /////////////////////////
 ///////export Functions
 /////////////////////////
-export function getAlias(identifier: string): Alias {
-    return commMesh.getAlias(identifier);
-}
+export namespace Service {
+    export function getAlias(identifier: string): Alias {
+        return commMesh.getAlias(identifier);
+    }
+    
+    export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
+        return await commMesh.defineNodeAndGetAlias(url);
+    }
+    
+    export function getRDBConnection(): RDB {
+        return dbManager && (dbManager.connection as RDB);
+    }
+    
+    export function getNoSQLConnection(): NoSQL {
+        return dbManager && (dbManager.connection as NoSQL);
+    }
 
-export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
-    return await commMesh.defineNodeAndGetAlias(url);
-}
-
-export function getServiceAction(){
-    return commServer.getServiceAction();
-}
-
-export function getRDBConnection(): RDB {
-    return dbManager && (dbManager.connection as RDB);
-}
-
-export function getNoSQLConnection(): NoSQL {
-    return dbManager && (dbManager.connection as NoSQL);
+    export function broadcast(topic: Topic, broadcast: Broadcast){
+        commServer.broadcast(topic, broadcast);
+    }
 }
 
 //TODO: Optimize the below functions.

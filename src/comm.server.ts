@@ -6,7 +6,7 @@ export { MqttServer, Client, Packet };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Publisher, Broadcast } from './comm';
+import { Topic, Publisher, Handshake, Broadcast } from './comm';
 import CommRouter, { MessageReplyHandler } from './comm.router';
 // import { Topic, Publisher, Broadcast, Comm } from './comm2';
 
@@ -33,10 +33,10 @@ export default class CommServer extends EventEmitter implements Server {
     //Routes
     private readonly _publisherRoutes: Array<{publisher: typeof Publisher, routes: Array<Route>}>;
     private readonly _serviceRoutes: Array<Route>;
-    private readonly _actionRoutes: Array<Topic>;
+    private readonly _broadcastRoutes: Array<Topic>;
     
-    //Broadcast
-    private _broadcast: Broadcast;
+    //Handshake
+    private _handshake: Handshake;
 
     //Default Constructor
     constructor(){
@@ -56,10 +56,10 @@ export default class CommServer extends EventEmitter implements Server {
         //Init Routes.
         this._publisherRoutes = new Array();
         this._serviceRoutes = new Array();
-        this._actionRoutes = new Array();
+        this._broadcastRoutes = new Array();
 
-        //Define Broadcast Action
-        this.defineAction(this._broadcastTopic);
+        //Define Broadcast Handshake
+        this.defineBroadcast(this._broadcastTopic);
     }
 
     /////////////////////////
@@ -97,7 +97,7 @@ export default class CommServer extends EventEmitter implements Server {
         //Clone all routes to _serviceRoutes.
         this._commRouter.routes.messageReplys.forEach(route => {
             this._serviceRoutes.push(route);
-        })
+        });
 
         //Get all routes from _publisherRoutes
         this._publisherRoutes.forEach(stack => {
@@ -108,23 +108,23 @@ export default class CommServer extends EventEmitter implements Server {
         });
     }
 
-    private createActionRoutes(){
-        this._commRouter.routes.actions.forEach(action => {
-            this._actionRoutes.push(action.name);
+    private createBroadcastRoutes(){
+        this._commRouter.routes.broadcasts.forEach(broadcast => {
+            this._broadcastRoutes.push(broadcast.topic);
         });
     }
     
-    private createBroadcast(){
+    private createHandshake(){
         const messageReply: Array<Topic> = new Array();
         this._commRouter.routes.messageReplys.forEach(route => {
             messageReply.push(route.topic);
         });
 
-        //Define Broadcast
-        this._broadcast = {
+        //Define Handshake
+        this._handshake = {
             name: this.name,
             messageReplys: messageReply,
-            actions: this._actionRoutes
+            broadcasts: this._broadcastRoutes
         };
     }
 
@@ -133,10 +133,10 @@ export default class CommServer extends EventEmitter implements Server {
     /////////////////////////
     public async listen(){
         return new Promise<ConnectionState>((resolve, reject) => {
-            //Load Service + Action Routes + Broadcast
+            //Load Service + Broadcast Routes + Handshake
             this.createServiceRoutes();
-            this.createActionRoutes();
-            this.createBroadcast();
+            this.createBroadcastRoutes();
+            this.createHandshake();
 
             //Start Server
             this._mqttServer = new MqttServer({ id: this.name, port: this.port });
@@ -150,9 +150,9 @@ export default class CommServer extends EventEmitter implements Server {
             });
 
             this._mqttServer.on('subscribed', (topic: any, client: Client) => {
-                //Broadcast on _broadcastTopic topic.
+                //Handshake on _broadcastTopic.
                 if(topic === this._broadcastTopic){
-                    this.getServiceAction().emit(this._broadcastTopic, this._broadcast);
+                    this.broadcast(this._broadcastTopic, this._handshake);
                 }
             });
         });
@@ -191,7 +191,7 @@ export default class CommServer extends EventEmitter implements Server {
         return {
             serviceRoutes: _createRoutes(this._serviceRoutes),
             publishers: publishers,
-            actions: this._actionRoutes
+            broadcasts: this._broadcastRoutes
         }
     }
 
@@ -202,11 +202,11 @@ export default class CommServer extends EventEmitter implements Server {
         this._commRouter.reply(topic, handler);
     }
 
-    public defineAction(topic: Topic){
-        this._commRouter.defineAction(topic);
+    public defineBroadcast(topic: Topic){
+        this._commRouter.defineBroadcast(topic);
     }
 
-    public getServiceAction(){
-        return this._commRouter.serviceAction;
+    public broadcast(topic: Topic, broadcast: Broadcast){
+        this._commRouter.broadcast(topic, broadcast);
     }
 }

@@ -1,34 +1,23 @@
 export declare type Topic = string;
 
 /////////////////////////
-///////Message/Reply
+///////Interfaces
 /////////////////////////
-export interface Message {
-    id: string;
-    parms: any;
-}
+export interface Message {}
 
 export interface Reply {
-    id: string;
-    body: any;
     error: boolean;
 }
 
-/////////////////////////
-///////Action
-/////////////////////////
-export interface Action {
-    name: string;
-    action: any;
-}
+export interface Broadcast {}
 
 /////////////////////////
 ///////Broadcast
 /////////////////////////
-export interface Broadcast {
+export interface Handshake {
     name: string;
     messageReplys: Array<Topic>;
-    actions: Array<Topic>;
+    broadcasts: Array<Topic>;
 }
 
 /////////////////////////

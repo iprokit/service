@@ -2,12 +2,11 @@
 import EventEmitter from 'events';
 
 //Local Imports
-import { Events } from './microservice';
-import { Topic, Message, Reply } from './comm';
+import { Topic, Message, Reply, Broadcast } from './comm';
 import { MqttServer, Client, Packet } from './comm.server';
 
 //Route Types
-export declare type Route = MessageReplyRoute | ActionRoute;
+export declare type Route = MessageReplyRoute | BroadcastRoute;
 
 export declare type MessageReplyRoute = {
     topic: Topic;
@@ -15,42 +14,53 @@ export declare type MessageReplyRoute = {
     name: string;
 }
 
-export declare type ActionRoute = {
+export declare type BroadcastRoute = {
     topic: Topic;
-    name: string;
+}
+
+//Local Comm Interfaces
+export interface MessageStack {
+    topic: Topic;
+    message: Message;
+}
+
+export interface ReplyStack {
+    topic: Topic;
+    reply: Reply;
+}
+
+export interface BroadcastStack {
+    topic: Topic;
+    broadcast: Broadcast;
 }
 
 //Handlers
-export declare type MessageReplyHandler = (message: Message, reply: Reply) => void;
+export declare type MessageReplyHandler = (message: MessageStack, reply: ReplyStack) => void;
 
 export default class CommRouter {
     //MessageReply
     private readonly _messageReplyRoutes: Array<MessageReplyRoute>;
     private readonly _messageReplyRoutesHandler: EventEmitter;
 
-    //Action
-    private readonly _actionRoutes: Array<ActionRoute>;
-    private readonly _serviceActionHandler: EventEmitter;
+    //Broadcast
+    private readonly _broadcastRoutes: Array<BroadcastRoute>;
+    private readonly _broadcastHandler: EventEmitter;
 
     constructor(){
         //Init MessageReply.
         this._messageReplyRoutes = new Array();
         this._messageReplyRoutesHandler = new EventEmitter();
 
-        //Init MessageReply.
-        this._actionRoutes = new Array();
-        this._serviceActionHandler = new EventEmitter();
+        //Init Broadcast.
+        this._broadcastRoutes = new Array();
+        this._broadcastHandler = new EventEmitter();
     }
 
     /////////////////////////
     ///////Gets/Sets
     /////////////////////////
     public get routes(){
-        return {messageReplys: this._messageReplyRoutes, actions: this._actionRoutes};
-    }
-
-    public get serviceAction(){
-        return this._serviceActionHandler;
+        return {messageReplys: this._messageReplyRoutes, broadcasts: this._broadcastRoutes};
     }
 
     /////////////////////////
@@ -65,15 +75,19 @@ export default class CommRouter {
         }
     }
 
-    public defineAction(topic: Topic){
-        if(this.isUniqueTopic(this._actionRoutes, topic)){
-            this._actionRoutes.push({topic: topic, name: topic});
+    public defineBroadcast(topic: Topic){
+        if(this.isUniqueTopic(this._broadcastRoutes, topic)){
+            this._broadcastRoutes.push({topic: topic});
     
-            //Add topic + handler to listener.
-            this._serviceActionHandler.on(topic, (body) => {
-                //Send Reply
-            });
+            //Add topic + broadcast handler to listener.
+            this._broadcastHandler.on(topic, this.routeBroadcast);
         }
+    }
+
+    public broadcast(topic: Topic, broadcast: Broadcast){
+        const broadcastStack: BroadcastStack = {topic: topic, broadcast: broadcast};
+
+        this._broadcastHandler.emit(topic, broadcastStack);
     }
 
     /////////////////////////
@@ -81,19 +95,21 @@ export default class CommRouter {
     /////////////////////////
     public listen(server: MqttServer){
         //Listen to packets coming from clients/nodes.
-        server.on('published', (packet: Packet, client: Client) => {
-            //Validate if client id exists. Then pass control to route.
-            if(client && client.id){
-                this.route(packet, client);
-            }
-        });
+        server.on('published', (packet: Packet, client: Client) => this.routeMessageReply(packet, client));
     }
 
     /////////////////////////
     ///////Route
     /////////////////////////
-    public route(packet: Packet, client: Client){
-        const routingTopic = packet.topic;
+    public routeMessageReply(packet: Packet, client: Client){
+        if(client && client.id){
+            const routingTopic = packet.topic;
+            console.log('routeMessageReply', routingTopic);
+        }
+    }
+
+    public routeBroadcast(broadcast: BroadcastStack){
+        console.log('routeBroadcast', broadcast);
     }
 
     /////////////////////////

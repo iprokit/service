@@ -5,7 +5,7 @@ import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 //Local Imports
 import { Client, Events, Defaults, ConnectionState } from './microservice';
 import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber } from './comm2';
-import { Broadcast } from './comm';
+import { Handshake } from './comm';
 
 //Types: Function
 export declare type CommFunction = MessageFunction | TransactionFunction;
@@ -176,7 +176,7 @@ export default class CommNode extends EventEmitter implements Client {
         //Add listener first then receive reply
         this._commHandlers.once(this.broadcastTopic, (reply: NodeReply) => {
             if(reply.body !== undefined){
-                this.generateAlias(reply.body as Broadcast);
+                this.generateAlias(reply.body as Handshake);
             }
         });
 
@@ -309,13 +309,13 @@ export default class CommNode extends EventEmitter implements Client {
     /////////////////////////
     ///////Core Functions
     /////////////////////////
-    private generateAlias(broadcast: Broadcast){
+    private generateAlias(handshake: Handshake){
         //Re-/Initialize alias and comms. All the subscribers will be added to this dynamically.
-        this.alias = new Alias(broadcast.name);
+        this.alias = new Alias(handshake.name);
         this.comms = new Array();
 
         //Convert comms into subscribers with dynamic functions.
-        broadcast.messageReplys.forEach(topic => {
+        handshake.messageReplys.forEach(topic => {
             //Covert the topic to class and function.
             const breakTopic = new TopicHelper(topic);
             const subscriberName = breakTopic.className;
