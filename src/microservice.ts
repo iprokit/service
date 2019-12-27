@@ -30,7 +30,9 @@ import { Topic, Publisher, Broadcast } from './comm';
 import CommServer, { MessageReplyHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
+import DBManager, { RDB as _RDB, NoSQL as _NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';
+import RDBModel from './db.rdb.model';
+import NoSQLModel from './db.nosql.model';
 import Controller from './controller';
 import { Alias } from './comm2';
 
@@ -111,8 +113,8 @@ export default class MicroService extends EventEmitter {
                         environment: this.environment
                     },
                     db: dbManager && dbManager.getReport(),
-                    routes: wwwServer.getReport(),
-                    comms: commServer.getReport(),
+                    www: wwwServer.getReport(),
+                    comm: commServer.getReport(),
                     mesh: commMesh.getReport()
                 };
 
@@ -325,7 +327,7 @@ export default class MicroService extends EventEmitter {
         wwwServer.on(Events.WWW_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //commServer
-        commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server broadcasting on %s:%s', this.ip, _commServer.port));
+        commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
         commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
         commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
         //TODO: uncomment.
@@ -419,9 +421,9 @@ export class Events {
 /////////////////////////
 export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
-    public static readonly EXPRESS_PORT: number = 3000;
+    public static readonly WWW_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
-    public static readonly BROADCAST_TOPIC: Topic = 'broadcast';
+    public static readonly HANDSHAKE_TOPIC: Topic = 'handshake';
     public static readonly STOP_TIME: number = 5000;
 }
 
@@ -447,27 +449,39 @@ export interface Client{
 }
 
 /////////////////////////
-///////export Functions
+///////Export Functions
 /////////////////////////
-export namespace Service {
-    export function getAlias(identifier: string): Alias {
+export class Service {
+    public static broadcast(topic: Topic, broadcast: Broadcast) {
+        commServer.broadcast(topic, broadcast);
+    }
+
+    //TODO: Write below as gets
+    public static getAlias(identifier: string): Alias {
         return commMesh.getAlias(identifier);
     }
     
-    export async function defineNodeAndGetAlias(url: string): Promise<Alias> {
+    public static async defineNodeAndGetAlias(url: string): Promise<Alias> {
         return await commMesh.defineNodeAndGetAlias(url);
     }
-    
-    export function getRDBConnection(): RDB {
-        return dbManager && (dbManager.connection as RDB);
-    }
-    
-    export function getNoSQLConnection(): NoSQL {
-        return dbManager && (dbManager.connection as NoSQL);
-    }
+}
 
-    export function broadcast(topic: Topic, broadcast: Broadcast){
-        commServer.broadcast(topic, broadcast);
+export class RDB extends _RDB{
+    public static DataTypes = RDBDataTypes;
+    public static Op: {[name: string]: Symbol} = RDBOp;
+    public static Model = RDBModel;
+
+    public static get connection(): _RDB {
+        return dbManager && (dbManager.connection as _RDB);
+    }
+}
+
+export class NoSQL{
+    public static DataTypes = NoSQLDataTypes;
+    public static Model = NoSQLModel;
+    
+    public static get connection(): _NoSQL {
+        return dbManager && (dbManager.connection as _NoSQL);
     }
 }
 

@@ -54,7 +54,7 @@ export default class Gateway extends MicroService {
         //Split url into host and port.
         const _url = url.split(':');
         const _host = _url[0];
-        const _port = Number(_url[1]) || Defaults.EXPRESS_PORT;
+        const _port = Number(_url[1]) || Defaults.WWW_PORT;
 
         //New URL
         return _host + ':' + _port;

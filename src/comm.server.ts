@@ -8,7 +8,6 @@ export { MqttServer, Client, Packet };
 import { Server, Events, Defaults, ConnectionState } from './microservice';
 import { Topic, Publisher, Handshake, Broadcast } from './comm';
 import CommRouter, { MessageReplyHandler } from './comm.router';
-// import { Topic, Publisher, Broadcast, Comm } from './comm2';
 
 //Export Local Imports.
 export { MessageReplyHandler };
@@ -23,8 +22,8 @@ export default class CommServer extends EventEmitter implements Server {
     public readonly name: string;
     public readonly port: number;
 
-    //Broadcast Topic
-    private readonly _broadcastTopic: Topic;
+    //Handshake Topic
+    private readonly _handshakeTopic: Topic;
 
     //MQTT Server
     private _commRouter: CommRouter;
@@ -45,10 +44,10 @@ export default class CommServer extends EventEmitter implements Server {
 
         //Init Server variables.
         this.name = global.service.name;
-        this.port = Number(process.env.COM_BROKER_PORT) || Defaults.COMM_PORT;
+        this.port = Number(process.env.COM_PORT) || Defaults.COMM_PORT;
 
         //Init Broadcast Topic.
-        this._broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this._handshakeTopic = Defaults.HANDSHAKE_TOPIC;
 
         //Init Router
         this._commRouter = new CommRouter();
@@ -58,8 +57,8 @@ export default class CommServer extends EventEmitter implements Server {
         this._serviceRoutes = new Array();
         this._broadcastRoutes = new Array();
 
-        //Define Broadcast Handshake
-        this.defineBroadcast(this._broadcastTopic);
+        //Define Handshake
+        this.defineBroadcast(this._handshakeTopic);
     }
 
     /////////////////////////
@@ -151,8 +150,8 @@ export default class CommServer extends EventEmitter implements Server {
 
             this._mqttServer.on('subscribed', (topic: any, client: Client) => {
                 //Handshake on _broadcastTopic.
-                if(topic === this._broadcastTopic){
-                    this.broadcast(this._broadcastTopic, this._handshake);
+                if(topic === this._handshakeTopic){
+                    this.broadcast(this._handshakeTopic, this._handshake);
                 }
             });
         });

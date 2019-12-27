@@ -43,7 +43,7 @@ export default class WWWServer extends EventEmitter implements Server {
 
         //Init Server variables.
         this.baseUrl = baseUrl || '/' + global.service.name.toLowerCase();
-        this.port = Number(process.env.EXPRESS_PORT) || Defaults.EXPRESS_PORT;
+        this.port = Number(process.env.WWW_PORT) || Defaults.WWW_PORT;
 
         //Setup Express
         this._expressApp = express();

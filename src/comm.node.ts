@@ -53,7 +53,7 @@ export default class CommNode extends EventEmitter implements Client {
         this.port = Number(_url[1]) || Defaults.COMM_PORT;
 
         //Init Topic.
-        this.broadcastTopic = Defaults.BROADCAST_TOPIC;
+        this.broadcastTopic = Defaults.HANDSHAKE_TOPIC;
         this.comms = new Array();
 
         //Init Comm Handler Events.
