@@ -30,9 +30,7 @@ import { Topic, Publisher, Broadcast } from './comm';
 import CommServer, { MessageReplyHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
-import DBManager, { RDB as _RDB, NoSQL as _NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';
-import RDBModel from './db.rdb.model';
-import NoSQLModel from './db.nosql.model';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './controller';
 import { Alias } from './comm2';
 
@@ -296,7 +294,7 @@ export default class MicroService extends EventEmitter {
         commServer.defineBroadcast(topic);
     }
 
-    public broadcast(topic: Topic, broadcast: Broadcast){
+    public static broadcast(topic: Topic, broadcast: Broadcast){
         commServer.broadcast(topic, broadcast);
     }
 
@@ -307,8 +305,24 @@ export default class MicroService extends EventEmitter {
         commMesh.defineNode(url, identifier)
     }
 
-    public getAlias(identifier: string): Alias {
+    //TODO: Convert this to dynamic object loader.
+    public static getAlias(identifier: string): Alias {
         return commMesh.getAlias(identifier);
+    }
+    
+    public static async defineNodeAndGetAlias(url: string): Promise<Alias> {
+        return await commMesh.defineNodeAndGetAlias(url);
+    }
+
+    /////////////////////////
+    ///////DB Manager Functions
+    /////////////////////////
+    public static get rdbConnection(): RDB {
+        return dbManager && (dbManager.connection as RDB);
+    }
+    
+    public static get noSQLConnection(): NoSQL {
+        return dbManager && (dbManager.connection as NoSQL);
     }
 
     /////////////////////////
@@ -446,43 +460,6 @@ export interface Client{
     getReport(): Object;
     connect(): Promise<ConnectionState>;
     disconnect(): Promise<ConnectionState>;
-}
-
-/////////////////////////
-///////Export Functions
-/////////////////////////
-export class Service {
-    public static broadcast(topic: Topic, broadcast: Broadcast) {
-        commServer.broadcast(topic, broadcast);
-    }
-
-    //TODO: Write below as gets
-    public static getAlias(identifier: string): Alias {
-        return commMesh.getAlias(identifier);
-    }
-    
-    public static async defineNodeAndGetAlias(url: string): Promise<Alias> {
-        return await commMesh.defineNodeAndGetAlias(url);
-    }
-}
-
-export class RDB extends _RDB{
-    public static DataTypes = RDBDataTypes;
-    public static Op: {[name: string]: Symbol} = RDBOp;
-    public static Model = RDBModel;
-
-    public static get connection(): _RDB {
-        return dbManager && (dbManager.connection as _RDB);
-    }
-}
-
-export class NoSQL{
-    public static DataTypes = NoSQLDataTypes;
-    public static Model = NoSQLModel;
-    
-    public static get connection(): _NoSQL {
-        return dbManager && (dbManager.connection as _NoSQL);
-    }
 }
 
 //TODO: Optimize the below functions.

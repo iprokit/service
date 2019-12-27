@@ -6,8 +6,8 @@ import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
 
 //Export Libs
 const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
-export { NoSQL, NoSQLDataTypes};
-export { RDB, RDBOp, RDBDataTypes};
+export { NoSQL, NoSQLDataTypes };
+export { RDB, RDBOp, RDBDataTypes };
 
 //Local Imports
 import { Client, Events, ConnectionState } from './microservice';
