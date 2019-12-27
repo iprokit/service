@@ -19,7 +19,16 @@ export declare type BroadcastRoute = {
     topic: Topic;
 }
 
+//Body Types
 export declare type Body = {[key: string]: string};
+
+//Queue Types
+export declare type Queue = MessageReplyQueue;
+export declare type MessageReplyQueue = {
+    topic: string;
+    message: Message;
+    reply: Reply;
+}
 
 //Handlers
 export declare type MessageReplyHandler = (message: Message, reply: Reply) => void;
@@ -28,8 +37,8 @@ export default class CommRouter extends EventEmitter{
     //MessageReply
     private readonly _messageReplyRoutes: Array<MessageReplyRoute>;
     private readonly _messageReplyRoutesHandler: EventEmitter;
-    private readonly _messageReplySending: Array<{message: Message, reply: Reply}>;
-    private readonly _messageReplySent: Array<{message: Message, reply: Reply}>;
+    private readonly _messageReplySendingQueue: Array<MessageReplyQueue>;
+    private readonly _messageReplySentQueue: Array<MessageReplyQueue>;
 
     //Broadcast
     private readonly _broadcastRoutes: Array<BroadcastRoute>;
@@ -44,8 +53,8 @@ export default class CommRouter extends EventEmitter{
         //Init MessageReply.
         this._messageReplyRoutes = new Array();
         this._messageReplyRoutesHandler = new EventEmitter();
-        this._messageReplySending = new Array();
-        this._messageReplySent = new Array();
+        this._messageReplySendingQueue = new Array();
+        this._messageReplySentQueue = new Array();
 
         //Init Broadcast.
         this._broadcastRoutes = new Array();
@@ -57,6 +66,14 @@ export default class CommRouter extends EventEmitter{
     /////////////////////////
     public get routes(){
         return {messageReplys: this._messageReplyRoutes, broadcasts: this._broadcastRoutes};
+    }
+
+    public get queues(){
+        return {messageReply: this.messageReplyQueue};
+    }
+
+    public get messageReplyQueue(){
+        return {sending: this._messageReplySendingQueue, sent: this._messageReplySentQueue};
     }
 
     /////////////////////////
@@ -123,33 +140,44 @@ export default class CommRouter extends EventEmitter{
                     throw new ActionNotPermitted(packet.topic);
                 }
 
+                if(this.isInQueue(topicExp.topic, this._messageReplySendingQueue, this._messageReplySentQueue)){
+                    throw new TopicUsed(topicExp.topic);
+                }
+
                 if(!messageBody){
                     throw new InvalidJSON(packet.payload);
                 }
 
-                //Init Params
+                //Init Params.
                 const message = new Message(topicExp, messageBody);
                 const reply = new Reply(topicExp);
+
+                //Add Message/Reply to sending queue.
+                this._messageReplySendingQueue.push({topic: topicExp.topic, message: message, reply: reply});
 
                 //Router Emit.
                 this.emit(Events.COMM_ROUTER_RECEIVED_MESSAGE, message);
 
                 //Add listeners to reply object.
-                reply.once(Events.SEND_REPLY, () => {
+                reply.once(Events.SEND_REPLY, (reply: Reply) => {
                     //Sending packet back to the client/node.
                     this.server.publish(this.toPacket(topicExp.topic, reply.body), (object, packet) => {
+                        //Sync Queue for sent and sending lists.
+                        this.syncQueue(topicExp.topic, this._messageReplySendingQueue, this._messageReplySentQueue);
+
                         //Router Emit.
                         this.emit(Events.COMM_ROUTER_SENT_REPLY, reply);
                     });
                 });
 
                 //Let the _messageReplyRoutesHandler know that the router is ready to receive its repsonse.
-                this._messageReplyRoutesHandler.emit(topicExp.baseTopic, message, reply);
+                this._messageReplyRoutesHandler.emit(topicExp.routingTopic, message, reply);
 
             }catch(error){
                 //Caught error sending packet back to the client/node.
                 this.server.publish(this.toPacket(packet.topic, error.message), (object, packet) => {
-                   console.log(object, packet);
+                   console.log('Caught error at broker: ', error.message);
+                   console.log('Will continue...');
                 }); 
             }
         }
@@ -191,10 +219,42 @@ export default class CommRouter extends EventEmitter{
             let topicParams = topic.replace(route.topic, '').split('/').filter(Boolean);
             return {
                 topic: topic,
-                baseTopic: route.topic,
+                routingTopic: route.topic,
                 id: topicParams[0],
                 action: topicParams[1]
             }
+        }
+    }
+
+    /**
+     * 
+     * Remove queue object from sending queue list and add it to sent queue list.
+     *
+     * @param topic of the queue object to be synced.
+     * @param sendingQueue the sendingQueue list.
+     * @param sentQueue the sentQueue list.
+     */
+    private syncQueue<Q extends Queue>(topic: Topic, sendingQueue: Array<Q>, sentQueue: Array<Q>){
+        const queue = sendingQueue.find(queue => queue.topic === topic);
+        sendingQueue.splice(sendingQueue.indexOf(queue));
+        sentQueue.push(queue);
+    }
+
+    /**
+     * Validates if the given topic is in queue.
+     * 
+     * @param topic the topic to be searched with.
+     * @param sendingQueue the sending queue list.
+     * @param sentQueue the sent queue list.
+     * @returns true if it exisists or false.
+     */
+    private isInQueue<Q extends Queue>(topic: Topic, sendingQueue: Array<Q>, sentQueue: Array<Q>){
+        let sending = sendingQueue.find(queue => queue.topic === topic);
+        let sent = sentQueue.find(queue => queue.topic === topic);
+        if(sending || sent){
+            return true;
+        }else{
+            return false;
         }
     }
 
@@ -237,7 +297,7 @@ export default class CommRouter extends EventEmitter{
 export class Message implements TopicExp, IMessage {
     //Topic Exp
     public readonly topic: string;
-    public readonly baseTopic: string;
+    public readonly routingTopic: string;
     public readonly id: string;
     public readonly action: string;
 
@@ -247,7 +307,7 @@ export class Message implements TopicExp, IMessage {
     constructor(topicExp: TopicExp, body: Body){
         //Init Topic Exp.
         this.topic = topicExp.topic;
-        this.baseTopic = topicExp.baseTopic;
+        this.routingTopic = topicExp.routingTopic;
         this.id = topicExp.id;
         this.action = topicExp.action;
 
@@ -259,7 +319,7 @@ export class Message implements TopicExp, IMessage {
 export class Reply extends EventEmitter implements TopicExp, IReply {
     //Topic Exp
     public readonly topic: string;
-    public readonly baseTopic: string;
+    public readonly routingTopic: string;
     public readonly id: string;
     public readonly action: string;
 
@@ -273,7 +333,7 @@ export class Reply extends EventEmitter implements TopicExp, IReply {
 
         //Init Topic Exp.
         this.topic = topicExp.topic;
-        this.baseTopic = topicExp.baseTopic;
+        this.routingTopic = topicExp.routingTopic;
         this.id = topicExp.id;
         this.action = topicExp.action;
 
@@ -285,7 +345,7 @@ export class Reply extends EventEmitter implements TopicExp, IReply {
         this.body = body;
 
         //Reply Emit.
-        this.emit(Events.SEND_REPLY);
+        this.emit(Events.SEND_REPLY, this);
     }
 
     public error(error: boolean){
@@ -297,20 +357,6 @@ export class Reply extends EventEmitter implements TopicExp, IReply {
 /////////////////////////
 ///////Errors
 /////////////////////////
-export class InvalidJSON extends Error {
-    constructor (json: string) {
-        //Call super for Error.
-        super();
-        
-        //Init Error variables.
-        this.name = this.constructor.name;
-        this.message = 'Invalid JSON object: ' + json;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-
 export class TopicNotFound extends Error {
     constructor (topic: string) {
         //Call super for Error.
@@ -333,6 +379,34 @@ export class ActionNotPermitted extends Error {
         //Init Error variables.
         this.name = this.constructor.name;
         this.message = 'Action not permitted on topic: ' + topic;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
+export class InvalidJSON extends Error {
+    constructor (json: string) {
+        //Call super for Error.
+        super();
+        
+        //Init Error variables.
+        this.name = this.constructor.name;
+        this.message = 'Invalid JSON object: ' + json;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
+export class TopicUsed extends Error {
+    constructor (topic: string) {
+        //Call super for Error.
+        super();
+        
+        //Init Error variables.
+        this.name = this.constructor.name;
+        this.message = 'Topic already used: ' + topic;
     
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);

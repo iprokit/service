@@ -2,7 +2,7 @@ export declare type Topic = string;
 
 export declare type TopicExp = {
     topic: string;
-    baseTopic: string;
+    routingTopic: string;
     id: string;
     action: string;
 }
