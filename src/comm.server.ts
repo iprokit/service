@@ -1,13 +1,17 @@
 //Import modules
 import EventEmitter from 'events';
-import { Server as MqttServer, Client, Packet } from 'mosca';
+import { Server as MqttServer, Client, Packet as InPacket, Message as OutPacket} from 'mosca';
 
-export { MqttServer, Client, Packet };
+//Export libs.
+export { MqttServer, Client, InPacket, OutPacket };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
 import { Topic, Publisher, Handshake, Broadcast } from './comm';
-import CommRouter, { MessageReplyHandler } from './comm.router';
+import CommRouter, { MessageReplyHandler, Message, Reply } from './comm.router';
+
+//Export local.
+export { Message, Reply };
 
 //Export Local Imports.
 export { MessageReplyHandler };
@@ -47,7 +51,7 @@ export default class CommServer extends EventEmitter implements Server {
         this.port = Number(process.env.COM_PORT) || Defaults.COMM_PORT;
 
         //Init Broadcast Topic.
-        this._handshakeTopic = Defaults.HANDSHAKE_TOPIC;
+        this._handshakeTopic = Defaults.COMM_HANDSHAKE_TOPIC;
 
         //Init Router
         this._commRouter = new CommRouter();
@@ -144,6 +148,11 @@ export default class CommServer extends EventEmitter implements Server {
             this._mqttServer.on('ready', () => {
                 //Pass control to router.
                 this._commRouter.listen(this._mqttServer);
+
+                //Pass router events to server.
+                this._commRouter.on(Events.COMM_ROUTER_RECEIVED_MESSAGE, (message: Message) => this.emit(Events.COMM_SERVER_RECEIVED_MESSAGE, message));
+                this._commRouter.on(Events.COMM_ROUTER_SENT_REPLY, (reply: Reply) => this.emit(Events.COMM_SERVER_SENT_REPLY, reply));
+
                 this.emit(Events.COMM_SERVER_STARTED, this);
                 resolve(1);
             });

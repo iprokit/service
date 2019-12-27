@@ -1,12 +1,19 @@
 export declare type Topic = string;
 
+export declare type TopicExp = {
+    topic: string;
+    baseTopic: string;
+    id: string;
+    action: string;
+}
+
 /////////////////////////
 ///////Interfaces
 /////////////////////////
-export interface Message {}
+export interface IMessage {}
 
-export interface Reply {
-    error: boolean;
+export interface IReply {
+    isError: boolean;
 }
 
 export interface Broadcast {}

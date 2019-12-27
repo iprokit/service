@@ -27,7 +27,7 @@ if(fs.existsSync(envPath)){
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
 import { Topic, Publisher, Broadcast } from './comm';
-import CommServer, { MessageReplyHandler } from './comm.server';
+import CommServer, { MessageReplyHandler, Message as CommServerMessage, Reply as CommServerReply } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -302,7 +302,7 @@ export default class MicroService extends EventEmitter {
     ///////Comm Mesh Functions
     /////////////////////////
     public defineNode(url: string, identifier: string){
-        commMesh.defineNode(url, identifier)
+        commMesh.defineNode(url, identifier);
     }
 
     //TODO: Convert this to dynamic object loader.
@@ -344,9 +344,8 @@ export default class MicroService extends EventEmitter {
         commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
         commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
         commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        //TODO: uncomment.
-        // commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommMessage) => console.log('Server: received a message on topic: %s', message.topic));
-        // commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommReply) => console.log('Server: published a reply on topic: %s', reply.topic));
+        commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommServerMessage) => console.log('Server: received a message on topic: %s', message.topic));
+        commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommServerReply) => console.log('Server: published a reply on topic: %s', reply.topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -396,12 +395,11 @@ export class Events {
     public static readonly COMM_SERVER_SENT_REPLY = Symbol('COMM_SERVER_SENT_REPLY');
 
     //Comm Router
-    public static readonly COMM_ROUTER_RECEIVE_PACKET = Symbol('COMM_ROUTER_RECEIVE_PACKET');
-    public static readonly COMM_ROUTER_SEND_PACKET = Symbol('COMM_ROUTER_SEND_PACKET');
+    public static readonly COMM_ROUTER_RECEIVED_MESSAGE = Symbol('COMM_ROUTER_RECEIVED_MESSAGE');
+    public static readonly COMM_ROUTER_SENT_REPLY = Symbol('COMM_ROUTER_SENT_REPLY');
 
     //Reply
-    public static readonly REPLY_SEND = Symbol('REPLY_SEND');
-    public static readonly REPLY_ERROR = Symbol('REPLY_ERROR');
+    public static readonly SEND_REPLY = Symbol('SEND_REPLY');
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
@@ -437,8 +435,12 @@ export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly WWW_PORT: number = 3000;
     public static readonly COMM_PORT: number = 6000;
-    public static readonly HANDSHAKE_TOPIC: Topic = 'handshake';
     public static readonly STOP_TIME: number = 5000;
+
+    public static readonly COMM_HANDSHAKE_TOPIC: Topic = 'handshake';
+    public static readonly COMM_PACKET_QOS: number = 0;
+    public static readonly COMM_PACKET_RETAIN: boolean = false;
+
 }
 
 /////////////////////////
