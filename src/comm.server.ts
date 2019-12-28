@@ -7,13 +7,10 @@ export { MqttServer, Client, InPacket, OutPacket };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Publisher, Handshake, Broadcast } from './comm';
-import CommRouter, { MessageReplyHandler, Message, Reply } from './comm.router';
+import { Topic, Body, Publisher, Handshake } from './comm';
+import CommRouter, { MessageReplyHandler } from './comm.router';
 
 //Export local.
-export { Message, Reply };
-
-//Export Local Imports.
 export { MessageReplyHandler };
 
 export declare type Route = {
@@ -72,7 +69,7 @@ export default class CommServer extends EventEmitter implements Server {
         //Sub function to add Publisher to _publisherRoutes
         const _addPublisherRoute = () => {
             //Create new routes.
-            const routes = new Array({ topic: topic, handler: handler });
+            const routes = new Array({topic: topic, handler: handler});
     
             //Push Publisher & routes to _publisherRoutes.
             this._publisherRoutes.push({publisher: publisher, routes: routes});
@@ -89,7 +86,7 @@ export default class CommServer extends EventEmitter implements Server {
             const publisherRoute = this._publisherRoutes.find(stack => stack.publisher.name === publisher.name);
 
             if(publisherRoute){ //publisherRoute exists. 
-                publisherRoute.routes.push({ topic: topic, handler: handler });
+                publisherRoute.routes.push({topic: topic, handler: handler});
             }else{  //No publisherRoute found.
                 _addPublisherRoute();
             }
@@ -150,8 +147,8 @@ export default class CommServer extends EventEmitter implements Server {
                 this._commRouter.listen(this._mqttServer);
 
                 //Pass router events to server.
-                this._commRouter.on(Events.COMM_ROUTER_RECEIVED_MESSAGE, (message: Message) => this.emit(Events.COMM_SERVER_RECEIVED_MESSAGE, message));
-                this._commRouter.on(Events.COMM_ROUTER_SENT_REPLY, (reply: Reply) => this.emit(Events.COMM_SERVER_SENT_REPLY, reply));
+                this._commRouter.on(Events.COMM_ROUTER_RECEIVED_PACKET, (topic: Topic, body: Body) => this.emit(Events.COMM_SERVER_RECEIVED_PACKET, topic, body));
+                this._commRouter.on(Events.COMM_ROUTER_SENT_PACKET, (topic: Topic, body: Body) => this.emit(Events.COMM_SERVER_SENT_PACKET, topic, body));
 
                 this.emit(Events.COMM_SERVER_STARTED, this);
                 resolve(1);
@@ -214,7 +211,7 @@ export default class CommServer extends EventEmitter implements Server {
         this._commRouter.defineBroadcast(topic);
     }
 
-    public broadcast(topic: Topic, broadcast: Broadcast){
-        this._commRouter.broadcast(topic, broadcast);
+    public broadcast(topic: Topic, body: Body){
+        this._commRouter.broadcast(topic, body);
     }
 }

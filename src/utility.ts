@@ -113,4 +113,14 @@ export default class Utility {
             }
         });
     }
+
+    /**
+     * Validates if the given object is string.
+     * 
+     * @param object to validate.
+     * @returns if the given object is string will return true else false.
+     */
+    public static isString(object: any){
+        return typeof object == 'string';
+    }
 }

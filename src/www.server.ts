@@ -103,9 +103,9 @@ export default class WWWServer extends EventEmitter implements Server {
             //Find existing controllerRoute.
             const controllerRoute = this._controllerRoutes.find(stack => stack.controller.name === controller.name);
 
-            if(controllerRoute){    //controllerRoute exists. 
+            if(controllerRoute){ //controllerRoute exists. 
                 controllerRoute.routes.push({method: method, path: this.baseUrl + path, handler: handler});
-            }else{  //No controllerRoute found.
+            }else{ //No controllerRoute found.
                 _addControllerRoute();
             }
         }

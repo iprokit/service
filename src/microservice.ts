@@ -26,8 +26,8 @@ if(fs.existsSync(envPath)){
 //Local Imports
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
-import { Topic, Publisher, Broadcast } from './comm';
-import CommServer, { MessageReplyHandler, Message as CommServerMessage, Reply as CommServerReply } from './comm.server';
+import { Topic, Body, Publisher } from './comm';
+import CommServer, { MessageReplyHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -294,8 +294,8 @@ export default class MicroService extends EventEmitter {
         commServer.defineBroadcast(topic);
     }
 
-    public static broadcast(topic: Topic, broadcast: Broadcast){
-        commServer.broadcast(topic, broadcast);
+    public static broadcast(topic: Topic, body: Body){
+        commServer.broadcast(topic, body);
     }
 
     /////////////////////////
@@ -344,8 +344,8 @@ export default class MicroService extends EventEmitter {
         commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
         commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
         commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        commServer.on(Events.COMM_SERVER_RECEIVED_MESSAGE, (message: CommServerMessage) => console.log('Server: received a message on topic: %s', message.topic));
-        commServer.on(Events.COMM_SERVER_SENT_REPLY, (reply: CommServerReply) => console.log('Server: published a reply on topic: %s', reply.topic));
+        commServer.on(Events.COMM_SERVER_RECEIVED_PACKET, (topic: Topic, body: Body) => console.log('Server: received a packet on topic %s', topic));
+        commServer.on(Events.COMM_SERVER_SENT_PACKET, (topic: Topic, body: Body) => console.log('Server: sent a packet on topic %s', topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -391,12 +391,12 @@ export class Events {
     public static readonly COMM_SERVER_STARTED = Symbol('COMM_SERVER_STARTED');
     public static readonly COMM_SERVER_STOPPED = Symbol('COMM_SERVER_STOPPED');
     public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
-    public static readonly COMM_SERVER_RECEIVED_MESSAGE = Symbol('COMM_SERVER_RECEIVED_MESSAGE');
-    public static readonly COMM_SERVER_SENT_REPLY = Symbol('COMM_SERVER_SENT_REPLY');
+    public static readonly COMM_SERVER_RECEIVED_PACKET = Symbol('COMM_SERVER_RECEIVED_PACKET');
+    public static readonly COMM_SERVER_SENT_PACKET = Symbol('COMM_SERVER_SENT_PACKET');
 
     //Comm Router
-    public static readonly COMM_ROUTER_RECEIVED_MESSAGE = Symbol('COMM_ROUTER_RECEIVED_MESSAGE');
-    public static readonly COMM_ROUTER_SENT_REPLY = Symbol('COMM_ROUTER_SENT_REPLY');
+    public static readonly COMM_ROUTER_RECEIVED_PACKET = Symbol('COMM_ROUTER_RECEIVED_PACKET');
+    public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
 
     //Reply
     public static readonly SEND_REPLY = Symbol('SEND_REPLY');
