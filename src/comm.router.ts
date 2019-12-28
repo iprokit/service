@@ -30,6 +30,11 @@ export declare type MessageReplyQueue = {
 //Handlers
 export declare type MessageReplyHandler = (message: Message, reply: Reply) => void;
 
+//TODO: Work from here with handler. Implement Transcation.
+//Keep in mind, need to have 4 levels of topic for. And route in the routeMessageReply() based on the 4th level.
+//EX: Class/Function/ID/Action
+//EX: Customer/customerSignUp/na09w4hgoasiaywoie/commit...
+
 export default class CommRouter extends EventEmitter{
     //MessageReply
     private readonly _messageReplyRoutes: Array<MessageReplyRoute>;
@@ -41,7 +46,7 @@ export default class CommRouter extends EventEmitter{
     private readonly _broadcastRoutes: Array<BroadcastRoute>;
     private readonly _broadcastHandler: EventEmitter;
 
-    private server: MqttServer;
+    private _server: MqttServer;
 
     constructor(){
         //Call super for EventEmitter.
@@ -130,9 +135,9 @@ export default class CommRouter extends EventEmitter{
      */
     public listen(server: MqttServer){
         //Pass server to local this server.
-        this.server = server;
+        this._server = server;
 
-        this.server.on('published', (packet: InPacket, client: Client) => this.routeMessageReply(packet, client));
+        this._server.on('published', (packet: InPacket, client: Client) => this.routeMessageReply(packet, client));
     }
 
     /////////////////////////
@@ -149,6 +154,9 @@ export default class CommRouter extends EventEmitter{
         if(client && client.id){
             //Convert Packet payload from Buffer to string.
             packet.payload = packet.payload.toString();
+
+            //Router Emit.
+            this.emit(Events.COMM_ROUTER_RECEIVED_PACKET, packet.topic, packet.payload);
 
             //Init variables.
             const topicExp = this.deriveTopicExp(packet.topic);
@@ -180,9 +188,6 @@ export default class CommRouter extends EventEmitter{
                 //Add Message/Reply to sending queue.
                 this._messageReplySendingQueue.push({message: message, reply: reply});
 
-                //Router Emit.
-                this.emit(Events.COMM_ROUTER_RECEIVED_PACKET, message);
-
                 //Add listeners to reply object.
                 reply.once(Events.SEND_REPLY, (reply: Reply) => {
                     //Sending packet back to the client/node.
@@ -190,9 +195,6 @@ export default class CommRouter extends EventEmitter{
 
                     //Sync Queue for sent and sending Array.
                     this.syncQueue(reply, this._messageReplySendingQueue, this._messageReplySentQueue);
-
-                    //Router Emit.
-                    this.emit(Events.COMM_ROUTER_SENT_PACKET, reply);
                 });
 
                 //Let the _messageReplyRoutesHandler know that the router is ready to receive its repsonse.
@@ -226,7 +228,7 @@ export default class CommRouter extends EventEmitter{
      * @param body the body to be sent.
      */
     private sendPacket<B extends Body>(topic: Topic, body: B){
-        this.server.publish(this.toPacket(topic, body), (object, packet) => {
+        this._server.publish(this.toPacket(topic, body), (object, packet) => {
             //Router Emit.
             this.emit(Events.COMM_ROUTER_SENT_PACKET, topic, body);
         });
@@ -419,7 +421,7 @@ export class Broadcast implements IBroadcast {
     public readonly topic: string;
     public readonly body: Body;
 
-    constructor(topic: string, body: Body){
+    constructor(topic: Topic, body: Body){
         this.topic = topic;
         this.body = body;
     }
