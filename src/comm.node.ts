@@ -271,9 +271,9 @@ export default class CommNode extends EventEmitter implements Client {
             const rollbackMessage = this.createMessage(transactionTopic.rollback, { rollback: true });
 
             //Add Listeners
-            transaction._event.once(Events.TRANSACTION_PREPARE, () => this.sendMessage(prepareMessage));
-            transaction._event.once(Events.TRANSACTION_COMMIT, () => this.sendMessage(commitMessage));
-            transaction._event.once(Events.TRANSACTION_ROLLBACK, () => this.sendMessage(rollbackMessage));
+            // transaction._event.once(Events.TRANSACTION_PREPARE, () => this.sendMessage(prepareMessage));
+            // transaction._event.once(Events.TRANSACTION_COMMIT, () => this.sendMessage(commitMessage));
+            // transaction._event.once(Events.TRANSACTION_ROLLBACK, () => this.sendMessage(rollbackMessage));
 
             return transaction;
         }else{
@@ -317,7 +317,7 @@ export default class CommNode extends EventEmitter implements Client {
         //Convert comms into subscribers with dynamic functions.
         handshake.messageReplys.forEach(topic => {
             //Covert the topic to class and function.
-            const breakTopic = new TopicHelper(topic);
+            const breakTopic = new TopicHelper(topic.topic);
             const subscriberName = breakTopic.className;
             const functionName = breakTopic.functionName;
 
@@ -335,7 +335,7 @@ export default class CommNode extends EventEmitter implements Client {
             if(Object.getPrototypeOf(subscriber)[functionName] === undefined){
                 //Create a new dynamic funcation based on the method.
                 const message: MessageFunction = function(parms?: MessageParms) {
-                    const _topic = topic;
+                    const _topic = topic.topic;
                     return that.message(_topic, parms);
                 }
 
@@ -353,7 +353,7 @@ export default class CommNode extends EventEmitter implements Client {
             }
 
             //Add comm to comms.
-            this.comms.push({topic: topic, functionName: functionName});
+            this.comms.push({topic: topic.topic, functionName: functionName});
 
             //Adding the Subscriber class to Alias class.
             Object.getPrototypeOf(this.alias)[subscriberName] = subscriber;
@@ -416,7 +416,7 @@ export class NodeTransaction {
                 //this._event.once(Events.TRANSACTION_PREPARED, (data) => resolve(data));
     
                 //Emit.
-                this._event.emit(Events.TRANSACTION_PREPARE);
+                // this._event.emit(Events.TRANSACTION_PREPARE);
             }else{
                 reject(new TransactionWarning('Transaction already prepared.'));
             }
@@ -433,7 +433,7 @@ export class NodeTransaction {
                 //this._event.once(Events.TRANSACTION_COMMITTED, (data) => resolve(data));
     
                 //Emit.
-                this._event.emit(Events.TRANSACTION_COMMIT);
+                // this._event.emit(Events.TRANSACTION_COMMIT);
             }else{
                 reject(new TransactionWarning('Transaction already committed.'));
             }
@@ -450,7 +450,7 @@ export class NodeTransaction {
                 //this._event.once(Events.TRANSACTION_ROLLEDBACK, (data) => resolve(data));
     
                 //Emit.
-                this._event.emit(Events.TRANSACTION_ROLLBACK);
+                // this._event.emit(Events.TRANSACTION_ROLLBACK);
             }else{
                 reject(new TransactionWarning('Transaction already rolledback.'));
             }

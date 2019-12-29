@@ -7,15 +7,16 @@ export { MqttServer, Client, InPacket, OutPacket };
 
 //Local Imports
 import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Body, Publisher, Handshake } from './comm';
-import CommRouter, { MessageReplyHandler } from './comm.router';
+import { Topic, Method, Body, Publisher, Handshake, HandshakeRoute } from './comm';
+import CommRouter, { Handler, MessageReplyHandler, TransactionHandler } from './comm.router';
 
 //Export local.
-export { MessageReplyHandler };
+export { MessageReplyHandler, TransactionHandler };
 
 export declare type Route = {
+    method: Method;
     topic: Topic;
-    handler: MessageReplyHandler;
+    handler: Handler;
 }
 
 export default class CommServer extends EventEmitter implements Server {
@@ -65,11 +66,11 @@ export default class CommServer extends EventEmitter implements Server {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public addPublisherRoute(topic: Topic, publisher: typeof Publisher, handler: MessageReplyHandler){
+    public addPublisherRoute<H extends Handler>(method: Method, topic: Topic, publisher: typeof Publisher, handler: H){
         //Sub function to add Publisher to _publisherRoutes
         const _addPublisherRoute = () => {
             //Create new routes.
-            const routes = new Array({topic: topic, handler: handler});
+            const routes = new Array({method: method, topic: topic, handler: handler});
     
             //Push Publisher & routes to _publisherRoutes.
             this._publisherRoutes.push({publisher: publisher, routes: routes});
@@ -86,7 +87,7 @@ export default class CommServer extends EventEmitter implements Server {
             const publisherRoute = this._publisherRoutes.find(stack => stack.publisher.name === publisher.name);
 
             if(publisherRoute){ //publisherRoute exists. 
-                publisherRoute.routes.push({topic: topic, handler: handler});
+                publisherRoute.routes.push({method: method, topic: topic, handler: handler});
             }else{  //No publisherRoute found.
                 _addPublisherRoute();
             }
@@ -114,10 +115,10 @@ export default class CommServer extends EventEmitter implements Server {
         });
     }
     
-    private createHandshake(){
-        const messageReply: Array<Topic> = new Array();
+    private setupHandshake(){
+        const messageReply: Array<HandshakeRoute> = new Array();
         this._commRouter.routes.messageReplys.forEach(route => {
-            messageReply.push(route.topic);
+            messageReply.push({method: route.method, topic: route.topic});
         });
 
         //Define Handshake
@@ -136,7 +137,7 @@ export default class CommServer extends EventEmitter implements Server {
             //Load Service + Broadcast Routes + Handshake
             this.createServiceRoutes();
             this.createBroadcastRoutes();
-            this.createHandshake();
+            this.setupHandshake();
 
             //Start Server
             this._mqttServer = new MqttServer({ id: this.name, port: this.port });
@@ -180,7 +181,10 @@ export default class CommServer extends EventEmitter implements Server {
         const _createRoutes = (routes: Array<Route>) => {
             let _routes = new Array();
             routes.forEach(route => {
-                _routes.push(route.handler.name);
+                _routes.push({
+                    fn: route.handler.name,
+                    [route.method.toUpperCase()]: route.topic
+                });
             });
             return _routes;
         }
@@ -205,6 +209,10 @@ export default class CommServer extends EventEmitter implements Server {
     /////////////////////////
     public reply(topic: Topic, handler: MessageReplyHandler){
         this._commRouter.reply(topic, handler);
+    }
+
+    public transaction(topic: Topic, handler: TransactionHandler){
+        this._commRouter.transaction(topic, handler);
     }
 
     public defineBroadcast(topic: Topic){

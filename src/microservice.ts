@@ -27,7 +27,7 @@ if(fs.existsSync(envPath)){
 import Utility from './utility';
 import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
 import { Topic, Body, Publisher } from './comm';
-import CommServer, { MessageReplyHandler } from './comm.server';
+import CommServer, { MessageReplyHandler, TransactionHandler } from './comm.server';
 import CommMesh from './comm.mesh';
 import CommNode from './comm.node';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
@@ -290,6 +290,10 @@ export default class MicroService extends EventEmitter {
         commServer.reply(topic, handler);
     }
 
+    public transaction(topic: Topic, handler: TransactionHandler){
+        commServer.transaction(topic, handler);
+    }
+
     public defineBroadcast(topic: Topic){
         commServer.defineBroadcast(topic);
     }
@@ -399,7 +403,16 @@ export class Events {
     public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
 
     //Reply
-    public static readonly SEND_REPLY = Symbol('SEND_REPLY');
+    public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
+
+    //Transaction
+    public static readonly COMM_ROUTER_TRANSACTION_PREPARE = Symbol('COMM_ROUTER_TRANSACTION_PREPARE');
+    public static readonly COMM_ROUTER_TRANSACTION_COMMIT = Symbol('COMM_ROUTER_TRANSACTION_COMMIT');
+    public static readonly COMM_ROUTER_TRANSACTION_ROLLBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLBACK');
+
+    public static readonly COMM_ROUTER_TRANSACTION_PREPARED = Symbol('COMM_ROUTER_TRANSACTION_PREPARED');
+    public static readonly COMM_ROUTER_TRANSACTION_COMMITTED = Symbol('COMM_ROUTER_TRANSACTION_COMMITTED');
+    public static readonly COMM_ROUTER_TRANSACTION_ROLLEDBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLEDBACK');
 
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
@@ -413,14 +426,6 @@ export class Events {
     public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
     public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
     public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
-
-    //Node - Transaction
-    public static readonly TRANSACTION_PREPARE = Symbol('TRANSACTION_PREPARE');
-    public static readonly TRANSACTION_PREPARED = Symbol('TRANSACTION_PREPARED');
-    public static readonly TRANSACTION_COMMIT = Symbol('TRANSACTION_COMMIT');
-    public static readonly TRANSACTION_COMMITTED = Symbol('TRANSACTION_COMMITTED');
-    public static readonly TRANSACTION_ROLLBACK = Symbol('TRANSACTION_ROLLBACK');
-    public static readonly TRANSACTION_ROLLEDBACK = Symbol('TRANSACTION_ROLLEDBACK');
 
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
@@ -548,10 +553,14 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 /////////////////////////
 ///////Comm Server Decorators
 /////////////////////////
-interface MessageReplyFunctionDescriptor extends PropertyDescriptor {
+interface MessageReplyDescriptor extends PropertyDescriptor {
     value: MessageReplyHandler;
 }
-export declare type MessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyFunctionDescriptor) => void;
+interface TransactionDescriptor extends PropertyDescriptor {
+    value: TransactionHandler;
+}
+export declare type MessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor) => void;
+export declare type TransactionFunction = (target: typeof Publisher, propertyKey: string, descriptor: TransactionDescriptor) => void;
 
 export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
@@ -561,10 +570,26 @@ export function Reply(): MessageReplyFunction {
             const topic = (publisherName + '/' + propertyKey);
     
             //Add Route
-            commServer.addPublisherRoute(topic, target, descriptor.value);
+            commServer.addPublisherRoute('reply', topic, target, descriptor.value);
     
             //Call reply.
             commServer.reply(topic, descriptor.value);
+        }
+    }
+}
+
+export function Transaction(): TransactionFunction {
+    return (target, propertyKey, descriptor) => {
+        const publisherName = target.name.replace('Publisher', '');
+
+        if(canLoad(autoInjectPublisherOptions, publisherName)){
+            const topic = (publisherName + '/' + propertyKey);
+    
+            //Add Route
+            commServer.addPublisherRoute('transaction', topic, target, descriptor.value);
+    
+            //Call transaction.
+            commServer.transaction(topic, descriptor.value);
         }
     }
 }

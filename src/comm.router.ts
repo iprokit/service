@@ -3,7 +3,7 @@ import EventEmitter from 'events';
 
 //Local Imports
 import { Events, Defaults } from './microservice';
-import { Topic, TopicExp, BroadcastTopicExp, Body, ErrorBody, IMessage, IReply, IBroadcast } from './comm';
+import { Topic, TopicExp, BroadcastTopicExp, Method, Body, ErrorBody, IMessage, IReply, IBroadcast } from './comm';
 import { MqttServer, Client, InPacket, OutPacket } from './comm.server';
 import Utility from './utility';
 
@@ -11,12 +11,14 @@ import Utility from './utility';
 export declare type Route = MessageReplyRoute | BroadcastRoute;
 
 export declare type MessageReplyRoute = {
+    method: Method;
     topic: Topic;
-    handler: MessageReplyHandler;
+    handler: Handler;
     name: string;
 }
 
 export declare type BroadcastRoute = {
+    method: Method;
     topic: Topic;
 }
 
@@ -28,7 +30,9 @@ export declare type MessageReplyQueue = {
 }
 
 //Handlers
-export declare type MessageReplyHandler = (message: Message, reply: Reply) => void;
+export declare type Handler = MessageReplyHandler | TransactionHandler;
+export declare type MessageReplyHandler = (message: Message, reaply: Reply) => void;
+export declare type TransactionHandler = (message: TransactionMessage, reaply: TransactionReply) => void;
 
 export default class CommRouter extends EventEmitter{
     //MessageReply
@@ -74,17 +78,34 @@ export default class CommRouter extends EventEmitter{
     }
 
     /////////////////////////
-    ///////Init Functions
+    ///////Handler Functions
     /////////////////////////
     public reply(topic: Topic, handler: MessageReplyHandler){
+        this.defineRoute(topic, 'reply', handler);
+    }
+
+    public transaction(topic: Topic, handler: TransactionHandler){
+        this.defineRoute(topic, 'transaction', handler);
+    }
+
+    /////////////////////////
+    ///////Broadcast Function
+    public broadcast(topic: Topic, body: Body){
+        this.routeBroadcast(topic, body);
+    }
+
+    /////////////////////////
+    ///////Define Functions
+    /////////////////////////
+    private defineRoute<H extends Handler>(topic: Topic, method: Method, handler: H){
         //Data-massage topic before handle.
         topic = topic.trim();
 
         //TODO: Allow only 2 topic levels.
 
-        if(!this.getRoute(this._messageReplyRoutes, topic)){
-            this._messageReplyRoutes.push({topic: topic, handler: handler, name: handler.name});
-    
+        if(!this.getRoute(this._messageReplyRoutes, topic, method)){
+            this._messageReplyRoutes.push({topic: topic, method: method, handler: handler, name: handler.name});
+
             //Add topic + handler to listener.
             this._messageReplyRoutesHandler.on(topic, handler);
         }
@@ -96,16 +117,12 @@ export default class CommRouter extends EventEmitter{
 
         //TODO: Allow only 1 topic level.
 
-        if(!this.getRoute(this._broadcastRoutes, topic)){
-            this._broadcastRoutes.push({topic: topic});
+        if(!this.getRoute(this._broadcastRoutes, topic, 'broadcast')){
+            this._broadcastRoutes.push({topic: topic, method: 'broadcast'});
     
             //Add topic + broadcast handler to listener.
             this._broadcastHandler.on(topic, (broadcast: Broadcast) => this.sendPacket(broadcast.topic, broadcast.body));
         }
-    }
-
-    public broadcast(topic: Topic, body: Body){
-        this.routeBroadcast(topic, body);
     }
 
     /////////////////////////
@@ -124,7 +141,7 @@ export default class CommRouter extends EventEmitter{
     }
 
     /////////////////////////
-    ///////Route
+    ///////Routes Managment
     /////////////////////////
     /**
      * Routes the incoming Packets.
@@ -143,11 +160,15 @@ export default class CommRouter extends EventEmitter{
 
             //Init variables.
             const topicExp = new TopicExp(packet.topic);
-            const route = this.getRoute(this._messageReplyRoutes, topicExp.routingTopic);
+            const route = this.getRoute(this._messageReplyRoutes, topicExp.routingTopic, topicExp.method);
             const body = this.toJSON(packet.payload);
 
             try{
                 //Validate all conditions, on fail throws error.
+                if(!topicExp.method){
+                    throw new InvalidMethod(packet.topic);
+                }
+
                 if(!route){
                     throw new TopicNotFound(packet.topic);
                 }
@@ -156,9 +177,10 @@ export default class CommRouter extends EventEmitter{
                     throw new ActionNotPermitted(topicExp.topic);
                 }
 
-                if(this.isInQueue(topicExp, this._messageReplySendingQueue, this._messageReplySentQueue)){
-                    throw new TopicUsed(topicExp.topic);
-                }
+                //TODO: this might not be needed.
+                // if(this.isInQueue(topicExp, this._messageReplySendingQueue, this._messageReplySentQueue)){
+                //     throw new TopicUsed(topicExp.topic);
+                // }
 
                 if(!body){
                     throw new InvalidJSON(packet.payload);
@@ -166,13 +188,12 @@ export default class CommRouter extends EventEmitter{
 
                 switch(topicExp.method){
                     case 'reply':
-                        this.routeMessageReply(topicExp.topic, route, body);
+                        this.routeMessageReply(topicExp, route, body);
                         break;
                     case 'transaction':
-                        //TODO: Route Transaction
-                        //Work from here.
+                        this.routeTransaction(topicExp, route, body);
                         break;
-                    default :
+                    default:
                         throw new InvalidMethod(topicExp.method);
                 }
             }catch(error){
@@ -189,14 +210,14 @@ export default class CommRouter extends EventEmitter{
     /**
      * Routes the incoming packets as Message/Reply protocol.
      * 
-     * @param topic to be routed.
+     * @param topicExp to be routed.
      * @param route the routing object.
      * @param body the body to be routed.
      */
-    private routeMessageReply<R extends Route, B extends Body>(topic: Topic, route: R, body: B){
+    private routeMessageReply<R extends Route, B extends Body>(topicExp: TopicExp, route: R, body: B){
         //Init Params.
-        const message = new Message(topic, body);
-        const reply = new Reply(topic);
+        const message = new Message(topicExp.topic, body);
+        const reply = new Reply(topicExp.topic);
 
         //Add Message/Reply to sending queue.
         this._messageReplySendingQueue.push({message: message, reply: reply});
@@ -215,6 +236,39 @@ export default class CommRouter extends EventEmitter{
     }
 
     /**
+     * Routes the incoming packets as Transaction protocol.
+     * 
+     * @param topicExp to be routed.
+     * @param route the routing object.
+     * @param body the body to be routed.
+     */
+    private routeTransaction<R extends Route, B extends Body>(topicExp: TopicExp, route: R, body: B){
+        console.log('Routing Transaction');
+
+        //TODO: Work from here for Transaction. Skeleton code complete.
+
+        const transactionMessage = new TransactionMessage(topicExp.topic);
+        const transactionReply = new TransactionReply(topicExp.topic);
+        this._messageReplyRoutesHandler.emit(route.topic, transactionMessage, transactionReply);
+
+        if(topicExp.action === "prepare"){
+            console.log('Preparing to prepare.');
+
+            transactionReply.readyHandler.emit(Events.COMM_ROUTER_TRANSACTION_PREPARE);
+        }
+        if(topicExp.action === "commit"){
+            console.log('Preparing to commit.');
+
+            transactionReply.readyHandler.emit(Events.COMM_ROUTER_TRANSACTION_COMMIT);
+        }
+        if(topicExp.action === "rollback"){
+            console.log('Preparing to rollback.');
+
+            transactionReply.readyHandler.emit(Events.COMM_ROUTER_TRANSACTION_ROLLBACK);
+        }
+    }
+
+    /**
      * Routes the outgoing packets as broadcast protocol.
      * 
      * @param topic to be routed.
@@ -226,7 +280,7 @@ export default class CommRouter extends EventEmitter{
 
         //Init variables.
         const topicExp = new BroadcastTopicExp(topic);
-        const route = this.getRoute(this._broadcastRoutes, topicExp.routingTopic);
+        const route = this.getRoute(this._broadcastRoutes, topicExp.routingTopic, topicExp.method);
 
         //Validate all conditions, on fail throws error.
         if(!route){
@@ -270,8 +324,8 @@ export default class CommRouter extends EventEmitter{
      * @param topic the topic to find.
      * @returns the route found based on the given topic.
      */
-    private getRoute<R extends Route>(routes: Array<R>, topic: Topic){
-        return routes.find(route => route.topic === topic);
+    private getRoute<R extends Route>(routes: Array<R>, topic: Topic, method: Method){
+        return routes.find(route => route.topic === topic && route.method === method);
     }
 
     /**
@@ -358,12 +412,11 @@ export class Reply extends TopicExp implements IReply {
     public isError: boolean;
     private readonly _readyHandler: EventEmitter;
 
-    constructor(topic: Topic, body?: Body){
+    constructor(topic: Topic){
         //Call super for TopicExp.
         super(topic);
 
         //Init IReply
-        this.body = body;
         this.isError = false;
         this._readyHandler = new EventEmitter();
     }
@@ -382,11 +435,58 @@ export class Reply extends TopicExp implements IReply {
         this.body = body;
 
         //Reply Emit.
-        this._readyHandler.emit(Events.SEND_REPLY, this);
+        this._readyHandler.emit(Events.COMM_ROUTER_SEND_REPLY, this);
     }
 
     public onReady(fn: (reply: this) => void){
-        this._readyHandler.once(Events.SEND_REPLY, fn);
+        this._readyHandler.once(Events.COMM_ROUTER_SEND_REPLY, fn);
+    }
+}
+
+/////////////////////////
+///////Transaction
+/////////////////////////
+export class TransactionMessage extends TopicExp implements IMessage {
+    public readonly body: Body;
+
+    constructor(topic: Topic){
+        //Call super for TopicExp.
+        super(topic);
+        
+    }
+}
+
+export class TransactionReply extends TopicExp implements IReply{
+    public body: Body;
+    public isError: boolean;
+    public readyHandler: EventEmitter;
+
+    constructor(topic: Topic){
+        //Call super for TopicExp.
+        super(topic);
+
+        //Init IReply
+        this.isError = false;
+
+        this.readyHandler = new EventEmitter();
+    }
+
+    public onPrepare(fn: () => void){
+        console.log('Called onPrepare');
+        this.readyHandler.once(Events.COMM_ROUTER_TRANSACTION_PREPARE, fn);
+        return this;
+    }
+
+    public onCommit(fn: () => void){
+        console.log('Called onCommit');
+        this.readyHandler.once(Events.COMM_ROUTER_TRANSACTION_COMMIT, fn);
+        return this;
+    }
+
+    public onRollback(fn: () => void){
+        console.log('Called onRollback');
+        this.readyHandler.once(Events.COMM_ROUTER_TRANSACTION_ROLLBACK, fn);
+        return this;
     }
 }
 
@@ -408,6 +508,20 @@ export class Broadcast extends BroadcastTopicExp implements IBroadcast {
 /////////////////////////
 ///////Errors
 /////////////////////////
+export class ActionNotPermitted extends Error {
+    constructor (topic: string) {
+        //Call super for Error.
+        super();
+        
+        //Init Error variables.
+        this.name = this.constructor.name;
+        this.message = 'Action not permitted on topic: ' + topic;
+    
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
 export class TopicNotFound extends Error {
     constructor (topic: string) {
         //Call super for Error.
@@ -444,20 +558,6 @@ export class InvalidMethod extends Error {
         //Init Error variables.
         this.name = this.constructor.name;
         this.message = 'Invalid Method: ' + method;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-
-export class ActionNotPermitted extends Error {
-    constructor (topic: string) {
-        //Call super for Error.
-        super();
-        
-        //Init Error variables.
-        this.name = this.constructor.name;
-        this.message = 'Action not permitted on topic: ' + topic;
     
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);

@@ -29,23 +29,39 @@ export class TopicExp implements ITopicExp {
     constructor(topic: Topic){
         const stack = topic.split('/');
 
-        this.method = stack[0] as Method;
+        this.method = this.validateAndGetMethod(stack[0] as Method);
         this.class = stack[1];
         this.function = stack[2];
         this.id = stack[3];
-        this.action = stack[4] as Action;
+        this.action = this.validateAndGetAction(stack[4] as Action);
         this.stack = stack;
 
         this.topic = topic;
         this.routingTopic = stack[1] + '/' + stack[2];
     }
 
-    public isReply(){
-        return this.method === 'reply';
+    private validateAndGetMethod(method: Method){
+        switch(method){
+            case 'reply': 
+                return 'reply';
+            case 'transaction': 
+                return 'transaction';
+            default:
+                return;
+        }
     }
 
-    public isTransaction(){
-        return this.method === 'transaction';
+    private validateAndGetAction(action: Action){
+        switch(action){
+            case 'prepare': 
+                return 'prepare';
+            case 'commit': 
+                return 'commit';
+            case 'rollback': 
+                return 'rollback';
+            default:
+                return;
+        }
     }
 }
 
@@ -88,9 +104,13 @@ export interface IReply extends Body {
 export interface IBroadcast extends Body {}
 
 ///////Handshake
+export type HandshakeRoute = {
+    method: Method,
+    topic: Topic
+}
 export interface Handshake extends IBroadcast {
     name: string;
-    messageReplys: Array<Topic>;
+    messageReplys: Array<HandshakeRoute>;
     broadcasts: Array<Topic>;
 }
 

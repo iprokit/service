@@ -17,7 +17,7 @@ export { default as RDBModel } from './db.rdb.model';
 export { default as NoSQLModel } from './db.nosql.model';
 
 //Export Decorators
-export { Entity, Get, Post, Put, Delete, Reply } from './microservice';
+export { Entity, Get, Post, Put, Delete, Reply, Transaction } from './microservice';
 
 //Main Components + Default
 export default MicroService;
