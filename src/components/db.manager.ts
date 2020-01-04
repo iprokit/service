@@ -10,9 +10,9 @@ export { NoSQL, NoSQLDataTypes };
 export { RDB, RDBOp, RDBDataTypes };
 
 import { Events } from "../store/events";
-import { IClient, ConnectionState } from "../types/component";
-import RDBModel from './rdb.model';
-import NoSQLModel from './nosql.model';
+import { IClient, ConnectionState } from "../store/component";
+import RDBModel from '../generics/rdb.model';
+import NoSQLModel from '../generics/nosql.model';
 
 //Export Types
 export declare type Connection = RDB | NoSQL;

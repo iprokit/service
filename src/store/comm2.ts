@@ -61,15 +61,6 @@ export class Reply implements IReply {
 }
 
 /////////////////////////
-///////ReplyTransaction
-/////////////////////////
-export class ReplyTransaction {
-    constructor(){
-
-    }
-}
-
-/////////////////////////
 ///////TopicHelper
 /////////////////////////
 export class TopicHelper {
@@ -85,37 +76,5 @@ export class TopicHelper {
 
     public get functionName(){
         return this.topic.split('/')[2];
-    }
-
-    public get transaction(){
-        return {commit: this.topic + '/commit', rollback: this.topic + '/rollback'};
-    }
-
-    public isTransactionTopic(){
-        return (this.topic.endsWith('/commit') || this.topic.endsWith('/rollback'));
-    }
-}
-
-/////////////////////////
-///////Subscriber
-/////////////////////////
-export class Subscriber {
-    public name: string;
-
-    //Default Constructor
-    constructor(name: string){
-        this.name = name;
-    }
-}
-
-/////////////////////////
-///////Alias - Holds subscribers.
-/////////////////////////
-export class Alias {
-    public name: string;
-
-    //Default Constructor
-    constructor(name?: string){
-        this.name = name;
     }
 }

@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 
 //Local Imports
-import { HttpCodes } from './server';
+import { HttpCodes } from '../components/api.server';
 
 export default class Controller {
     //Default Constructor

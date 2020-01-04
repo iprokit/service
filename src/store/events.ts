@@ -23,13 +23,6 @@ export class Events {
     public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
     //Reply
     public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
-    //Transaction
-    public static readonly COMM_ROUTER_TRANSACTION_PREPARE = Symbol('COMM_ROUTER_TRANSACTION_PREPARE');
-    public static readonly COMM_ROUTER_TRANSACTION_COMMIT = Symbol('COMM_ROUTER_TRANSACTION_COMMIT');
-    public static readonly COMM_ROUTER_TRANSACTION_ROLLBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLBACK');
-    public static readonly COMM_ROUTER_TRANSACTION_PREPARED = Symbol('COMM_ROUTER_TRANSACTION_PREPARED');
-    public static readonly COMM_ROUTER_TRANSACTION_COMMITTED = Symbol('COMM_ROUTER_TRANSACTION_COMMITTED');
-    public static readonly COMM_ROUTER_TRANSACTION_ROLLEDBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLEDBACK');
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
     public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');

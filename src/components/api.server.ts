@@ -10,11 +10,11 @@ import httpStatus from 'http-status-codes';
 //Export Libs
 export { PathParams, RequestHandler, httpStatus as HttpCodes };
 
-import { IServer, ConnectionState } from "../types/component";
+import { IServer, ConnectionState } from "../store/component";
 import { Events } from "../store/events";
 import { Defaults } from "../store/defaults";
 import Utility from '../store/utility';
-import Controller from './controller';
+import Controller from '../generics/controller';
 
 //Types: Route
 export type RouteMethod = 'get' | 'post' | 'put' | 'delete';

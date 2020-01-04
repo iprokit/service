@@ -4,14 +4,14 @@ import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
 import { Events } from "../store/events";
 import { Defaults } from "../store/defaults";
-import { IClient, ConnectionState } from "../types/component";
-import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber } from '../types/comm2';
-import { Handshake } from '../types/comm';
+import { IClient, ConnectionState } from "../store/component";
+import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError } from '../store/comm2';
+import { Alias } from "../generics/alias";
+import { Subscriber } from "../generics/subscriber";
+import { Handshake } from '../store/comm';
 
 //Types: Function
-export declare type CommFunction = MessageFunction | TransactionFunction;
 export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
-export declare type TransactionFunction = (parms?: MessageParms) => NodeTransaction;
 
 let that: CommClient;
 export default class CommClient extends EventEmitter implements IClient {
@@ -222,17 +222,6 @@ export default class CommClient extends EventEmitter implements IClient {
     }
 
     /////////////////////////
-    ///////Transaction 
-    /////////////////////////
-    private receiveTransaction(packet: Packet){
-        //console.log('Node', packet);
-
-        //TODO: Stage 2
-        //Step 1: Check topics.
-        //Step 2: Based on topics emit events.
-    }
-
-    /////////////////////////
     ///////Handle Functions
     /////////////////////////
     public message(topic: Topic, parms: MessageParms){
@@ -256,30 +245,6 @@ export default class CommClient extends EventEmitter implements IClient {
                 reject(new CommNodeUnavailableError(this.url));
             }
         });
-    }
-
-    public transaction(topic: Topic, parms: MessageParms){
-        if(this.connected){
-            //Creating new transaction.
-            const transaction = new NodeTransaction();
-
-            //Creating Transaction Topics
-            const transactionTopic = new TopicHelper(topic).transaction;
-
-            //Creating new message.
-            const prepareMessage = this.createMessage(topic, parms);
-            const commitMessage = this.createMessage(transactionTopic.commit, { commit: true });
-            const rollbackMessage = this.createMessage(transactionTopic.rollback, { rollback: true });
-
-            //Add Listeners
-            // transaction._event.once(Events.TRANSACTION_PREPARE, () => this.sendMessage(prepareMessage));
-            // transaction._event.once(Events.TRANSACTION_COMMIT, () => this.sendMessage(commitMessage));
-            // transaction._event.once(Events.TRANSACTION_ROLLBACK, () => this.sendMessage(rollbackMessage));
-
-            return transaction;
-        }else{
-            throw new CommNodeUnavailableError(this.url);
-        }
     }
 
     /////////////////////////
@@ -318,7 +283,7 @@ export default class CommClient extends EventEmitter implements IClient {
         //Convert comms into subscribers with dynamic functions.
         handshake.messageReplys.forEach(topic => {
             //Covert the topic to class and function.
-            const breakTopic = new TopicHelper(topic.topic);
+            const breakTopic = new TopicHelper(topic);
             const subscriberName = breakTopic.className;
             const functionName = breakTopic.functionName;
 
@@ -336,25 +301,16 @@ export default class CommClient extends EventEmitter implements IClient {
             if(Object.getPrototypeOf(subscriber)[functionName] === undefined){
                 //Create a new dynamic funcation based on the method.
                 const message: MessageFunction = function(parms?: MessageParms) {
-                    const _topic = topic.topic;
+                    const _topic = topic;
                     return that.message(_topic, parms);
                 }
 
                 //Assing reply function to Subscriber class.
                 Object.defineProperty(subscriber, functionName, {value: message, enumerable: true, writable: true});
-                
-                //     const transaction: TransactionFunction = function(parms?: MessageParms) {
-                //         const _topic = topic;
-                //         return that.transaction(_topic, parms);
-                //     }
-
-                //     //Assing transaction function to Subscriber class.
-                //     Object.defineProperty(subscriber, functionName, {value: transaction, enumerable: true, writable: true});
-                //     break;
             }
 
             //Add comm to comms.
-            this.comms.push({topic: topic.topic, functionName: functionName});
+            this.comms.push({topic: topic, functionName: functionName});
 
             //Adding the Subscriber class to Alias class.
             Object.getPrototypeOf(this.alias)[subscriberName] = subscriber;
@@ -388,90 +344,6 @@ export class NodeReply extends Reply {
 }
 
 /////////////////////////
-///////Transaction
-/////////////////////////
-export class NodeTransaction {
-    //TODO: Need to add unique id.
-
-    private _prepared: boolean;
-    private _committed: boolean;
-    private _rolledback: boolean;
-
-    public readonly _event: EventEmitter;
-
-    constructor(){
-        this._prepared = false;
-        this._committed = false;
-        this._rolledback = false;
-
-        this._event = new EventEmitter();
-    }
-
-    public prepare(){
-        return new Promise<ReplyBody>((resolve, reject) => {
-            if(!this._prepared){
-                this._prepared = true;
-                resolve();
-
-                //Add Listener first.
-                //this._event.once(Events.TRANSACTION_PREPARED, (data) => resolve(data));
-    
-                //Emit.
-                // this._event.emit(Events.TRANSACTION_PREPARE);
-            }else{
-                reject(new TransactionWarning('Transaction already prepared.'));
-            }
-        });
-    }
-
-    public commit(){
-        return new Promise<boolean>((resolve, reject) => {
-            if(!this._committed){
-                this._committed = true;
-                resolve();
-
-                //Add Listener first.
-                //this._event.once(Events.TRANSACTION_COMMITTED, (data) => resolve(data));
-    
-                //Emit.
-                // this._event.emit(Events.TRANSACTION_COMMIT);
-            }else{
-                reject(new TransactionWarning('Transaction already committed.'));
-            }
-        });
-    }
-
-    public rollback(){
-        return new Promise<boolean>((resolve, reject) => {
-            if(!this._rolledback){
-                this._rolledback = true;
-                resolve();
-
-                //Add Listener first.
-                //this._event.once(Events.TRANSACTION_ROLLEDBACK, (data) => resolve(data));
-    
-                //Emit.
-                // this._event.emit(Events.TRANSACTION_ROLLBACK);
-            }else{
-                reject(new TransactionWarning('Transaction already rolledback.'));
-            }
-        });
-    }
-
-    public get prepared(){
-        return this._prepared;
-    }
-
-    public get committed(){
-        return this._committed;
-    }
-
-    public get rolledback(){
-        return this._rolledback;
-    }
-}
-
-/////////////////////////
 ///////Error Classes
 /////////////////////////
 export class CommNodeUnavailableError extends Error{
@@ -484,16 +356,4 @@ export class CommNodeUnavailableError extends Error{
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
     }
-}
-
-export class TransactionWarning extends Error {
-    constructor (message: string) {
-        super(message);
-        
-        // Saving class name in the property of our custom error as a shortcut.
-        this.name = this.constructor.name;
-    
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-      }
 }

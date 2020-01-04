@@ -2,8 +2,8 @@
 import EventEmitter from 'events';
 
 import { Events } from "../store/events";
-import { IClient, ConnectionState } from "../types/component";
-import CommClient from './client';
+import { IClient, ConnectionState } from "../store/component";
+import CommClient from './comm.client';
 
 export default class CommMesh extends EventEmitter implements IClient {
     //Mesh Variables.

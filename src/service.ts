@@ -25,15 +25,16 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './store/utility';
-import ApiServer, { PathParams, RequestHandler, HttpCodes } from './api/server';
-import { Topic, Body, Publisher } from './types/comm';
-import CommServer, { MessageReplyHandler, TransactionHandler } from './comm/server';
-import CommMesh from './comm/mesh';
-import CommNode from './comm/client';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db/manager';
-import Controller from './api/controller';
-import { Alias } from './types/comm2';
-import { ConnectionState } from './types/component';
+import ApiServer, { PathParams, RequestHandler, HttpCodes } from './components/api.server';
+import CommServer, { MessageReplyHandler } from './components/comm.server';
+import CommMesh from './components/comm.mesh';
+import CommNode from './components/comm.client';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './components/db.manager';
+import Controller from './generics/controller';
+import { Topic, Body } from './store/comm';
+import { Publisher } from "./generics/publisher";
+import { Alias } from "./generics/alias";
+import { ConnectionState } from './store/component';
 import { Defaults } from './store/defaults';
 import { Events } from './store/events';
 
@@ -293,10 +294,6 @@ export default class Service extends EventEmitter {
         commServer.reply(topic, handler);
     }
 
-    public transaction(topic: Topic, handler: TransactionHandler){
-        commServer.transaction(topic, handler);
-    }
-
     public defineBroadcast(topic: Topic){
         commServer.defineBroadcast(topic);
     }
@@ -465,11 +462,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 interface MessageReplyDescriptor extends PropertyDescriptor {
     value: MessageReplyHandler;
 }
-interface TransactionDescriptor extends PropertyDescriptor {
-    value: TransactionHandler;
-}
 export declare type MessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor) => void;
-export declare type TransactionFunction = (target: typeof Publisher, propertyKey: string, descriptor: TransactionDescriptor) => void;
 
 export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
@@ -479,26 +472,10 @@ export function Reply(): MessageReplyFunction {
             const topic = (publisherName + '/' + propertyKey);
     
             //Add Route
-            commServer.addPublisherRoute('reply', topic, target, descriptor.value);
+            commServer.addPublisherRoute(topic, target, descriptor.value);
     
             //Call reply.
             commServer.reply(topic, descriptor.value);
-        }
-    }
-}
-
-export function Transaction(): TransactionFunction {
-    return (target, propertyKey, descriptor) => {
-        const publisherName = target.name.replace('Publisher', '');
-
-        if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = (publisherName + '/' + propertyKey);
-    
-            //Add Route
-            commServer.addPublisherRoute('transaction', topic, target, descriptor.value);
-    
-            //Call transaction.
-            commServer.transaction(topic, descriptor.value);
         }
     }
 }

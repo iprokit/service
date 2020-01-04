@@ -2,22 +2,22 @@
 import Service from './service';
 
 //Export API Components
-export { HttpCodes } from './api/server';
-export { default as Controller } from './api/controller';
+export { HttpCodes } from './components/api.server';
+export { default as Controller } from './generics/controller';
 
 //Export Comm Components
-export { Publisher } from './types/comm';
+export { Publisher } from './generics/publisher';
 
 //Export Mesh Components
-export { CommNodeUnavailableError } from './comm/client';
+export { CommNodeUnavailableError } from './components/comm.client';
 
 //Export DB Components
-export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db/manager';
-export { default as RDBModel } from './db/rdb.model';
-export { default as NoSQLModel } from './db/nosql.model';
+export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './components/db.manager';
+export { default as RDBModel } from './generics/rdb.model';
+export { default as NoSQLModel } from './generics/nosql.model';
 
 //Export Decorators
-export { Entity, Get, Post, Put, Delete, Reply, Transaction } from './service';
+export { Entity, Get, Post, Put, Delete, Reply } from './service';
 
 //Main Components + Default
 export default Service;
