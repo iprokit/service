@@ -3,12 +3,13 @@ import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
 
 //Local Imports
-import Utility from './utility';
-import MicroService, { Options as MicroServiceOptions, Defaults } from "./microservice";
+import Utility from './store/utility';
+import Service, { Options } from "./service";
+import { Defaults } from "./store/defaults";
 
-export default class Gateway extends MicroService {
+export default class Gateway extends Service {
     //Default Constructor
-    public constructor(baseUrl?: string, options?: MicroServiceOptions) {
+    public constructor(baseUrl?: string, options?: Options) {
         //Set null defaults.
         options = options || {};
 
@@ -54,7 +55,7 @@ export default class Gateway extends MicroService {
         //Split url into host and port.
         const _url = url.split(':');
         const _host = _url[0];
-        const _port = Number(_url[1]) || Defaults.WWW_PORT;
+        const _port = Number(_url[1]) || Defaults.API_PORT;
 
         //New URL
         return _host + ':' + _port;

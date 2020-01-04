@@ -9,10 +9,10 @@ const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
 export { NoSQL, NoSQLDataTypes };
 export { RDB, RDBOp, RDBDataTypes };
 
-//Local Imports
-import { Client, Events, ConnectionState } from './microservice';
-import RDBModel from './db.rdb.model';
-import NoSQLModel from './db.nosql.model';
+import { Events } from "../store/events";
+import { IClient, ConnectionState } from "../types/component";
+import RDBModel from './rdb.model';
+import NoSQLModel from './nosql.model';
 
 //Export Types
 export declare type Connection = RDB | NoSQL;
@@ -22,7 +22,7 @@ export declare type RDBModelAttributes = SequelizeModelAttributes;
 export declare type NoSQLModelAttributes = SchemaDefinition;
 export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 
-export default class DBManager extends EventEmitter implements Client {
+export default class DBManager extends EventEmitter implements IClient {
     //DBManager Variables.
     private readonly _paperTrail: boolean;
     private _connected: boolean;

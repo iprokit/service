@@ -1,16 +1,16 @@
 //Import modules
 import EventEmitter from 'events';
 
-//Local Imports
-import { Client, Events, ConnectionState } from './microservice';
-import CommNode from './comm.node';
+import { Events } from "../store/events";
+import { IClient, ConnectionState } from "../types/component";
+import CommClient from './client';
 
-export default class CommMesh extends EventEmitter implements Client {
+export default class CommMesh extends EventEmitter implements IClient {
     //Mesh Variables.
     public readonly name: string;
 
     //Nodes
-    private readonly nodes: Array<CommNode>;
+    private readonly clients: Array<CommClient>;
 
     //Default Constructor
     constructor(){
@@ -21,27 +21,27 @@ export default class CommMesh extends EventEmitter implements Client {
         this.name = global.service.name;
 
         //Init variables.
-        this.nodes = new Array();
+        this.clients = new Array();
     }
 
     /////////////////////////
     ///////Map Functions
     /////////////////////////
     public hasNode(){
-        return (this.nodes.length > 0);
+        return (this.clients.length > 0);
     }
 
     private createNode(url: string, identifier: string){
         //Creating node object.
-        const node = new CommNode(this.name, url, identifier);
+        const client = new CommClient(this.name, url, identifier);
 
         //Add to Array
-        this.nodes.push(node);
+        this.clients.push(client);
 
         //Emit node added.
-        this.emit(Events.MESH_ADDED_NODE, node);
+        this.emit(Events.MESH_ADDED_NODE, client);
 
-        return node;
+        return client;
     }
     
     public defineNode(url: string, identifier: string){
@@ -50,12 +50,12 @@ export default class CommMesh extends EventEmitter implements Client {
 
     public getAlias(identifier: string){
         //Try finding node.
-        return this.nodes.find(node => node.identifier === identifier).alias;
+        return this.clients.find(node => node.identifier === identifier).alias;
     }
 
     public async defineNodeAndGetAlias(url: string){
         //Try finding nodes.
-        let node = this.nodes.find(node => node.url === url);
+        let node = this.clients.find(node => node.url === url);
 
         if(!node){
             //No node found. creating a new node.
@@ -78,7 +78,7 @@ export default class CommMesh extends EventEmitter implements Client {
             this.emit(Events.MESH_CONNECTING);
 
             try{
-                await Promise.all(this.nodes.map(node => node.connect()));
+                await Promise.all(this.clients.map(node => node.connect()));
                 this.emit(Events.MESH_CONNECTED, this);
                 return 1;
             }catch(error){
@@ -93,7 +93,7 @@ export default class CommMesh extends EventEmitter implements Client {
             this.emit(Events.MESH_DISCONNECTING);
 
             try{
-                await Promise.all(this.nodes.map(node => node.disconnect()));
+                await Promise.all(this.clients.map(node => node.disconnect()));
                 this.emit(Events.MESH_DISCONNECTED, this);
                 return 0;
             }catch(error){
@@ -108,7 +108,7 @@ export default class CommMesh extends EventEmitter implements Client {
     public getReport(){
         let nodes = new Array();
 
-        this.nodes.forEach(node => {
+        this.clients.forEach(node => {
             nodes.push(node.getReport());
         });
 

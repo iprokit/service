@@ -8,11 +8,12 @@ import createError from 'http-errors';
 import httpStatus from 'http-status-codes';
 
 //Export Libs
-export { PathParams, RequestHandler, httpStatus as HttpCodes};
+export { PathParams, RequestHandler, httpStatus as HttpCodes };
 
-//Local Imports
-import { Server, Events, Defaults, ConnectionState } from './microservice';
-import Utility from './utility';
+import { IServer, ConnectionState } from "../types/component";
+import { Events } from "../store/events";
+import { Defaults } from "../store/defaults";
+import Utility from '../store/utility';
 import Controller from './controller';
 
 //Types: Route
@@ -23,7 +24,7 @@ export type Route = {
     handler: RequestHandler
 }
 
-export default class WWWServer extends EventEmitter implements Server {
+export default class ApiServer extends EventEmitter implements IServer {
     //Server Variables.
     public readonly baseUrl: string;
     public readonly port: number;
@@ -34,23 +35,23 @@ export default class WWWServer extends EventEmitter implements Server {
     private _httpServer: HttpServer;
 
     //Controllers
-    private readonly _controllerRoutes: Array<{controller: typeof Controller, routes: Array<Route>}>;
+    private readonly _controllerRoutes: Array<{ controller: typeof Controller, routes: Array<Route> }>;
     private readonly _serviceRoutes: Array<Route>;
 
-    constructor(baseUrl?: string){
+    constructor(baseUrl?: string) {
         //Call super for EventEmitter.
         super();
 
         //Init Server variables.
         this.baseUrl = baseUrl || '/' + global.service.name.toLowerCase();
-        this.port = Number(process.env.WWW_PORT) || Defaults.WWW_PORT;
+        this.port = Number(process.env.API_PORT) || Defaults.API_PORT;
 
         //Setup Express
         this._expressApp = express();
         this._expressApp.use(cors());
         this._expressApp.options('*', cors());
         this._expressApp.use(express.json());
-        this._expressApp.use(express.urlencoded({extended: false}));
+        this._expressApp.use(express.urlencoded({ extended: false }));
 
         //Setup proxy pass.
         this._expressApp.use((request: Request, response: Response, next: NextFunction) => {
@@ -83,35 +84,35 @@ export default class WWWServer extends EventEmitter implements Server {
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public addControllerRoute(method: RouteMethod, path: PathParams, controller: typeof Controller, handler: RequestHandler){
+    public addControllerRoute(method: RouteMethod, path: PathParams, controller: typeof Controller, handler: RequestHandler) {
         //Sub function to add Controller to _controllerRoutes
         const _addControllerRoute = () => {
             //Create new routes.
-            const routes = new Array({method: method, path: this.baseUrl + path, handler: handler});
-    
+            const routes = new Array({ method: method, path: this.baseUrl + path, handler: handler });
+
             //Push Controller & routes to _controllerRoutes.
-            this._controllerRoutes.push({controller: controller, routes: routes});
+            this._controllerRoutes.push({ controller: controller, routes: routes });
 
             //Emit Controller added event.
-            this.emit(Events.WWW_SERVER_ADDED_CONTROLLER, controller.name, controller);
+            this.emit(Events.API_SERVER_ADDED_CONTROLLER, controller.name, controller);
         }
 
         //Validate if _controllerRoutes is empty.
-        if(this._controllerRoutes.length === 0){
+        if (this._controllerRoutes.length === 0) {
             _addControllerRoute();
-        }else{
+        } else {
             //Find existing controllerRoute.
             const controllerRoute = this._controllerRoutes.find(stack => stack.controller.name === controller.name);
 
-            if(controllerRoute){ //controllerRoute exists. 
-                controllerRoute.routes.push({method: method, path: this.baseUrl + path, handler: handler});
-            }else{ //No controllerRoute found.
+            if (controllerRoute) { //controllerRoute exists. 
+                controllerRoute.routes.push({ method: method, path: this.baseUrl + path, handler: handler });
+            } else { //No controllerRoute found.
                 _addControllerRoute();
             }
         }
     }
 
-    private createServiceRoutes(){
+    private createServiceRoutes() {
         //Clone all routes from _expressRouter to _serviceRoutes.
         this._expressRouter.stack.forEach(item => {
             const expressRoute = {
@@ -138,22 +139,22 @@ export default class WWWServer extends EventEmitter implements Server {
         return new Promise<ConnectionState>((resolve, reject) => {
             //Load Service Routes
             this.createServiceRoutes();
-            
+
             //Start Server
             this._httpServer = this._expressApp.listen(this.port, () => {
-                this.emit(Events.WWW_SERVER_STARTED, this);
+                this.emit(Events.API_SERVER_STARTED, this);
                 resolve(1);
             });
         });
     }
-    
+
     public async close() {
         return new Promise<ConnectionState>((resolve, reject) => {
             this._httpServer.close((error) => {
-                if(!error){
-                    this.emit(Events.WWW_SERVER_STOPPED, this);
+                if (!error) {
+                    this.emit(Events.API_SERVER_STOPPED, this);
                     resolve(0);
-                }else{
+                } else {
                     reject(error);
                 }
             });
@@ -163,7 +164,7 @@ export default class WWWServer extends EventEmitter implements Server {
     /////////////////////////
     ///////Report
     /////////////////////////
-    public getReport(){
+    public getReport() {
         //Sub function to create Routes.
         const _createRoutes = (routes: Array<Route>) => {
             let _routes = new Array();
@@ -177,7 +178,7 @@ export default class WWWServer extends EventEmitter implements Server {
         }
 
         //New controllers
-        let controllers: {[name: string]: Array<string>} = {};
+        let controllers: { [name: string]: Array<string> } = {};
 
         //Get stack from _controllerRoutes
         this._controllerRoutes.forEach(stack => {
@@ -193,23 +194,23 @@ export default class WWWServer extends EventEmitter implements Server {
     /////////////////////////
     ///////Router Functions
     /////////////////////////
-    public all(path: PathParams, ...handlers: RequestHandler[]){
+    public all(path: PathParams, ...handlers: RequestHandler[]) {
         this._expressRouter.all(path, ...handlers);
     }
 
-    public get(path: PathParams, ...handlers: RequestHandler[]){
+    public get(path: PathParams, ...handlers: RequestHandler[]) {
         this._expressRouter.get(path, ...handlers);
     }
 
-    public post(path: PathParams, ...handlers: RequestHandler[]){
+    public post(path: PathParams, ...handlers: RequestHandler[]) {
         this._expressRouter.post(path, ...handlers);
     }
 
-    public put(path: PathParams, ...handlers: RequestHandler[]){
+    public put(path: PathParams, ...handlers: RequestHandler[]) {
         this._expressRouter.put(path, ...handlers);
     }
 
-    public delete(path: PathParams, ...handlers: RequestHandler[]){
+    public delete(path: PathParams, ...handlers: RequestHandler[]) {
         this._expressRouter.delete(path, ...handlers);
     }
 }

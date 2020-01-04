@@ -2,18 +2,19 @@
 import EventEmitter from 'events';
 import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
-//Local Imports
-import { Client, Events, Defaults, ConnectionState } from './microservice';
-import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber } from './comm2';
-import { Handshake } from './comm';
+import { Events } from "../store/events";
+import { Defaults } from "../store/defaults";
+import { IClient, ConnectionState } from "../types/component";
+import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError, Alias, Subscriber } from '../types/comm2';
+import { Handshake } from '../types/comm';
 
 //Types: Function
 export declare type CommFunction = MessageFunction | TransactionFunction;
 export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
 export declare type TransactionFunction = (parms?: MessageParms) => NodeTransaction;
 
-let that: CommNode;
-export default class CommNode extends EventEmitter implements Client {
+let that: CommClient;
+export default class CommClient extends EventEmitter implements IClient {
     //CommNode Variables.
     public readonly identifier: string;
     public readonly name: string;

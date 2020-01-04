@@ -24,15 +24,18 @@ if(fs.existsSync(envPath)){
 }
 
 //Local Imports
-import Utility from './utility';
-import WWWServer, { PathParams, RequestHandler, HttpCodes } from './www.server';
-import { Topic, Body, Publisher } from './comm';
-import CommServer, { MessageReplyHandler, TransactionHandler } from './comm.server';
-import CommMesh from './comm.mesh';
-import CommNode from './comm.node';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
-import Controller from './controller';
-import { Alias } from './comm2';
+import Utility from './store/utility';
+import ApiServer, { PathParams, RequestHandler, HttpCodes } from './api/server';
+import { Topic, Body, Publisher } from './types/comm';
+import CommServer, { MessageReplyHandler, TransactionHandler } from './comm/server';
+import CommMesh from './comm/mesh';
+import CommNode from './comm/client';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db/manager';
+import Controller from './api/controller';
+import { Alias } from './types/comm2';
+import { ConnectionState } from './types/component';
+import { Defaults } from './store/defaults';
+import { Events } from './store/events';
 
 //Types: Options
 export type Options = {
@@ -47,7 +50,7 @@ export type AutoLoadOptions = {
 }
 
 //Component Variables.
-let wwwServer: WWWServer;
+let apiServer: ApiServer;
 let commServer: CommServer;
 let commMesh: CommMesh;
 let dbManager: DBManager;
@@ -57,9 +60,9 @@ let autoWireModelOptions: AutoLoadOptions;
 let autoInjectPublisherOptions: AutoLoadOptions;
 let autoInjectControllerOptions: AutoLoadOptions;
 
-export default class MicroService extends EventEmitter {
+export default class Service extends EventEmitter {
     //Service Variables.
-    public readonly serviceName: string;
+    public readonly name: string;
     public readonly version: string;
     public readonly environment: string;
     public readonly ip: string;
@@ -73,19 +76,19 @@ export default class MicroService extends EventEmitter {
         options = options || {};
 
         //Init service variables.
-        this.serviceName = options.name || process.env.npm_package_name;
+        this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
 
         //Load global variables.
         global.service = {
-            name: this.serviceName,
+            name: this.name,
             projectPath: projectPath
         }
 
         //Init Components.
-        wwwServer = new WWWServer(baseUrl);
+        apiServer = new ApiServer(baseUrl);
         commServer = new CommServer();
         commMesh = new CommMesh();
 
@@ -95,23 +98,23 @@ export default class MicroService extends EventEmitter {
         autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
 
         //Default Service Routes
-        wwwServer.get('/health', (request, response) => {
+        apiServer.get('/health', (request, response) => {
             response.status(HttpCodes.OK).send({status: true});
         });
 
-        wwwServer.get('/report', (request, response) => {
+        apiServer.get('/report', (request, response) => {
             try {
                 let report = {
                     service: {
-                        name: this.serviceName,
+                        name: this.name,
                         version: this.version,
                         ip: this.ip,
-                        wwwPort: wwwServer.port,
+                        apiPort: apiServer.port,
                         commPort: commServer.port,
                         environment: this.environment
                     },
                     db: dbManager && dbManager.getReport(),
-                    www: wwwServer.getReport(),
+                    api: apiServer.getReport(),
                     comm: commServer.getReport(),
                     mesh: commMesh.getReport()
                 };
@@ -122,7 +125,7 @@ export default class MicroService extends EventEmitter {
             }
         });
 
-        wwwServer.post('/shutdown', (request, response) => {
+        apiServer.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
             setTimeout(() => {
                 console.log('Received shutdown from %s', request.url);
@@ -174,7 +177,7 @@ export default class MicroService extends EventEmitter {
             dbManager.init();
                 
             //DB routes.
-            wwwServer.post('/db/sync', async (request, response) => {
+            apiServer.post('/db/sync', async (request, response) => {
                 try{
                     const sync = await dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
@@ -219,7 +222,7 @@ export default class MicroService extends EventEmitter {
 
         try{
             //Start server components
-            await Promise.all([wwwServer.listen(), commServer.listen()]);
+            await Promise.all([apiServer.listen(), commServer.listen()]);
 
             //Start client components
             await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
@@ -247,7 +250,7 @@ export default class MicroService extends EventEmitter {
         
         try{
             //Stop server components
-            await Promise.all([wwwServer.close(), commServer.close()]);
+            await Promise.all([apiServer.close(), commServer.close()]);
 
             //Stop client components
             await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
@@ -261,26 +264,26 @@ export default class MicroService extends EventEmitter {
     }
 
     /////////////////////////
-    ///////WWW Server Functions
+    ///////API Server Functions
     /////////////////////////
     public all(path: PathParams, ...handlers: RequestHandler[]){
-        wwwServer.all(path, ...handlers);
+        apiServer.all(path, ...handlers);
     }
 
     public get(path: PathParams, ...handlers: RequestHandler[]){
-        wwwServer.get(path, ...handlers);
+        apiServer.get(path, ...handlers);
     }
 
     public post(path: PathParams, ...handlers: RequestHandler[]){
-        wwwServer.post(path, ...handlers);
+        apiServer.post(path, ...handlers);
     }
 
     public put(path: PathParams, ...handlers: RequestHandler[]){
-        wwwServer.put(path, ...handlers);
+        apiServer.put(path, ...handlers);
     }
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
-        wwwServer.delete(path, ...handlers);
+        apiServer.delete(path, ...handlers);
     }
 
     /////////////////////////
@@ -334,15 +337,15 @@ export default class MicroService extends EventEmitter {
     /////////////////////////
     public addListeners(){
         //Adding log listeners.
-        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.serviceName, {version: this.version, environment: this.environment}));
-        this.on(Events.STARTED, () => console.log('%s ready.', this.serviceName));
-        this.on(Events.STOPPING, () => console.log('Stopping %s...', this.serviceName));
-        this.on(Events.STOPPED, () => console.log('%s stopped.', this.serviceName));
+        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.name, {version: this.version, environment: this.environment}));
+        this.on(Events.STARTED, () => console.log('%s ready.', this.name));
+        this.on(Events.STOPPING, () => console.log('Stopping %s...', this.name));
+        this.on(Events.STOPPED, () => console.log('%s stopped.', this.name));
 
-        //WWW
-        wwwServer.on(Events.WWW_SERVER_STARTED, (_www: WWWServer) => console.log('www server running on %s:%s%s', this.ip, _www.port, _www.baseUrl));
-        wwwServer.on(Events.WWW_SERVER_STOPPED, () => console.log('Stopped www.'));
-        wwwServer.on(Events.WWW_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
+        //API
+        apiServer.on(Events.API_SERVER_STARTED, (api: ApiServer) => console.log('api server running on %s:%s%s', this.ip, api.port, api.baseUrl));
+        apiServer.on(Events.API_SERVER_STOPPED, () => console.log('Stopped api.'));
+        apiServer.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //commServer
         commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
@@ -375,104 +378,10 @@ export default class MicroService extends EventEmitter {
     }
 }
 
-/////////////////////////
-///////Events
-/////////////////////////
-export class Events {
-    //TODO: Move this to appropriate classes.
-    //Main
-    public static readonly STARTING = Symbol('STARTING');
-    public static readonly STARTED = Symbol('STARTED');
-    public static readonly STOPPING = Symbol('STOPPING');
-    public static readonly STOPPED = Symbol('STOPPED');
-
-    //WWW Server
-    public static readonly WWW_SERVER_STARTED = Symbol('WWW_SERVER_STARTED');
-    public static readonly WWW_SERVER_STOPPED = Symbol('WWW_SERVER_STOPPED');
-    public static readonly WWW_SERVER_ADDED_CONTROLLER = Symbol('WWW_SERVER_ADDED_CONTROLLER');
-
-    //Comm Server
-    public static readonly COMM_SERVER_STARTED = Symbol('COMM_SERVER_STARTED');
-    public static readonly COMM_SERVER_STOPPED = Symbol('COMM_SERVER_STOPPED');
-    public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
-    public static readonly COMM_SERVER_RECEIVED_PACKET = Symbol('COMM_SERVER_RECEIVED_PACKET');
-    public static readonly COMM_SERVER_SENT_PACKET = Symbol('COMM_SERVER_SENT_PACKET');
-
-    //Comm Router
-    public static readonly COMM_ROUTER_RECEIVED_PACKET = Symbol('COMM_ROUTER_RECEIVED_PACKET');
-    public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
-
-    //Reply
-    public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
-
-    //Transaction
-    public static readonly COMM_ROUTER_TRANSACTION_PREPARE = Symbol('COMM_ROUTER_TRANSACTION_PREPARE');
-    public static readonly COMM_ROUTER_TRANSACTION_COMMIT = Symbol('COMM_ROUTER_TRANSACTION_COMMIT');
-    public static readonly COMM_ROUTER_TRANSACTION_ROLLBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLBACK');
-
-    public static readonly COMM_ROUTER_TRANSACTION_PREPARED = Symbol('COMM_ROUTER_TRANSACTION_PREPARED');
-    public static readonly COMM_ROUTER_TRANSACTION_COMMITTED = Symbol('COMM_ROUTER_TRANSACTION_COMMITTED');
-    public static readonly COMM_ROUTER_TRANSACTION_ROLLEDBACK = Symbol('COMM_ROUTER_TRANSACTION_ROLLEDBACK');
-
-    //Mesh
-    public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
-    public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
-    public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
-    public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
-    public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
-
-    //Node
-    public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
-    public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
-    public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
-    public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
-
-    //DB
-    public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
-    public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
-    public static readonly DB_ADDED_MODEL = Symbol('DB_ADDED_MODEL');
-}
-
-/////////////////////////
-///////Defaults
-/////////////////////////
-export class Defaults {
-    public static readonly ENVIRONMENT: string = 'production';
-    public static readonly WWW_PORT: number = 3000;
-    public static readonly COMM_PORT: number = 6000;
-    public static readonly STOP_TIME: number = 5000;
-
-    public static readonly COMM_HANDSHAKE_TOPIC: Topic = 'handshake';
-    public static readonly COMM_PACKET_QOS: number = 0;
-    public static readonly COMM_PACKET_RETAIN: boolean = false;
-
-}
-
-/////////////////////////
-///////Components
-/////////////////////////
-/**
- * Connection States:
- * Disconnected = 0, Connected = 1, NoConnection = -1
- */
-export type ConnectionState = 0 | 1 | -1;
-
-export interface Server{
-    getReport(): Object;
-    listen(): Promise<ConnectionState>;
-    close(): Promise<ConnectionState>;
-}
-
-export interface Client{
-    getReport(): Object;
-    connect(): Promise<ConnectionState>;
-    disconnect(): Promise<ConnectionState>;
-}
-
 //TODO: Optimize the below functions.
 
 /////////////////////////
-///////WWW Server Decorators
+///////API Server Decorators
 /////////////////////////
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
     value: RequestHandler;
@@ -488,10 +397,10 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             }
     
             //Add Route
-            wwwServer.addControllerRoute('get', path, target, descriptor.value);
+            apiServer.addControllerRoute('get', path, target, descriptor.value);
     
             //Call get
-            wwwServer.get(path, descriptor.value);
+            apiServer.get(path, descriptor.value);
         }
     }
 }
@@ -506,10 +415,10 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
             }
     
             //Add Route
-            wwwServer.addControllerRoute('post', path, target, descriptor.value);
+            apiServer.addControllerRoute('post', path, target, descriptor.value);
     
             //Call post
-            wwwServer.post(path, descriptor.value);
+            apiServer.post(path, descriptor.value);
         }
     }
 }
@@ -524,10 +433,10 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             }
     
             //Add Route
-            wwwServer.addControllerRoute('put', path, target, descriptor.value);
+            apiServer.addControllerRoute('put', path, target, descriptor.value);
     
             //Call put
-            wwwServer.put(path, descriptor.value);
+            apiServer.put(path, descriptor.value);
         }
     }
 }
@@ -542,10 +451,10 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
             }
     
             //Add Route
-            wwwServer.addControllerRoute('delete', path, target, descriptor.value);
+            apiServer.addControllerRoute('delete', path, target, descriptor.value);
     
             //Call delete
-            wwwServer.delete(path, descriptor.value);
+            apiServer.delete(path, descriptor.value);
         }
     }
 }

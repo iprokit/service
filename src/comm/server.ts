@@ -5,10 +5,11 @@ import { Server as MqttServer, Client, Packet as InPacket, Message as OutPacket}
 //Export libs.
 export { MqttServer, Client, InPacket, OutPacket };
 
-//Local Imports
-import { Server, Events, Defaults, ConnectionState } from './microservice';
-import { Topic, Method, Body, Publisher, Handshake, HandshakeRoute } from './comm';
-import CommRouter, { Handler, MessageReplyHandler, TransactionHandler } from './comm.router';
+import { Events } from "../store/events";
+import { Defaults } from "../store/defaults";
+import { IServer, ConnectionState } from "../types/component";
+import { Topic, Method, Body, Publisher, Handshake, HandshakeRoute } from '../types/comm';
+import CommRouter, { Handler, MessageReplyHandler, TransactionHandler } from './router';
 
 //Export local.
 export { MessageReplyHandler, TransactionHandler };
@@ -19,7 +20,7 @@ export declare type Route = {
     handler: Handler;
 }
 
-export default class CommServer extends EventEmitter implements Server {
+export default class CommServer extends EventEmitter implements IServer {
     //Server Variables.
     public readonly name: string;
     public readonly port: number;
