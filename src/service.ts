@@ -28,8 +28,8 @@ import stscp, { Server as StscpServer, MessageReplyHandler, Body } from '@iprote
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
 const envPath = path.join(projectPath, '.env');
-if(fs.existsSync(envPath)){
-    dotenv.config({path: envPath});
+if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
 }
 
 //Local Imports
@@ -128,7 +128,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Init Functions
     /////////////////////////
-    private initAPIServer(){
+    private initAPIServer() {
         //Setup Express
         apiApp = express();
         apiApp.use(cors());
@@ -162,15 +162,15 @@ export default class Service extends EventEmitter {
         this.addDefaultRoutes();
     }
 
-    private initSTSCP(){
+    private initSTSCP() {
         stscpServer = stscp.createServer(this.name);
     }
 
     /////////////////////////
     ///////Inject Functions
     /////////////////////////
-    private injectFiles(){
-        let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js']});
+    private injectFiles() {
+        let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js'] });
         files.forEach(file => {
             require(file).default;
         });
@@ -179,25 +179,25 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Call Functions
     /////////////////////////
-    public useDB(type: DBType, paperTrail?: boolean){
-        try{
+    public useDB(type: DBType, paperTrail?: boolean) {
+        try {
             //Setup DBManager.
             dbManager = new DBManager(type, paperTrail);
             dbManager.init();
-                
+
             //DB routes.
             apiRouter.post('/db/sync', async (request, response) => {
-                try{
+                try {
                     const sync = await dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
-                }catch(error){
-                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                } catch (error) {
+                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 }
             });
-        }catch(error){
-            if(error instanceof ConnectionOptionsError){
+        } catch (error) {
+            if (error instanceof ConnectionOptionsError) {
                 console.log(error.message);
-            }else{
+            } else {
                 console.error(error);
             }
             console.log('Will continue...');
@@ -207,29 +207,29 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////DB Functions
     /////////////////////////
-    public setAutoWireModelOptions(options?: AutoLoadOptions){
+    public setAutoWireModelOptions(options?: AutoLoadOptions) {
         autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
     }
 
-    public setAutoInjectPublisherOptions(options?: AutoLoadOptions){
+    public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
         autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
     }
 
-    public setAutoInjectControllerOptions(options?: AutoLoadOptions){
+    public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
         autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
     }
 
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public async start(): Promise<ConnectionState>{
+    public async start(): Promise<ConnectionState> {
         //Emit starting Event.
         this.emit(Events.STARTING);
 
         //Load files
         this.injectFiles();
 
-        try{
+        try {
             //Start Server
             apiServer = apiApp.listen(this.apiPort, () => {
                 this.emit(Events.API_SERVER_STARTED);
@@ -244,25 +244,25 @@ export default class Service extends EventEmitter {
             this.emit(Events.STARTED);
 
             return 1;
-        }catch(error){
-            if(error instanceof ConnectionOptionsError){
+        } catch (error) {
+            if (error instanceof ConnectionOptionsError) {
                 console.log(error.message);
-            }else{
+            } else {
                 console.error(error);
             }
             console.log('Will continue...');
         }
     }
 
-    public async stop(): Promise<ConnectionState>{
+    public async stop(): Promise<ConnectionState> {
         this.emit(Events.STOPPING);
 
         setTimeout(() => {
             console.error('Forcefully shutting down.');
             return 1;
         }, Defaults.STOP_TIME);
-        
-        try{
+
+        try {
             //Stop Server
             apiServer.close((error) => {
                 if (!error) {
@@ -276,12 +276,12 @@ export default class Service extends EventEmitter {
             });
 
             //Stop client components
-            await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
+            await Promise.all([commMesh.disconnect(), (dbManager && dbManager.disconnect())]);
 
             this.emit(Events.STOPPED);
 
             return 0;
-        }catch(error){
+        } catch (error) {
             console.error(error);
         }
     }
@@ -289,45 +289,45 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////API Server Functions
     /////////////////////////
-    public all(path: PathParams, ...handlers: RequestHandler[]){
+    public all(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.all(path, ...handlers);
     }
 
-    public get(path: PathParams, ...handlers: RequestHandler[]){
+    public get(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.get(path, ...handlers);
     }
 
-    public post(path: PathParams, ...handlers: RequestHandler[]){
+    public post(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.post(path, ...handlers);
     }
 
-    public put(path: PathParams, ...handlers: RequestHandler[]){
+    public put(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.put(path, ...handlers);
     }
 
-    public delete(path: PathParams, ...handlers: RequestHandler[]){
+    public delete(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.delete(path, ...handlers);
     }
 
     /////////////////////////
     ///////STSCP Server Functions
     /////////////////////////
-    public reply(action: string, handler: MessageReplyHandler){
+    public reply(action: string, handler: MessageReplyHandler) {
         stscpServer.reply(action, handler);
     }
 
-    public defineBroadcast(action: string){
+    public defineBroadcast(action: string) {
         stscpServer.defineBroadcast(action);
     }
 
-    public static broadcast(action: string, body: Body){
+    public static broadcast(action: string, body: Body) {
         stscpServer.broadcast(action, body);
     }
 
     /////////////////////////
     ///////Comm Mesh Functions
     /////////////////////////
-    public defineNode(url: string, identifier: string){
+    public defineNode(url: string, identifier: string) {
         commMesh.defineNode(url, identifier);
     }
 
@@ -335,7 +335,7 @@ export default class Service extends EventEmitter {
     public static getAlias(identifier: string): Alias {
         return commMesh.getAlias(identifier);
     }
-    
+
     public static async defineNodeAndGetAlias(url: string): Promise<Alias> {
         return await commMesh.defineNodeAndGetAlias(url);
     }
@@ -346,7 +346,7 @@ export default class Service extends EventEmitter {
     public static get rdbConnection(): RDB {
         return dbManager && (dbManager.connection as RDB);
     }
-    
+
     public static get noSQLConnection(): NoSQL {
         return dbManager && (dbManager.connection as NoSQL);
     }
@@ -354,7 +354,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Other
     /////////////////////////
-    private addProcessListeners(){
+    private addProcessListeners() {
         //Exit
         process.once('SIGTERM', async () => {
             console.log('Received SIGTERM.');
@@ -375,10 +375,10 @@ export default class Service extends EventEmitter {
         });
     }
 
-    private addDefaultRoutes(){
+    private addDefaultRoutes() {
         //Default Service Routes
         apiRouter.get('/health', (request, response) => {
-            response.status(HttpCodes.OK).send({status: true});
+            response.status(HttpCodes.OK).send({ status: true });
         });
 
         apiRouter.get('/report', (request, response) => {
@@ -423,12 +423,12 @@ export default class Service extends EventEmitter {
 
                 response.status(HttpCodes.OK).send(report);
             } catch (error) {
-                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
             }
         });
 
         apiRouter.post('/shutdown', (request, response) => {
-            response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
+            response.status(HttpCodes.OK).send({ status: true, message: "Will shutdown in 2 seconds..." });
             setTimeout(() => {
                 console.log('Received shutdown from %s', request.url);
                 process.kill(process.pid, 'SIGTERM');
@@ -439,9 +439,9 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Listeners
     /////////////////////////
-    public addListeners(){
+    public addListeners() {
         //Adding log listeners.
-        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.name, {version: this.version, environment: this.environment}));
+        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
         this.on(Events.STARTED, () => console.log('%s ready.', this.name));
         this.on(Events.STOPPING, () => console.log('Stopping %s...', this.name));
         this.on(Events.STOPPED, () => console.log('%s stopped.', this.name));
@@ -474,7 +474,7 @@ export default class Service extends EventEmitter {
         });
 
         //dbManager
-        if(dbManager){
+        if (dbManager) {
             dbManager.on(Events.DB_CONNECTED, (_dbManager: DBManager) => console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name));
             dbManager.on(Events.DB_DISCONNECTED, () => console.log('DB Disconnected'));
             dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
@@ -548,8 +548,8 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if(canLoad(autoInjectControllerOptions, controllerName)){
-            if(!rootPath){
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
 
@@ -562,11 +562,11 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if(canLoad(autoInjectControllerOptions, controllerName)){
-            if(!rootPath){
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
-    
+
             apiRouter.post(path, descriptor.value);
         }
     }
@@ -575,12 +575,12 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
-        
-        if(canLoad(autoInjectControllerOptions, controllerName)){
-            if(!rootPath){
+
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
-    
+
             apiRouter.put(path, descriptor.value);
         }
     }
@@ -590,11 +590,11 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if(canLoad(autoInjectControllerOptions, controllerName)){
-            if(!rootPath){
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
-    
+
             apiRouter.delete(path, descriptor.value);
         }
     }
@@ -612,7 +612,7 @@ export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
-        if(canLoad(autoInjectPublisherOptions, publisherName)){
+        if (canLoad(autoInjectPublisherOptions, publisherName)) {
             const action = (publisherName + '.' + propertyKey);
 
             stscpServer.reply(action, descriptor.value);
@@ -630,10 +630,10 @@ export type EntityOptions = {
 }
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
-        if(dbManager){
+        if (dbManager) {
             const modelName = target.name.replace('Model', '');
 
-            if(canLoad(autoWireModelOptions, modelName)){
+            if (canLoad(autoWireModelOptions, modelName)) {
                 //Init Model.
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
@@ -655,19 +655,19 @@ function canLoad(injectOptions: AutoLoadOptions, search: string) {
         return list.find(key => key.toLowerCase() === search.toLowerCase());
     }
 
-    if(injectOptions.includes){
-        if(_validateAll(injectOptions.includes)){
+    if (injectOptions.includes) {
+        if (_validateAll(injectOptions.includes)) {
             return true;
         }
-        if(_validateOne(injectOptions.includes, search)){
+        if (_validateOne(injectOptions.includes, search)) {
             return true;
         }
         return false;
-    }else if(injectOptions.excludes){
-        if(_validateAll(injectOptions.excludes)){
+    } else if (injectOptions.excludes) {
+        if (_validateAll(injectOptions.excludes)) {
             return false;
         }
-        if(!_validateOne(injectOptions.excludes, search)){
+        if (!_validateOne(injectOptions.excludes, search)) {
             return true;
         }
         return false;
