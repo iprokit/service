@@ -22,6 +22,9 @@ import cors from 'cors';
 import createError from 'http-errors';
 import HttpCodes from 'http-status-codes';
 
+//Import @iprotechs Modules
+import stscp, { Server as StscpServer, MessageReplyHandler, Body } from '@iprotechs/stscp';
+
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
 const envPath = path.join(projectPath, '.env');
@@ -31,17 +34,13 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './store/utility';
-import CommServer, { MessageReplyHandler } from './components/comm.server';
 import CommMesh from './components/comm.mesh';
 import CommNode from './components/comm.client';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './components/db.manager';
 import Controller from './generics/controller';
-import { Topic, Body } from './store/comm';
 import { Publisher } from "./generics/publisher";
 import { Alias } from "./generics/alias";
 import { ConnectionState } from './store/component';
-import { Defaults } from './store/defaults';
-import { Events } from './store/events';
 
 //Types: Options
 export type Options = {
@@ -60,8 +59,10 @@ let apiApp: Express;
 let apiRouter: Router;
 let apiServer: HttpServer;
 
+//STSCP Variables.
+let stscpServer: StscpServer;
+
 //Component Variables.
-let commServer: CommServer;
 let commMesh: CommMesh;
 let dbManager: DBManager;
 
@@ -81,6 +82,9 @@ export default class Service extends EventEmitter {
     public readonly apiBaseUrl: string;
     public readonly apiPort: number;
 
+    //STSCP Variables.
+    public readonly stscpPort: number;
+
     //Default Constructor
     public constructor(baseUrl?: string, options?: Options) {
         //Call super for EventEmitter.
@@ -99,6 +103,9 @@ export default class Service extends EventEmitter {
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
         this.apiPort = Number(process.env.API_PORT) || Defaults.API_PORT;
 
+        //Init STSCP variables.
+        this.stscpPort = Number(process.env.STSCP_PORT) || Defaults.STSCP_PORT;
+
         //Load global variables.
         global.service = {
             name: this.name,
@@ -107,7 +114,7 @@ export default class Service extends EventEmitter {
 
         //Init Components.
         this.initAPIServer();
-        commServer = new CommServer();
+        this.initSTSCP();
         commMesh = new CommMesh();
 
         //Init AutoLoad Variables.
@@ -153,6 +160,10 @@ export default class Service extends EventEmitter {
         });
 
         this.addDefaultRoutes();
+    }
+
+    private initSTSCP(){
+        stscpServer = stscp.createServer(this.name);
     }
 
     /////////////////////////
@@ -223,9 +234,9 @@ export default class Service extends EventEmitter {
             apiServer = apiApp.listen(this.apiPort, () => {
                 this.emit(Events.API_SERVER_STARTED);
             });
-
-            //Start server components
-            await Promise.all([commServer.listen()]);
+            stscpServer.listen(this.stscpPort, () => {
+                this.emit(Events.STSCP_SERVER_STARTED);
+            });
 
             //Start client components
             await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
@@ -258,9 +269,11 @@ export default class Service extends EventEmitter {
                     this.emit(Events.API_SERVER_STOPPED);
                 }
             });
-
-            //Stop server components
-            await Promise.all([commServer.close()]);
+            stscpServer.close((error) => {
+                if (!error) {
+                    this.emit(Events.STSCP_SERVER_STOPPED);
+                }
+            });
 
             //Stop client components
             await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
@@ -297,18 +310,18 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
-    ///////Comm Server Functions
+    ///////STSCP Server Functions
     /////////////////////////
-    public reply(topic: Topic, handler: MessageReplyHandler){
-        commServer.reply(topic, handler);
+    public reply(action: string, handler: MessageReplyHandler){
+        stscpServer.reply(action, handler);
     }
 
-    public defineBroadcast(topic: Topic){
-        commServer.defineBroadcast(topic);
+    public defineBroadcast(action: string){
+        stscpServer.defineBroadcast(action);
     }
 
-    public static broadcast(topic: Topic, body: Body){
-        commServer.broadcast(topic, body);
+    public static broadcast(action: string, body: Body){
+        stscpServer.broadcast(action, body);
     }
 
     /////////////////////////
@@ -370,31 +383,43 @@ export default class Service extends EventEmitter {
 
         apiRouter.get('/report', (request, response) => {
             //Get API Routes.
-            let apiRoutes = new Array<{method: string, path: string, handler: string}>();
+            const apiRoutes = new Array();
             apiRouter.stack.forEach(item => {
+                const functionName = item.route.stack[0].handle.name;
+                const method = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
+                const path = this.apiBaseUrl + item.route.path;
+
                 const route = {
-                    method: (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method,
-                    path: this.apiBaseUrl + item.route.path,
-                    handler: item.route.stack[0].handle
+                    function: functionName,
+                    [method]: path
                 }
                 apiRoutes.push(route);
             });
 
+            //Get STSCP Routes.
+            const stscpRoutes = new Array();
+            stscpServer.routes.forEach(item => {
+                const route = {
+                    [item.type]: item.action
+                }
+                stscpRoutes.push(route);
+            });
+
             try {
-                let report = {
+                const report = {
                     service: {
                         name: this.name,
                         version: this.version,
                         ip: this.ip,
                         apiPort: this.apiPort,
-                        commPort: commServer.port,
+                        stscpPort: this.stscpPort,
                         environment: this.environment
                     },
                     db: dbManager && dbManager.getReport(),
                     api: apiRoutes,
-                    comm: commServer.getReport(),
+                    stscp: stscpRoutes,
                     mesh: commMesh.getReport()
-                };
+                }
 
                 response.status(HttpCodes.OK).send(report);
             } catch (error) {
@@ -426,12 +451,12 @@ export default class Service extends EventEmitter {
         this.on(Events.API_SERVER_STOPPED, () => console.log('Stopped api.'));
         // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
-        //commServer
-        commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
-        commServer.on(Events.COMM_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
-        commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        commServer.on(Events.COMM_SERVER_RECEIVED_PACKET, (topic: Topic, body: Body) => console.log('Server: received a packet on topic %s', topic));
-        commServer.on(Events.COMM_SERVER_SENT_PACKET, (topic: Topic, body: Body) => console.log('Server: sent a packet on topic %s', topic));
+        //STSCP Server
+        this.on(Events.STSCP_SERVER_STARTED, () => console.log('Comm server running on %s:%s', this.ip, this.stscpPort));
+        this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
+        // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
+        // commServer.on(Events.COMM_SERVER_RECEIVED_PACKET, (topic: Topic, body: Body) => console.log('Server: received a packet on topic %s', topic));
+        // commServer.on(Events.COMM_SERVER_SENT_PACKET, (topic: Topic, body: Body) => console.log('Server: sent a packet on topic %s', topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -456,6 +481,59 @@ export default class Service extends EventEmitter {
         }
     }
 }
+
+/////////////////////////
+///////Defaults
+/////////////////////////
+export class Defaults {
+    public static readonly ENVIRONMENT: string = 'production';
+    public static readonly API_PORT: number = 3000;
+    public static readonly STSCP_PORT: number = 6000;
+    public static readonly STOP_TIME: number = 5000;
+}
+
+/////////////////////////
+///////Events
+/////////////////////////
+export class Events {
+    //TODO: Move this to appropriate classes.
+    //Main
+    public static readonly STARTING = Symbol('STARTING');
+    public static readonly STARTED = Symbol('STARTED');
+    public static readonly STOPPING = Symbol('STOPPING');
+    public static readonly STOPPED = Symbol('STOPPED');
+    //API Server
+    public static readonly API_SERVER_STARTED = Symbol('API_SERVER_STARTED');
+    public static readonly API_SERVER_STOPPED = Symbol('API_SERVER_STOPPED');
+    // public static readonly API_SERVER_ADDED_CONTROLLER = Symbol('API_SERVER_ADDED_CONTROLLER');
+    //STSCP Server
+    public static readonly STSCP_SERVER_STARTED = Symbol('STSCP_SERVER_STARTED');
+    public static readonly STSCP_SERVER_STOPPED = Symbol('STSCP_SERVER_STOPPED');
+    // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
+    // public static readonly COMM_SERVER_RECEIVED_PACKET = Symbol('COMM_SERVER_RECEIVED_PACKET');
+    // public static readonly COMM_SERVER_SENT_PACKET = Symbol('COMM_SERVER_SENT_PACKET');
+    //Comm Router
+    public static readonly COMM_ROUTER_RECEIVED_PACKET = Symbol('COMM_ROUTER_RECEIVED_PACKET');
+    public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
+    //Reply
+    public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
+    //Mesh
+    public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
+    public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
+    public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
+    public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
+    public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
+    //Node
+    public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
+    public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
+    public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
+    public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
+    //DB
+    public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
+    public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
+    public static readonly DB_ADDED_MODEL = Symbol('DB_ADDED_MODEL');
+}
+
 
 //TODO: Optimize the below functions.
 
@@ -535,13 +613,9 @@ export function Reply(): MessageReplyFunction {
         const publisherName = target.name.replace('Publisher', '');
 
         if(canLoad(autoInjectPublisherOptions, publisherName)){
-            const topic = (publisherName + '/' + propertyKey);
-    
-            //Add Route
-            commServer.addPublisherRoute(topic, target, descriptor.value);
-    
-            //Call reply.
-            commServer.reply(topic, descriptor.value);
+            const action = (publisherName + '.' + propertyKey);
+
+            stscpServer.reply(action, descriptor.value);
         }
     }
 }
