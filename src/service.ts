@@ -15,6 +15,12 @@ import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import express, { Express, Router, Request, Response, NextFunction } from 'express';
+import { PathParams, RequestHandler } from 'express-serve-static-core';
+import { Server as HttpServer } from 'http';
+import cors from 'cors';
+import createError from 'http-errors';
+import HttpCodes from 'http-status-codes';
 
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
@@ -25,7 +31,6 @@ if(fs.existsSync(envPath)){
 
 //Local Imports
 import Utility from './store/utility';
-import ApiServer, { PathParams, RequestHandler, HttpCodes } from './components/api.server';
 import CommServer, { MessageReplyHandler } from './components/comm.server';
 import CommMesh from './components/comm.mesh';
 import CommNode from './components/comm.client';
@@ -50,8 +55,12 @@ export type AutoLoadOptions = {
     excludes?: Array<string>
 }
 
+//API Server Variables.
+let apiApp: Express;
+let apiRouter: Router;
+let apiServer: HttpServer;
+
 //Component Variables.
-let apiServer: ApiServer;
 let commServer: CommServer;
 let commMesh: CommMesh;
 let dbManager: DBManager;
@@ -68,6 +77,10 @@ export default class Service extends EventEmitter {
     public readonly environment: string;
     public readonly ip: string;
 
+    //API Server Variables.
+    public readonly apiBaseUrl: string;
+    public readonly apiPort: number;
+
     //Default Constructor
     public constructor(baseUrl?: string, options?: Options) {
         //Call super for EventEmitter.
@@ -82,6 +95,10 @@ export default class Service extends EventEmitter {
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Utility.getContainerIP();
 
+        //Init API server variables.
+        this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
+        this.apiPort = Number(process.env.API_PORT) || Defaults.API_PORT;
+
         //Load global variables.
         global.service = {
             name: this.name,
@@ -89,7 +106,7 @@ export default class Service extends EventEmitter {
         }
 
         //Init Components.
-        apiServer = new ApiServer(baseUrl);
+        this.initAPIServer();
         commServer = new CommServer();
         commMesh = new CommMesh();
 
@@ -98,43 +115,44 @@ export default class Service extends EventEmitter {
         autoInjectPublisherOptions = { includes: ['*'], excludes: undefined };
         autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
 
-        //Default Service Routes
-        apiServer.get('/health', (request, response) => {
-            response.status(HttpCodes.OK).send({status: true});
-        });
-
-        apiServer.get('/report', (request, response) => {
-            try {
-                let report = {
-                    service: {
-                        name: this.name,
-                        version: this.version,
-                        ip: this.ip,
-                        apiPort: apiServer.port,
-                        commPort: commServer.port,
-                        environment: this.environment
-                    },
-                    db: dbManager && dbManager.getReport(),
-                    api: apiServer.getReport(),
-                    comm: commServer.getReport(),
-                    mesh: commMesh.getReport()
-                };
-
-                response.status(HttpCodes.OK).send(report);
-            } catch (error) {
-                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
-            }
-        });
-
-        apiServer.post('/shutdown', (request, response) => {
-            response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
-            setTimeout(() => {
-                console.log('Received shutdown from %s', request.url);
-                process.kill(process.pid, 'SIGTERM');
-            }, 2000);
-        });
-
         this.addProcessListeners();
+    }
+
+    /////////////////////////
+    ///////Init Functions
+    /////////////////////////
+    private initAPIServer(){
+        //Setup Express
+        apiApp = express();
+        apiApp.use(cors());
+        apiApp.options('*', cors());
+        apiApp.use(express.json());
+        apiApp.use(express.urlencoded({ extended: false }));
+
+        //Setup proxy pass.
+        apiApp.use((request: Request, response: Response, next: NextFunction) => {
+            //Generate Proxy object from headers.
+            Utility.generateProxyObjects(request);
+            next();
+        });
+
+        //Setup Router
+        apiRouter = express.Router();
+        apiApp.use(this.apiBaseUrl, apiRouter);
+
+        // Error handler for 404
+        apiApp.use((request: Request, response: Response, next: NextFunction) => {
+            next(createError(404));
+        });
+
+        // Default error handler
+        apiApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
+            response.locals.message = error.message;
+            response.locals.error = request.app.get('env') === 'development' ? error : {};
+            response.status(error.status || 500).send(error.message);
+        });
+
+        this.addDefaultRoutes();
     }
 
     /////////////////////////
@@ -144,27 +162,6 @@ export default class Service extends EventEmitter {
         let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js']});
         files.forEach(file => {
             require(file).default;
-        });
-    }
-
-    private addProcessListeners(){
-        //Exit
-        process.once('SIGTERM', async () => {
-            console.log('Received SIGTERM.');
-            let code = await this.stop();
-            process.exit(code);
-        });
-
-        //Ctrl + C
-        process.on('SIGINT', async () => {
-            console.log('Received SIGINT.');
-            let code = await this.stop();
-            process.exit(code);
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            console.error('Caught: unhandledRejection', reason, promise);
-            console.log('Will continue...');
         });
     }
 
@@ -178,7 +175,7 @@ export default class Service extends EventEmitter {
             dbManager.init();
                 
             //DB routes.
-            apiServer.post('/db/sync', async (request, response) => {
+            apiRouter.post('/db/sync', async (request, response) => {
                 try{
                     const sync = await dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
@@ -222,8 +219,13 @@ export default class Service extends EventEmitter {
         this.injectFiles();
 
         try{
+            //Start Server
+            apiServer = apiApp.listen(this.apiPort, () => {
+                this.emit(Events.API_SERVER_STARTED);
+            });
+
             //Start server components
-            await Promise.all([apiServer.listen(), commServer.listen()]);
+            await Promise.all([commServer.listen()]);
 
             //Start client components
             await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
@@ -250,8 +252,15 @@ export default class Service extends EventEmitter {
         }, Defaults.STOP_TIME);
         
         try{
+            //Stop Server
+            apiServer.close((error) => {
+                if (!error) {
+                    this.emit(Events.API_SERVER_STOPPED);
+                }
+            });
+
             //Stop server components
-            await Promise.all([apiServer.close(), commServer.close()]);
+            await Promise.all([commServer.close()]);
 
             //Stop client components
             await Promise.all([commMesh.disconnect(), (dbManager  && dbManager.disconnect())]);
@@ -268,23 +277,23 @@ export default class Service extends EventEmitter {
     ///////API Server Functions
     /////////////////////////
     public all(path: PathParams, ...handlers: RequestHandler[]){
-        apiServer.all(path, ...handlers);
+        apiRouter.all(path, ...handlers);
     }
 
     public get(path: PathParams, ...handlers: RequestHandler[]){
-        apiServer.get(path, ...handlers);
+        apiRouter.get(path, ...handlers);
     }
 
     public post(path: PathParams, ...handlers: RequestHandler[]){
-        apiServer.post(path, ...handlers);
+        apiRouter.post(path, ...handlers);
     }
 
     public put(path: PathParams, ...handlers: RequestHandler[]){
-        apiServer.put(path, ...handlers);
+        apiRouter.put(path, ...handlers);
     }
 
     public delete(path: PathParams, ...handlers: RequestHandler[]){
-        apiServer.delete(path, ...handlers);
+        apiRouter.delete(path, ...handlers);
     }
 
     /////////////////////////
@@ -330,6 +339,79 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
+    ///////Other
+    /////////////////////////
+    private addProcessListeners(){
+        //Exit
+        process.once('SIGTERM', async () => {
+            console.log('Received SIGTERM.');
+            let code = await this.stop();
+            process.exit(code);
+        });
+
+        //Ctrl + C
+        process.on('SIGINT', async () => {
+            console.log('Received SIGINT.');
+            let code = await this.stop();
+            process.exit(code);
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('Caught: unhandledRejection', reason, promise);
+            console.log('Will continue...');
+        });
+    }
+
+    private addDefaultRoutes(){
+        //Default Service Routes
+        apiRouter.get('/health', (request, response) => {
+            response.status(HttpCodes.OK).send({status: true});
+        });
+
+        apiRouter.get('/report', (request, response) => {
+            //Get API Routes.
+            let apiRoutes = new Array<{method: string, path: string, handler: string}>();
+            apiRouter.stack.forEach(item => {
+                const route = {
+                    method: (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method,
+                    path: this.apiBaseUrl + item.route.path,
+                    handler: item.route.stack[0].handle
+                }
+                apiRoutes.push(route);
+            });
+
+            try {
+                let report = {
+                    service: {
+                        name: this.name,
+                        version: this.version,
+                        ip: this.ip,
+                        apiPort: this.apiPort,
+                        commPort: commServer.port,
+                        environment: this.environment
+                    },
+                    db: dbManager && dbManager.getReport(),
+                    api: apiRoutes,
+                    comm: commServer.getReport(),
+                    mesh: commMesh.getReport()
+                };
+
+                response.status(HttpCodes.OK).send(report);
+            } catch (error) {
+                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({status: false, message: error.message});
+            }
+        });
+
+        apiRouter.post('/shutdown', (request, response) => {
+            response.status(HttpCodes.OK).send({status: true, message: "Will shutdown in 2 seconds..."});
+            setTimeout(() => {
+                console.log('Received shutdown from %s', request.url);
+                process.kill(process.pid, 'SIGTERM');
+            }, 2000);
+        });
+    }
+
+    /////////////////////////
     ///////Listeners
     /////////////////////////
     public addListeners(){
@@ -339,10 +421,10 @@ export default class Service extends EventEmitter {
         this.on(Events.STOPPING, () => console.log('Stopping %s...', this.name));
         this.on(Events.STOPPED, () => console.log('%s stopped.', this.name));
 
-        //API
-        apiServer.on(Events.API_SERVER_STARTED, (api: ApiServer) => console.log('api server running on %s:%s%s', this.ip, api.port, api.baseUrl));
-        apiServer.on(Events.API_SERVER_STOPPED, () => console.log('Stopped api.'));
-        apiServer.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
+        //API Server
+        this.on(Events.API_SERVER_STARTED, () => console.log('api server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
+        this.on(Events.API_SERVER_STOPPED, () => console.log('Stopped api.'));
+        // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //commServer
         commServer.on(Events.COMM_SERVER_STARTED, (_commServer: CommServer) => console.log('Comm server running on %s:%s', this.ip, _commServer.port));
@@ -392,12 +474,8 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             if(!rootPath){
                 path = ('/' + controllerName + path);
             }
-    
-            //Add Route
-            apiServer.addControllerRoute('get', path, target, descriptor.value);
-    
-            //Call get
-            apiServer.get(path, descriptor.value);
+
+            apiRouter.get(path, descriptor.value);
         }
     }
 }
@@ -411,11 +489,7 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
                 path = ('/' + controllerName + path);
             }
     
-            //Add Route
-            apiServer.addControllerRoute('post', path, target, descriptor.value);
-    
-            //Call post
-            apiServer.post(path, descriptor.value);
+            apiRouter.post(path, descriptor.value);
         }
     }
 }
@@ -429,11 +503,7 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
                 path = ('/' + controllerName + path);
             }
     
-            //Add Route
-            apiServer.addControllerRoute('put', path, target, descriptor.value);
-    
-            //Call put
-            apiServer.put(path, descriptor.value);
+            apiRouter.put(path, descriptor.value);
         }
     }
 }
@@ -447,11 +517,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
                 path = ('/' + controllerName + path);
             }
     
-            //Add Route
-            apiServer.addControllerRoute('delete', path, target, descriptor.value);
-    
-            //Call delete
-            apiServer.delete(path, descriptor.value);
+            apiRouter.delete(path, descriptor.value);
         }
     }
 }

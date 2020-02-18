@@ -2,7 +2,7 @@
 import Service from './service';
 
 //Export API Components
-export { HttpCodes } from './components/api.server';
+export { default as HttpCodes } from 'http-status-codes';
 export { default as Controller } from './generics/controller';
 
 //Export Comm Components

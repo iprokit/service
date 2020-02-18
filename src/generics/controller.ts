@@ -1,8 +1,6 @@
 //Import modules
 import { Request, Response } from 'express';
-
-//Local Imports
-import { HttpCodes } from '../components/api.server';
+import HttpCodes from 'http-status-codes';
 
 export default class Controller {
     //Default Constructor
