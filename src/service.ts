@@ -10,6 +10,9 @@ declare global {
     }
 }
 
+//Import @iprotechs Modules
+import stscp, { Server as StscpServer, MessageReplyHandler, Body } from '@iprotechs/stscp';
+
 //Import Modules
 import EventEmitter from 'events';
 import path from 'path';
@@ -22,9 +25,6 @@ import cors from 'cors';
 import createError from 'http-errors';
 import HttpCodes from 'http-status-codes';
 
-//Import @iprotechs Modules
-import stscp, { Server as StscpServer, MessageReplyHandler, Body } from '@iprotechs/stscp';
-
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
 const envPath = path.join(projectPath, '.env');
@@ -33,14 +33,15 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Utility from './store/utility';
+import Utility from './utility';
+import Controller from './api.controller';
+import Publisher from './stscp.publisher';
+
+//Old
 import CommMesh from './components/comm.mesh';
 import CommNode from './components/comm.client';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './components/db.manager';
-import Controller from './generics/controller';
-import { Publisher } from "./generics/publisher";
-import { Alias } from "./generics/alias";
-import { ConnectionState } from './store/component';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
+import { Alias } from './generics/alias';
 
 //Types: Options
 export type Options = {
@@ -222,7 +223,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public async start(): Promise<ConnectionState> {
+    public async start() {
         //Emit starting Event.
         this.emit(Events.STARTING);
 
@@ -230,7 +231,7 @@ export default class Service extends EventEmitter {
         this.injectFiles();
 
         try {
-            //Start Server
+            //Start Servers
             apiServer = apiApp.listen(this.apiPort, () => {
                 this.emit(Events.API_SERVER_STARTED);
             });
@@ -254,16 +255,16 @@ export default class Service extends EventEmitter {
         }
     }
 
-    public async stop(): Promise<ConnectionState> {
+    public async stop() {
         this.emit(Events.STOPPING);
 
         setTimeout(() => {
             console.error('Forcefully shutting down.');
             return 1;
-        }, Defaults.STOP_TIME);
+        }, Defaults.FORCE_STOP_TIME);
 
         try {
-            //Stop Server
+            //Stop Servers
             apiServer.close((error) => {
                 if (!error) {
                     this.emit(Events.API_SERVER_STOPPED);
@@ -447,16 +448,14 @@ export default class Service extends EventEmitter {
         this.on(Events.STOPPED, () => console.log('%s stopped.', this.name));
 
         //API Server
-        this.on(Events.API_SERVER_STARTED, () => console.log('api server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
-        this.on(Events.API_SERVER_STOPPED, () => console.log('Stopped api.'));
+        this.on(Events.API_SERVER_STARTED, () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
+        this.on(Events.API_SERVER_STOPPED, () => console.log('Stopped API server.'));
         // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //STSCP Server
-        this.on(Events.STSCP_SERVER_STARTED, () => console.log('Comm server running on %s:%s', this.ip, this.stscpPort));
-        this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped Comm Server.'));
+        this.on(Events.STSCP_SERVER_STARTED, () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
+        this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped STSCP Server.'));
         // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        // commServer.on(Events.COMM_SERVER_RECEIVED_PACKET, (topic: Topic, body: Body) => console.log('Server: received a packet on topic %s', topic));
-        // commServer.on(Events.COMM_SERVER_SENT_PACKET, (topic: Topic, body: Body) => console.log('Server: sent a packet on topic %s', topic));
 
         //commMesh
         commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
@@ -489,7 +488,7 @@ export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly API_PORT: number = 3000;
     public static readonly STSCP_PORT: number = 6000;
-    public static readonly STOP_TIME: number = 5000;
+    public static readonly FORCE_STOP_TIME: number = 5000;
 }
 
 /////////////////////////
@@ -502,32 +501,33 @@ export class Events {
     public static readonly STARTED = Symbol('STARTED');
     public static readonly STOPPING = Symbol('STOPPING');
     public static readonly STOPPED = Symbol('STOPPED');
+
     //API Server
     public static readonly API_SERVER_STARTED = Symbol('API_SERVER_STARTED');
     public static readonly API_SERVER_STOPPED = Symbol('API_SERVER_STOPPED');
     // public static readonly API_SERVER_ADDED_CONTROLLER = Symbol('API_SERVER_ADDED_CONTROLLER');
+
     //STSCP Server
     public static readonly STSCP_SERVER_STARTED = Symbol('STSCP_SERVER_STARTED');
     public static readonly STSCP_SERVER_STOPPED = Symbol('STSCP_SERVER_STOPPED');
     // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
-    // public static readonly COMM_SERVER_RECEIVED_PACKET = Symbol('COMM_SERVER_RECEIVED_PACKET');
-    // public static readonly COMM_SERVER_SENT_PACKET = Symbol('COMM_SERVER_SENT_PACKET');
-    //Comm Router
-    public static readonly COMM_ROUTER_RECEIVED_PACKET = Symbol('COMM_ROUTER_RECEIVED_PACKET');
-    public static readonly COMM_ROUTER_SENT_PACKET = Symbol('COMM_ROUTER_SENT_PACKET');
+
     //Reply
     public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
+
     //Mesh
     public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
     public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
     public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
     public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
     public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
+
     //Node
     public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
     public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
     public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
     public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
+    
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
     public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
@@ -601,7 +601,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 }
 
 /////////////////////////
-///////Comm Server Decorators
+///////STSCP Server Decorators
 /////////////////////////
 interface MessageReplyDescriptor extends PropertyDescriptor {
     value: MessageReplyHandler;

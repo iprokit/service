@@ -3,9 +3,8 @@ import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
 
 //Local Imports
-import Utility from './store/utility';
-import Service, { Options } from "./service";
-import { Defaults } from "./store/defaults";
+import Utility from './utility';
+import Service, { Options, Defaults } from './service';
 
 export default class Gateway extends Service {
     //Default Constructor
@@ -24,7 +23,7 @@ export default class Gateway extends Service {
     /////////////////////////
     ///////Proxy Functions
     /////////////////////////
-    public proxy(url: string){
+    public proxy(url: string) {
         return expressProxy(this.resolveUrl(url), {
             proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
                 //Generate Proxy headers from object.
@@ -34,7 +33,7 @@ export default class Gateway extends Service {
         });
     }
 
-    public proxyRedirect(url: string, redirect: string){
+    public proxyRedirect(url: string, redirect: string) {
         return expressProxy(this.resolveUrl(url), {
             proxyReqPathResolver: (request) => {
                 //Redirect path.
@@ -51,7 +50,7 @@ export default class Gateway extends Service {
     /////////////////////////
     ///////Other Functions
     /////////////////////////
-    public resolveUrl(url: string){
+    public resolveUrl(url: string) {
         //Split url into host and port.
         const _url = url.split(':');
         const _host = _url[0];

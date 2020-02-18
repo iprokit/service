@@ -1,11 +1,9 @@
 //Import modules
 import EventEmitter from 'events';
 
-import { Events } from "../store/events";
-import { IClient, ConnectionState } from "../store/component";
 import CommClient from './comm.client';
 
-export default class CommMesh extends EventEmitter implements IClient {
+export default class CommMesh extends EventEmitter {
     //Mesh Variables.
     public readonly name: string;
 
@@ -39,7 +37,7 @@ export default class CommMesh extends EventEmitter implements IClient {
         this.clients.push(client);
 
         //Emit node added.
-        this.emit(Events.MESH_ADDED_NODE, client);
+        this.emit('', client);
 
         return client;
     }
@@ -73,13 +71,13 @@ export default class CommMesh extends EventEmitter implements IClient {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public async connect(): Promise<ConnectionState> {
+    public async connect() {
         if(this.hasNode()){
-            this.emit(Events.MESH_CONNECTING);
+            this.emit('');
 
             try{
                 await Promise.all(this.clients.map(node => node.connect()));
-                this.emit(Events.MESH_CONNECTED, this);
+                this.emit('', this);
                 return 1;
             }catch(error){
                 throw error;
@@ -88,13 +86,13 @@ export default class CommMesh extends EventEmitter implements IClient {
         return -1;
     }
 
-    public async disconnect(): Promise<ConnectionState>{
+    public async disconnect(){
         if(this.hasNode()){
-            this.emit(Events.MESH_DISCONNECTING);
+            this.emit('');
 
             try{
                 await Promise.all(this.clients.map(node => node.disconnect()));
-                this.emit(Events.MESH_DISCONNECTED, this);
+                this.emit('', this);
                 return 0;
             }catch(error){
                 throw error;

@@ -17,11 +17,11 @@ export default class Utility {
     /////////////////////////
     ///////Network
     /////////////////////////
-    public static getContainerIP(){
+    public static getContainerIP() {
         return ip.address();
     }
-    
-    public static getHostIP(){
+
+    public static getHostIP() {
         //TODO: This should become dynamic
         return '';
     }
@@ -29,7 +29,7 @@ export default class Utility {
     /////////////////////////
     ///////Files
     /////////////////////////
-    public static getFilePaths(paths: string, options?: FileOptions){
+    public static getFilePaths(paths: string, options?: FileOptions) {
         //Sub function to find files.
         const _findFilePaths = (paths: string, options?: FileOptions) => {
             const allFiles = new Array<string>();
@@ -37,26 +37,26 @@ export default class Utility {
             const filesOrDirectories = fs.readdirSync(paths);
             filesOrDirectories.forEach(fileOrDirectory => {
                 const fileOrDirectoryPath = path.join(paths, fileOrDirectory);
-                
+
                 //Validate if excluded
-                if(!options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))){
+                if (!options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))) {
                     //Validate if the fileOrDirectoryPath is directory or a file.
                     //If its a directory get sub files and add it to allFiles[].
 
-                    if(fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                    if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
                         //Getting all files in the sub directory and adding to allFiles[].
                         Array.prototype.push.apply(allFiles, _findFilePaths(fileOrDirectoryPath, options));
                     } else {
-                        if(options.startsWith){
-                            if(fileOrDirectory.startsWith(options.startsWith)){
+                        if (options.startsWith) {
+                            if (fileOrDirectory.startsWith(options.startsWith)) {
                                 allFiles.push(fileOrDirectoryPath);
                             }
-                        }else if(options.endsWith){
-                            if(fileOrDirectory.endsWith(options.endsWith)){
+                        } else if (options.endsWith) {
+                            if (fileOrDirectory.endsWith(options.endsWith)) {
                                 allFiles.push(fileOrDirectoryPath);
                             }
-                        }else if(options.likeName){
-                            if(fileOrDirectory.includes(options.likeName)){
+                        } else if (options.likeName) {
+                            if (fileOrDirectory.includes(options.likeName)) {
                                 allFiles.push(fileOrDirectoryPath);
                             }
                         }
@@ -86,9 +86,9 @@ export default class Utility {
     /////////////////////////
     ///////Proxy
     /////////////////////////
-    public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions){
+    public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions) {
         const proxyObject = Object.getPrototypeOf(sourceRequest).proxy;
-        if(proxyObject){
+        if (proxyObject) {
             //Convert Proxy dict to array and get each proxy.
             Object.entries(proxyObject).forEach(([name, proxy]) => {
                 targetRequest.headers['proxy-' + name] = JSON.stringify(proxy);
@@ -96,14 +96,14 @@ export default class Utility {
         }
     }
 
-    public static generateProxyObjects(request: Request){
+    public static generateProxyObjects(request: Request) {
         //Create Empty Proxy object.
         Object.getPrototypeOf(request).proxy = {};
 
         let proxyHeaders = request.headers;
         //Convert Proxy headers to array and get each proxy.
         Object.entries(proxyHeaders).find(([name, proxy]) => {
-            if(name.startsWith('proxy-')){
+            if (name.startsWith('proxy-')) {
                 const objectKey = name.split('-')[1];
                 const objectValue = proxy;
                 Object.getPrototypeOf(request).proxy[objectKey] = JSON.parse(objectValue as string);

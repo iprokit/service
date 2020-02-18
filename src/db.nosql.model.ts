@@ -16,28 +16,28 @@ export default class NoSQLModel {
     /////////////////////////
     ///////DAO's - Basic
     /////////////////////////
-    public static async create(...docs: any[]){
+    public static async create(...docs: any[]) {
         return await this._model.create(docs);
     }
 
-    public static async getAll(){
+    public static async getAll() {
         return await this._model.find();
     }
-    
-    public static async getAllOrderByCreatedAt(orderType: string){
-        if(orderType === 'new'){
-            return await this._model.find().sort({createdAt: -1});
-        } else if(orderType === 'old'){
-            return await this._model.find().sort({createdAt: 1});
+
+    public static async getAllOrderByCreatedAt(orderType: string) {
+        if (orderType === 'new') {
+            return await this._model.find().sort({ createdAt: -1 });
+        } else if (orderType === 'old') {
+            return await this._model.find().sort({ createdAt: 1 });
         }
     }
 
-    public static async getOneByID(id: any){
-        return await this._model.findOne({_id: id})
+    public static async getOneByID(id: any) {
+        return await this._model.findOne({ _id: id })
             .then(async data => {
-                if(data){
+                if (data) {
                     return data
-                }else{
+                } else {
                     throw new Error('No records found!');
                 }
             })
@@ -46,12 +46,12 @@ export default class NoSQLModel {
             });
     }
 
-    public static async updateOneByID(id: any, update: any){
-        return await this._model.updateOne({_id: id}, update)
+    public static async updateOneByID(id: any, update: any) {
+        return await this._model.updateOne({ _id: id }, update)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.nModified === 0) {
                     throw new Error('No records found!');
-                }else{
+                } else {
                     return true;
                 }
             })
@@ -60,12 +60,12 @@ export default class NoSQLModel {
             });
     }
 
-    public static async deleteOneByID(id: any){
-        return await this._model.deleteOne({_id: id})
+    public static async deleteOneByID(id: any) {
+        return await this._model.deleteOne({ _id: id })
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
                     throw new Error('No records found!');
-                }else{
+                } else {
                     return true;
                 }
             })
@@ -77,7 +77,7 @@ export default class NoSQLModel {
     /////////////////////////
     ///////Properties
     /////////////////////////
-    public static hooks() {}
+    public static hooks() { }
 
     /////////////////////////
     ///////init Functions
@@ -98,7 +98,7 @@ export default class NoSQLModel {
         this.mongoose = options.mongoose;
         this._model = this.mongoose.model(options.modelName, schema, options.collectionName);
     }
-    
+
 }
 
 // private static transformCondition(conditions: any){

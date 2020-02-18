@@ -1,7 +1,7 @@
 //Import modules
 import EventEmitter from 'events';
 import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes} from 'sequelize';
+import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes } from 'sequelize';
 import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
 
 //Export Libs
@@ -9,10 +9,10 @@ const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
 export { NoSQL, NoSQLDataTypes };
 export { RDB, RDBOp, RDBDataTypes };
 
-import { Events } from "../store/events";
-import { IClient, ConnectionState } from "../store/component";
-import RDBModel from '../generics/rdb.model';
-import NoSQLModel from '../generics/nosql.model';
+//Local Imports
+import { Events } from './service';
+import RDBModel from './db.rdb.model';
+import NoSQLModel from './db.nosql.model';
 
 //Export Types
 export declare type Connection = RDB | NoSQL;
@@ -22,7 +22,7 @@ export declare type RDBModelAttributes = SequelizeModelAttributes;
 export declare type NoSQLModelAttributes = SchemaDefinition;
 export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 
-export default class DBManager extends EventEmitter implements IClient {
+export default class DBManager extends EventEmitter {
     //DBManager Variables.
     private readonly _paperTrail: boolean;
     private _connected: boolean;
@@ -36,42 +36,42 @@ export default class DBManager extends EventEmitter implements IClient {
 
     //Connection
     private _connection: Connection;
-    
+
     //Default Constructor
-    public constructor(type: Type, paperTrail?: boolean){
+    public constructor(type: Type, paperTrail?: boolean) {
         //Call super for EventEmitter.
         super();
 
         //Validate type
         this.type = type;
-        if(!this.type){
+        if (!this.type) {
             throw new ConnectionOptionsError('Invalid Database type provided.');
         }
 
         //Validate host
         this.host = process.env.DB_HOST;
-        if(!this.host){
+        if (!this.host) {
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate name
         this.name = process.env.DB_NAME;
-        if(!this.name){
+        if (!this.name) {
             throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
         }
 
         //Validate username
         this.username = process.env.DB_USERNAME;
-        if(!this.username){
+        if (!this.username) {
             throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
         }
 
         //Validate password
         this.password = process.env.DB_PASSWORD;
-        if(!this.password){
+        if (!this.password) {
             throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
         }
-        
+
         //Set default connected.
         this._connected = false;
 
@@ -82,31 +82,31 @@ export default class DBManager extends EventEmitter implements IClient {
     /////////////////////////
     ///////Gets & Sets
     /////////////////////////
-    public get connection(): Connection{
+    public get connection(): Connection {
         return this._connection;
     }
 
-    private get models(){
+    private get models() {
         return Object.values(this._connection.models);
     }
 
-    public get connected(){
+    public get connected() {
         return this._connected;
     }
 
-    public get noSQL(){
+    public get noSQL() {
         return this.type === 'mongo';
     }
 
-    public get rdb(){
+    public get rdb() {
         return !this.noSQL;
     }
 
     /////////////////////////
     ///////init Functions
     /////////////////////////
-    public init(){
-        if(this.noSQL){
+    public init() {
+        if (this.noSQL) {
             //Mongoose connection.
             this._connection = mongoose.createConnection('mongodb://' + this.host, {
                 dbName: this.name,
@@ -116,7 +116,7 @@ export default class DBManager extends EventEmitter implements IClient {
                 useUnifiedTopology: true
             });
             //TODO: Bug - unhandledRejection when incorrect details are passed.
-        }else{
+        } else {
             //Sequelize constructor.
             this._connection = new RDB(this.name, this.username, this.password, {
                 host: this.host,
@@ -125,11 +125,11 @@ export default class DBManager extends EventEmitter implements IClient {
         }
     }
 
-    public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model){
+    public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
         //Emit Model event.
         this.emit(Events.DB_ADDED_MODEL, modelName, entityName, model);
 
-        if(this.noSQL){
+        if (this.noSQL) {
             //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
                 collectionName: entityName,
@@ -137,7 +137,7 @@ export default class DBManager extends EventEmitter implements IClient {
                 mongoose: (this._connection as NoSQL),
                 timestamps: this._paperTrail
             });
-        }else{
+        } else {
             //Initializing RDB model
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
@@ -154,7 +154,7 @@ export default class DBManager extends EventEmitter implements IClient {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public async connect(): Promise<ConnectionState>{
+    public async connect() {
         //Sub function to connect.
         const _noSQLConnection = async () => {
             return new Promise<void>((resolve, reject) => {
@@ -166,9 +166,9 @@ export default class DBManager extends EventEmitter implements IClient {
 
         const _RDBConnection = async () => {
             //Associate models.
-            try{
+            try {
                 this.models.map(model => (model as typeof RDBModel).associate());
-            }catch(error){
+            } catch (error) {
                 console.error(error);
             }
 
@@ -176,42 +176,42 @@ export default class DBManager extends EventEmitter implements IClient {
             return await (this._connection as RDB).authenticate();
         }
 
-        try{
-            if(this.noSQL){
+        try {
+            if (this.noSQL) {
                 await _noSQLConnection();
-            }else{
+            } else {
                 await _RDBConnection();
             }
-            
+
             //Connection established.
             this._connected = true; //Connected Flag
             this.emit(Events.DB_CONNECTED, this);
             return 1;
-        }catch(error){
+        } catch (error) {
             this._connected = false; //Connected Flag 
 
             //SQL Errors.
-            if(error instanceof AccessDeniedError){
+            if (error instanceof AccessDeniedError) {
                 error = new ConnectionOptionsError('Access denied to the database.');
             }
-            if(error instanceof ConnectionRefusedError){
-                error =  new ConnectionOptionsError('Connection refused to the database.');
+            if (error instanceof ConnectionRefusedError) {
+                error = new ConnectionOptionsError('Connection refused to the database.');
             }
-            if(error instanceof HostNotFoundError){
-                error =  new ConnectionOptionsError('Invalid database host.');
+            if (error instanceof HostNotFoundError) {
+                error = new ConnectionOptionsError('Invalid database host.');
             }
-            if(error instanceof ConnectionError){
-                error =  new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+            if (error instanceof ConnectionError) {
+                error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
             }
 
             //NoSQL Errors.
-            if(error.message.includes('Authentication failed')){
+            if (error.message.includes('Authentication failed')) {
                 error = new ConnectionOptionsError('Connection refused to the database.');
             }
-            if(error.message.includes('getaddrinfo ENOTFOUND')){
+            if (error.message.includes('getaddrinfo ENOTFOUND')) {
                 error = new ConnectionOptionsError('Invalid database host.');
             }
-            if(error.message.includes('connection timed out')){
+            if (error.message.includes('connection timed out')) {
                 error = new ConnectionOptionsError('Connection timed out to the database.');
             }
 
@@ -219,13 +219,13 @@ export default class DBManager extends EventEmitter implements IClient {
         }
     }
 
-    public async disconnect(): Promise<ConnectionState>{
-        try{
+    public async disconnect() {
+        try {
             await this._connection.close();
             this._connected = false; //Connected Flag
             this.emit(Events.DB_DISCONNECTED, this);
             return 0;
-        }catch(error){
+        } catch (error) {
             throw error;
         }
     }
@@ -233,14 +233,14 @@ export default class DBManager extends EventEmitter implements IClient {
     /////////////////////////
     ///////Report
     /////////////////////////
-    public getReport(){
+    public getReport() {
         //New Models Dict.
-        let models: {[name: string]: string} = {};
+        let models: { [name: string]: string } = {};
 
         //Gets models.
-        if(this.noSQL){
+        if (this.noSQL) {
             this.models.forEach(model => models[model.name] = model.collection.name);
-        }else{
+        } else {
             this.models.forEach(model => models[model.name] = model.tableName);
         }
 
@@ -253,23 +253,23 @@ export default class DBManager extends EventEmitter implements IClient {
         }
     }
 
-    public async sync(force?: boolean){
+    public async sync(force?: boolean) {
         //Sub function to sync.
         const _noSQLSync = async () => {
             this.models.forEach(async model => {
                 const name = model.collection.name;
-    
-                try{
-                    if(force){
+
+                try {
+                    if (force) {
                         console.log('EXECUTING: DROP COLLECTION IF EXISTS `%s`;', name);
                         await (this._connection as NoSQL).db.dropCollection(name);
                     }
                     console.log('EXECUTING: CREATE COLLECTION IF NOT EXISTS `%s`;', name);
                     await model.createCollection();
-                }catch(error){
-                    if(error.code === 26){
+                } catch (error) {
+                    if (error.code === 26) {
                         //Ignore this error since the collection does not exist.
-                    }else{
+                    } else {
                         throw error;
                     }
                 }
@@ -277,21 +277,21 @@ export default class DBManager extends EventEmitter implements IClient {
         }
 
         const _rdbSync = async () => {
-            await (this._connection as RDB).sync({force: force});
+            await (this._connection as RDB).sync({ force: force });
         }
 
         //Setting default.
         force = (force === undefined) ? false : force;
 
-        try{
+        try {
             //Call DB Sync
-            if(this.noSQL){
+            if (this.noSQL) {
                 await _noSQLSync();
-            }else{
+            } else {
                 await _rdbSync();
             }
             return true;
-        }catch(error){
+        } catch (error) {
             throw error;
         }
     }
@@ -303,11 +303,11 @@ export default class DBManager extends EventEmitter implements IClient {
 export class ConnectionOptionsError extends Error {
     constructor(message: string) {
         super(message);
-        
+
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;
-    
+
         // Capturing stack trace, excluding constructor call from it.
         Error.captureStackTrace(this, this.constructor);
-      }
+    }
 }

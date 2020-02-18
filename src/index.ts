@@ -1,20 +1,20 @@
 //Local Imports
 import Service from './service';
 
-//Export API Components
+//Export API
 export { default as HttpCodes } from 'http-status-codes';
-export { default as Controller } from './generics/controller';
+export { default as Controller } from './api.controller';
 
-//Export Comm Components
-export { Publisher } from './generics/publisher';
+//Export STSCP
+export { default as Publisher } from './stscp.publisher';
 
 //Export Mesh Components
 export { CommNodeUnavailableError } from './components/comm.client';
 
 //Export DB Components
-export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './components/db.manager';
-export { default as RDBModel } from './generics/rdb.model';
-export { default as NoSQLModel } from './generics/nosql.model';
+export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';
+export { default as RDBModel } from './db.rdb.model';
+export { default as NoSQLModel } from './db.nosql.model';
 
 //Export Decorators
 export { Entity, Get, Post, Put, Delete, Reply } from './service';

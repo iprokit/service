@@ -2,9 +2,6 @@
 import EventEmitter from 'events';
 import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
-import { Events } from "../store/events";
-import { Defaults } from "../store/defaults";
-import { IClient, ConnectionState } from "../store/component";
 import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError } from '../store/comm2';
 import { Alias } from "../generics/alias";
 import { Subscriber } from "../generics/subscriber";
@@ -14,7 +11,7 @@ import { Handshake } from '../store/comm';
 export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
 
 let that: CommClient;
-export default class CommClient extends EventEmitter implements IClient {
+export default class CommClient extends EventEmitter {
     //CommNode Variables.
     public readonly identifier: string;
     public readonly name: string;
@@ -51,10 +48,10 @@ export default class CommClient extends EventEmitter implements IClient {
         //Split url into host and port.
         const _url = this.url.split(':');
         this.host = _url[0];
-        this.port = Number(_url[1]) || Defaults.COMM_PORT;
+        this.port = Number(_url[1]) || 60000;
 
         //Init Topic.
-        this.broadcastTopic = Defaults.COMM_HANDSHAKE_TOPIC;
+        this.broadcastTopic = '';
         this.comms = new Array();
 
         //Init Comm Handler Events.
@@ -83,7 +80,7 @@ export default class CommClient extends EventEmitter implements IClient {
     ///////Start/Stop Functions
     /////////////////////////
     public async connect(){
-        return new Promise<ConnectionState>((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             //Init Connection object
             this._mqttClient = mqtt.connect('mqtt://' + this.host + ':' + this.port, {
                 clientId: this.name,
@@ -95,7 +92,7 @@ export default class CommClient extends EventEmitter implements IClient {
                 //Subscribe to all topics.
                 this._mqttClient.subscribe(this.broadcastTopic);
 
-                this.emit(Events.NODE_CONNECTED, this);
+                this.emit('', this);
                 resolve(1);
             });
             
@@ -114,9 +111,9 @@ export default class CommClient extends EventEmitter implements IClient {
     }
 
     public async disconnect(){
-        return new Promise<ConnectionState>((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             this._mqttClient.end(false, () => {
-                this.emit(Events.NODE_DISCONNECTED, this);
+                this.emit('', this);
                 resolve(0);
             });
         });
@@ -198,7 +195,7 @@ export default class CommClient extends EventEmitter implements IClient {
         //Publish message on Server
         this._mqttClient.publish(message.topic, payload, { qos: 2 }, () => {
             //Global Emit.
-            this.emit(Events.NODE_SENT_MESSAGE, message);
+            this.emit('', message);
         });
     }
 
@@ -217,7 +214,7 @@ export default class CommClient extends EventEmitter implements IClient {
             this._commHandlers.emit(packet.topic, reply);
             
             //Global Emit.
-            this.emit(Events.NODE_RECEIVED_REPLY, reply);
+            this.emit('', reply);
         }
     }
 
