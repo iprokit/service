@@ -34,14 +34,14 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Utility from './utility';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './api.controller';
 import Publisher from './stscp.publisher';
 
 //Old
-import CommMesh from './components/comm.mesh';
-import CommNode from './components/comm.client';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
-import { Alias } from './generics/alias';
+import CommMesh from './comm/comm.mesh';
+import CommNode from './comm/comm.client';
+import { Alias } from './comm/alias';
 
 //Types: Options
 export type Options = {
@@ -59,13 +59,13 @@ export type AutoLoadOptions = {
 let apiApp: Express;
 let apiRouter: Router;
 let apiServer: HttpServer;
+let dbManager: DBManager;
 
 //STSCP Variables.
 let stscpServer: StscpServer;
 
-//Component Variables.
+//Old.
 let commMesh: CommMesh;
-let dbManager: DBManager;
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;

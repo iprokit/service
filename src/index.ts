@@ -9,7 +9,7 @@ export { default as Controller } from './api.controller';
 export { default as Publisher } from './stscp.publisher';
 
 //Export Mesh Components
-export { CommNodeUnavailableError } from './components/comm.client';
+export { CommNodeUnavailableError } from './comm/comm.client';
 
 //Export DB Components
 export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';

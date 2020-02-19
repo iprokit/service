@@ -2,10 +2,10 @@
 import EventEmitter from 'events';
 import mqtt, { MqttClient, IPublishPacket as Packet } from 'mqtt'
 
-import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError } from '../store/comm2';
-import { Alias } from "../generics/alias";
-import { Subscriber } from "../generics/subscriber";
-import { Handshake } from '../store/comm';
+import { Comm, Topic, TopicHelper, Message, Reply, MessageParms, ReplyBody, ReplyError } from './comm2';
+import { Alias } from "./alias";
+import { Subscriber } from "./subscriber";
+import { Handshake } from './comm';
 
 //Types: Function
 export declare type MessageFunction = (parms?: MessageParms) => Promise<ReplyBody>;
