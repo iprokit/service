@@ -6,7 +6,7 @@ export { default as HttpCodes } from 'http-status-codes';
 export { default as Controller } from './api.controller';
 
 //Export STSCP
-export { default as Publisher } from './stscp.publisher';
+export { Publisher } from './stscp';
 
 //Export Mesh Components
 export { CommNodeUnavailableError } from './comm/comm.client';

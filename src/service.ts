@@ -34,14 +34,9 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Utility from './utility';
+import { Mesh as StscpMesh, Publisher } from './stscp';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 import Controller from './api.controller';
-import Publisher from './stscp.publisher';
-
-//Old
-import CommMesh from './comm/comm.mesh';
-import CommNode from './comm/comm.client';
-import { Alias } from './comm/alias';
 
 //Types: Options
 export type Options = {
@@ -63,9 +58,7 @@ let dbManager: DBManager;
 
 //STSCP Variables.
 let stscpServer: StscpServer;
-
-//Old.
-let commMesh: CommMesh;
+let stscpMesh: StscpMesh;
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;
@@ -116,7 +109,6 @@ export default class Service extends EventEmitter {
         //Init Components.
         this.initAPIServer();
         this.initSTSCP();
-        commMesh = new CommMesh();
 
         //Init AutoLoad Variables.
         autoWireModelOptions = { includes: ['*'], excludes: undefined };
@@ -165,6 +157,7 @@ export default class Service extends EventEmitter {
 
     private initSTSCP() {
         stscpServer = stscp.createServer(this.name);
+        stscpMesh = new StscpMesh();
     }
 
     /////////////////////////
@@ -240,7 +233,7 @@ export default class Service extends EventEmitter {
             });
 
             //Start client components
-            await Promise.all([commMesh.connect(), (dbManager && dbManager.connect())]);
+            await Promise.all([stscpMesh.connect(), (dbManager && dbManager.connect())]);
 
             this.emit(Events.STARTED);
 
@@ -277,7 +270,7 @@ export default class Service extends EventEmitter {
             });
 
             //Stop client components
-            await Promise.all([commMesh.disconnect(), (dbManager && dbManager.disconnect())]);
+            await Promise.all([stscpMesh.disconnect(), (dbManager && dbManager.disconnect())]);
 
             this.emit(Events.STOPPED);
 
@@ -326,19 +319,18 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
-    ///////Comm Mesh Functions
+    ///////STSCP Mesh Functions
     /////////////////////////
     public defineNode(url: string, identifier: string) {
-        commMesh.defineNode(url, identifier);
+        stscpMesh.defineNode(url, identifier);
     }
 
-    //TODO: Convert this to dynamic object loader.
-    public static getAlias(identifier: string): Alias {
-        return commMesh.getAlias(identifier);
+    public static getAlias(identifier: string) {
+        return stscpMesh.getAlias(identifier);
     }
 
-    public static async defineNodeAndGetAlias(url: string): Promise<Alias> {
-        return await commMesh.defineNodeAndGetAlias(url);
+    public static defineNodeAndGetAlias(url: string) {
+        return stscpMesh.defineNodeAndGetAlias(url);
     }
 
     /////////////////////////
@@ -419,7 +411,7 @@ export default class Service extends EventEmitter {
                     db: dbManager && dbManager.getReport(),
                     api: apiRoutes,
                     stscp: stscpRoutes,
-                    mesh: commMesh.getReport()
+                    // mesh: commMesh.getReport() TODO:
                 }
 
                 response.status(HttpCodes.OK).send(report);
@@ -457,20 +449,17 @@ export default class Service extends EventEmitter {
         this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped STSCP Server.'));
         // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
 
-        //commMesh
-        commMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
-        commMesh.on(Events.MESH_CONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh connected.'));
-        commMesh.on(Events.MESH_DISCONNECTING, () => console.log('Comm mesh disconnecting...'));
-        commMesh.on(Events.MESH_DISCONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh disconnected.'));
-        commMesh.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
+        //STSCP Mesh
+        // stscpMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
+        // stscpMesh.on(Events.MESH_CONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh connected.'));
+        // stscpMesh.on(Events.MESH_DISCONNECTING, () => console.log('Comm mesh disconnecting...'));
+        // stscpMesh.on(Events.MESH_DISCONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh disconnected.'));
+        // stscpMesh.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
 
-            //commNode
-            commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
-            commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
-            //TODO: uncomment.
-            // commNode.on(Events.NODE_SENT_MESSAGE, (message: CommMessage) => console.log('Node: published a message on topic: %s', message.topic));
-            // commNode.on(Events.NODE_RECEIVED_REPLY, (reply: CommReply) => console.log('Node: received a reply on topic: %s', reply.topic));
-        });
+        //     //commNode
+        //     commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
+        //     commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
+        // });
 
         //dbManager
         if (dbManager) {
@@ -512,22 +501,17 @@ export class Events {
     public static readonly STSCP_SERVER_STOPPED = Symbol('STSCP_SERVER_STOPPED');
     // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
 
-    //Reply
-    public static readonly COMM_ROUTER_SEND_REPLY = Symbol('COMM_ROUTER_SEND_REPLY');
+    //STSCP Mesh
+    // public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
+    // public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
+    // public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
+    // public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
+    // public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
 
-    //Mesh
-    public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
-    public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
-    public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
-    public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
-    public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
+    // //Node
+    // public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
+    // public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
 
-    //Node
-    public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
-    public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
-    public static readonly NODE_RECEIVED_REPLY = Symbol('NODE_RECEIVED_REPLY');
-    public static readonly NODE_SENT_MESSAGE = Symbol('NODE_SENT_MESSAGE');
-    
     //DB
     public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
     public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
@@ -634,7 +618,6 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
             const modelName = target.name.replace('Model', '');
 
             if (canLoad(autoWireModelOptions, modelName)) {
-                //Init Model.
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
         }
