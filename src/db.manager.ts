@@ -10,7 +10,6 @@ export { NoSQL, NoSQLDataTypes };
 export { RDB, RDBOp, RDBDataTypes };
 
 //Local Imports
-import { Events } from './service';
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
@@ -22,7 +21,7 @@ export declare type RDBModelAttributes = SequelizeModelAttributes;
 export declare type NoSQLModelAttributes = SchemaDefinition;
 export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 
-export default class DBManager extends EventEmitter {
+export default class DBManager {
     //DBManager Variables.
     private readonly _paperTrail: boolean;
     private _connected: boolean;
@@ -39,9 +38,6 @@ export default class DBManager extends EventEmitter {
 
     //Default Constructor
     public constructor(type: Type, paperTrail?: boolean) {
-        //Call super for EventEmitter.
-        super();
-
         //Validate type
         this.type = type;
         if (!this.type) {
@@ -126,9 +122,6 @@ export default class DBManager extends EventEmitter {
     }
 
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
-        //Emit Model event.
-        this.emit(Events.DB_ADDED_MODEL, modelName, entityName, model);
-
         if (this.noSQL) {
             //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
@@ -154,7 +147,7 @@ export default class DBManager extends EventEmitter {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public async connect() {
+    public async connect(callback: () => void) {
         //Sub function to connect.
         const _noSQLConnection = async () => {
             return new Promise<void>((resolve, reject) => {
@@ -185,7 +178,6 @@ export default class DBManager extends EventEmitter {
 
             //Connection established.
             this._connected = true; //Connected Flag
-            this.emit(Events.DB_CONNECTED, this);
             return 1;
         } catch (error) {
             this._connected = false; //Connected Flag 
@@ -219,11 +211,10 @@ export default class DBManager extends EventEmitter {
         }
     }
 
-    public async disconnect() {
+    public async disconnect(callback: () => void) {
         try {
             await this._connection.close();
             this._connected = false; //Connected Flag
-            this.emit(Events.DB_DISCONNECTED, this);
             return 0;
         } catch (error) {
             throw error;

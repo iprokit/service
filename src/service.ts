@@ -65,6 +65,20 @@ let autoWireModelOptions: AutoLoadOptions;
 let autoInjectPublisherOptions: AutoLoadOptions;
 let autoInjectControllerOptions: AutoLoadOptions;
 
+/**
+ * @emits starting
+ * @emits started
+ * @emits stopping
+ * @emits stopped
+ * @emits apiServerStarted
+ * @emits apiServerStopped
+ * @emits stscpServerStarted
+ * @emits stscpServerStopped
+ * @emits stscpClientsConnected
+ * @emits stscpClientsDisconnected
+ * @emits dbConnected
+ * @emits dbDisconnected
+ */
 export default class Service extends EventEmitter {
     //Service Variables.
     public readonly name: string;
@@ -202,7 +216,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     public async start() {
         //Emit starting Event.
-        this.emit(Events.STARTING);
+        this.emit('starting');
 
         //Load files
         this.injectFiles();
@@ -210,19 +224,21 @@ export default class Service extends EventEmitter {
         try {
             //Start Servers
             apiServer = apiApp.listen(this.apiPort, () => {
-                this.emit(Events.API_SERVER_STARTED);
+                this.emit('apiServerStarted');
             });
             stscpServer.listen(this.stscpPort, () => {
-                this.emit(Events.STSCP_SERVER_STARTED);
+                this.emit('stscpServerStarted');
             });
 
             //Start client components
             stscpClientManager.connect(() => {
-                this.emit(Events.STSCP_CLIENT_MANAGER_CONNECTED);
+                this.emit('stscpClientsConnected');
             });
-            dbManager && dbManager.connect();
+            dbManager && dbManager.connect(() => {
+                this.emit('dbConnected');
+            });
 
-            this.emit(Events.STARTED);
+            this.emit('started');
 
             return 1;
         } catch (error) {
@@ -236,7 +252,7 @@ export default class Service extends EventEmitter {
     }
 
     public async stop() {
-        this.emit(Events.STOPPING);
+        this.emit('stopping');
 
         setTimeout(() => {
             console.error('Forcefully shutting down.');
@@ -247,22 +263,24 @@ export default class Service extends EventEmitter {
             //Stop Servers
             apiServer.close((error) => {
                 if (!error) {
-                    this.emit(Events.API_SERVER_STOPPED);
+                    this.emit('apiServerStopped');
                 }
             });
             stscpServer.close((error) => {
                 if (!error) {
-                    this.emit(Events.STSCP_SERVER_STOPPED);
+                    this.emit('stscpServerStopped');
                 }
             });
 
             //Stop client components
             stscpClientManager.disconnect(() => {
-                this.emit(Events.STSCP_CLIENT_MANAGER_DISCONNECTED);
+                this.emit('stscpClientsDisconnected');
             });
-            dbManager && dbManager.disconnect();
+            dbManager && dbManager.disconnect(() => {
+                this.emit('dbDisconnected')
+            });
 
-            this.emit(Events.STOPPED);
+            this.emit('stopped');
 
             return 0;
         } catch (error) {
@@ -438,8 +456,6 @@ export default class Service extends EventEmitter {
                     mesh: mesh
                 }
 
-                console.log(stscpMesh);
-
                 response.status(HttpCodes.OK).send(report);
             } catch (error) {
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
@@ -460,37 +476,34 @@ export default class Service extends EventEmitter {
     /////////////////////////
     public addListeners() {
         //Adding log listeners.
-        this.on(Events.STARTING, () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
-        this.on(Events.STARTED, () => console.log('%s ready.', this.name));
-        this.on(Events.STOPPING, () => console.log('Stopping %s...', this.name));
-        this.on(Events.STOPPED, () => console.log('%s stopped.', this.name));
+        this.on('starting', () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
+        this.on('started', () => console.log('%s ready.', this.name));
+        this.on('stopping', () => console.log('Stopping %s...', this.name));
+        this.on('stopped', () => console.log('%s stopped.', this.name));
 
         //API Server
-        this.on(Events.API_SERVER_STARTED, () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
-        this.on(Events.API_SERVER_STOPPED, () => console.log('Stopped API server.'));
+        this.on('apiServerStarted', () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
+        this.on('apiServerStopped', () => console.log('Stopped API server.'));
         // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //STSCP Server
-        this.on(Events.STSCP_SERVER_STARTED, () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
-        this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped STSCP Server.'));
+        this.on('stscpServerStarted', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
+        this.on('stscpServerStopped', () => console.log('Stopped STSCP Server.'));
         // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
 
         //STSCP Client Manager
-        this.on(Events.STSCP_CLIENT_MANAGER_CONNECTED, () => console.log('STSCP client manager connected.'));
-        this.on(Events.STSCP_CLIENT_MANAGER_DISCONNECTED, () => console.log('STSCP client manager disconnected.'));
+        this.on('stscpClientsConnected', () => console.log('STSCP client manager connected.'));
+        this.on('stscpClientsDisconnected', () => console.log('STSCP client manager disconnected.'));
         // this.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
 
-        //     //commNode
-        //     commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
-        //     commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
-        // });
+        // //commNode
+        // commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
+        // commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
 
         //dbManager
-        if (dbManager) {
-            dbManager.on(Events.DB_CONNECTED, (_dbManager: DBManager) => console.log('DB client connected to %s://%s/%s', _dbManager.type, _dbManager.host, _dbManager.name));
-            dbManager.on(Events.DB_DISCONNECTED, () => console.log('DB Disconnected'));
-            dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
-        }
+        this.on('dbConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
+        this.on('dbDisconnected', () => console.log('DB Disconnected'));
+        // dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
     }
 }
 
@@ -502,42 +515,6 @@ export class Defaults {
     public static readonly API_PORT: number = 3000;
     public static readonly STSCP_PORT: number = 6000;
     public static readonly FORCE_STOP_TIME: number = 5000;
-}
-
-/////////////////////////
-///////Events
-/////////////////////////
-export class Events {
-    //TODO: Move this to appropriate classes.
-    //Main
-    public static readonly STARTING = 'STARTING';
-    public static readonly STARTED = 'STARTED';
-    public static readonly STOPPING = 'STOPPING';
-    public static readonly STOPPED = 'STOPPED';
-
-    //API Server
-    public static readonly API_SERVER_STARTED = 'API_SERVER_STARTED';
-    public static readonly API_SERVER_STOPPED = 'API_SERVER_STOPPED';
-    // public static readonly API_SERVER_ADDED_CONTROLLER = Symbol('API_SERVER_ADDED_CONTROLLER');
-
-    //STSCP Server
-    public static readonly STSCP_SERVER_STARTED = 'STSCP_SERVER_STARTED';
-    public static readonly STSCP_SERVER_STOPPED = 'STSCP_SERVER_STOPPED';
-    // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
-
-    //STSCP Client Manager
-    public static readonly STSCP_CLIENT_MANAGER_CONNECTED = 'STSCP_CLIENT_MANAGER_CONNECTED';
-    public static readonly STSCP_CLIENT_MANAGER_DISCONNECTED = 'STSCP_CLIENT_MANAGER_DISCONNECTED';
-    // public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
-
-    // //Node
-    // public static readonly NODE_CONNECTED = Symbol('NODE_CONNECTED');
-    // public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
-
-    //DB
-    public static readonly DB_CONNECTED = 'DB_CONNECTED';
-    public static readonly DB_DISCONNECTED = 'DB_DISCONNECTED';
-    public static readonly DB_ADDED_MODEL = 'DB_ADDED_MODEL';
 }
 
 //TODO: Optimize the below functions.
