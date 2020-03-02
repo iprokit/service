@@ -394,7 +394,24 @@ export default class Service extends EventEmitter {
                 stscpRoutes.push(route);
             });
 
-            // const stscpClientManager;
+            //Get STSCP Clients.
+            const mesh = new Array();
+            stscpClientManager.clients.forEach(item => {
+                const client = {
+                    id: item.node.id,
+                    name: item.node.name,
+                    host: item.host,
+                    port: item.port,
+                    connected: item.connected,
+                    reconnecting: item.reconnecting,
+                    disconnected: item.disconnected,
+                    node: {
+                        broadcasts: item.broadcasts,
+                        replies: item.replies
+                    }
+                };
+                mesh.push(client);
+            });
 
             try {
                 const report = {
@@ -409,7 +426,7 @@ export default class Service extends EventEmitter {
                     db: dbManager && dbManager.getReport(),
                     api: apiRoutes,
                     stscp: stscpRoutes,
-                    stscpClients: stscpClientManager.mesh
+                    mesh: mesh
                 }
 
                 response.status(HttpCodes.OK).send(report);
