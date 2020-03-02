@@ -3,7 +3,6 @@ declare global {
     namespace NodeJS {
         interface Global {
             service: {
-                name: string,
                 projectPath: string
             }
         }
@@ -11,7 +10,7 @@ declare global {
 }
 
 //Import @iprotechs Modules
-import stscp, { Server as StscpServer, MessageReplyHandler, Body } from '@iprotechs/stscp';
+import stscp, { Server as StscpServer, ClientManager as StscpClientManager, MessageReplyHandler, Body, Mesh } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -34,9 +33,9 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Utility from './utility';
-import { Mesh as StscpMesh, Publisher } from './stscp';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
+import Publisher from './stscp.publisher';
 import Controller from './api.controller';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 
 //Types: Options
 export type Options = {
@@ -58,7 +57,7 @@ let dbManager: DBManager;
 
 //STSCP Variables.
 let stscpServer: StscpServer;
-let stscpMesh: StscpMesh;
+let stscpClientManager: StscpClientManager;
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;
@@ -102,7 +101,6 @@ export default class Service extends EventEmitter {
 
         //Load global variables.
         global.service = {
-            name: this.name,
             projectPath: projectPath
         }
 
@@ -157,7 +155,7 @@ export default class Service extends EventEmitter {
 
     private initSTSCP() {
         stscpServer = stscp.createServer(this.name);
-        stscpMesh = new StscpMesh();
+        stscpClientManager = stscp.createClientManager(this.name);
     }
 
     /////////////////////////
@@ -233,7 +231,10 @@ export default class Service extends EventEmitter {
             });
 
             //Start client components
-            await Promise.all([stscpMesh.connect(), (dbManager && dbManager.connect())]);
+            stscpClientManager.connect((mesh: Mesh) => {
+                this.emit(Events.STSCP_CLIENT_MANAGER_CONNECTED);
+            });
+            dbManager && dbManager.connect();
 
             this.emit(Events.STARTED);
 
@@ -270,7 +271,10 @@ export default class Service extends EventEmitter {
             });
 
             //Stop client components
-            await Promise.all([stscpMesh.disconnect(), (dbManager && dbManager.disconnect())]);
+            stscpClientManager.disconnect(() => {
+                this.emit(Events.STSCP_CLIENT_MANAGER_DISCONNECTED);
+            });
+            dbManager && dbManager.disconnect();
 
             this.emit(Events.STOPPED);
 
@@ -319,18 +323,10 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
-    ///////STSCP Mesh Functions
+    ///////STSCP Client Manager Functions
     /////////////////////////
-    public defineNode(url: string, identifier: string) {
-        stscpMesh.defineNode(url, identifier);
-    }
-
-    public static getAlias(identifier: string) {
-        return stscpMesh.getAlias(identifier);
-    }
-
-    public static defineNodeAndGetAlias(url: string) {
-        return stscpMesh.defineNodeAndGetAlias(url);
+    public defineNode(url: string, nodeName: string) {
+        stscpClientManager.createClient(url, nodeName);
     }
 
     /////////////////////////
@@ -398,6 +394,8 @@ export default class Service extends EventEmitter {
                 stscpRoutes.push(route);
             });
 
+            // const stscpClientManager;
+
             try {
                 const report = {
                     service: {
@@ -411,7 +409,7 @@ export default class Service extends EventEmitter {
                     db: dbManager && dbManager.getReport(),
                     api: apiRoutes,
                     stscp: stscpRoutes,
-                    // mesh: commMesh.getReport() TODO:
+                    stscpClients: stscpClientManager.mesh
                 }
 
                 response.status(HttpCodes.OK).send(report);
@@ -449,12 +447,10 @@ export default class Service extends EventEmitter {
         this.on(Events.STSCP_SERVER_STOPPED, () => console.log('Stopped STSCP Server.'));
         // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
 
-        //STSCP Mesh
-        // stscpMesh.on(Events.MESH_CONNECTING, () => console.log('Comm mesh connecting...'));
-        // stscpMesh.on(Events.MESH_CONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh connected.'));
-        // stscpMesh.on(Events.MESH_DISCONNECTING, () => console.log('Comm mesh disconnecting...'));
-        // stscpMesh.on(Events.MESH_DISCONNECTED, (_commMesh: CommMesh) => console.log('Comm mesh disconnected.'));
-        // stscpMesh.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
+        //STSCP Client Manager
+        this.on(Events.STSCP_CLIENT_MANAGER_CONNECTED, () => console.log('STSCP client manager connected.'));
+        this.on(Events.STSCP_CLIENT_MANAGER_DISCONNECTED, () => console.log('STSCP client manager disconnected.'));
+        // this.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
 
         //     //commNode
         //     commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
@@ -501,11 +497,9 @@ export class Events {
     public static readonly STSCP_SERVER_STOPPED = Symbol('STSCP_SERVER_STOPPED');
     // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
 
-    //STSCP Mesh
-    // public static readonly MESH_CONNECTING = Symbol('MESH_CONNECTING');
-    // public static readonly MESH_CONNECTED = Symbol('MESH_CONNECTED');
-    // public static readonly MESH_DISCONNECTING = Symbol('MESH_DISCONNECTING');
-    // public static readonly MESH_DISCONNECTED = Symbol('MESH_DISCONNECTED');
+    //STSCP Client Manager
+    public static readonly STSCP_CLIENT_MANAGER_CONNECTED = Symbol('STSCP_CLIENT_MANAGER_CONNECTED');
+    public static readonly STSCP_CLIENT_MANAGER_DISCONNECTED = Symbol('STSCP_CLIENT_MANAGER_DISCONNECTED');
     // public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
 
     // //Node

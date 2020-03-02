@@ -16,7 +16,7 @@ export default class CommMesh extends EventEmitter {
         super();
 
         //Init Mesh variables.
-        this.name = global.service.name;
+        this.name = '';
 
         //Init variables.
         this.clients = new Array();
