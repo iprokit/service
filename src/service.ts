@@ -329,23 +329,12 @@ export default class Service extends EventEmitter {
     public defineNode(url: string, nodeName: string) {
         const client = stscpClientManager.createClient(url, nodeName);
 
-        //Initialize node object in mesh.
-        stscpMesh[client.node.name] = client.node;
-
-        //TODO: instead of adding events and updating the client.node create a dynamic get function.
-
-        //Listen to client events to handle mesh.
-        client.on('connected', (client: StscpClient) => {
-            //Added the connected client to the mesh.
-            stscpMesh[client.node.name] = client.node;
-        });
-        client.on('disconnected', (client: StscpClient) => {
-            //Remove the disconnected client from the mesh.
-            delete stscpMesh[client.node.name];
-        });
-        client.on('reconnecting', (client: StscpClient) => {
-            //Validate and remove the reconnecting client from the mesh.
-            client.node.name && (delete stscpMesh[client.node.name]);
+        //Generate dynamic get on mesh to get node.
+        Object.defineProperty(stscpMesh, client.node.name, {
+            get: () => {
+                return client.node
+            },
+            enumerable: true,
         });
     }
 
@@ -448,6 +437,8 @@ export default class Service extends EventEmitter {
                     stscp: stscpRoutes,
                     mesh: mesh
                 }
+
+                console.log(stscpMesh);
 
                 response.status(HttpCodes.OK).send(report);
             } catch (error) {
