@@ -10,7 +10,7 @@ declare global {
 }
 
 //Import @iprotechs Modules
-import stscp, { Server as StscpServer, ClientManager as StscpClientManager, MessageReplyHandler, Body, Mesh } from '@iprotechs/stscp';
+import { Server as StscpServer, Client as StscpClient, ClientManager as StscpClientManager, MessageReplyHandler, Body } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -33,7 +33,7 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Utility from './utility';
-import Publisher from './stscp.publisher';
+import { Publisher, StscpMesh } from './stscp';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 
@@ -58,6 +58,7 @@ let dbManager: DBManager;
 //STSCP Variables.
 let stscpServer: StscpServer;
 let stscpClientManager: StscpClientManager;
+export const stscpMesh: StscpMesh = new StscpMesh();
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;
@@ -154,8 +155,8 @@ export default class Service extends EventEmitter {
     }
 
     private initSTSCP() {
-        stscpServer = stscp.createServer(this.name);
-        stscpClientManager = stscp.createClientManager(this.name);
+        stscpServer = new StscpServer(this.name);
+        stscpClientManager = new StscpClientManager(this.name);
     }
 
     /////////////////////////
@@ -169,7 +170,7 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
-    ///////Call Functions
+    ///////DB Functions
     /////////////////////////
     public useDB(type: DBType, paperTrail?: boolean) {
         try {
@@ -197,21 +198,6 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
-    ///////DB Functions
-    /////////////////////////
-    public setAutoWireModelOptions(options?: AutoLoadOptions) {
-        autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
-    }
-
-    public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
-        autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
-    }
-
-    public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
-        autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
-    }
-
-    /////////////////////////
     ///////Service Functions
     /////////////////////////
     public async start() {
@@ -231,7 +217,7 @@ export default class Service extends EventEmitter {
             });
 
             //Start client components
-            stscpClientManager.connect((mesh: Mesh) => {
+            stscpClientManager.connect(() => {
                 this.emit(Events.STSCP_CLIENT_MANAGER_CONNECTED);
             });
             dbManager && dbManager.connect();
@@ -285,6 +271,21 @@ export default class Service extends EventEmitter {
     }
 
     /////////////////////////
+    ///////Call Functions
+    /////////////////////////
+    public setAutoWireModelOptions(options?: AutoLoadOptions) {
+        autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
+    }
+
+    public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
+        autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
+    }
+
+    public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
+        autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
+    }
+
+    /////////////////////////
     ///////API Server Functions
     /////////////////////////
     public all(path: PathParams, ...handlers: RequestHandler[]) {
@@ -326,7 +327,26 @@ export default class Service extends EventEmitter {
     ///////STSCP Client Manager Functions
     /////////////////////////
     public defineNode(url: string, nodeName: string) {
-        stscpClientManager.createClient(url, nodeName);
+        const client = stscpClientManager.createClient(url, nodeName);
+
+        //Initialize node object in mesh.
+        stscpMesh[client.node.name] = client.node;
+
+        //TODO: instead of adding events and updating the client.node create a dynamic get function.
+
+        //Listen to client events to handle mesh.
+        client.on('connected', (client: StscpClient) => {
+            //Added the connected client to the mesh.
+            stscpMesh[client.node.name] = client.node;
+        });
+        client.on('disconnected', (client: StscpClient) => {
+            //Remove the disconnected client from the mesh.
+            delete stscpMesh[client.node.name];
+        });
+        client.on('reconnecting', (client: StscpClient) => {
+            //Validate and remove the reconnecting client from the mesh.
+            client.node.name && (delete stscpMesh[client.node.name]);
+        });
     }
 
     /////////////////////////
@@ -398,7 +418,6 @@ export default class Service extends EventEmitter {
             const mesh = new Array();
             stscpClientManager.clients.forEach(item => {
                 const client = {
-                    id: item.node.id,
                     name: item.node.name,
                     host: item.host,
                     port: item.port,
@@ -406,6 +425,7 @@ export default class Service extends EventEmitter {
                     reconnecting: item.reconnecting,
                     disconnected: item.disconnected,
                     node: {
+                        id: item.node.id,
                         broadcasts: item.broadcasts,
                         replies: item.replies
                     }
@@ -499,24 +519,24 @@ export class Defaults {
 export class Events {
     //TODO: Move this to appropriate classes.
     //Main
-    public static readonly STARTING = Symbol('STARTING');
-    public static readonly STARTED = Symbol('STARTED');
-    public static readonly STOPPING = Symbol('STOPPING');
-    public static readonly STOPPED = Symbol('STOPPED');
+    public static readonly STARTING = 'STARTING';
+    public static readonly STARTED = 'STARTED';
+    public static readonly STOPPING = 'STOPPING';
+    public static readonly STOPPED = 'STOPPED';
 
     //API Server
-    public static readonly API_SERVER_STARTED = Symbol('API_SERVER_STARTED');
-    public static readonly API_SERVER_STOPPED = Symbol('API_SERVER_STOPPED');
+    public static readonly API_SERVER_STARTED = 'API_SERVER_STARTED';
+    public static readonly API_SERVER_STOPPED = 'API_SERVER_STOPPED';
     // public static readonly API_SERVER_ADDED_CONTROLLER = Symbol('API_SERVER_ADDED_CONTROLLER');
 
     //STSCP Server
-    public static readonly STSCP_SERVER_STARTED = Symbol('STSCP_SERVER_STARTED');
-    public static readonly STSCP_SERVER_STOPPED = Symbol('STSCP_SERVER_STOPPED');
+    public static readonly STSCP_SERVER_STARTED = 'STSCP_SERVER_STARTED';
+    public static readonly STSCP_SERVER_STOPPED = 'STSCP_SERVER_STOPPED';
     // public static readonly COMM_SERVER_ADDED_PUBLISHER = Symbol('COMM_SERVER_ADDED_PUBLISHER');
 
     //STSCP Client Manager
-    public static readonly STSCP_CLIENT_MANAGER_CONNECTED = Symbol('STSCP_CLIENT_MANAGER_CONNECTED');
-    public static readonly STSCP_CLIENT_MANAGER_DISCONNECTED = Symbol('STSCP_CLIENT_MANAGER_DISCONNECTED');
+    public static readonly STSCP_CLIENT_MANAGER_CONNECTED = 'STSCP_CLIENT_MANAGER_CONNECTED';
+    public static readonly STSCP_CLIENT_MANAGER_DISCONNECTED = 'STSCP_CLIENT_MANAGER_DISCONNECTED';
     // public static readonly MESH_ADDED_NODE = Symbol('MESH_ADDED_NODE');
 
     // //Node
@@ -524,11 +544,10 @@ export class Events {
     // public static readonly NODE_DISCONNECTED = Symbol('NODE_DISCONNECTED');
 
     //DB
-    public static readonly DB_CONNECTED = Symbol('DB_CONNECTED');
-    public static readonly DB_DISCONNECTED = Symbol('DB_DISCONNECTED');
-    public static readonly DB_ADDED_MODEL = Symbol('DB_ADDED_MODEL');
+    public static readonly DB_CONNECTED = 'DB_CONNECTED';
+    public static readonly DB_DISCONNECTED = 'DB_DISCONNECTED';
+    public static readonly DB_ADDED_MODEL = 'DB_ADDED_MODEL';
 }
-
 
 //TODO: Optimize the below functions.
 
