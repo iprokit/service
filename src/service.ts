@@ -78,6 +78,7 @@ let autoInjectControllerOptions: AutoLoadOptions;
  * @emits stscpClientManagerDisconnected
  * @emits stscpClientConnected
  * @emits stscpClientDisconnected
+ * @emits stscpClientReconnecting
  * @emits dbConnected
  * @emits dbDisconnected
  */
@@ -177,6 +178,7 @@ export default class Service extends EventEmitter {
         //Bind Events for stscpClientManager
         stscpClientManager.on('clientConnected', (client: StscpClient) => this.emit('stscpClientConnected', client));
         stscpClientManager.on('clientDisconnected', (client: StscpClient) => this.emit('stscpClientDisconnected', client));
+        stscpClientManager.on('clientReconnecting', (client: StscpClient) => this.emit('stscpClientReconnecting', client));
     }
 
     /////////////////////////
@@ -399,7 +401,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     private addProcessListeners() {
         //Exit
-        process.once('SIGTERM', async () => {
+        process.once('SIGTERM', () => {
             console.log('Received SIGTERM.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
@@ -407,7 +409,7 @@ export default class Service extends EventEmitter {
         });
 
         //Ctrl + C
-        process.on('SIGINT', async () => {
+        process.on('SIGINT', () => {
             console.log('Received SIGINT.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
@@ -523,6 +525,7 @@ export default class Service extends EventEmitter {
         this.on('stscpClientManagerDisconnected', () => console.log('STSCP client manager disconnected.'));
         this.on('stscpClientConnected', (client: StscpClient) => console.log('Node connected to stscp://%s:%s', client.host, client.port));
         this.on('stscpClientDisconnected', (client: StscpClient) => console.log('Node disconnected from stscp://%s:%s', client.host, client.port));
+        this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
 
         //DB Manager
         this.on('dbConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
@@ -552,59 +555,48 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
     value: RequestHandler;
 }
 export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
+
+export function addEndpoint(target: typeof Controller, path: PathParams, rootPath: boolean, callback: (path: PathParams) => void) {
+    const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+    if (canLoad(autoInjectControllerOptions, controllerName)) {
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
+        }
+
+        callback(path);
+    }
+}
+
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
+        addEndpoint(target, path, rootPath, (path: PathParams) => {
             apiRouter.get(path, descriptor.value);
-        }
+        });
     }
 }
 
 export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
+        addEndpoint(target, path, rootPath, (path: PathParams) => {
             apiRouter.post(path, descriptor.value);
-        }
+        });
     }
 }
 
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
+        addEndpoint(target, path, rootPath, (path: PathParams) => {
             apiRouter.put(path, descriptor.value);
-        }
+        });
     }
 }
 
 export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
+        addEndpoint(target, path, rootPath, (path: PathParams) => {
             apiRouter.delete(path, descriptor.value);
-        }
+        });
     }
 }
 
