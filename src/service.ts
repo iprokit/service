@@ -10,7 +10,7 @@ declare global {
 }
 
 //Import @iprotechs Modules
-import { Server as StscpServer, Client as StscpClient, ClientManager as StscpClientManager, MessageReplyHandler, Body } from '@iprotechs/stscp';
+import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, MessageReplyHandler, Body } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -67,15 +67,17 @@ let autoInjectControllerOptions: AutoLoadOptions;
 
 /**
  * @emits starting
- * @emits started
+ * @emits ready
  * @emits stopping
  * @emits stopped
  * @emits apiServerStarted
  * @emits apiServerStopped
  * @emits stscpServerStarted
  * @emits stscpServerStopped
- * @emits stscpClientsConnected
- * @emits stscpClientsDisconnected
+ * @emits stscpClientManagerConnected
+ * @emits stscpClientManagerDisconnected
+ * @emits stscpClientConnected
+ * @emits stscpClientDisconnected
  * @emits dbConnected
  * @emits dbDisconnected
  */
@@ -171,6 +173,10 @@ export default class Service extends EventEmitter {
     private initSTSCP() {
         stscpServer = new StscpServer(this.name);
         stscpClientManager = new StscpClientManager(this.name);
+
+        //Bind Events for stscpClientManager
+        stscpClientManager.on('clientConnected', (client: StscpClient) => this.emit('stscpClientConnected', client));
+        stscpClientManager.on('clientDisconnected', (client: StscpClient) => this.emit('stscpClientDisconnected', client));
     }
 
     /////////////////////////
@@ -188,7 +194,7 @@ export default class Service extends EventEmitter {
     /////////////////////////
     public useDB(type: DBType, paperTrail?: boolean) {
         try {
-            //Setup DBManager.
+            //Setup DB Manager.
             dbManager = new DBManager(type, paperTrail);
             dbManager.init();
 
@@ -214,78 +220,99 @@ export default class Service extends EventEmitter {
     /////////////////////////
     ///////Service Functions
     /////////////////////////
-    public async start() {
-        //Emit starting Event.
+    public start(callback?: () => void) {
+        //Emit Global: starting.
         this.emit('starting');
 
         //Load files
         this.injectFiles();
 
-        try {
-            //Start Servers
-            apiServer = apiApp.listen(this.apiPort, () => {
-                this.emit('apiServerStarted');
-            });
+        //Start API Server
+        apiServer = apiApp.listen(this.apiPort, () => {
+            //Emit Global: apiServerStarted.
+            this.emit('apiServerStarted');
+
+            //Start STSCP Server
             stscpServer.listen(this.stscpPort, () => {
+                //Emit Global: stscpServerStarted.
                 this.emit('stscpServerStarted');
-            });
 
-            //Start client components
-            stscpClientManager.connect(() => {
-                this.emit('stscpClientsConnected');
-            });
-            dbManager && dbManager.connect(() => {
-                this.emit('dbConnected');
-            });
+                //Start STSCP Client Manager
+                stscpClientManager.connect(() => {
+                    //Emit Global: stscpClientManagerConnected.
+                    this.emit('stscpClientManagerConnected');
+                });
 
-            this.emit('started');
+                //Start DB Manager
+                dbManager && dbManager.connect((error) => {
+                    if (!error) {
+                        //Emit Global: dbConnected.
+                        this.emit('dbConnected');
+                    } else {
+                        if (error instanceof ConnectionOptionsError) {
+                            console.log(error.message);
+                        } else {
+                            console.error(error);
+                        }
+                        console.log('Will continue...');
+                    }
+                });
 
-            return 1;
-        } catch (error) {
-            if (error instanceof ConnectionOptionsError) {
-                console.log(error.message);
-            } else {
-                console.error(error);
-            }
-            console.log('Will continue...');
-        }
+                //Emit Global: ready.
+                this.emit('ready');
+
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            });
+        });
     }
 
-    public async stop() {
+    public stop(callback: (exitCode: number) => void) {
+        //Emit Global: stopping.
         this.emit('stopping');
 
         setTimeout(() => {
+            callback(1);
             console.error('Forcefully shutting down.');
-            return 1;
         }, Defaults.FORCE_STOP_TIME);
 
-        try {
-            //Stop Servers
-            apiServer.close((error) => {
-                if (!error) {
-                    this.emit('apiServerStopped');
-                }
-            });
+        //Stop API Servers
+        apiServer.close((error) => {
+            if (!error) {
+                //Emit Global: apiServerStopped.
+                this.emit('apiServerStopped');
+            }
+
+            //Stop STSCP Servers
             stscpServer.close((error) => {
                 if (!error) {
+                    //Emit Global: stscpServerStopped.
                     this.emit('stscpServerStopped');
                 }
-            });
 
-            //Stop client components
-            stscpClientManager.disconnect(() => {
-                this.emit('stscpClientsDisconnected');
-            });
-            dbManager && dbManager.disconnect(() => {
-                this.emit('dbDisconnected')
-            });
+                //Stop STSCP Client Manager
+                stscpClientManager.disconnect(() => {
+                    //Emit Global: stscpClientManagerDisconnected.
+                    this.emit('stscpClientManagerDisconnected');
 
-            this.emit('stopped');
+                    //Stop DB Manager
+                    dbManager && dbManager.disconnect((error) => {
+                        if (!error) {
+                            //Emit Global: dbDisconnected.
+                            this.emit('dbDisconnected');
+                        }
 
-            return 0;
-        } catch (error) {
-            console.error(error);
-        }
+                        //Emit Global: stopped.
+                        this.emit('stopped');
+
+                        //Callback.
+                        callback(0);
+                    });
+                });
+            });
+        });
     }
 
     /////////////////////////
@@ -374,15 +401,17 @@ export default class Service extends EventEmitter {
         //Exit
         process.once('SIGTERM', async () => {
             console.log('Received SIGTERM.');
-            let code = await this.stop();
-            process.exit(code);
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
         });
 
         //Ctrl + C
         process.on('SIGINT', async () => {
             console.log('Received SIGINT.');
-            let code = await this.stop();
-            process.exit(code);
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
         });
 
         process.on('unhandledRejection', (reason, promise) => {
@@ -475,34 +504,33 @@ export default class Service extends EventEmitter {
     ///////Listeners
     /////////////////////////
     public addListeners() {
-        //Adding log listeners.
+        //Service
         this.on('starting', () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
-        this.on('started', () => console.log('%s ready.', this.name));
+        this.on('ready', () => console.log('%s ready.', this.name));
         this.on('stopping', () => console.log('Stopping %s...', this.name));
         this.on('stopped', () => console.log('%s stopped.', this.name));
 
         //API Server
         this.on('apiServerStarted', () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
         this.on('apiServerStopped', () => console.log('Stopped API server.'));
-        // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
 
         //STSCP Server
         this.on('stscpServerStarted', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
         this.on('stscpServerStopped', () => console.log('Stopped STSCP Server.'));
-        // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
 
         //STSCP Client Manager
-        this.on('stscpClientsConnected', () => console.log('STSCP client manager connected.'));
-        this.on('stscpClientsDisconnected', () => console.log('STSCP client manager disconnected.'));
-        // this.on(Events.MESH_ADDED_NODE, (commNode: CommNode) => {
+        this.on('stscpClientManagerConnected', () => console.log('STSCP client manager connected.'));
+        this.on('stscpClientManagerDisconnected', () => console.log('STSCP client manager disconnected.'));
+        this.on('stscpClientConnected', (client: StscpClient) => console.log('Node connected to stscp://%s:%s', client.host, client.port));
+        this.on('stscpClientDisconnected', (client: StscpClient) => console.log('Node disconnected from stscp://%s:%s', client.host, client.port));
 
-        // //commNode
-        // commNode.on(Events.NODE_CONNECTED, (node: CommNode) => console.log('Node: Connected to %s', node.url));
-        // commNode.on(Events.NODE_DISCONNECTED, (node: CommNode) => console.log('Node: Disconnected from : %s', node.url));
-
-        //dbManager
+        //DB Manager
         this.on('dbConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
         this.on('dbDisconnected', () => console.log('DB Disconnected'));
+
+        //Inject Files
+        // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
+        // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
         // dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
     }
 }
@@ -514,10 +542,8 @@ export class Defaults {
     public static readonly ENVIRONMENT: string = 'production';
     public static readonly API_PORT: number = 3000;
     public static readonly STSCP_PORT: number = 6000;
-    public static readonly FORCE_STOP_TIME: number = 5000;
+    public static readonly FORCE_STOP_TIME: number = 1000 * 5;
 }
-
-//TODO: Optimize the below functions.
 
 /////////////////////////
 ///////API Server Decorators

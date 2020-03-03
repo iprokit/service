@@ -147,17 +147,35 @@ export default class DBManager {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public async connect(callback: () => void) {
-        //Sub function to connect.
-        const _noSQLConnection = async () => {
-            return new Promise<void>((resolve, reject) => {
-                //Start Connection.
-                (this._connection as NoSQL).once('connected', () => resolve());
-                (this._connection as NoSQL).on('error', (error) => reject(error));
-            });
-        }
+    public connect(callback: (error?: Error) => void) {
+        if (this.noSQL) { //NoSQL Connection
+            //Start Connection.
+            (this._connection as NoSQL).once('connected', () => {
+                //Set connected Flag 
+                this._connected = true;
 
-        const _RDBConnection = async () => {
+                //Callback.
+                callback();
+            });
+            (this._connection as NoSQL).on('error', (error: Error) => {
+                //Set connected Flag 
+                this._connected = false;
+
+                //NoSQL Errors.
+                if (error.message.includes('Authentication failed')) {
+                    error = new ConnectionOptionsError('Connection refused to the database.');
+                }
+                if (error.message.includes('getaddrinfo ENOTFOUND')) {
+                    error = new ConnectionOptionsError('Invalid database host.');
+                }
+                if (error.message.includes('connection timed out')) {
+                    error = new ConnectionOptionsError('Connection timed out to the database.');
+                }
+
+                //Callback with error.
+                callback(error);
+            });
+        } else { //RDB Connection.
             //Associate models.
             try {
                 this.models.map(model => (model as typeof RDBModel).associate());
@@ -166,59 +184,49 @@ export default class DBManager {
             }
 
             //Start Connection.
-            return await (this._connection as RDB).authenticate();
-        }
+            (this._connection as RDB).authenticate()
+                .then(() => {
+                    //Set connected Flag 
+                    this._connected = true;
 
-        try {
-            if (this.noSQL) {
-                await _noSQLConnection();
-            } else {
-                await _RDBConnection();
-            }
+                    //Callback.
+                    callback();
+                }).catch((error: Error) => {
+                    //Set connected Flag 
+                    this._connected = false;
 
-            //Connection established.
-            this._connected = true; //Connected Flag
-            return 1;
-        } catch (error) {
-            this._connected = false; //Connected Flag 
+                    //SQL Errors.
+                    if (error instanceof AccessDeniedError) {
+                        error = new ConnectionOptionsError('Access denied to the database.');
+                    }
+                    if (error instanceof ConnectionRefusedError) {
+                        error = new ConnectionOptionsError('Connection refused to the database.');
+                    }
+                    if (error instanceof HostNotFoundError) {
+                        error = new ConnectionOptionsError('Invalid database host.');
+                    }
+                    if (error instanceof ConnectionError) {
+                        error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+                    }
 
-            //SQL Errors.
-            if (error instanceof AccessDeniedError) {
-                error = new ConnectionOptionsError('Access denied to the database.');
-            }
-            if (error instanceof ConnectionRefusedError) {
-                error = new ConnectionOptionsError('Connection refused to the database.');
-            }
-            if (error instanceof HostNotFoundError) {
-                error = new ConnectionOptionsError('Invalid database host.');
-            }
-            if (error instanceof ConnectionError) {
-                error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
-            }
-
-            //NoSQL Errors.
-            if (error.message.includes('Authentication failed')) {
-                error = new ConnectionOptionsError('Connection refused to the database.');
-            }
-            if (error.message.includes('getaddrinfo ENOTFOUND')) {
-                error = new ConnectionOptionsError('Invalid database host.');
-            }
-            if (error.message.includes('connection timed out')) {
-                error = new ConnectionOptionsError('Connection timed out to the database.');
-            }
-
-            throw error;
+                    //Callback with error.
+                    callback(error);
+                });
         }
     }
 
-    public async disconnect(callback: () => void) {
-        try {
-            await this._connection.close();
-            this._connected = false; //Connected Flag
-            return 0;
-        } catch (error) {
-            throw error;
-        }
+    public disconnect(callback: (error?: Error) => void) {
+        this._connection.close()
+            .then(() => {
+                //Set connected Flag 
+                this._connected = false;
+
+                //Callback.
+                callback();
+            }).catch((error: Error) => {
+                //Callback with error.
+                callback(error);
+            });
     }
 
     /////////////////////////
