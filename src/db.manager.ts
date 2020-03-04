@@ -147,33 +147,12 @@ export default class DBManager {
     /////////////////////////
     ///////Connection Management
     /////////////////////////
-    public connect(callback: (error?: Error) => void) {
+    public connect(callback?: (error?: Error) => void) {
         if (this.noSQL) { //NoSQL Connection
-            //Start Connection.
-            (this._connection as NoSQL).once('connected', () => {
-                //Set connected Flag 
-                this._connected = true;
-
-                //Callback.
-                callback();
-            });
-            (this._connection as NoSQL).on('error', (error: Error) => {
-                //Set connected Flag 
-                this._connected = false;
-
-                //NoSQL Errors.
-                if (error.message.includes('Authentication failed')) {
-                    error = new ConnectionOptionsError('Connection refused to the database.');
+            this.connectNoSQL((error) => {
+                if (callback) {
+                    callback(error);
                 }
-                if (error.message.includes('getaddrinfo ENOTFOUND')) {
-                    error = new ConnectionOptionsError('Invalid database host.');
-                }
-                if (error.message.includes('connection timed out')) {
-                    error = new ConnectionOptionsError('Connection timed out to the database.');
-                }
-
-                //Callback with error.
-                callback(error);
             });
         } else { //RDB Connection.
             //Associate models.
@@ -183,49 +162,98 @@ export default class DBManager {
                 console.error(error);
             }
 
-            //Start Connection.
-            (this._connection as RDB).authenticate()
-                .then(() => {
-                    //Set connected Flag 
-                    this._connected = true;
-
-                    //Callback.
-                    callback();
-                }).catch((error: Error) => {
-                    //Set connected Flag 
-                    this._connected = false;
-
-                    //SQL Errors.
-                    if (error instanceof AccessDeniedError) {
-                        error = new ConnectionOptionsError('Access denied to the database.');
-                    }
-                    if (error instanceof ConnectionRefusedError) {
-                        error = new ConnectionOptionsError('Connection refused to the database.');
-                    }
-                    if (error instanceof HostNotFoundError) {
-                        error = new ConnectionOptionsError('Invalid database host.');
-                    }
-                    if (error instanceof ConnectionError) {
-                        error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
-                    }
-
-                    //Callback with error.
+            this.connectRDB((error) => {
+                if (callback) {
                     callback(error);
-                });
+                }
+            });
         }
     }
 
-    public disconnect(callback: (error?: Error) => void) {
+    private connectNoSQL(callback?: (error?: Error) => void) {
+        //Start Connection.
+        (this._connection as NoSQL).once('connected', () => {
+            //Set connected Flag 
+            this._connected = true;
+
+            //Callback.
+            if (callback) {
+                callback();
+            }
+        });
+        (this._connection as NoSQL).on('error', (error: Error) => {
+            //Set connected Flag 
+            this._connected = false;
+
+            //NoSQL Errors.
+            if (error.message.includes('Authentication failed')) {
+                error = new ConnectionOptionsError('Connection refused to the database.');
+            }
+            if (error.message.includes('getaddrinfo ENOTFOUND')) {
+                error = new ConnectionOptionsError('Invalid database host.');
+            }
+            if (error.message.includes('connection timed out')) {
+                error = new ConnectionOptionsError('Connection timed out to the database.');
+            }
+
+            //Callback with error.
+            if (callback) {
+                callback(error);
+            }
+        });
+    }
+
+    private connectRDB(callback?: (error?: Error) => void) {
+        //Start Connection.
+        (this._connection as RDB).authenticate()
+            .then(() => {
+                //Set connected Flag 
+                this._connected = true;
+
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            }).catch((error: Error) => {
+                //Set connected Flag 
+                this._connected = false;
+
+                //SQL Errors.
+                if (error instanceof AccessDeniedError) {
+                    error = new ConnectionOptionsError('Access denied to the database.');
+                }
+                if (error instanceof ConnectionRefusedError) {
+                    error = new ConnectionOptionsError('Connection refused to the database.');
+                }
+                if (error instanceof HostNotFoundError) {
+                    error = new ConnectionOptionsError('Invalid database host.');
+                }
+                if (error instanceof ConnectionError) {
+                    error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+                }
+
+                //Callback with error.
+                if (callback) {
+                    callback(error);
+                }
+            });
+    }
+
+    public disconnect(callback?: (error?: Error) => void) {
         this._connection.close()
             .then(() => {
                 //Set connected Flag 
                 this._connected = false;
 
                 //Callback.
-                callback();
+                if (callback) {
+                    callback();
+                }
             }).catch((error: Error) => {
                 //Callback with error.
-                callback(error);
+                if (callback) {
+                    callback(error);
+                }
             });
     }
 

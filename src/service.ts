@@ -289,6 +289,7 @@ export default class Service extends EventEmitter {
 
             //Stop STSCP Servers
             stscpServer.close((error) => {
+                //TODO: Bug here. Getting called multiple times.
                 if (!error) {
                     //Emit Global: stscpServerStopped.
                     this.emit('stscpServerStopped');
@@ -429,48 +430,6 @@ export default class Service extends EventEmitter {
         });
 
         apiRouter.get('/report', (request, response) => {
-            //Get API Routes.
-            const apiRoutes = new Array();
-            apiRouter.stack.forEach(item => {
-                const functionName = item.route.stack[0].handle.name;
-                const method = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
-                const path = this.apiBaseUrl + item.route.path;
-
-                const route = {
-                    function: functionName,
-                    [method]: path
-                }
-                apiRoutes.push(route);
-            });
-
-            //Get STSCP Routes.
-            const stscpRoutes = new Array();
-            stscpServer.routes.forEach(item => {
-                const route = {
-                    [item.type]: item.action
-                }
-                stscpRoutes.push(route);
-            });
-
-            //Get STSCP Clients.
-            const mesh = new Array();
-            stscpClientManager.clients.forEach(item => {
-                const client = {
-                    name: item.node.name,
-                    host: item.host,
-                    port: item.port,
-                    connected: item.connected,
-                    reconnecting: item.reconnecting,
-                    disconnected: item.disconnected,
-                    node: {
-                        id: item.node.id,
-                        broadcasts: item.broadcasts,
-                        replies: item.replies
-                    }
-                };
-                mesh.push(client);
-            });
-
             try {
                 const report = {
                     service: {
@@ -482,9 +441,9 @@ export default class Service extends EventEmitter {
                         environment: this.environment
                     },
                     db: dbManager && dbManager.getReport(),
-                    api: apiRoutes,
-                    stscp: stscpRoutes,
-                    mesh: mesh
+                    api: this.apiRouteReport(),
+                    stscp: this.stscpRouteReport(),
+                    mesh: this.stscpMeshReport()
                 }
 
                 response.status(HttpCodes.OK).send(report);
@@ -500,6 +459,57 @@ export default class Service extends EventEmitter {
                 process.kill(process.pid, 'SIGTERM');
             }, 2000);
         });
+    }
+
+    private apiRouteReport(){
+        //Get API Routes.
+        const apiRoutes = new Array();
+        apiRouter.stack.forEach(item => {
+            const functionName = item.route.stack[0].handle.name;
+            const method = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
+            const path = this.apiBaseUrl + item.route.path;
+
+            const route = {
+                function: functionName,
+                [method]: path
+            }
+            apiRoutes.push(route);
+        });
+        return apiRoutes;
+    }
+
+    private stscpRouteReport(){
+        //Get STSCP Routes.
+        const stscpRoutes = new Array();
+        stscpServer.routes.forEach(item => {
+            const route = {
+                [item.type]: item.action
+            }
+            stscpRoutes.push(route);
+        });
+        return stscpRoutes;
+    }
+
+    private stscpMeshReport(){
+        //Get STSCP Clients.
+        const mesh = new Array();
+        stscpClientManager.clients.forEach(item => {
+            const client = {
+                name: item.node.name,
+                host: item.host,
+                port: item.port,
+                connected: item.connected,
+                reconnecting: item.reconnecting,
+                disconnected: item.disconnected,
+                node: {
+                    id: item.node.id,
+                    broadcasts: item.broadcasts,
+                    replies: item.replies
+                }
+            };
+            mesh.push(client);
+        });
+        return mesh;
     }
 
     /////////////////////////
