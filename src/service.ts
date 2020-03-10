@@ -10,7 +10,7 @@ declare global {
 }
 
 //Import @iprotechs Modules
-import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, MessageReplyHandler, Body } from '@iprotechs/stscp';
+import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -33,7 +33,7 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Utility from './utility';
-import { Publisher, StscpMesh } from './stscp';
+import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 
@@ -58,7 +58,7 @@ let dbManager: DBManager;
 //STSCP Variables.
 let stscpServer: StscpServer;
 let stscpClientManager: StscpClientManager;
-export const stscpMesh: StscpMesh = new StscpMesh();
+export const Mesh: StscpMesh = StscpClientManager.mesh;
 
 //AutoLoad Variables.
 let autoWireModelOptions: AutoLoadOptions;
@@ -289,7 +289,6 @@ export default class Service extends EventEmitter {
 
             //Stop STSCP Servers
             stscpServer.close((error) => {
-                //TODO: Bug here. Getting called multiple times.
                 if (!error) {
                     //Emit Global: stscpServerStopped.
                     this.emit('stscpServerStopped');
@@ -375,15 +374,7 @@ export default class Service extends EventEmitter {
     ///////STSCP Client Manager Functions
     /////////////////////////
     public defineNode(url: string, nodeName: string) {
-        const client = stscpClientManager.createClient(url, nodeName);
-
-        //Generate dynamic get on mesh to get node.
-        Object.defineProperty(stscpMesh, client.node.name, {
-            get: () => {
-                return client.node
-            },
-            enumerable: true,
-        });
+        stscpClientManager.createClient(url, nodeName);
     }
 
     /////////////////////////
@@ -461,7 +452,7 @@ export default class Service extends EventEmitter {
         });
     }
 
-    private apiRouteReport(){
+    private apiRouteReport() {
         //Get API Routes.
         const apiRoutes = new Array();
         apiRouter.stack.forEach(item => {
@@ -478,7 +469,7 @@ export default class Service extends EventEmitter {
         return apiRoutes;
     }
 
-    private stscpRouteReport(){
+    private stscpRouteReport() {
         //Get STSCP Routes.
         const stscpRoutes = new Array();
         stscpServer.routes.forEach(item => {
@@ -490,7 +481,7 @@ export default class Service extends EventEmitter {
         return stscpRoutes;
     }
 
-    private stscpMeshReport(){
+    private stscpMeshReport() {
         //Get STSCP Clients.
         const mesh = new Array();
         stscpClientManager.clients.forEach(item => {
@@ -566,47 +557,59 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
 }
 export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
-export function addEndpoint(target: typeof Controller, path: PathParams, rootPath: boolean, callback: (path: PathParams) => void) {
-    const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-    if (canLoad(autoInjectControllerOptions, controllerName)) {
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        callback(path);
-    }
-}
-
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        addEndpoint(target, path, rootPath, (path: PathParams) => {
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
+                path = ('/' + controllerName + path);
+            }
+
             apiRouter.get(path, descriptor.value);
-        });
+        }
     }
 }
 
 export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        addEndpoint(target, path, rootPath, (path: PathParams) => {
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
+                path = ('/' + controllerName + path);
+            }
+
             apiRouter.post(path, descriptor.value);
-        });
+        }
     }
 }
 
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        addEndpoint(target, path, rootPath, (path: PathParams) => {
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
+                path = ('/' + controllerName + path);
+            }
+
             apiRouter.put(path, descriptor.value);
-        });
+        }
     }
 }
 
 export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
-        addEndpoint(target, path, rootPath, (path: PathParams) => {
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if (canLoad(autoInjectControllerOptions, controllerName)) {
+            if (!rootPath) {
+                path = ('/' + controllerName + path);
+            }
+
             apiRouter.delete(path, descriptor.value);
-        });
+        }
     }
 }
 
