@@ -8,23 +8,24 @@ import Helper from './helper';
 import Service, { Options, Defaults } from './service';
 
 /**
- * An instance of a `Service`.
- * This class can help you build a Gateway service that can act has a middleman between the client and the endpoint service.
- * The main function is to proxy requests from the client to the endpoint service.
+ * `Gateway` acts has a middleman between the client and the endpoint service.
+ * The main function of the gateway is to proxy requests from the client to the endpoint service.
  * Before the proxy, you can massage and handle the data with the router middlewear and pass the request to the endpoint service.
+ * 
+ * @extends Service
  */
 export default class Gateway extends Service {
     /**
      * Creates an instance of a `Gateway`.
      * 
-     * @param baseUrl the optional, base/root url. The default value is '/api'.
+     * @param baseUrl the optional, base/root url. The default url is '/api'.
      * @param options the optional, `Gateway` options. The default name is 'gateway'.
      */
     public constructor(baseUrl?: string, options?: Options) {
         //Set null defaults.
         options = options || {};
 
-        //Init service variables.
+        //Initialize service variables.
         baseUrl = baseUrl || '/api';
         options.name = options.name || 'gateway';
 

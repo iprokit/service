@@ -26,54 +26,154 @@ import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
 
-//API Server Variables.
+//////////////////////////////
+//////Global Variables
+//////////////////////////////
+/**
+ * The apiApp, i.e: `Express`.
+ */
 let apiApp: Express;
+
+/**
+ * The apiRouter, i.e: `ExpressRouter`.
+ */
 let apiRouter: Router;
+
+/**
+ * The apiServer, i.e: `HttpServer`.
+ */
 let apiServer: HttpServer;
+
+/**
+ * The dbManager, i.e: `DBManager`.
+ */
 let dbManager: DBManager;
 
-//STSCP Variables.
+/**
+ * The stscpServer, i.e: `StscpServer`.
+ */
 let stscpServer: StscpServer;
+
+/**
+ * The stscpClientManager, i.e: `StscpClientManager`.
+ */
 let stscpClientManager: StscpClientManager;
+
+/**
+ * `Mesh` is a representation of unique server's in the form of Object's.
+ *
+ * During runtime:
+ * `Node` objects are populated into `Mesh` with its name as a get accessor.
+ * All the `Node` objects are exposed in this with its callable name,
+ * which can be declared with `service.defineNode()`.
+ */
 export const Mesh: StscpMesh = StscpClientManager.mesh;
 
-//AutoLoad Variables.
+/**
+ * Auto wire `Model` options.
+ * 
+ * @default
+ * `includes = '*'`
+ */
 let autoWireModelOptions: AutoLoadOptions;
+
+/**
+ * Auto inject `Publisher` options.
+ * 
+ * @default
+ * `includes = '*'`
+ */
 let autoInjectPublisherOptions: AutoLoadOptions;
+
+/**
+ * Auto inject `Controller` options.
+ * 
+ * @default
+ * `includes = '*'`
+ */
 let autoInjectControllerOptions: AutoLoadOptions;
 
 /**
- * @emits starting
- * @emits ready
- * @emits stopping
- * @emits stopped
- * @emits apiServerStarted
- * @emits apiServerStopped
- * @emits stscpServerStarted
- * @emits stscpServerStopped
- * @emits stscpClientManagerConnected
- * @emits stscpClientManagerDisconnected
- * @emits stscpClientConnected
- * @emits stscpClientDisconnected
- * @emits stscpClientReconnecting
- * @emits dbConnected
- * @emits dbDisconnected
+ * This class is an implementation of a simple and lightweight service.
+ * It can be used to implement a service/micro-service.
+ * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
+ * The API Server is built on top of `Express` and it components.
+ * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+ * It auto wires and injects `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
+ * 
+ * @emits `starting` when the service is starting.
+ * @emits `ready` when the service is ready to be used to make API calls.
+ * @emits `stopping` when the service is in the process of stopping.
+ * @emits `stopped` when the service is stopped.
+ * @emits `apiServerListening` when the `apiServer` is listening.
+ * @emits `apiServerStopped` when the `apiServer` is stopped.
+ * @emits `stscpServerListening` when the `stscpServer` is listening.
+ * @emits `stscpServerStopped` when the `stscpServer` is stopped.
+ * @emits `stscpClientManagerConnected` when the `stscpClientManager` is connected.
+ * @emits `stscpClientManagerDisconnected` when the `stscpClientManager` is disconnected.
+ * @emits `stscpClientConnected` when the `stscpClient` is connected.
+ * @emits `stscpClientDisconnected` when the `stscpClient` is disconnected.
+ * @emits `stscpClientReconnecting` when the `stscpClient` is reconnecting.
+ * @emits `dbManagerConnected` when the `dbManager` is connected.
+ * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
  */
 export default class Service extends EventEmitter {
-    //Service Variables.
+    /**
+     * The name of the service, retrieved from `process.env.npm_package_name`.
+     */
     public readonly name: string;
+
+    /**
+     * The version of the service, retrieved from `process.env.npm_package_version`.
+     */
     public readonly version: string;
+
+    /**
+     * The environment of the service, retrieved from `process.env.NODE_ENV`.
+     * 
+     * @default `Defaults.ENVIRONMENT`
+     */
     public readonly environment: string;
+
+    /**
+     * The ip of the service.
+     */
     public readonly ip: string;
 
-    //API Server Variables.
+    /**
+     * The base URL of the service.
+     * 
+     * @default `service.name`
+     */
     public readonly apiBaseUrl: string;
+
+    /**
+     * The API Server port of the service, retrieved from `process.env.API_PORT`.
+     * 
+     * @default `Defaults.API_PORT`
+     */
     public readonly apiPort: number;
 
-    //STSCP Variables.
+    /**
+     * The STSCP Server port of the service, retrieved from `process.env.STSCP_PORT`.
+     * 
+     * @default `Defaults.STSCP_PORT`
+     */
     public readonly stscpPort: number;
 
-    //Default Constructor
+    /**
+     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
+     * 
+     * @default `Defaults.FORCE_STOP_TIME`
+     */
+    public forceStopTime: number;
+
+    /**
+     * Creates an instance of a `Service`.
+     * 
+     * @param baseUrl the optional, base/root url.
+     * @param options the optional, `Service` options.
+     */
     public constructor(baseUrl?: string, options?: Options) {
         //Call super for EventEmitter.
         super();
@@ -81,24 +181,25 @@ export default class Service extends EventEmitter {
         //Set null defaults.
         options = options || {};
 
-        //Init service variables.
+        //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
+        this.forceStopTime = Defaults.FORCE_STOP_TIME;
 
-        //Init API server variables.
+        //Initialize API server variables.
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
         this.apiPort = Number(process.env.API_PORT) || Defaults.API_PORT;
 
-        //Init STSCP variables.
+        //Initialize STSCP variables.
         this.stscpPort = Number(process.env.STSCP_PORT) || Defaults.STSCP_PORT;
 
-        //Init Components.
+        //Initialize Components.
         this.initAPIServer();
         this.initSTSCP();
 
-        //Init AutoLoad Variables.
+        //Initialize AutoLoad Variables.
         autoWireModelOptions = { includes: ['*'], excludes: undefined };
         autoInjectPublisherOptions = { includes: ['*'], excludes: undefined };
         autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
@@ -106,9 +207,13 @@ export default class Service extends EventEmitter {
         this.addProcessListeners();
     }
 
-    /////////////////////////
-    ///////Init Functions
-    /////////////////////////
+    //////////////////////////////
+    //////Init
+    //////////////////////////////
+    /**
+     * Initialize API Server by setting up `Express` and `ExpressRouter`.
+     * Adds default routes by calling `service.addDefaultRoutes()`.
+     */
     private initAPIServer() {
         //Setup Express
         apiApp = express();
@@ -143,6 +248,9 @@ export default class Service extends EventEmitter {
         this.addDefaultRoutes();
     }
 
+    /**
+     * Initialize STSCP by setting up `StscpServer` and `StscpClientManager`.
+     */
     private initSTSCP() {
         stscpServer = new StscpServer(this.name);
         stscpClientManager = new StscpClientManager(this.name);
@@ -153,9 +261,12 @@ export default class Service extends EventEmitter {
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => this.emit('stscpClientReconnecting', client));
     }
 
-    /////////////////////////
-    ///////Inject Functions
-    /////////////////////////
+    //////////////////////////////
+    //////Inject
+    //////////////////////////////
+    /**
+     * Inject JS files into the module.
+     */
     private injectFiles() {
         const options = {
             endsWith: '.js',
@@ -168,9 +279,17 @@ export default class Service extends EventEmitter {
         });
     }
 
-    /////////////////////////
-    ///////DB Functions
-    /////////////////////////
+    //////////////////////////////
+    //////DB
+    //////////////////////////////
+    /**
+     * Initialize and use database.
+     * 
+     * Supports NoSQL/RDB types, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+     * 
+     * @param type the type of the database.
+     * @param paperTrail set to true if the paper trail operation should be performed, false otherwise.
+     */
     public useDB(type: DBType, paperTrail?: boolean) {
         try {
             //Setup DB Manager.
@@ -196,9 +315,14 @@ export default class Service extends EventEmitter {
         }
     }
 
-    /////////////////////////
-    ///////Service Functions
-    /////////////////////////
+    //////////////////////////////
+    //////Start/Stop
+    //////////////////////////////
+    /**
+     * Starts the service.
+     * 
+     * @param callback optional callback, called when the service is started.
+     */
     public start(callback?: () => void) {
         //Emit Global: starting.
         this.emit('starting');
@@ -208,13 +332,13 @@ export default class Service extends EventEmitter {
 
         //Start API Server
         apiServer = apiApp.listen(this.apiPort, () => {
-            //Emit Global: apiServerStarted.
-            this.emit('apiServerStarted');
+            //Emit Global: apiServerListening.
+            this.emit('apiServerListening');
 
             //Start STSCP Server
             stscpServer.listen(this.stscpPort, () => {
-                //Emit Global: stscpServerStarted.
-                this.emit('stscpServerStarted');
+                //Emit Global: stscpServerListening.
+                this.emit('stscpServerListening');
 
                 //Start STSCP Client Manager
                 stscpClientManager.connect(() => {
@@ -225,8 +349,8 @@ export default class Service extends EventEmitter {
                 //Start DB Manager
                 dbManager && dbManager.connect((error) => {
                     if (!error) {
-                        //Emit Global: dbConnected.
-                        this.emit('dbConnected');
+                        //Emit Global: dbManagerConnected.
+                        this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
                             console.log(error.message);
@@ -248,6 +372,15 @@ export default class Service extends EventEmitter {
         });
     }
 
+    /**
+     * Stops the service.
+     * If the service is not stopped in `service.forceStopTime` it will be forcefully stopped.
+     * 
+     * - exitCode is 0 on stop.
+     * - exitCode is 1 on error.
+     * 
+     * @param callback optional callback, called when the service is stopped.
+     */
     public stop(callback: (exitCode: number) => void) {
         //Emit Global: stopping.
         this.emit('stopping');
@@ -255,7 +388,7 @@ export default class Service extends EventEmitter {
         setTimeout(() => {
             callback(1);
             console.error('Forcefully shutting down.');
-        }, Defaults.FORCE_STOP_TIME);
+        }, this.forceStopTime);
 
         //Stop API Servers
         apiServer.close((error) => {
@@ -279,8 +412,8 @@ export default class Service extends EventEmitter {
                     //Stop DB Manager
                     dbManager && dbManager.disconnect((error) => {
                         if (!error) {
-                            //Emit Global: dbDisconnected.
-                            this.emit('dbDisconnected');
+                            //Emit Global: dbManagerDisconnected.
+                            this.emit('dbManagerDisconnected');
                         }
 
                         //Emit Global: stopped.
@@ -294,103 +427,205 @@ export default class Service extends EventEmitter {
         });
     }
 
-    /////////////////////////
-    ///////Call Functions
-    /////////////////////////
+    //////////////////////////////
+    //////Wire/Inject
+    //////////////////////////////
+    /**
+     * Set's the auto wire `Model` options.
+     * To include/exclude all files add `*`.
+     * 
+     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
+     * 
+     * @example 
+     * service.setAutoWireModelOptions({includes: '*});
+     * 
+     * @example 
+     * service.setAutoWireModelOptions({excludes: '*});
+     * 
+     * @example 
+     * service.setAutoWireModelOptions({includes: 'user});
+     * 
+     * @example 
+     * service.setAutoWireModelOptions({excludes: 'user});
+     */
     public setAutoWireModelOptions(options?: AutoLoadOptions) {
         autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
     }
 
+    /**
+     * Set's the auto inject `Publisher` options.
+     * To include/exclude all files add `*`.
+     * 
+     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
+     * 
+     * @example 
+     * service.setAutoInjectPublisherOptions({includes: '*});
+     * 
+     * @example 
+     * service.setAutoInjectPublisherOptions({excludes: '*});
+     * 
+     * @example 
+     * service.setAutoInjectPublisherOptions({includes: 'user});
+     * 
+     * @example 
+     * service.setAutoInjectPublisherOptions({excludes: 'user});
+     */
     public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
         autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
     }
 
+    /**
+     * Set's the auto inject `Controller` options.
+     * To include/exclude all files add `*`.
+     * 
+     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
+     * 
+     * @example 
+     * service.setAutoInjectControllerOptions({includes: '*});
+     * 
+     * @example 
+     * service.setAutoInjectControllerOptions({excludes: '*});
+     * 
+     * @example 
+     * service.setAutoInjectControllerOptions({includes: 'user});
+     * 
+     * @example 
+     * service.setAutoInjectControllerOptions({excludes: 'user});
+     */
     public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
         autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
     }
 
-    /////////////////////////
-    ///////API Server Functions
-    /////////////////////////
+    //////////////////////////////
+    //////API Server
+    //////////////////////////////
+    /**
+     * Creates `all` middlewear handlers on the API `Router` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.all(path, ...handlers);
     }
 
+    /**
+     * Creates `get` middlewear handlers on the API `Router` that works on `get` HTTP/HTTPs verbose.
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.get(path, ...handlers);
     }
 
+    /**
+     * Creates `post` middlewear handlers on the API `Router` that works on `post` HTTP/HTTPs verbose.
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.post(path, ...handlers);
     }
 
+    /**
+     * Creates `put` middlewear handlers on the API `Router` that works on `put` HTTP/HTTPs verbose.
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.put(path, ...handlers);
     }
 
+    /**
+     * Creates `delete` middlewear handlers on the API `Router` that works on `delete` HTTP/HTTPs verbose.
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
         apiRouter.delete(path, ...handlers);
     }
 
-    /////////////////////////
-    ///////STSCP Server Functions
-    /////////////////////////
+    //////////////////////////////
+    //////STSCP Server
+    //////////////////////////////
+    /**
+     * Creates a `reply` handler on the `StscpServer`.
+     * 
+     * @param action the unique action.
+     * @param handler the handler to be called. The handler will take message and reply as parameters.
+     */
     public reply(action: string, handler: MessageReplyHandler) {
         stscpServer.reply(action, handler);
     }
 
+    /**
+     * Defines a STSCP broadcast action on the `StscpServer`.
+     * 
+     * @param action the action.
+     */
     public defineBroadcast(action: string) {
         stscpServer.defineBroadcast(action);
     }
 
+    /**
+     * Triggers the broadcast action on the `StscpServer` and transmits the body to all the clients connected to this `StscpServer`.
+     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
+     * 
+     * @param action the action.
+     * @param body the body to send.
+     * 
+     * @static
+     */
     public static broadcast(action: string, body: Body) {
         stscpServer.broadcast(action, body);
     }
 
-    /////////////////////////
-    ///////STSCP Client Manager Functions
-    /////////////////////////
+    //////////////////////////////
+    //////STSCP Client Manager
+    //////////////////////////////
+    /**
+     * Creates a new `StscpClient` and `Node` on `StscpClientManager`.
+     * 
+     * Retrieve the Node by importing `Mesh` from the package.
+     *
+     * @param url The remote server address.
+     * @param nodeName The callable name of the node.
+     */
     public defineNode(url: string, nodeName: string) {
         stscpClientManager.createClient(url, nodeName);
     }
 
-    /////////////////////////
-    ///////DB Manager Functions
-    /////////////////////////
+    //////////////////////////////
+    //////DB Manager
+    //////////////////////////////
+    /**
+     * The RDB `Connection` object.
+     * 
+     * @static
+     */
     public static get rdbConnection(): RDB {
         return dbManager && (dbManager.connection as RDB);
     }
 
+    /**
+     * The NoSQL `Connection` object.
+     * 
+     * @static
+     */
     public static get noSQLConnection(): NoSQL {
         return dbManager && (dbManager.connection as NoSQL);
     }
 
-    /////////////////////////
-    ///////Other
-    /////////////////////////
-    private addProcessListeners() {
-        //Exit
-        process.once('SIGTERM', () => {
-            console.log('Received SIGTERM.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        //Ctrl + C
-        process.on('SIGINT', () => {
-            console.log('Received SIGINT.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            console.error('Caught: unhandledRejection', reason, promise);
-            console.log('Will continue...');
-        });
-    }
-
+    //////////////////////////////
+    //////Default Routes & Reports
+    //////////////////////////////
+    /**
+     * Adds the default(`/health`, `/report`, `/shutdown`)  service routes.
+     */
     private addDefaultRoutes() {
         //Default Service Routes
         apiRouter.get('/health', (request, response) => {
@@ -429,6 +664,9 @@ export default class Service extends EventEmitter {
         });
     }
 
+    /**
+     * @returns the `DBManager` report.
+     */
     public getDBReport() {
         //New Models Dict.
         let models: { [name: string]: string } = {};
@@ -449,6 +687,9 @@ export default class Service extends EventEmitter {
         }
     }
 
+    /**
+     * @returns the API `Router` report.
+     */
     private apiRouteReport() {
         //Get API Routes.
         const apiRoutes = new Array();
@@ -466,6 +707,9 @@ export default class Service extends EventEmitter {
         return apiRoutes;
     }
 
+    /**
+     * @returns the STSCP `Router` report.
+     */
     private stscpRouteReport() {
         //Get STSCP Routes.
         const stscpRoutes = new Array();
@@ -478,6 +722,9 @@ export default class Service extends EventEmitter {
         return stscpRoutes;
     }
 
+    /**
+     * @returns the STSCP `Mesh` report.
+     */
     private stscpMeshReport() {
         //Get STSCP Clients.
         const mesh = new Array();
@@ -500,9 +747,38 @@ export default class Service extends EventEmitter {
         return mesh;
     }
 
-    /////////////////////////
-    ///////Listeners
-    /////////////////////////
+    //////////////////////////////
+    //////Listeners
+    //////////////////////////////
+    /**
+     * Adds process listeners on `SIGTERM` and `SIGINT`.
+     */
+    private addProcessListeners() {
+        //Exit
+        process.once('SIGTERM', () => {
+            console.log('Received SIGTERM.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        //Ctrl + C
+        process.on('SIGINT', () => {
+            console.log('Received SIGINT.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error('Caught: unhandledRejection', reason, promise);
+            console.log('Will continue...');
+        });
+    }
+
+    /**
+     * Adds listeners to call `console.log()`.
+     */
     public addListeners() {
         //Service
         this.on('starting', () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
@@ -511,11 +787,11 @@ export default class Service extends EventEmitter {
         this.on('stopped', () => console.log('%s stopped.', this.name));
 
         //API Server
-        this.on('apiServerStarted', () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
+        this.on('apiServerListening', () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
         this.on('apiServerStopped', () => console.log('Stopped API server.'));
 
         //STSCP Server
-        this.on('stscpServerStarted', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
+        this.on('stscpServerListening', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
         this.on('stscpServerStopped', () => console.log('Stopped STSCP Server.'));
 
         //STSCP Client Manager
@@ -526,53 +802,108 @@ export default class Service extends EventEmitter {
         this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
 
         //DB Manager
-        this.on('dbConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
-        this.on('dbDisconnected', () => console.log('DB Disconnected'));
-
-        //Inject Files
-        // this.on(Events.API_SERVER_ADDED_CONTROLLER, (name: string, controller: Controller) => console.log('Added controller: %s', name));
-        // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
-        // dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
+        this.on('dbManagerConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
+        this.on('dbManagerDisconnected', () => console.log('DB Disconnected'));
     }
 }
 
-/////////////////////////
-///////Defaults
-/////////////////////////
-export type Options = {
-    name?: string
-    version?: string
+//////////////////////////////
+//////Type Definitions
+//////////////////////////////
+/**
+ * Interface for the initialization options of `Service`.
+ */
+export interface Options {
+    /**
+     * The name of the service.
+     */
+    name?: string;
+
+    /**
+     * The version of the service.
+     */
+    version?: string;
 }
 
-//Types: AutoLoadOptions
-export type AutoLoadOptions = {
-    includes?: Array<string>,
-    excludes?: Array<string>
+/**
+ * Interface for auto wire/inject options.
+ */
+export interface AutoLoadOptions {
+    /**
+     * The optional, files to include.
+     */
+    includes?: Array<string>;
+
+    /**
+     * The optional, files to exclude.
+     */
+    excludes?: Array<string>;
 }
 
-/////////////////////////
-///////Defaults
-/////////////////////////
+//////////////////////////////
+//////Defaults
+//////////////////////////////
+/**
+ * The default variables for the `Service`.
+ */
 export class Defaults {
+    /**
+     * The environment of the service.
+     * 
+     * @constant `production`
+     */
     public static readonly ENVIRONMENT: string = 'production';
+
+    /**
+     * The API Server port of the service.
+     * 
+     * @constant 3000
+     */
     public static readonly API_PORT: number = 3000;
+
+    /**
+     * The STSCP Server port of the service.
+     * 
+     * @constant 6000
+     */
     public static readonly STSCP_PORT: number = 6000;
+
+    /**
+     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
+     * 
+     * @constant 1000 * 5
+     */
     public static readonly FORCE_STOP_TIME: number = 1000 * 5;
 }
 
-/////////////////////////
-///////API Server Decorators
-/////////////////////////
+//////////////////////////////
+//////API Server Decorators
+//////////////////////////////
+/**
+ * Interface for `RequestResponseFunction` descriptor.
+ */
 export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
     value: RequestHandler;
 }
-export declare type RequestResponseFunction = (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor) => void;
 
+/**
+ * Interface for `apiServer` decorators.
+ */
+export interface RequestResponseFunction {
+    (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor): void
+};
+
+/**
+ * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
+        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
             if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
@@ -582,11 +913,17 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
     }
 }
 
+/**
+ * Creates `post` middlewear handler on the API `Router` that works on `post` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
 export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
+        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
             if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
@@ -596,11 +933,17 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
     }
 }
 
+/**
+ * Creates `put` middlewear handler on the API `Router` that works on `put` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
+        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
             if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
@@ -610,11 +953,17 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
     }
 }
 
+/**
+ * Creates `delete` middlewear handler on the API `Router` that works on `delete` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
 export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoad(autoInjectControllerOptions, controllerName)) {
+        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
             if (!rootPath) {
                 path = ('/' + controllerName + path);
             }
@@ -624,19 +973,31 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
     }
 }
 
-/////////////////////////
-///////STSCP Server Decorators
-/////////////////////////
+//////////////////////////////
+//////STSCP Server Decorators
+//////////////////////////////
+/**
+ * Interface for `MessageReplyFunction` descriptor.
+ */
 interface MessageReplyDescriptor extends PropertyDescriptor {
     value: MessageReplyHandler;
 }
-export declare type MessageReplyFunction = (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor) => void;
 
+/**
+ * Interface for `StscpServer` decorators.
+ */
+export interface MessageReplyFunction {
+    (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor): void;
+}
+
+/**
+ * Creates a `reply` handler on the `StscpServer`.
+ */
 export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
-        if (canLoad(autoInjectPublisherOptions, publisherName)) {
+        if (canLoadFile(autoInjectPublisherOptions, publisherName)) {
             const action = (publisherName + '.' + propertyKey);
 
             stscpServer.reply(action, descriptor.value);
@@ -644,45 +1005,85 @@ export function Reply(): MessageReplyFunction {
     }
 }
 
-/////////////////////////
-///////Entity Decorators
-/////////////////////////
-export declare type ModelClass = (target: Model) => void;
-export type EntityOptions = {
-    name: string,
-    attributes: ModelAttributes,
+//////////////////////////////
+//////DB Decorators
+//////////////////////////////
+/**
+ * Interface for `DBManager` decorators.
+ */
+export interface ModelClass {
+    (target: Model): void;
 }
+
+/**
+ * Interface for Entity options.
+ */
+export interface EntityOptions {
+    /**
+     * @param name the entity name of the model, i.e : collectionName/tableName.
+     */
+    name: string;
+
+    /**
+     * @param attributes the entity attributes.
+     */
+    attributes: ModelAttributes;
+}
+
+/**
+ * Initialize the `Model` instance.
+ * 
+ * @param entityOptions the entity options.
+ */
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
         if (dbManager) {
             const modelName = target.name.replace('Model', '');
 
-            if (canLoad(autoWireModelOptions, modelName)) {
+            if (canLoadFile(autoWireModelOptions, modelName)) {
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
         }
     }
 }
 
-/////////////////////////
-///////Decorator Helpers
-/////////////////////////
-function canLoad(injectOptions: AutoLoadOptions, search: string) {
-    //Sub function for validating *
-    const _validateAll = (list: Array<string>) => {
-        return list.includes('*') && list.length === 1;
+//////////////////////////////
+//////Decorator Helpers
+//////////////////////////////
+/**
+ * Helper function to validate if the file can be loaded.
+ * Only `options.includes` or `options.excludes` is considered.
+ * 
+ * `*` includes all files.
+ * 
+ * @param injectOptions the auto wire/inject options.
+ * @param fileName the file name to validate.
+ */
+function canLoadFile(injectOptions: AutoLoadOptions, fileName: string) {
+    /**
+     * Validate if all files can be loaded based on `*`.
+     * 
+     * @param _list the list to validate with.
+     */
+    const _validateAll = (_list: Array<string>) => {
+        return _list.includes('*') && _list.length === 1;
     }
 
-    //Sub function for validating list
-    const _validateOne = (list: Array<string>, search: string) => {
-        return list.find(key => key.toLowerCase() === search.toLowerCase());
+    /**
+     * Validate if a file can be loaded based on `_fileName`.
+     * 
+     * @param _list the list to validate with.
+     * @param _fileName the file name to validate.
+     */
+    const _validateOne = (_list: Array<string>, _fileName: string) => {
+        return _list.find(key => key.toLowerCase() === _fileName.toLowerCase());
     }
 
     if (injectOptions.includes) {
         if (_validateAll(injectOptions.includes)) {
             return true;
         }
-        if (_validateOne(injectOptions.includes, search)) {
+        if (_validateOne(injectOptions.includes, fileName)) {
             return true;
         }
         return false;
@@ -690,7 +1091,7 @@ function canLoad(injectOptions: AutoLoadOptions, search: string) {
         if (_validateAll(injectOptions.excludes)) {
             return false;
         }
-        if (!_validateOne(injectOptions.excludes, search)) {
+        if (!_validateOne(injectOptions.excludes, fileName)) {
             return true;
         }
         return false;

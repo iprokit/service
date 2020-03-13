@@ -1,5 +1,5 @@
 /**
- * @deprecated will be deprecated in ProMicro v.2.0.1
+ * @description will be deprecated in ProMicro v.2.0.1
  */
 export default class Publisher {
     /**

@@ -14,10 +14,8 @@ import NoSQLModel from './db.nosql.model';
 
 /**
  * This class is a wrapper around the database `connection`.
- * It supports NoSQL/RDB, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * It also manages the database model objects and instances.
- * 
  * The underlying connection object is built on `Sequelize` and `Mongoose`.
+ * It also manages the database `Model`'s.
  */
 export default class DBManager {
     /**
@@ -36,30 +34,28 @@ export default class DBManager {
     public readonly type: Type;
 
     /**
-     * The remote database address.
-     * 
-     * @default process.env.DB_HOST
+     * The remote database address, retrieved from `process.env.DB_HOST`.
      */
     public readonly host: string;
 
     /**
-     * The name of the database.
+     * The name of the database, retrieved from `process.env.DB_NAME`.
      * 
-     * @default process.env.DB_NAME
+     * @constant process.env.DB_NAME
      */
     public readonly name: string;
 
     /**
-     * The username of the database.
+     * The username of the database, retrieved from `process.env.DB_USERNAME`.
      * 
-     * @default process.env.DB_USERNAME
+     * @constant process.env.DB_USERNAME
      */
     public readonly username: string;
 
     /**
-     * The password of the database.
+     * The password of the database, retrieved from `process.env.DB_PASSWORD`.
      * 
-     * @default process.env.DB_PASSWORD
+     * @constant process.env.DB_PASSWORD
      */
     public readonly password: string;
 
@@ -110,7 +106,7 @@ export default class DBManager {
         //Set default connected.
         this._connected = false;
 
-        //Init variables.
+        //Initialize variables.
         this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
     }
 
@@ -183,7 +179,7 @@ export default class DBManager {
      * 
      * @param modelName the name of the model.
      * @param entityName the entity name of the model, i.e : collectionName/tableName.
-     * @param attributes the model attributes.
+     * @param attributes the entity attributes.
      * @param model the model instance.
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
