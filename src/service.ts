@@ -1,14 +1,3 @@
-//Global Variables.
-declare global {
-    namespace NodeJS {
-        interface Global {
-            service: {
-                projectPath: string
-            }
-        }
-    }
-}
-
 //Import @iprotechs Modules
 import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body } from '@iprotechs/stscp';
 
@@ -32,22 +21,10 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Utility from './utility';
+import Helper from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
-
-//Types: Options
-export type Options = {
-    name?: string
-    version?: string
-}
-
-//Types: AutoLoadOptions
-export type AutoLoadOptions = {
-    includes?: Array<string>,
-    excludes?: Array<string>
-}
 
 //API Server Variables.
 let apiApp: Express;
@@ -108,7 +85,7 @@ export default class Service extends EventEmitter {
         this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
         this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
-        this.ip = Utility.getContainerIP();
+        this.ip = Helper.getContainerIP();
 
         //Init API server variables.
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
@@ -116,11 +93,6 @@ export default class Service extends EventEmitter {
 
         //Init STSCP variables.
         this.stscpPort = Number(process.env.STSCP_PORT) || Defaults.STSCP_PORT;
-
-        //Load global variables.
-        global.service = {
-            projectPath: projectPath
-        }
 
         //Init Components.
         this.initAPIServer();
@@ -148,7 +120,7 @@ export default class Service extends EventEmitter {
         //Setup proxy pass.
         apiApp.use((request: Request, response: Response, next: NextFunction) => {
             //Generate Proxy object from headers.
-            Utility.generateProxyObjects(request);
+            Helper.generateProxyObjects(request);
             next();
         });
 
@@ -185,7 +157,12 @@ export default class Service extends EventEmitter {
     ///////Inject Functions
     /////////////////////////
     private injectFiles() {
-        let files = Utility.getFilePaths('/', { endsWith: '.js', excludes: ['index.js'] });
+        const options = {
+            endsWith: '.js',
+            excludes: ['index.js', 'git', 'node_modules', 'package.json', 'package-lock.json', '.babelrc', '.env']
+        }
+
+        const files = Helper.getFilePaths(path.join(projectPath, '/'), options);
         files.forEach(file => {
             require(file).default;
         });
@@ -431,7 +408,7 @@ export default class Service extends EventEmitter {
                         stscpPort: this.stscpPort,
                         environment: this.environment
                     },
-                    db: dbManager && dbManager.getReport(),
+                    db: dbManager && this.getDBReport(),
                     api: this.apiRouteReport(),
                     stscp: this.stscpRouteReport(),
                     mesh: this.stscpMeshReport()
@@ -450,6 +427,26 @@ export default class Service extends EventEmitter {
                 process.kill(process.pid, 'SIGTERM');
             }, 2000);
         });
+    }
+
+    public getDBReport() {
+        //New Models Dict.
+        let models: { [name: string]: string } = {};
+
+        //Gets models.
+        if (dbManager.noSQL) {
+            dbManager.models.forEach(model => models[model.name] = model.collection.name);
+        } else {
+            dbManager.models.forEach(model => models[model.name] = model.tableName);
+        }
+
+        return {
+            name: dbManager.name,
+            host: dbManager.host,
+            type: dbManager.type,
+            connected: dbManager.connected,
+            models: models
+        }
     }
 
     private apiRouteReport() {
@@ -537,6 +534,20 @@ export default class Service extends EventEmitter {
         // commServer.on(Events.COMM_SERVER_ADDED_PUBLISHER, (name: string, publisher: Publisher) => console.log('Added publisher: %s', name));
         // dbManager.on(Events.DB_ADDED_MODEL, (modelName: string, entityName: string, model: Model) => console.log('Added model: %s(%s)', modelName, entityName));
     }
+}
+
+/////////////////////////
+///////Defaults
+/////////////////////////
+export type Options = {
+    name?: string
+    version?: string
+}
+
+//Types: AutoLoadOptions
+export type AutoLoadOptions = {
+    includes?: Array<string>,
+    excludes?: Array<string>
 }
 
 /////////////////////////

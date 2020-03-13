@@ -1,13 +1,25 @@
 //Import modules
+import { Request } from 'express';
 import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
 
 //Local Imports
-import Utility from './utility';
+import Helper from './helper';
 import Service, { Options, Defaults } from './service';
 
+/**
+ * An instance of a `Service`.
+ * This class can help you build a Gateway service that can act has a middleman between the client and the endpoint service.
+ * The main function is to proxy requests from the client to the endpoint service.
+ * Before the proxy, you can massage and handle the data with the router middlewear and pass the request to the endpoint service.
+ */
 export default class Gateway extends Service {
-    //Default Constructor
+    /**
+     * Creates an instance of a `Gateway`.
+     * 
+     * @param baseUrl the optional, base/root url. The default value is '/api'.
+     * @param options the optional, `Gateway` options. The default name is 'gateway'.
+     */
     public constructor(baseUrl?: string, options?: Options) {
         //Set null defaults.
         options = options || {};
@@ -20,37 +32,46 @@ export default class Gateway extends Service {
         super(baseUrl, options);
     }
 
-    /////////////////////////
-    ///////Proxy Functions
-    /////////////////////////
-    public proxy(url: string) {
-        return expressProxy(this.resolveUrl(url), {
-            proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
-                //Generate Proxy headers from object.
-                Utility.generateProxyHeaders(sourceRequest, targetRequest);
-                return targetRequest;
-            }
-        });
-    }
+    //////////////////////////////
+    //////Proxy
+    //////////////////////////////
+    /**
+     * Middlewear function.
+     * Proxies the request to the target service.
+     * 
+     * @param url the target service url.
+     * @param redirect the optional, path of the enpoint in that target service.
+     */
+    public proxy(url: string, redirect?: string) {
+        let proxyReqPathResolver = (request: Request) => {
+            //Redirect path.
+            return redirect;
+        };
 
-    public proxyRedirect(url: string, redirect: string) {
-        return expressProxy(this.resolveUrl(url), {
-            proxyReqPathResolver: (request) => {
-                //Redirect path.
-                return redirect;
-            },
-            proxyReqOptDecorator: (targetRequest: RequestOptions, sourceRequest: any) => {
-                //Generate Proxy headers from object.
-                Utility.generateProxyHeaders(sourceRequest, targetRequest);
-                return targetRequest;
-            }
-        });
-    }
+        let proxyReqOptDecorator = (targetRequest: RequestOptions, sourceRequest: Request) => {
+            //Generate Proxy headers from object.
+            Helper.generateProxyHeaders(sourceRequest, targetRequest);
+            return targetRequest;
+        };
 
-    /////////////////////////
-    ///////Other Functions
-    /////////////////////////
-    public resolveUrl(url: string) {
+        if(redirect){
+            return expressProxy(this.parseUrl(url), {proxyReqPathResolver, proxyReqOptDecorator});
+        }else{
+            return expressProxy(this.parseUrl(url), {proxyReqOptDecorator});
+        }
+    }
+    
+    //////////////////////////////
+    //////Helpers
+    //////////////////////////////
+    /**
+     * Helper to parse the url. Adds the port to the url if no port exists.
+     * 
+     * @param url the url to parse.
+     * 
+     * @default Defaults.API_PORT
+     */
+    public parseUrl(url: string) {
         //Split url into host and port.
         const _url = url.split(':');
         const _host = _url[0];

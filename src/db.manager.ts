@@ -1,5 +1,4 @@
 //Import modules
-import EventEmitter from 'events';
 import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes } from 'sequelize';
 import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
@@ -13,30 +12,70 @@ export { RDB, RDBOp, RDBDataTypes };
 import RDBModel from './db.rdb.model';
 import NoSQLModel from './db.nosql.model';
 
-//Export Types
-export declare type Connection = RDB | NoSQL;
-export declare type Type = 'mongo' | Dialect;
-export declare type Model = typeof RDBModel | typeof NoSQLModel;
-export declare type RDBModelAttributes = SequelizeModelAttributes;
-export declare type NoSQLModelAttributes = SchemaDefinition;
-export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
-
+/**
+ * This class is a wrapper around the database `connection`.
+ * It supports NoSQL/RDB, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+ * It also manages the database model objects and instances.
+ * 
+ * The underlying connection object is built on `Sequelize` and `Mongoose`.
+ */
 export default class DBManager {
-    //DBManager Variables.
+    /**
+     * Set to true if the paper trail operation should be performed, false otherwise.
+     */
     private readonly _paperTrail: boolean;
+
+    /**
+     * Set to true if the database is connected, false otherwise.
+     */
     private _connected: boolean;
 
-    //Connection Objects
+    /**
+     * The type of the database.
+     */
     public readonly type: Type;
+
+    /**
+     * The remote database address.
+     * 
+     * @default process.env.DB_HOST
+     */
     public readonly host: string;
+
+    /**
+     * The name of the database.
+     * 
+     * @default process.env.DB_NAME
+     */
     public readonly name: string;
+
+    /**
+     * The username of the database.
+     * 
+     * @default process.env.DB_USERNAME
+     */
     public readonly username: string;
+
+    /**
+     * The password of the database.
+     * 
+     * @default process.env.DB_PASSWORD
+     */
     public readonly password: string;
 
-    //Connection
+    /**
+     * The underlying database `Connection` object.
+     */
     private _connection: Connection;
 
-    //Default Constructor
+    /**
+     * Creates an instance of a `DBManager`.
+     * 
+     * @param type the type of the database.
+     * @param paperTrail the optional, paper trail operation should be performed? true by default.
+     * 
+     * @throws `ConnectionOptionsError` when a database connection option is invalid.
+     */
     public constructor(type: Type, paperTrail?: boolean) {
         //Validate type
         this.type = type;
@@ -75,32 +114,50 @@ export default class DBManager {
         this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
     }
 
-    /////////////////////////
-    ///////Gets & Sets
-    /////////////////////////
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    /**
+     * The underlying database `Connection` object.
+     */
     public get connection(): Connection {
         return this._connection;
     }
 
-    private get models() {
+    /**
+     * The models under the database `Connection` object.
+     */
+    public get models() {
         return Object.values(this._connection.models);
     }
 
+    /**
+     * Set to true if the database is connected, false otherwise.
+     */
     public get connected() {
         return this._connected;
     }
 
+    /**
+     * True if the database is `noSQL` type.
+     */
     public get noSQL() {
         return this.type === 'mongo';
     }
 
+    /**
+     * True if the database is `SQL` type.
+     */
     public get rdb() {
         return !this.noSQL;
     }
 
-    /////////////////////////
-    ///////init Functions
-    /////////////////////////
+    //////////////////////////////
+    //////Init
+    //////////////////////////////
+    /**
+     * Initialize the database `Connection` object.
+     */
     public init() {
         if (this.noSQL) {
             //Mongoose connection.
@@ -121,6 +178,14 @@ export default class DBManager {
         }
     }
 
+    /**
+     * Initialize the `Model` instance.
+     * 
+     * @param modelName the name of the model.
+     * @param entityName the entity name of the model, i.e : collectionName/tableName.
+     * @param attributes the model attributes.
+     * @param model the model instance.
+     */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
         if (this.noSQL) {
             //Initializing NoSQL model
@@ -144,9 +209,14 @@ export default class DBManager {
         model.hooks();
     }
 
-    /////////////////////////
-    ///////Connection Management
-    /////////////////////////
+    //////////////////////////////
+    //////Connection Management
+    //////////////////////////////
+    /**
+     * Connect to the database.
+     * 
+     * @param callback optional callback. Will be called when the database is connected.
+     */
     public connect(callback?: (error?: Error) => void) {
         if (this.noSQL) { //NoSQL Connection
             this.connectNoSQL((error) => {
@@ -155,13 +225,6 @@ export default class DBManager {
                 }
             });
         } else { //RDB Connection.
-            //Associate models.
-            try {
-                this.models.map(model => (model as typeof RDBModel).associate());
-            } catch (error) {
-                console.error(error);
-            }
-
             this.connectRDB((error) => {
                 if (callback) {
                     callback(error);
@@ -170,6 +233,11 @@ export default class DBManager {
         }
     }
 
+    /**
+     * Connect to NoSQL database.
+     * 
+     * @param callback optional callback. Will be called when the database is connected.
+     */
     private connectNoSQL(callback?: (error?: Error) => void) {
         //Start Connection.
         (this._connection as NoSQL).once('connected', () => {
@@ -203,7 +271,21 @@ export default class DBManager {
         });
     }
 
+    /**
+     * Connect to RDB database.
+     * 
+     * `model.associate()` is called on all the models before the connection.
+     * 
+     * @param callback optional callback. Will be called when the database is connected.
+     */
     private connectRDB(callback?: (error?: Error) => void) {
+        //Associate models.
+        try {
+            this.models.map(model => (model as typeof RDBModel).associate());
+        } catch (error) {
+            console.error(error);
+        }
+
         //Start Connection.
         (this._connection as RDB).authenticate()
             .then(() => {
@@ -239,6 +321,11 @@ export default class DBManager {
             });
     }
 
+    /**
+     * Disconnect from the database.
+     * 
+     * @param callback optional callback. Will be called when the database is disconnected.
+     */
     public disconnect(callback?: (error?: Error) => void) {
         this._connection.close()
             .then(() => {
@@ -257,31 +344,20 @@ export default class DBManager {
             });
     }
 
-    /////////////////////////
-    ///////Report
-    /////////////////////////
-    public getReport() {
-        //New Models Dict.
-        let models: { [name: string]: string } = {};
-
-        //Gets models.
-        if (this.noSQL) {
-            this.models.forEach(model => models[model.name] = model.collection.name);
-        } else {
-            this.models.forEach(model => models[model.name] = model.tableName);
-        }
-
-        return {
-            name: this.name,
-            host: this.host,
-            type: this.type,
-            connected: this._connected,
-            models: models
-        }
-    }
-
+    //////////////////////////////
+    //////Sync
+    //////////////////////////////
+    /**
+     * Performs asynchronous, sync operation on the database.
+     * 
+     * @param force the optional, sync operation should be forced? false by default.
+     */
     public async sync(force?: boolean) {
-        //Sub function to sync.
+        /**
+         * Performs asynchronous, sync operation on noSQL database.
+         * 
+         * @function
+         */
         const _noSQLSync = async () => {
             this.models.forEach(async model => {
                 const name = model.collection.name;
@@ -303,6 +379,11 @@ export default class DBManager {
             });
         }
 
+        /**
+         * Performs asynchronous, sync operation on RDB database.
+         * 
+         * @function
+         */
         const _rdbSync = async () => {
             await (this._connection as RDB).sync({ force: force });
         }
@@ -324,9 +405,62 @@ export default class DBManager {
     }
 }
 
-/////////////////////////
-///////Error Classes
-/////////////////////////
+//////////////////////////////
+//////Type Definitions
+//////////////////////////////
+/**
+ * The type definitions of the Connection.
+ * 
+ * @type `RDB` Sequelize connection.
+ * @type `NoSQL` Mongoose connection.
+ */
+export declare type Connection = RDB | NoSQL;
+
+/**
+ * The type definitions of the Database type.
+ * 
+ * @type `mongo` mongo DB.
+ * @type `mysql` mysql DB.
+ * @type `postgres` postgres DB.
+ * @type `sqlite` sqlite DB.
+ * @type `mariadb` mariadb DB.
+ * @type `mssql` mssql DB.
+ */
+export declare type Type = 'mongo' | Dialect;
+
+/**
+ * The type definitions of the Database `Model` type.
+ * 
+ * @type `RDBModel` RDB(Sequelize) Model.
+ * @type `NoSQLModel` NoSQL(Mongoose) Model.
+ */
+export declare type Model = typeof RDBModel | typeof NoSQLModel;
+
+/**
+ * The type definitions for RDB Model Attributes.
+ */
+export declare type RDBModelAttributes = SequelizeModelAttributes;
+
+/**
+ * The type definitions for noSQL Model Attributes.
+ */
+export declare type NoSQLModelAttributes = SchemaDefinition;
+
+/**
+ * The type definitions for ModelAttributes.
+ * 
+ * @type `RDBModelAttributes` RDB(Sequelize) Model Attributes.
+ * @type `NoSQLModelAttributes` NoSQL(Mongoose) Model Attributes.
+ * 
+ */
+export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
+
+//////////////////////////////
+//////ConnectionOptionsError
+//////////////////////////////
+/**
+ * ErrorReply is an instance of Error. Thrown when a database connection option is invalid.
+ */
 export class ConnectionOptionsError extends Error {
     constructor(message: string) {
         super(message);
