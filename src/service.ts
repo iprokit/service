@@ -99,7 +99,13 @@ let autoInjectControllerOptions: AutoLoadOptions;
  * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
  * The API Server is built on top of `Express` and it components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * It auto wires and injects `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
+ * It auto wires and injects, generic `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
+ * Creates default API Endpoints.
+ * 
+ * Default API Endpoints.
+ * - /health - To validate if the service is healthy.
+ * - /report - To get all the service reports.
+ * - /shutdown - To shutdown the service safely.
  * 
  * @emits `starting` when the service is starting.
  * @emits `ready` when the service is ready to be used to make API calls.
@@ -212,7 +218,7 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Initialize API Server by setting up `Express` and `ExpressRouter`.
-     * Adds default routes by calling `service.addDefaultRoutes()`.
+     * Adds default API Endpoints by calling `service.addDefaultAPIEndpoints()`.
      */
     private initAPIServer() {
         //Setup Express
@@ -245,7 +251,7 @@ export default class Service extends EventEmitter {
             response.status(error.status || 500).send(error.message);
         });
 
-        this.addDefaultRoutes();
+        this.addDefaultAPIEndpoints();
     }
 
     /**
@@ -621,12 +627,12 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Default Routes & Reports
+    //////Default API & Reports
     //////////////////////////////
     /**
-     * Adds the default(`/health`, `/report`, `/shutdown`)  service routes.
+     * Adds the default(`/health`, `/report`, `/shutdown`) API Endpoints.
      */
-    private addDefaultRoutes() {
+    private addDefaultAPIEndpoints() {
         //Default Service Routes
         apiRouter.get('/health', (request, response) => {
             response.status(HttpCodes.OK).send({ status: true });
