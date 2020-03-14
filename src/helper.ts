@@ -58,9 +58,10 @@ export default class Helper {
 
                 //Validate if excluded
                 if (!_options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))) {
-                    //Validate if the fileOrDirectoryPath is directory or a file.
-                    //If its a directory get sub files and add it to allFiles[].
-
+                    /**
+                     * Validate if the `fileOrDirectoryPath` is directory or a file.
+                     * If its a directory, get sub files and add it to `allFiles`.
+                     */
                     if (FS.statSync(fileOrDirectoryPath).isDirectory()) {
                         //Getting all files in the sub directory and adding to allFiles[].
                         Array.prototype.push.apply(allFiles, _findFilePaths(fileOrDirectoryPath, _options));

@@ -226,9 +226,10 @@ export default class DBManager {
      * @param entityName the entity name of the model, i.e : collectionName/tableName.
      * @param attributes the entity attributes.
      * @param model the model instance.
+     * 
+     * @throws InvalidModelError when database `Connection` type and `Model` type do not match.
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
-        //NoSQL Connection
         if (this.noSQL && model.prototype instanceof NoSQLModel) {
             //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
@@ -237,10 +238,10 @@ export default class DBManager {
                 mongoose: (this._connection as NoSQL),
                 timestamps: this._paperTrail
             });
-        }
 
-        //RDB Connection.
-        if (this.rdb && model.prototype instanceof RDBModel) {
+            //Call Hooks.
+            model.hooks();
+        } else if (this.rdb && model.prototype instanceof RDBModel) {
             //Initializing RDB model
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
@@ -248,10 +249,12 @@ export default class DBManager {
                 sequelize: (this._connection as RDB),
                 timestamps: this._paperTrail
             });
-        }
 
-        //Call Hooks.
-        model.hooks();
+            //Call Hooks.
+            model.hooks();
+        } else {
+            throw new InvalidModelError(modelName);
+        }
     }
 
     //////////////////////////////
@@ -512,11 +515,29 @@ export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 //////ConnectionOptionsError
 //////////////////////////////
 /**
- * ErrorReply is an instance of Error. Thrown when a database connection option is invalid.
+ * ConnectionOptionsError is an instance of Error. Thrown when a database connection option is invalid.
  */
 export class ConnectionOptionsError extends Error {
     constructor(message: string) {
         super(message);
+
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+    }
+}
+
+//////////////////////////////
+//////InvalidModelError
+//////////////////////////////
+/**
+ * InvalidModelError is an instance of Error. Thrown when database `Connection` type and `Model` type do not match.
+ */
+export class InvalidModelError extends Error {
+    constructor(name: string) {
+        super('Database connection type and model type mismatched for ' + name);
 
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

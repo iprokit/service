@@ -21,10 +21,10 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Helper from './helper';
+import Helper, { FileOptions } from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, InvalidModelError } from './db.manager';
 
 //////////////////////////////
 //////Global Variables
@@ -283,7 +283,7 @@ export default class Service extends EventEmitter {
      * Inject JS files into the module.
      */
     private injectFiles() {
-        const options = {
+        const options: FileOptions = {
             endsWith: '.js',
             excludes: ['index.js', 'git', 'node_modules', 'package.json', 'package-lock.json', '.babelrc', '.env']
         }
@@ -591,6 +591,20 @@ export default class Service extends EventEmitter {
      * 
      * @param action the action.
      * @param body the body to send.
+     */
+    public broadcast(action: string, body: Body) {
+        stscpServer.broadcast(action, body);
+    }
+
+    //////////////////////////////
+    //////STSCP Server - Static
+    //////////////////////////////
+    /**
+     * Triggers the broadcast action on the `StscpServer` and transmits the body to all the clients connected to this `StscpServer`.
+     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
+     * 
+     * @param action the action.
+     * @param body the body to send.
      * 
      * @static
      */
@@ -615,6 +629,23 @@ export default class Service extends EventEmitter {
 
     //////////////////////////////
     //////DB Manager
+    //////////////////////////////
+    /**
+     * The RDB `Connection` object.
+     */
+    public get rdbConnection(): RDB {
+        return dbManager.connection as RDB;
+    }
+
+    /**
+     * The NoSQL `Connection` object.
+     */
+    public get noSQLConnection(): NoSQL {
+        return dbManager.connection as NoSQL;
+    }
+
+    //////////////////////////////
+    //////DB Manager - Static
     //////////////////////////////
     /**
      * The RDB `Connection` object.
@@ -1056,10 +1087,17 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
 
             //Validate if the database type and model type match. Also validate if the file can be loaded.
             if (canLoadFile(autoWireModelOptions, modelName)) {
-                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+                try {
+                    dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+                } catch (error) {
+                    if (error instanceof InvalidModelError) {
+                        console.log(error.message);
+                    } else {
+                        console.error(error);
+                    }
+                    console.log('Will continue...');
+                }
             }
-
-            //TODO: Possibly need to add try/catch to catch developer errors.
         }
     }
 }

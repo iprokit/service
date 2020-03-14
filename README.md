@@ -297,6 +297,12 @@ import MicroService from '@iprotechs/promicro';
 //Declare microservice.
 const heroMicroService = new MicroService();
 
+/**
+ * Define the `Node` object.
+ * localhost:6002: is the host address of the `Node`.
+ * sidekickSvc: is the callable name of that `Node`.
+ * 
+ * /
 heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
 
 //Start the microservice.
@@ -325,6 +331,7 @@ export default class HeroController extends Controller {
     @Get('/')
     async callSidekick(request, response) {
         try {
+            //Call: Mesh.NodeCallableName.PublisherName.functionName();
             const data = await Mesh.sidekickSvc.Sidekick.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
@@ -334,7 +341,7 @@ export default class HeroController extends Controller {
 }
 ```
 
-## SidekickService
+## Sidekick Service
 * index.js
 ```javascript
 import MicroService from '@iprotechs/promicro';
@@ -342,6 +349,12 @@ import MicroService from '@iprotechs/promicro';
 //Declare microservice.
 const sidekickMicroService = new MicroService();
 
+/**
+ * Define the `Node` object.
+ * localhost:6001: is the host address of the `Node`.
+ * heroSvc: is the callable name of that `Node`.
+ * 
+ * /
 sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
 
 //Start the microservice.
@@ -370,6 +383,7 @@ export default class SidekickController extends Controller {
     @Get('/')
     async callHero(request, response) {
         try {
+            //Call: Mesh.NodeCallableName.PublisherName.functionName();
             const data = await Mesh.heroSvc.Hero.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
