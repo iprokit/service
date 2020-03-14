@@ -674,7 +674,13 @@ export default class Service extends EventEmitter {
     private addDefaultAPIEndpoints() {
         //Default Service Routes
         apiRouter.get('/health', (request, response) => {
-            response.status(HttpCodes.OK).send({ status: true });
+            const health = {
+                status: true,
+                name: this.name,
+                version: this.version,
+                environment: this.environment
+            }
+            response.status(HttpCodes.OK).send(health);
         });
 
         apiRouter.get('/report', (request, response) => {

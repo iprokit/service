@@ -302,7 +302,7 @@ const heroMicroService = new MicroService();
  * localhost:6002: is the host address of the `Node`.
  * sidekickSvc: is the callable name of that `Node`.
  * 
- * /
+ */
 heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
 
 //Start the microservice.
@@ -354,7 +354,7 @@ const sidekickMicroService = new MicroService();
  * localhost:6001: is the host address of the `Node`.
  * heroSvc: is the callable name of that `Node`.
  * 
- * /
+ */
 sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
 
 //Start the microservice.
