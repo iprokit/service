@@ -25,8 +25,6 @@ import Helper from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
-import RDBModel from './db.rdb.model';
-import NoSQLModel from './db.nosql.model';
 
 //////////////////////////////
 //////Global Variables
@@ -1054,28 +1052,14 @@ export interface EntityOptions {
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
         if (dbManager.connection) {
-            /**
-             * @param target the `Model`.
-             * @returns true; if the model type and database type are RDB, else false.
-             */
-            const _isRDB = (target: Model) => {
-                return (target.prototype instanceof RDBModel && dbManager.rdb);
-            }
-
-            /**
-             * @param target the `Model`.
-             * @returns true; if the model type and database type are NoSQL, else false.
-             */
-            const _isNoSQL = (target: Model) => {
-                return (target.prototype instanceof NoSQLModel && dbManager.noSQL);
-            }
-
             const modelName = target.name.replace('Model', '');
 
             //Validate if the database type and model type match. Also validate if the file can be loaded.
-            if ((_isRDB(target) || _isNoSQL(target)) && canLoadFile(autoWireModelOptions, modelName)) {
+            if (canLoadFile(autoWireModelOptions, modelName)) {
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
+
+            //TODO: Possibly need to add try/catch to catch developer errors.
         }
     }
 }

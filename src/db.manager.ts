@@ -229,7 +229,7 @@ export default class DBManager {
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
         //NoSQL Connection
-        if (this.noSQL) {
+        if (this.noSQL && model.prototype instanceof NoSQLModel) {
             //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
                 collectionName: entityName,
@@ -240,7 +240,7 @@ export default class DBManager {
         }
 
         //RDB Connection.
-        if (this.rdb) {
+        if (this.rdb && model.prototype instanceof RDBModel) {
             //Initializing RDB model
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
