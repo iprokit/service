@@ -710,13 +710,13 @@ export default class Service extends EventEmitter {
         //Get API Routes.
         const apiRoutes = new Array();
         apiRouter.stack.forEach(item => {
-            const functionName = item.route.stack[0].handle.name;
-            const method = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
-            const path = this.apiBaseUrl + item.route.path;
+            const functionName: string = item.route.stack[0].handle.name;
+            const method: string = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
+            const path: string = this.apiBaseUrl + item.route.path;
 
             const route = {
                 function: functionName,
-                [method]: path
+                [method.toUpperCase()]: path
             }
             apiRoutes.push(route);
         });
@@ -731,7 +731,7 @@ export default class Service extends EventEmitter {
         const stscpRoutes = new Array();
         stscpServer.routes.forEach(item => {
             const route = {
-                [item.type]: item.action
+                [item.type.toUpperCase()]: item.action
             }
             stscpRoutes.push(route);
         });
@@ -815,7 +815,7 @@ export default class Service extends EventEmitter {
         this.on('stscpClientManagerDisconnected', () => console.log('STSCP client manager disconnected.'));
         this.on('stscpClientConnected', (client: StscpClient) => console.log('Node connected to stscp://%s:%s', client.host, client.port));
         this.on('stscpClientDisconnected', (client: StscpClient) => console.log('Node disconnected from stscp://%s:%s', client.host, client.port));
-        this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
+        // this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
 
         //DB Manager
         this.on('dbManagerConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));

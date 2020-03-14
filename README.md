@@ -171,7 +171,7 @@ heroMicroService.useDB('mysql', true);
 
 //Start the microservice.
 heroMicroService.start(() => {
-    console.log('Hello Microservice has started');
+    console.log('Hero Microservice has started');
 });
 ```
 
@@ -223,8 +223,8 @@ export default class HeroModel extends RDBModel {
 
 * hero.controller.js
 ```javascript
-import { Controller, Get, Post, Put, Delete } from '@iprotechs/promicro'
-import HeroModel from './hero.model'
+import { Controller, Get, Post, Put, Delete } from '@iprotechs/promicro';
+import HeroModel from './hero.model';
 
 /**
  * Define and extend the generic controller.
@@ -235,33 +235,35 @@ import HeroModel from './hero.model'
 export default class HeroController extends Controller {
     @Post('/')
     async create(request, response) {
-        await super.create(HeroModel, request, response)
+        await super.create(HeroModel, request, response);
     }
 
     @Put('/')
     async updateOneByID(request, response) {
-        await super.updateOneByID(HeroModel, request, response)
+        await super.updateOneByID(HeroModel, request, response);
     }
 
     @Delete('/:id')
     async deleteOneByID(request, response) {
-        await super.deleteOneByID(HeroModel, request, response)
+        await super.deleteOneByID(HeroModel, request, response);
     }
 
     @Get('/')
     async getAll(request, response) {
-        await super.getAll(HeroModel, request, response)
+        await super.getAll(HeroModel, request, response);
     }
 
     @Get('/id/:id')
     async getOneByID(request, response) {
-        await super.getOneByID(HeroModel, request, response)
+        await super.getOneByID(HeroModel, request, response);
     }
     
     @Get('/orderBy/:orderType')
     async getAllOrderByCreatedAt(request, response) {
-        await super.getAllOrderByCreatedAt(HeroModel, request, response)
+        await super.getAllOrderByCreatedAt(HeroModel, request, response);
     }
+
+    //Define additional endpoints to handle business logic.
 }
 ```
 
@@ -282,4 +284,122 @@ heroMicroService.setAutoInjectControllerOptions({includes: ['hero']});
 
 //Example 4: Exclude only the hero model in the project.
 heroMicroService.setAutoWireModelOptions({excludes: ['hero']});
+```
+
+# Hero & Sidekick Service
+Lets create a hero service and a sidekick service that can talk to each other through (STSCP)service to service communication protocol.
+
+## HeroService
+* index.js
+```javascript
+import MicroService from '@iprotechs/promicro';
+
+//Declare microservice.
+const heroMicroService = new MicroService();
+
+heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
+
+//Start the microservice.
+heroMicroService.start(() => {
+    console.log('Hero Microservice has started.');
+});
+```
+
+* hero.publisher.js
+```javascript
+import { Publisher, Reply } from '@iprotechs/promicro';
+
+export default class HeroPublisher extends Publisher {
+    @Reply()
+    async introduction(message, reply){
+        reply.send({intro: 'I am Hero Service.'});
+    }
+}
+```
+
+* hero.controller.js
+```javascript
+import { Controller, HttpCodes, Get, Mesh } from '@iprotechs/promicro';
+
+export default class HeroController extends Controller {
+    @Get('/')
+    async callSidekick(request, response) {
+        try {
+            const data = await Mesh.sidekickSvc.Sidekick.introduction({});
+            response.status(HttpCodes.OK).send({ status: true, data: data });
+        } catch(error) {
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+        }
+    }
+}
+```
+
+## SidekickService
+* index.js
+```javascript
+import MicroService from '@iprotechs/promicro';
+
+//Declare microservice.
+const sidekickMicroService = new MicroService();
+
+sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
+
+//Start the microservice.
+sidekickMicroService.start(() => {
+    console.log('Sidekick Microservice has started.');
+});
+```
+
+* sidekick.publisher.js
+```javascript
+import { Publisher, Reply } from '@iprotechs/promicro';
+
+export default class SidekickPublisher extends Publisher {
+    @Reply()
+    async introduction(message, reply){
+        reply.send({intro: 'I am Sidekick Service.'});
+    }
+}
+```
+
+* sidekick.controller.js
+```javascript
+import { Controller, HttpCodes, Get, Mesh } from '@iprotechs/promicro';
+
+export default class SidekickController extends Controller {
+    @Get('/')
+    async callHero(request, response) {
+        try {
+            const data = await Mesh.heroSvc.Hero.introduction({});
+            response.status(HttpCodes.OK).send({ status: true, data: data });
+        } catch(error) {
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+        }
+    }
+}
+```
+
+Ok, that was a fun little project.
+
+# Gateway Service
+In this example we will implement a gateway service that will proxy requests to User and Hero services from the client.
+
+* index.js
+```javascript
+import { Gateway } from '@iprotechs/promicro';
+
+//Declare gateway.
+const gatewayService = new Gateway();
+
+//Forward the request directly.
+gatewayService.all('/user/*', this.proxy('localhost:3001'));
+gatewayService.all('/hero/*', this.proxy('localhost:3002'));
+
+//Rewrite the reqest url to '/user/report'.
+gatewayService.get('/user/help', this.proxy('localhost:3001', '/user/report'));
+
+//Start the gateway service.
+gatewayService.start(() => {
+    console.log('Gateway Service has started.');
+});
 ```

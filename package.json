@@ -1,19 +1,27 @@
 {
   "name": "@iprotechs/promicro",
-  "version": "1.3.9",
-  "license": "iProtechs",
-  "homepage": "http://www.iprotechs.com",
+  "version": "2.0.0",
+  "description": "Powerful lightweight microservices framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://bitbucket.org/iprotechs/pro-micro.git"
+  },
+  "keywords": [
+    "Micro Framework",
+    "CRUD",
+    "Boilerplate",
+    "stscp",
+    "service",
+    "service-service",
+    "micro-service",
+    "iprotechs"
+  ],
   "author": {
     "name": "Rutvik Katuri",
     "email": "rutvik.katuri@iprotechs.com"
   },
-  "keywords": [
-    "iProTechs",
-    "iProMicro",
-    "Micro Framework",
-    "Micro Service",
-    "CRUD Boilerplate"
-  ],
+  "license": "ISC",
+  "homepage": "https://bitbucket.org/iprotechs/pro-micro#readme",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
