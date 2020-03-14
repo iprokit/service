@@ -21,7 +21,7 @@ export default class DBManager {
     /**
      * Set to true if the paper trail operation should be performed, false otherwise.
      */
-    private readonly _paperTrail: boolean;
+    private _paperTrail: boolean;
 
     /**
      * Set to true if the database is connected, false otherwise.
@@ -31,33 +31,33 @@ export default class DBManager {
     /**
      * The type of the database.
      */
-    public readonly type: Type;
+    private _type: Type;
 
     /**
      * The remote database address, retrieved from `process.env.DB_HOST`.
      */
-    public readonly host: string;
+    private _host: string;
 
     /**
      * The name of the database, retrieved from `process.env.DB_NAME`.
      * 
      * @constant process.env.DB_NAME
      */
-    public readonly name: string;
+    private _name: string;
 
     /**
      * The username of the database, retrieved from `process.env.DB_USERNAME`.
      * 
      * @constant process.env.DB_USERNAME
      */
-    public readonly username: string;
+    private _username: string;
 
     /**
      * The password of the database, retrieved from `process.env.DB_PASSWORD`.
      * 
      * @constant process.env.DB_PASSWORD
      */
-    public readonly password: string;
+    private _password: string;
 
     /**
      * The underlying database `Connection` object.
@@ -66,53 +66,56 @@ export default class DBManager {
 
     /**
      * Creates an instance of a `DBManager`.
-     * 
-     * @param type the type of the database.
-     * @param paperTrail the optional, paper trail operation should be performed? true by default.
-     * 
-     * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
-    public constructor(type: Type, paperTrail?: boolean) {
-        //Validate type
-        this.type = type;
-        if (!this.type) {
-            throw new ConnectionOptionsError('Invalid Database type provided.');
-        }
-
-        //Validate host
-        this.host = process.env.DB_HOST;
-        if (!this.host) {
-            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
-        }
-
-        //Validate name
-        this.name = process.env.DB_NAME;
-        if (!this.name) {
-            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
-        }
-
-        //Validate username
-        this.username = process.env.DB_USERNAME;
-        if (!this.username) {
-            throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
-        }
-
-        //Validate password
-        this.password = process.env.DB_PASSWORD;
-        if (!this.password) {
-            throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
-        }
-
+    public constructor() {
         //Set default connected.
         this._connected = false;
-
-        //Initialize variables.
-        this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
     }
 
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
+    /**
+     * The type of the database.
+     */
+    public get type() {
+        return this._type;
+    }
+
+    /**
+     * The remote database address, retrieved from `process.env.DB_HOST`.
+     */
+    public get host() {
+        return this._host;
+    }
+
+    /**
+     * The name of the database, retrieved from `process.env.DB_NAME`.
+     * 
+     * @constant process.env.DB_NAME
+     */
+    public get name() {
+        return this._name;
+    }
+
+    /**
+     * The username of the database, retrieved from `process.env.DB_USERNAME`.
+     * 
+     * @constant process.env.DB_USERNAME
+     */
+    public get username() {
+        return this._username;
+    }
+
+    /**
+     * The password of the database, retrieved from `process.env.DB_PASSWORD`.
+     * 
+     * @constant process.env.DB_PASSWORD
+     */
+    public get password() {
+        return this._password;
+    }
+
     /**
      * The underlying database `Connection` object.
      */
@@ -138,7 +141,7 @@ export default class DBManager {
      * True if the database is `noSQL` type.
      */
     public get noSQL() {
-        return this.type === 'mongo';
+        return this._type === 'mongo';
     }
 
     /**
@@ -152,24 +155,66 @@ export default class DBManager {
     //////Init
     //////////////////////////////
     /**
-     * Initialize the database `Connection` object.
+     * Retrieve database related environment variables and initializes the database `Connection` object.
+     * 
+     * @param type the type of the database.
+     * @param paperTrail the optional, paper trail operation should be performed? true by default.
+     * 
+     * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
-    public init() {
+    public init(type: Type, paperTrail?: boolean) {
+        //Validate type
+        this._type = type;
+        if (!this._type) {
+            throw new ConnectionOptionsError('Invalid Database type provided.');
+        }
+
+        //Validate host
+        this._host = process.env.DB_HOST;
+        if (!this._host) {
+            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
+        }
+
+        //Validate name
+        this._name = process.env.DB_NAME;
+        if (!this._name) {
+            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
+        }
+
+        //Validate username
+        this._username = process.env.DB_USERNAME;
+        if (!this._username) {
+            throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
+        }
+
+        //Validate password
+        this._password = process.env.DB_PASSWORD;
+        if (!this._password) {
+            throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
+        }
+
+        //Initialize variables.
+        this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
+
+        //Initialize NoSQL connection object.
         if (this.noSQL) {
             //Mongoose connection.
-            this._connection = mongoose.createConnection('mongodb://' + this.host, {
-                dbName: this.name,
-                user: this.username,
-                pass: this.password,
+            this._connection = mongoose.createConnection('mongodb://' + this._host, {
+                dbName: this._name,
+                user: this._username,
+                pass: this._password,
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
             //TODO: Bug - unhandledRejection when incorrect details are passed.
-        } else {
+        }
+
+        //Initialize RDB connection object.
+        if (this.rdb) {
             //Sequelize constructor.
-            this._connection = new RDB(this.name, this.username, this.password, {
-                host: this.host,
-                dialect: (this.type as Dialect)
+            this._connection = new RDB(this._name, this._username, this._password, {
+                host: this._host,
+                dialect: (this._type as Dialect)
             });
         }
     }
@@ -183,6 +228,7 @@ export default class DBManager {
      * @param model the model instance.
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
+        //NoSQL Connection
         if (this.noSQL) {
             //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
@@ -191,7 +237,10 @@ export default class DBManager {
                 mongoose: (this._connection as NoSQL),
                 timestamps: this._paperTrail
             });
-        } else {
+        }
+
+        //RDB Connection.
+        if (this.rdb) {
             //Initializing RDB model
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
@@ -214,13 +263,17 @@ export default class DBManager {
      * @param callback optional callback. Will be called when the database is connected.
      */
     public connect(callback?: (error?: Error) => void) {
-        if (this.noSQL) { //NoSQL Connection
+        //NoSQL Connection
+        if (this.noSQL) {
             this.connectNoSQL((error) => {
                 if (callback) {
                     callback(error);
                 }
             });
-        } else { //RDB Connection.
+        }
+
+        //RDB Connection.
+        if (this.rdb) {
             this.connectRDB((error) => {
                 if (callback) {
                     callback(error);
@@ -387,11 +440,15 @@ export default class DBManager {
         //Setting default.
         force = (force === undefined) ? false : force;
 
+        //Call DB Sync
         try {
-            //Call DB Sync
+            //NoSQL Connection.
             if (this.noSQL) {
                 await _noSQLSync();
-            } else {
+            }
+
+            //RDB Connection.
+            if (this.rdb) {
                 await _rdbSync();
             }
             return true;

@@ -25,6 +25,8 @@ import Helper from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError } from './db.manager';
+import RDBModel from './db.rdb.model';
+import NoSQLModel from './db.nosql.model';
 
 //////////////////////////////
 //////Global Variables
@@ -97,7 +99,7 @@ let autoInjectControllerOptions: AutoLoadOptions;
  * This class is an implementation of a simple and lightweight service.
  * It can be used to implement a service/micro-service.
  * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
- * The API Server is built on top of `Express` and it components.
+ * The API Server is built on top of `Express` and its components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
  * It auto wires and injects, generic `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
  * Creates default API Endpoints.
@@ -204,6 +206,7 @@ export default class Service extends EventEmitter {
         //Initialize Components.
         this.initAPIServer();
         this.initSTSCP();
+        this.initDBManager();
 
         //Initialize AutoLoad Variables.
         autoWireModelOptions = { includes: ['*'], excludes: undefined };
@@ -267,6 +270,14 @@ export default class Service extends EventEmitter {
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => this.emit('stscpClientReconnecting', client));
     }
 
+    /**
+     * Initialize `DBManager`.
+     */
+    private initDBManager() {
+        //Setup DB Manager.
+        dbManager = new DBManager();
+    }
+
     //////////////////////////////
     //////Inject
     //////////////////////////////
@@ -298,9 +309,8 @@ export default class Service extends EventEmitter {
      */
     public useDB(type: DBType, paperTrail?: boolean) {
         try {
-            //Setup DB Manager.
-            dbManager = new DBManager(type, paperTrail);
-            dbManager.init();
+            //Initialize the database connection.
+            dbManager.init(type, paperTrail);
 
             //DB routes.
             apiRouter.post('/db/sync', async (request, response) => {
@@ -347,13 +357,13 @@ export default class Service extends EventEmitter {
                 this.emit('stscpServerListening');
 
                 //Start STSCP Client Manager
-                stscpClientManager.connect(() => {
+                (stscpClientManager.clients.length > 0) && stscpClientManager.connect(() => {
                     //Emit Global: stscpClientManagerConnected.
                     this.emit('stscpClientManagerConnected');
                 });
 
                 //Start DB Manager
-                dbManager && dbManager.connect((error) => {
+                (dbManager.connection) && dbManager.connect((error) => {
                     if (!error) {
                         //Emit Global: dbManagerConnected.
                         this.emit('dbManagerConnected');
@@ -411,24 +421,24 @@ export default class Service extends EventEmitter {
                 }
 
                 //Stop STSCP Client Manager
-                stscpClientManager.disconnect(() => {
+                (stscpClientManager.clients.length > 0) && stscpClientManager.disconnect(() => {
                     //Emit Global: stscpClientManagerDisconnected.
                     this.emit('stscpClientManagerDisconnected');
-
-                    //Stop DB Manager
-                    dbManager && dbManager.disconnect((error) => {
-                        if (!error) {
-                            //Emit Global: dbManagerDisconnected.
-                            this.emit('dbManagerDisconnected');
-                        }
-
-                        //Emit Global: stopped.
-                        this.emit('stopped');
-
-                        //Callback.
-                        callback(0);
-                    });
                 });
+
+                //Stop DB Manager
+                (dbManager.connection) && dbManager.disconnect((error) => {
+                    if (!error) {
+                        //Emit Global: dbManagerDisconnected.
+                        this.emit('dbManagerDisconnected');
+                    }
+                });
+
+                //Emit Global: stopped.
+                this.emit('stopped');
+
+                //Callback.
+                callback(0);
             });
         });
     }
@@ -614,7 +624,7 @@ export default class Service extends EventEmitter {
      * @static
      */
     public static get rdbConnection(): RDB {
-        return dbManager && (dbManager.connection as RDB);
+        return dbManager.connection as RDB;
     }
 
     /**
@@ -623,7 +633,7 @@ export default class Service extends EventEmitter {
      * @static
      */
     public static get noSQLConnection(): NoSQL {
-        return dbManager && (dbManager.connection as NoSQL);
+        return dbManager.connection as NoSQL;
     }
 
     //////////////////////////////
@@ -649,7 +659,7 @@ export default class Service extends EventEmitter {
                         stscpPort: this.stscpPort,
                         environment: this.environment
                     },
-                    db: dbManager && this.getDBReport(),
+                    db: dbManager.connection && this.getDBReport(),
                     api: this.apiRouteReport(),
                     stscp: this.stscpRouteReport(),
                     mesh: this.stscpMeshReport()
@@ -1043,10 +1053,27 @@ export interface EntityOptions {
  */
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
-        if (dbManager) {
+        if (dbManager.connection) {
+            /**
+             * @param target the `Model`.
+             * @returns true; if the model type and database type are RDB, else false.
+             */
+            const _isRDB = (target: Model) => {
+                return (target.prototype instanceof RDBModel && dbManager.rdb);
+            }
+
+            /**
+             * @param target the `Model`.
+             * @returns true; if the model type and database type are NoSQL, else false.
+             */
+            const _isNoSQL = (target: Model) => {
+                return (target.prototype instanceof NoSQLModel && dbManager.noSQL);
+            }
+
             const modelName = target.name.replace('Model', '');
 
-            if (canLoadFile(autoWireModelOptions, modelName)) {
+            //Validate if the database type and model type match. Also validate if the file can be loaded.
+            if ((_isRDB(target) || _isNoSQL(target)) && canLoadFile(autoWireModelOptions, modelName)) {
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             }
         }
