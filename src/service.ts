@@ -290,6 +290,14 @@ export default class Service extends EventEmitter {
 
         const files = Helper.getFilePaths(path.join(projectPath, '/'), options);
         files.forEach(file => {
+            /**
+             * - Validate if the file.prototype is model, controller, publisher.
+             * - Validate canLoadFile() here.
+             * - Then add the object into an array. TODO: https://iprotechs.atlassian.net/browse/PMICRO-27
+             * - This should all be done before require.
+             */
+            console.log(file);
+
             require(file).default;
         });
     }
@@ -684,6 +692,7 @@ export default class Service extends EventEmitter {
         });
 
         apiRouter.get('/report', (request, response) => {
+            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-8
             try {
                 const report = {
                     service: {

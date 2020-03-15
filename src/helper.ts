@@ -23,7 +23,7 @@ export default class Helper {
      * @returns the docker host address.
      */
     public static getHostIP() {
-        //TODO: This should become dynamic
+        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-6
         return '';
     }
 

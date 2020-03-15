@@ -1,5 +1,6 @@
 /**
  * @description will be deprecated in ProMicro v.2.0.1
+ * TODO: https://iprotechs.atlassian.net/browse/PMICRO-13
  */
 export default class Publisher {
     /**

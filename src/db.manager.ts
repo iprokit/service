@@ -206,7 +206,7 @@ export default class DBManager {
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
-            //TODO: Bug - unhandledRejection when incorrect details are passed.
+            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
         }
 
         //Initialize RDB connection object.
