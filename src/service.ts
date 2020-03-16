@@ -296,7 +296,6 @@ export default class Service extends EventEmitter {
              * - Then add the object into an array. TODO: https://iprotechs.atlassian.net/browse/PMICRO-27
              * - This should all be done before require.
              */
-            console.log(file);
 
             require(file).default;
         });
