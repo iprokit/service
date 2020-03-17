@@ -6,6 +6,7 @@ import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import os from 'os';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
@@ -682,16 +683,19 @@ export default class Service extends EventEmitter {
         //Default Service Routes
         apiRouter.get('/health', (request, response) => {
             const health = {
-                status: true,
                 name: this.name,
                 version: this.version,
-                environment: this.environment
+                environment: this.environment,
+                api: apiServer.listening,
+                stscp: stscpServer.listening,
+                mesh: stscpClientManager.connected,
+                db: dbManager.connected,
+                healthy: (apiServer.listening && stscpServer.listening)
             }
             response.status(HttpCodes.OK).send(health);
         });
 
         apiRouter.get('/report', (request, response) => {
-            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-8
             try {
                 const report = {
                     service: {
@@ -702,6 +706,7 @@ export default class Service extends EventEmitter {
                         stscpPort: this.stscpPort,
                         environment: this.environment
                     },
+                    system: this.getSystemReport(),
                     db: dbManager.connection && this.getDBReport(),
                     api: this.apiRouteReport(),
                     stscp: this.stscpRouteReport(),
@@ -724,10 +729,32 @@ export default class Service extends EventEmitter {
     }
 
     /**
+     * @returns the CPU and Memory report.
+     */
+    private getSystemReport() {
+        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-8
+        let memoryUsage: { [key: string]: string } = {};
+
+        Object.entries(process.memoryUsage()).forEach(([key, value]) => {
+            memoryUsage[key] = Math.round(value / 1024 / 1024 * 100) / 100 + 'MB';
+        });
+
+        const cpuUsage = process.cpuUsage();
+
+        return {
+            pid: process.pid,
+            cpu: {
+                system: cpuUsage.system,
+                user: cpuUsage.user
+            },
+            memory: memoryUsage
+        }
+    }
+
+    /**
      * @returns the `DBManager` report.
      */
-    public getDBReport() {
-        //New Models Dict.
+    private getDBReport() {
         let models: { [name: string]: string } = {};
 
         //Gets models.
@@ -750,8 +777,9 @@ export default class Service extends EventEmitter {
      * @returns the API `Router` report.
      */
     private apiRouteReport() {
-        //Get API Routes.
         const apiRoutes = new Array();
+
+        //Get API Routes.
         apiRouter.stack.forEach(item => {
             const functionName: string = item.route.stack[0].handle.name;
             const method: string = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
@@ -763,6 +791,7 @@ export default class Service extends EventEmitter {
             }
             apiRoutes.push(route);
         });
+
         return apiRoutes;
     }
 
@@ -770,14 +799,16 @@ export default class Service extends EventEmitter {
      * @returns the STSCP `Router` report.
      */
     private stscpRouteReport() {
-        //Get STSCP Routes.
         const stscpRoutes = new Array();
+
+        //Get STSCP Routes.
         stscpServer.routes.forEach(item => {
             const route = {
                 [item.type.toUpperCase()]: item.action
             }
             stscpRoutes.push(route);
         });
+
         return stscpRoutes;
     }
 
@@ -785,8 +816,9 @@ export default class Service extends EventEmitter {
      * @returns the STSCP `Mesh` report.
      */
     private stscpMeshReport() {
-        //Get STSCP Clients.
         const mesh = new Array();
+
+        //Get STSCP Clients.
         stscpClientManager.clients.forEach(item => {
             const client = {
                 name: item.node.name,
@@ -803,6 +835,7 @@ export default class Service extends EventEmitter {
             };
             mesh.push(client);
         });
+
         return mesh;
     }
 

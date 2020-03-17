@@ -1,8 +1,8 @@
 //Import modules
 import { RequestOptions } from 'https';
-import IP from 'ip';
-import FS from 'fs';
-import Path from 'path';
+import ip from 'ip';
+import fs from 'fs';
+import path from 'path';
 import { Request } from 'express';
 
 /**
@@ -16,7 +16,7 @@ export default class Helper {
      * @returns the docker container address.
      */
     public static getContainerIP() {
-        return IP.address();
+        return ip.address();
     }
 
     /**
@@ -31,30 +31,30 @@ export default class Helper {
     //////Files
     //////////////////////////////
     /**
-     * Get all the files paths under the given root path and its sub-directories.
+     * Get all the file paths under the given project path and its sub-directories.
      * 
-     * @param path the root path.
+     * @param projectPath the project path.
      * @param options the file options.
      * 
-     * @returns all the files under the root path and its sub-directories.
+     * @returns all the files under the project path and its sub-directories.
      */
-    public static getFilePaths(path: string, options?: FileOptions) {
+    public static getFilePaths(projectPath: string, options?: FileOptions) {
         /**
-         * Get all the files under the given root path.
+         * Get all the files under the given directory path.
          * 
-         * @param _paths the root path.
+         * @param dirPath the directory path.
          * @param _options the file options.
          * 
-         * @returns the files found under the root path.
+         * @returns the files found under the directory path.
          * 
          * @function
          */
-        const _findFilePaths = (_paths: string, _options?: FileOptions) => {
+        const _findFilePaths = (dirPath: string, _options?: FileOptions) => {
             const allFiles = new Array<string>();
 
-            const filesOrDirectories = FS.readdirSync(_paths);
+            const filesOrDirectories = fs.readdirSync(dirPath);
             filesOrDirectories.forEach(fileOrDirectory => {
-                const fileOrDirectoryPath = Path.join(_paths, fileOrDirectory);
+                const fileOrDirectoryPath = path.join(dirPath, fileOrDirectory);
 
                 //Validate if excluded
                 if (!_options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))) {
@@ -62,7 +62,7 @@ export default class Helper {
                      * Validate if the `fileOrDirectoryPath` is directory or a file.
                      * If its a directory, get sub files and add it to `allFiles`.
                      */
-                    if (FS.statSync(fileOrDirectoryPath).isDirectory()) {
+                    if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
                         //Getting all files in the sub directory and adding to allFiles[].
                         Array.prototype.push.apply(allFiles, _findFilePaths(fileOrDirectoryPath, _options));
                     } else {
@@ -89,7 +89,7 @@ export default class Helper {
         options = options || {};
         options.excludes = options.excludes || [];
 
-        return _findFilePaths(path, options);
+        return _findFilePaths(projectPath, options);
     }
 
     //////////////////////////////
