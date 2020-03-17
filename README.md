@@ -8,8 +8,11 @@ The underyling API is built on `Express` and the database managment is done by `
 * Fast & Lightweight
 * High Availability
 * Fault Tolerance(Retry, Timeout, Crash)
+* Modular & Customizable
 * Zero-dependency
 * Zero-configuration
+* Service-Discovery
+* Plugable components & middlewares
 * API Server
 * API Gateway
 * Dynamic Route Mapping
@@ -28,8 +31,10 @@ The underyling API is built on `Express` and the database managment is done by `
     * SQLite Database
     * Maria Database
     * Microsoft SQL Database
-* Generic Controller, Model, Publisher
+* Auto Sync Tables/Collections
+* Generic/Customizable Controllers, Models, Publishers
 * Autowire & Inject Classes and Objects
+* Auto Create Endpoints
 * Supports Versioned Services
 * Master-less Architecture
 * Docker Compatible
