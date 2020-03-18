@@ -6,7 +6,7 @@ import path from 'path';
 import { Request } from 'express';
 
 /**
- * The static helper class required.
+ * The static helper class.
  */
 export default class Helper {
     //////////////////////////////
@@ -31,65 +31,102 @@ export default class Helper {
     //////Files
     //////////////////////////////
     /**
-     * Get all the file paths under the given project path and its sub-directories.
+     * Finds and gets all the files under the given path and its sub directories.
      * 
-     * @param projectPath the project path.
-     * @param options the file options.
+     * @param findPath the path to find under.
+     * @param options the find options.
      * 
-     * @returns all the files under the project path and its sub-directories.
+     * @returns the files found with its full path.
      */
-    public static getFilePaths(projectPath: string, options?: FileOptions) {
-        /**
-         * Get all the files under the given directory path.
-         * 
-         * @param dirPath the directory path.
-         * @param _options the file options.
-         * 
-         * @returns the files found under the directory path.
-         * 
-         * @function
-         */
-        const _findFilePaths = (dirPath: string, _options?: FileOptions) => {
-            const allFiles = new Array<string>();
-
-            const filesOrDirectories = fs.readdirSync(dirPath);
-            filesOrDirectories.forEach(fileOrDirectory => {
-                const fileOrDirectoryPath = path.join(dirPath, fileOrDirectory);
-
-                //Validate if excluded
-                if (!_options.excludes.find(excludedFile => fileOrDirectoryPath.includes(excludedFile))) {
-                    /**
-                     * Validate if the `fileOrDirectoryPath` is directory or a file.
-                     * If its a directory, get sub files and add it to `allFiles`.
-                     */
-                    if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
-                        //Getting all files in the sub directory and adding to allFiles[].
-                        Array.prototype.push.apply(allFiles, _findFilePaths(fileOrDirectoryPath, _options));
-                    } else {
-                        if (_options.startsWith) {
-                            if (fileOrDirectory.startsWith(_options.startsWith)) {
-                                allFiles.push(fileOrDirectoryPath);
-                            }
-                        } else if (_options.endsWith) {
-                            if (fileOrDirectory.endsWith(_options.endsWith)) {
-                                allFiles.push(fileOrDirectoryPath);
-                            }
-                        } else if (_options.likeName) {
-                            if (fileOrDirectory.includes(_options.likeName)) {
-                                allFiles.push(fileOrDirectoryPath);
-                            }
-                        }
-                    }
-                }
-            });
-            return allFiles;
-        }
-
+    public static getFilePaths(findPath: string, options?: FindOptions) {
         //Set Defaults.
         options = options || {};
-        options.excludes = options.excludes || [];
+        options.files = options.files || {};
+        options.directories = options.directories || {};
 
-        return _findFilePaths(projectPath, options);
+        return this.findFilePaths(findPath, options);
+    }
+
+    /**
+     * Finds all the files under the given path and its sub directories.
+     * 
+     * @param findPath the path to find under.
+     * @param options the find options.
+     * 
+     * @returns the files found with its full path.
+     */
+    private static findFilePaths(findPath: string, options?: FindOptions) {
+        const allFiles = new Array<string>();
+
+        //Reads the file/directory.
+        const filesOrDirectories = fs.readdirSync(findPath);
+
+        filesOrDirectories.forEach(fileOrDirectory => {
+            //Join findPath with fileOrDirectory.
+            const fileOrDirectoryPath = path.join(findPath, fileOrDirectory);
+
+            //Validate if the `fileOrDirectoryPath` is directory or a file.
+            if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                //TODO: Work from here. To break path and do levels.
+                // console.log(fileOrDirectoryPath, this.filter(fileOrDirectoryPath, options.directories));
+
+                //Validate the filter.
+                if (this.filter(fileOrDirectoryPath, options.directories)) {
+                    //Recall this function to get files/directories under this path and add them to `allFiles`.
+                    Array.prototype.push.apply(allFiles, this.findFilePaths(fileOrDirectoryPath, options));
+                }
+            } else {
+                //Validate the filter.
+                if (this.filter(fileOrDirectory, options.files)) {
+                    //Add the file to `allFiles`.
+                    allFiles.push(fileOrDirectoryPath);
+                }
+            }
+        });
+
+        return allFiles;
+    }
+
+    /**
+     * Filters the path by checking `options.include` or `options.exclude` and matches the pattern.
+     * If no options are provided returns undefined.
+     * 
+     * @param path the path.
+     * @param options the filter options.
+     * 
+     * @returns true if filter is applied and valid, false otherwise.
+     */
+    private static filter(path: string, options: FilterOptions) {
+        if (options.include) {
+            //If the pattern is found in the filter true is returned, false otherwise.
+            return this.matchPattern(path, options.include) ? true : false;
+        } else if (options.exclude) {
+            //If the pattern is found in the filter false is returned, true otherwise.
+            return this.matchPattern(path, options.exclude) ? false : true;
+        }
+    }
+
+    /**
+     * Matches the path with pattern in options.
+     * 
+     * @param path the path.
+     * @param options the pattern options.
+     * 
+     * @returns true if the pattern matches, undefined otherwise.
+     */
+    private static matchPattern(path: string, options: PatternOptions) {
+        if (path.startsWith(options.startsWith)) {
+            return true;
+        }
+        if (path.endsWith(options.endsWith)) {
+            return true;
+        }
+        if (path.includes(options.likeName)) {
+            return true;
+        }
+        if (path === options.match) {
+            return true;
+        }
     }
 
     //////////////////////////////
@@ -138,29 +175,59 @@ export default class Helper {
 }
 
 //////////////////////////////
-//////FileOptions
+//////File: Type Definitions
 //////////////////////////////
 /**
- * Interface for the file options.
+ * Interface for file/directory find options.
  */
-export interface FileOptions {
+export interface FindOptions {
     /**
-     * The optional, files to exclude.
+     * The optional, files to search.
      */
-    excludes?: Array<string>;
+    files?: FilterOptions;
 
     /**
-     * The optional, files that start with.
+     * The optional, directories to search.
+     */
+    directories?: FilterOptions;
+}
+
+/**
+ * Interface for filtering the `PatternOptions`.
+ */
+export interface FilterOptions {
+    /**
+     * The optional, patterns to include.
+     */
+    include?: PatternOptions;
+
+    /**
+     * The optional, patterns to exclude.
+     */
+    exclude?: PatternOptions;
+}
+
+/**
+ * Interface for matching pattern.
+ */
+export interface PatternOptions {
+    /**
+     * The optional, match pattern with start of string.
      */
     startsWith?: string;
 
     /**
-     * The optional, files that end with.
+     * The optional, match pattern with end of string.
      */
     endsWith?: string;
 
     /**
-     * The optional, files that are like.
+     * The optional, match pattern that contains the string.
      */
     likeName?: string;
+
+    /**
+     * The optional, match the exact string pattern.
+     */
+    match?: string;
 };

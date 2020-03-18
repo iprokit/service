@@ -6,7 +6,6 @@ import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import os from 'os';
 import express, { Express, Router, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
@@ -22,7 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Helper, { FileOptions } from './helper';
+import Helper, { FindOptions } from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, InvalidModelError } from './db.manager';
@@ -284,13 +283,15 @@ export default class Service extends EventEmitter {
      * Inject JS files into the module.
      */
     private injectFiles() {
-        const options: FileOptions = {
-            endsWith: '.js',
-            excludes: ['index.js', 'git', 'node_modules', 'package.json', 'package-lock.json', '.babelrc', '.env']
+        const options: FindOptions = {
+            files: { include: { endsWith: '.js' } },
+            directories: { include: { likeName: 'node_modules' } }
         }
 
         const files = Helper.getFilePaths(path.join(projectPath, '/'), options);
         files.forEach(file => {
+            // console.log(file);
+
             /**
              * - Validate if the file.prototype is model, controller, publisher.
              * - Validate canLoadFile() here.
@@ -298,7 +299,7 @@ export default class Service extends EventEmitter {
              * - This should all be done before require.
              */
 
-            require(file).default;
+            // require(file).default;
         });
     }
 
@@ -459,16 +460,10 @@ export default class Service extends EventEmitter {
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
      * @example 
-     * service.setAutoWireModelOptions({includes: '*});
+     * service.setAutoWireModelOptions({includes: ['*']});
      * 
      * @example 
-     * service.setAutoWireModelOptions({excludes: '*});
-     * 
-     * @example 
-     * service.setAutoWireModelOptions({includes: 'user});
-     * 
-     * @example 
-     * service.setAutoWireModelOptions({excludes: 'user});
+     * service.setAutoWireModelOptions({excludes: ['user']});
      */
     public setAutoWireModelOptions(options?: AutoLoadOptions) {
         autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
@@ -481,16 +476,10 @@ export default class Service extends EventEmitter {
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
      * @example 
-     * service.setAutoInjectPublisherOptions({includes: '*});
+     * service.setAutoInjectPublisherOptions({includes: ['*']});
      * 
      * @example 
-     * service.setAutoInjectPublisherOptions({excludes: '*});
-     * 
-     * @example 
-     * service.setAutoInjectPublisherOptions({includes: 'user});
-     * 
-     * @example 
-     * service.setAutoInjectPublisherOptions({excludes: 'user});
+     * service.setAutoInjectPublisherOptions({excludes: ['user']});
      */
     public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
         autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
@@ -503,16 +492,10 @@ export default class Service extends EventEmitter {
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
      * @example 
-     * service.setAutoInjectControllerOptions({includes: '*});
+     * service.setAutoInjectControllerOptions({includes: ['*']});
      * 
      * @example 
-     * service.setAutoInjectControllerOptions({excludes: '*});
-     * 
-     * @example 
-     * service.setAutoInjectControllerOptions({includes: 'user});
-     * 
-     * @example 
-     * service.setAutoInjectControllerOptions({excludes: 'user});
+     * service.setAutoInjectControllerOptions({excludes: ['user']});
      */
     public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
         autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
@@ -930,6 +913,21 @@ export interface AutoLoadOptions {
      * The optional, files to exclude.
      */
     excludes?: Array<string>;
+
+    /**
+     * The optional, files that start with.
+     */
+    startsWith?: string;
+
+    /**
+     * The optional, files that end with.
+     */
+    endsWith?: string;
+
+    /**
+     * The optional, files that are like.
+     */
+    likeName?: string;
 }
 
 //////////////////////////////
