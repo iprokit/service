@@ -21,7 +21,8 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Helper, { FindOptions } from './helper';
+import Helper from './helper';
+import FileHelper, { Find } from './helper.file';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
@@ -288,14 +289,14 @@ export default class Service extends EventEmitter {
      * Inject JS files into the module.
      */
     private injectFiles() {
-        const options: FindOptions = {
-            files: { include: { endsWith: '.js' } },
-            directories: { include: { likeName: 'node_modules' } }
+        const options: Find = {
+            files: { include: { extension: ['.js'] } },
+            directories: { include: { match: '/src/address' } }
         }
 
-        const files = Helper.getFilePaths(path.join(projectPath, '/'), options);
+        const files = FileHelper.getFilePaths(projectPath, options);
         files.forEach(file => {
-            // console.log(file);
+            console.log(file);
 
             /**
              * - Validate if the file.prototype is model, controller, publisher.
