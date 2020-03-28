@@ -67,8 +67,8 @@ export default class Helper {
 
             //Validate if the `fileOrDirectoryPath` is directory or a file.
             if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
-                //TODO: Work from here. To break path and do levels.
-                // console.log(fileOrDirectoryPath, this.filter(fileOrDirectoryPath, options.directories));
+                // TODO: Work from here. To break path and do levels.
+                console.log(fileOrDirectoryPath, this.filter(fileOrDirectoryPath, options.directories));
 
                 //Validate the filter.
                 if (this.filter(fileOrDirectoryPath, options.directories)) {

@@ -8,6 +8,7 @@ export { default as Controller } from './api.controller';
 
 //Export STSCP
 export { default as Publisher } from './stscp.publisher';
+export { SocketError, ReplyError } from '@iprotechs/stscp';
 
 //Export DB Components
 export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';

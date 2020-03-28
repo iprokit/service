@@ -253,7 +253,7 @@ export default class DBManager {
             //Call Hooks.
             model.hooks();
         } else {
-            throw new InvalidModelError(modelName);
+            throw new ModelError(modelName);
         }
     }
 
@@ -515,7 +515,8 @@ export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 //////ConnectionOptionsError
 //////////////////////////////
 /**
- * ConnectionOptionsError is an instance of Error. Thrown when a database connection option is invalid.
+ * `ConnectionOptionsError` is an instance of Error.
+ * Thrown when a database connection option is invalid.
  */
 export class ConnectionOptionsError extends Error {
     constructor(message: string) {
@@ -530,12 +531,13 @@ export class ConnectionOptionsError extends Error {
 }
 
 //////////////////////////////
-//////InvalidModelError
+//////ModelError
 //////////////////////////////
 /**
- * InvalidModelError is an instance of Error. Thrown when database `Connection` type and `Model` type do not match.
+ * `ModelError` is an instance of Error.
+ * Thrown when database `Connection` type and `Model` type do not match.
  */
-export class InvalidModelError extends Error {
+export class ModelError extends Error {
     constructor(name: string) {
         super('Database connection type and model type mismatched for ' + name);
 

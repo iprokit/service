@@ -24,7 +24,7 @@ if (fs.existsSync(envPath)) {
 import Helper, { FindOptions } from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, InvalidModelError } from './db.manager';
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
 
 //////////////////////////////
 //////Global Variables
@@ -260,6 +260,11 @@ export default class Service extends EventEmitter {
      */
     private initSTSCP() {
         stscpServer = new StscpServer(this.name);
+        stscpServer.on('error', (error: any) => {
+            console.error(error);
+            console.log('Will continue...');
+        });
+
         stscpClientManager = new StscpClientManager(this.name);
 
         //Bind Events for stscpClientManager
@@ -615,7 +620,11 @@ export default class Service extends EventEmitter {
      * @param nodeName The callable name of the node.
      */
     public defineNode(url: string, nodeName: string) {
-        stscpClientManager.createClient(url, nodeName);
+        const client = stscpClientManager.createClient(url, nodeName);
+        client.on('error', (error: any) => {
+            console.error(error);
+            console.log('Will continue...');
+        });
     }
 
     //////////////////////////////
@@ -715,7 +724,6 @@ export default class Service extends EventEmitter {
      * @returns the CPU and Memory report.
      */
     private getSystemReport() {
-        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-8
         let memoryUsage: { [key: string]: string } = {};
 
         Object.entries(process.memoryUsage()).forEach(([key, value]) => {
@@ -1135,7 +1143,7 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
                 try {
                     dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
                 } catch (error) {
-                    if (error instanceof InvalidModelError) {
+                    if (error instanceof ModelError) {
                         console.log(error.message);
                     } else {
                         console.error(error);
