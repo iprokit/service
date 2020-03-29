@@ -1,12 +1,15 @@
 //Import modules
-import { RequestOptions } from 'https';
 import ip from 'ip';
+import fs from 'fs';
+import path from 'path';
 import { Request } from 'express';
+import { RequestOptions } from 'https';
 
 /**
  * The static helper class.
  */
 export default class Helper {
+
     //////////////////////////////
     //////Network
     //////////////////////////////
@@ -23,6 +26,111 @@ export default class Helper {
     public static getHostIP() {
         //TODO: https://iprotechs.atlassian.net/browse/PMICRO-6
         return '';
+    }
+
+    //////////////////////////////
+    //////File
+    //////////////////////////////
+    /**
+     * Finds and gets all the files under the given path and its sub directories.
+     * 
+     * Ignores the directory `node_modules`.
+     * 
+     * @param findPath the path to find under.
+     * @param options the find options.
+     * 
+     * @returns the files found with its full path.
+     */
+    public static findFilePaths(findPath: string, options: FileOptions) {
+        //The files and directories to exclude.
+        let excludes: Array<string> = Array();
+
+        //Add default files and directories.
+        excludes.push('node_modules');
+
+        /**
+         * Sub-function for self call.
+         * 
+         * @param findPath the path to find under.
+         * @param options the find options.
+         * 
+         * @returns the files found with its full path.
+         */
+        const findFilePaths = (findPath: string, options: FileOptions) => {
+            //The files to return.
+            const allFiles = new Array<string>();
+
+            //Reads the file/directory.
+            const filesOrDirectories = fs.readdirSync(findPath);
+
+            filesOrDirectories.forEach(fileOrDirectory => {
+                //Join findPath with fileOrDirectory.
+                const fileOrDirectoryPath = path.join(findPath, fileOrDirectory);
+
+                //Validate if the `fileOrDirectory` has to be excluded.
+                if (excludes.find(exclude => fileOrDirectory !== exclude)) {
+                    //Validate if the `fileOrDirectoryPath` is directory or a file.
+                    if (fs.statSync(fileOrDirectoryPath).isDirectory()) {
+                        //Recall this function to get files/directories under this path and add them to `allFiles`.
+                        Array.prototype.push.apply(allFiles, this.findFilePaths(fileOrDirectoryPath, options));
+                    } else {
+                        //Validate the filter.
+                        if (this.filterFile(fileOrDirectoryPath, options)) {
+                            //Add the file to `allFiles`.
+                            allFiles.push(fileOrDirectoryPath);
+                        }
+                    }
+                }
+            });
+
+            return allFiles;
+        }
+
+        return findFilePaths(findPath, options);
+    }
+
+    /**
+     * Filters the file by checking `options.include` or `options.exclude` and matches the file.
+     * If no options are provided returns undefined.
+     * 
+     * @param file the file.
+     * @param options the filter options.
+     * 
+     * @returns true if filter is applied and valid, false otherwise.
+     */
+    private static filterFile(file: string, options: FileOptions) {
+        if (options.include) {
+            //If the pattern is found; true is returned, false otherwise.
+            return this.matchFilePattern(file, options.include) ? true : false;
+        } else if (options.exclude) {
+            //If the pattern is found; false is returned, true otherwise.
+            return this.matchFilePattern(file, options.exclude) ? false : true;
+        }
+    }
+
+    /**
+     * Matches the file with pattern in options.
+     * 
+     * @param file the file.
+     * @param options the pattern options.
+     * 
+     * @returns true if the pattern matches, undefined otherwise.
+     */
+    private static matchFilePattern(file: string, options: FilePattern) {
+        const _file = path.parse(file);
+
+        if (options.startsWith && options.startsWith.find(pattern => _file.name.startsWith(pattern))) {
+            return true;
+        }
+        if (options.endsWith && options.endsWith.find(pattern => _file.name.endsWith(pattern))) {
+            return true;
+        }
+        if (options.likeName && options.likeName.find(pattern => _file.name.includes(pattern))) {
+            return true;
+        }
+        if (options.extension && options.extension.find(pattern => _file.ext === pattern)) {
+            return true;
+        }
     }
 
     //////////////////////////////
@@ -68,4 +176,47 @@ export default class Helper {
             }
         });
     }
+}
+
+//////////////////////////////
+//////File: Interface
+//////////////////////////////
+/**
+ * Interface for file find options.
+ */
+export interface FileOptions {
+    /**
+     * The optional, files to include.
+     */
+    include?: FilePattern;
+
+    /**
+     * The optional, files to exclude.
+     */
+    exclude?: FilePattern;
+}
+
+/**
+ * Interface for matching files.
+ */
+export interface FilePattern {
+    /**
+     * The optional, file that starts with.
+     */
+    startsWith?: Array<string>;
+
+    /**
+     * The optional, file that ends with.
+     */
+    endsWith?: Array<string>;
+
+    /**
+     * The optional, file that is like.
+     */
+    likeName?: Array<string>;
+
+    /**
+     * The optional, file that has extension.
+     */
+    extension?: Array<string>;
 }

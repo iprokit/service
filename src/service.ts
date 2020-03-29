@@ -22,7 +22,6 @@ if (fs.existsSync(envPath)) {
 
 //Local Imports
 import Helper from './helper';
-import FileHelper, { Find } from './helper.file';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
@@ -261,11 +260,6 @@ export default class Service extends EventEmitter {
      */
     private initSTSCP() {
         stscpServer = new StscpServer(this.name);
-        stscpServer.on('error', (error: any) => {
-            console.error(error);
-            console.log('Will continue...');
-        });
-
         stscpClientManager = new StscpClientManager(this.name);
 
         //Bind Events for stscpClientManager
@@ -289,14 +283,12 @@ export default class Service extends EventEmitter {
      * Inject JS files into the module.
      */
     private injectFiles() {
-        const options: Find = {
-            files: { include: { extension: ['.js'] } },
-            directories: { include: { match: '/src/address' } }
-        }
 
-        const files = FileHelper.getFilePaths(projectPath, options);
+        const files = Helper.findFilePaths(projectPath, { include: { extension: ['.js'] } });
         files.forEach(file => {
             console.log(file);
+
+            //TODO: Work from here.
 
             /**
              * - Validate if the file.prototype is model, controller, publisher.
@@ -336,9 +328,9 @@ export default class Service extends EventEmitter {
             });
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
-                console.log(error.message);
+                console.error(error.message);
             } else {
-                console.error(error);
+                console.error('dbManager', error);
             }
             console.log('Will continue...');
         }
@@ -382,9 +374,9 @@ export default class Service extends EventEmitter {
                         this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
-                            console.log(error.message);
+                            console.error(error.message);
                         } else {
-                            console.error(error);
+                            console.error('dbManager', error);
                         }
                         console.log('Will continue...');
                     }
@@ -621,11 +613,7 @@ export default class Service extends EventEmitter {
      * @param nodeName The callable name of the node.
      */
     public defineNode(url: string, nodeName: string) {
-        const client = stscpClientManager.createClient(url, nodeName);
-        client.on('error', (error: any) => {
-            console.error(error);
-            console.log('Will continue...');
-        });
+        stscpClientManager.createClient(url, nodeName);
     }
 
     //////////////////////////////
@@ -877,11 +865,23 @@ export default class Service extends EventEmitter {
         //STSCP Server
         this.on('stscpServerListening', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
         this.on('stscpServerStopped', () => console.log('Stopped STSCP Server.'));
+        stscpServer.on('error', (error: any) => {
+            console.error('stscpServer', error);
+            console.log('Will continue...');
+        });
 
         //STSCP Client Manager
         this.on('stscpClientManagerConnected', () => console.log('STSCP client manager connected.'));
         this.on('stscpClientManagerDisconnected', () => console.log('STSCP client manager disconnected.'));
-        this.on('stscpClientConnected', (client: StscpClient) => console.log('Node connected to stscp://%s:%s', client.host, client.port));
+        this.on('stscpClientConnected', (client: StscpClient) => {
+            console.log('Node connected to stscp://%s:%s', client.host, client.port);
+
+            client.on('error', (error: any) => {
+                console.error('stscpClientManager', error);
+                console.log('Will continue...');
+            });
+
+        });
         this.on('stscpClientDisconnected', (client: StscpClient) => console.log('Node disconnected from stscp://%s:%s', client.host, client.port));
         // this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
 
