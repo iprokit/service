@@ -4,8 +4,9 @@ import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
 
 //Local Imports
+import Default from './default';
 import Helper from './helper';
-import Service, { Options, Defaults } from './service';
+import Service, { Options } from './service';
 
 /**
  * `Gateway` acts has a middleman between the client and the endpoint service.
@@ -76,7 +77,7 @@ export default class Gateway extends Service {
         //Split url into host and port.
         const _url = url.split(':');
         const _host = _url[0];
-        const _port = Number(_url[1]) || Defaults.API_PORT;
+        const _port = Number(_url[1]) || Default.API_PORT;
 
         //New URL
         return _host + ':' + _port;

@@ -21,6 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
+import Default from './default';
 import Helper, { FileOptions } from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
@@ -203,16 +204,16 @@ export default class Service extends EventEmitter {
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
-        this.environment = process.env.NODE_ENV || Defaults.ENVIRONMENT;
+        this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
-        this.forceStopTime = Defaults.FORCE_STOP_TIME;
+        this.forceStopTime = Default.FORCE_STOP_TIME;
 
         //Initialize API server variables.
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
-        this.apiPort = Number(process.env.API_PORT) || Defaults.API_PORT;
+        this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
 
         //Initialize STSCP variables.
-        this.stscpPort = Number(process.env.STSCP_PORT) || Defaults.STSCP_PORT;
+        this.stscpPort = Number(process.env.STSCP_PORT) || Default.STSCP_PORT;
 
         //Initialize Action's/API's
         this._publishers = new Array();
@@ -981,42 +982,6 @@ export interface Options {
      * The version of the service.
      */
     version?: string;
-}
-
-//////////////////////////////
-//////Defaults
-//////////////////////////////
-/**
- * The default variables for the `Service`.
- */
-export class Defaults {
-    /**
-     * The environment of the service.
-     * 
-     * @constant `production`
-     */
-    public static readonly ENVIRONMENT: string = 'production';
-
-    /**
-     * The API Server port of the service.
-     * 
-     * @constant 3000
-     */
-    public static readonly API_PORT: number = 3000;
-
-    /**
-     * The STSCP Server port of the service.
-     * 
-     * @constant 6000
-     */
-    public static readonly STSCP_PORT: number = 6000;
-
-    /**
-     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
-     * 
-     * @constant 1000 * 5
-     */
-    public static readonly FORCE_STOP_TIME: number = 1000 * 5;
 }
 
 //////////////////////////////
