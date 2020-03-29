@@ -70,30 +70,6 @@ let stscpClientManager: StscpClientManager;
 export const Mesh: StscpMesh = StscpClientManager.mesh;
 
 /**
- * Auto wire `Model` options.
- * 
- * @default
- * { include: { endsWith: ['.model'] } }
- */
-let autoWireModelOptions: FileOptions;
-
-/**
- * Auto inject `Publisher` options.
- * 
- * @default
- * { include: { endsWith: ['.publisher'] } }
- */
-let autoInjectPublisherOptions: FileOptions;
-
-/**
- * Auto inject `Controller` options.
- * 
- * @default
- * { include: { endsWith: ['.controller'] } }
- */
-let autoInjectControllerOptions: FileOptions;
-
-/**
  * This class is an implementation of a simple and lightweight service.
  * It can be used to implement a service/micro-service.
  * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
@@ -122,6 +98,9 @@ let autoInjectControllerOptions: FileOptions;
  * @emits `stscpClientReconnecting` when the `stscpClient` is reconnecting.
  * @emits `dbManagerConnected` when the `dbManager` is connected.
  * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
+ * @emits `autoWireModel` when a model is auto wired.
+ * @emits `autoInjectPublisher` when a publisher actions are injected.
+ * @emits `autoInjectController` when a controler endpoints are injected.
  */
 export default class Service extends EventEmitter {
     /**
@@ -185,6 +164,30 @@ export default class Service extends EventEmitter {
     private readonly _controllers: Array<Controller>;
 
     /**
+     * Auto wire `Model` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.model'] } }
+     */
+    private _autoWireModelOptions: FileOptions;
+    
+    /**
+     * Auto inject `Publisher` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.publisher'] } }
+     */
+    private _autoInjectPublisherOptions: FileOptions;
+    
+    /**
+     * Auto inject `Controller` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.controller'] } }
+     */
+    private _autoInjectControllerOptions: FileOptions;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param baseUrl the optional, base/root url.
@@ -215,15 +218,15 @@ export default class Service extends EventEmitter {
         this._publishers = new Array();
         this._controllers = new Array();
 
+        //Initialize Autoload Variables.
+        this._autoWireModelOptions = { include: { endsWith: ['.model'] } };
+        this._autoInjectPublisherOptions = { include: { endsWith: ['.publisher'] } };
+        this._autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
+
         //Initialize Components.
         this.initAPIServer();
         this.initSTSCP();
         this.initDBManager();
-
-        //Initialize Autoload Variables.
-        autoWireModelOptions = { include: { endsWith: ['.model'] } };
-        autoInjectPublisherOptions = { include: { endsWith: ['.publisher'] } };
-        autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
 
         this.addProcessListeners();
     }
@@ -309,7 +312,7 @@ export default class Service extends EventEmitter {
 
         //Wiring Models.
         files.forEach(file => {
-            if (Helper.filterFile(file, autoWireModelOptions)) {
+            if (Helper.filterFile(file, this._autoWireModelOptions)) {
                 //Load.
                 const _Model: Model = require(file).default;
 
@@ -319,7 +322,7 @@ export default class Service extends EventEmitter {
 
         //Injecting Publishers.
         files.forEach(file => {
-            if (Helper.filterFile(file, autoInjectPublisherOptions)) {
+            if (Helper.filterFile(file, this._autoInjectPublisherOptions)) {
                 //Load, Initialize, Push to array.
                 const _Publisher = require(file).default;
                 const publisher: Publisher = new _Publisher();
@@ -332,7 +335,7 @@ export default class Service extends EventEmitter {
 
         //Injecting Controllers.
         files.forEach(file => {
-            if (Helper.filterFile(file, autoInjectControllerOptions)) {
+            if (Helper.filterFile(file, this._autoInjectControllerOptions)) {
                 //Load, Initialize, Push to array.
                 const _Controller = require(file).default;
                 const controller: Controller = new _Controller();
@@ -502,7 +505,7 @@ export default class Service extends EventEmitter {
      * { include: { endsWith: ['.model'] } }
      */
     public setAutoWireModelOptions(options?: FileOptions) {
-        autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
+        this._autoWireModelOptions = (options === undefined) ? this._autoWireModelOptions : options;
     }
 
     /**
@@ -514,7 +517,7 @@ export default class Service extends EventEmitter {
      * { include: { endsWith: ['.publisher'] } }
      */
     public setAutoInjectPublisherOptions(options?: FileOptions) {
-        autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
+        this._autoInjectPublisherOptions = (options === undefined) ? this._autoInjectPublisherOptions : options;
     }
 
     /**
@@ -526,7 +529,7 @@ export default class Service extends EventEmitter {
      * { include: { endsWith: ['.controller'] } }
      */
     public setAutoInjectControllerOptions(options?: FileOptions) {
-        autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
+        this._autoInjectControllerOptions = (options === undefined) ? this._autoInjectControllerOptions : options;
     }
 
     //////////////////////////////
@@ -793,9 +796,13 @@ export default class Service extends EventEmitter {
 
         //Gets models.
         if (dbManager.noSQL) {
-            dbManager.models.forEach(model => models[model.name] = model.collection.name);
+            (dbManager.models).forEach(model => {
+                models[model.name] = model.collection.name;
+            });
         } else {
-            dbManager.models.forEach(model => models[model.name] = model.tableName);
+            dbManager.models.forEach(model => {
+                models[model.name] = model.tableName;
+            });
         }
 
         return {
@@ -812,6 +819,8 @@ export default class Service extends EventEmitter {
      */
     private apiRouteReport() {
         const apiRoutes = new Array();
+
+        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-53
 
         //Get API Routes.
         apiRouter.stack.forEach(item => {
@@ -834,6 +843,8 @@ export default class Service extends EventEmitter {
      */
     private stscpRouteReport() {
         const stscpRoutes = new Array();
+
+        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-53
 
         //Get STSCP Routes.
         stscpServer.routes.forEach(item => {

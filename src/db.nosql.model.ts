@@ -201,3 +201,5 @@ export interface InitOptions {
      */
     timestamps: boolean;
 }
+
+//TODO: https://iprotechs.atlassian.net/browse/PMICRO-52
