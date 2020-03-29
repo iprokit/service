@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body } from '@iprotechs/stscp';
+import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, ActionBreak } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -21,7 +21,7 @@ if (fs.existsSync(envPath)) {
 }
 
 //Local Imports
-import Helper from './helper';
+import Helper, { FileOptions } from './helper';
 import Publisher from './stscp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
@@ -73,25 +73,25 @@ export const Mesh: StscpMesh = StscpClientManager.mesh;
  * Auto wire `Model` options.
  * 
  * @default
- * `includes = '*'`
+ * { include: { endsWith: ['.model'] } }
  */
-let autoWireModelOptions: AutoLoadOptions;
+let autoWireModelOptions: FileOptions;
 
 /**
  * Auto inject `Publisher` options.
  * 
  * @default
- * `includes = '*'`
+ * { include: { endsWith: ['.publisher'] } }
  */
-let autoInjectPublisherOptions: AutoLoadOptions;
+let autoInjectPublisherOptions: FileOptions;
 
 /**
  * Auto inject `Controller` options.
  * 
  * @default
- * `includes = '*'`
+ * { include: { endsWith: ['.controller'] } }
  */
-let autoInjectControllerOptions: AutoLoadOptions;
+let autoInjectControllerOptions: FileOptions;
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -175,6 +175,16 @@ export default class Service extends EventEmitter {
     public forceStopTime: number;
 
     /**
+     * The autoinjected `Publisher`'s under this service.
+     */
+    private readonly _publishers: Array<Publisher>;
+
+    /**
+     * The autoinjected `Controller`'s under this service.
+     */
+    private readonly _controllers: Array<Controller>;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param baseUrl the optional, base/root url.
@@ -201,15 +211,19 @@ export default class Service extends EventEmitter {
         //Initialize STSCP variables.
         this.stscpPort = Number(process.env.STSCP_PORT) || Defaults.STSCP_PORT;
 
+        //Initialize Action's/API's
+        this._publishers = new Array();
+        this._controllers = new Array();
+
         //Initialize Components.
         this.initAPIServer();
         this.initSTSCP();
         this.initDBManager();
 
-        //Initialize AutoLoad Variables.
-        autoWireModelOptions = { includes: ['*'], excludes: undefined };
-        autoInjectPublisherOptions = { includes: ['*'], excludes: undefined };
-        autoInjectControllerOptions = { includes: ['*'], excludes: undefined };
+        //Initialize Autoload Variables.
+        autoWireModelOptions = { include: { endsWith: ['.model'] } };
+        autoInjectPublisherOptions = { include: { endsWith: ['.publisher'] } };
+        autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
 
         this.addProcessListeners();
     }
@@ -280,24 +294,52 @@ export default class Service extends EventEmitter {
     //////Inject
     //////////////////////////////
     /**
-     * Inject JS files into the module.
+     * Inject files into the module. Respecting the order of loading for dependency.
+     * 
+     * Order: Model, Publisher, Controller
+     * 
+     * After each `require()`, annotation will automatically be called.
+     * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Publisher, Controller).
      */
     private injectFiles() {
-
+        /**
+         * All the files in this project.
+         */
         const files = Helper.findFilePaths(projectPath, { include: { extension: ['.js'] } });
+
+        //Wiring Models.
         files.forEach(file => {
-            console.log(file);
+            if (Helper.filterFile(file, autoWireModelOptions)) {
+                //Load.
+                const _Model: Model = require(file).default;
 
-            //TODO: Work from here.
+                this.emit('autoWireModel', _Model.name);
+            }
+        });
 
-            /**
-             * - Validate if the file.prototype is model, controller, publisher.
-             * - Validate canLoadFile() here.
-             * - Then add the object into an array. TODO: https://iprotechs.atlassian.net/browse/PMICRO-27
-             * - This should all be done before require.
-             */
+        //Injecting Publishers.
+        files.forEach(file => {
+            if (Helper.filterFile(file, autoInjectPublisherOptions)) {
+                //Load, Initialize, Push to array.
+                const _Publisher = require(file).default;
+                const publisher: Publisher = new _Publisher();
+                this._publishers.push(publisher);
 
-            // require(file).default;
+
+                this.emit('autoInjectPublisher', publisher.name);
+            }
+        });
+
+        //Injecting Controllers.
+        files.forEach(file => {
+            if (Helper.filterFile(file, autoInjectControllerOptions)) {
+                //Load, Initialize, Push to array.
+                const _Controller = require(file).default;
+                const controller: Controller = new _Controller();
+                this._controllers.push(controller);
+
+                this.emit('autoInjectController', controller.name);
+            }
         });
     }
 
@@ -453,49 +495,37 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Set's the auto wire `Model` options.
-     * To include/exclude all files add `*`.
      * 
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
-     * @example 
-     * service.setAutoWireModelOptions({includes: ['*']});
-     * 
-     * @example 
-     * service.setAutoWireModelOptions({excludes: ['user']});
+     * @default
+     * { include: { endsWith: ['.model'] } }
      */
-    public setAutoWireModelOptions(options?: AutoLoadOptions) {
+    public setAutoWireModelOptions(options?: FileOptions) {
         autoWireModelOptions = (options === undefined) ? autoWireModelOptions : options;
     }
 
     /**
      * Set's the auto inject `Publisher` options.
-     * To include/exclude all files add `*`.
      * 
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
-     * @example 
-     * service.setAutoInjectPublisherOptions({includes: ['*']});
-     * 
-     * @example 
-     * service.setAutoInjectPublisherOptions({excludes: ['user']});
+     * @default
+     * { include: { endsWith: ['.publisher'] } }
      */
-    public setAutoInjectPublisherOptions(options?: AutoLoadOptions) {
+    public setAutoInjectPublisherOptions(options?: FileOptions) {
         autoInjectPublisherOptions = (options === undefined) ? autoInjectPublisherOptions : options;
     }
 
     /**
      * Set's the auto inject `Controller` options.
-     * To include/exclude all files add `*`.
      * 
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
-     * @example 
-     * service.setAutoInjectControllerOptions({includes: ['*']});
-     * 
-     * @example 
-     * service.setAutoInjectControllerOptions({excludes: ['user']});
+     * @default
+     * { include: { endsWith: ['.controller'] } }
      */
-    public setAutoInjectControllerOptions(options?: AutoLoadOptions) {
+    public setAutoInjectControllerOptions(options?: FileOptions) {
         autoInjectControllerOptions = (options === undefined) ? autoInjectControllerOptions : options;
     }
 
@@ -652,6 +682,30 @@ export default class Service extends EventEmitter {
      */
     public static get noSQLConnection(): NoSQL {
         return dbManager.connection as NoSQL;
+    }
+
+    //////////////////////////////
+    //////Model's, Action's, API's
+    //////////////////////////////
+    /**
+     * The autowired `Model`'s under the database `Connection` object.
+     */
+    public get models() {
+        return dbManager.models;
+    }
+
+    /**
+     * The autoinjected `Publisher`'s under this service.
+     */
+    public get publishers() {
+        return this._publishers;
+    }
+
+    /**
+     * The autoinjected `Controller`'s under this service.
+     */
+    public get controllers() {
+        return this._controllers;
     }
 
     //////////////////////////////
@@ -888,6 +942,11 @@ export default class Service extends EventEmitter {
         //DB Manager
         this.on('dbManagerConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
         this.on('dbManagerDisconnected', () => console.log('DB Disconnected'));
+
+        //Autoload Variables
+        // this.on('autoWireModel', (name) => console.log('Wiring model: %s', name));
+        // this.on('autoInjectPublisher', (name) => console.log('Adding actions from publisher: %s', name));
+        // this.on('autoInjectController', (name) => console.log('Adding endpoints from controller: %s', name));
     }
 }
 
@@ -907,36 +966,6 @@ export interface Options {
      * The version of the service.
      */
     version?: string;
-}
-
-/**
- * Interface for auto wire/inject options.
- */
-export interface AutoLoadOptions {
-    /**
-     * The optional, files to include.
-     */
-    includes?: Array<string>;
-
-    /**
-     * The optional, files to exclude.
-     */
-    excludes?: Array<string>;
-
-    /**
-     * The optional, files that start with.
-     */
-    startsWith?: string;
-
-    /**
-     * The optional, files that end with.
-     */
-    endsWith?: string;
-
-    /**
-     * The optional, files that are like.
-     */
-    likeName?: string;
 }
 
 //////////////////////////////
@@ -1002,13 +1031,11 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
-            apiRouter.get(path, descriptor.value);
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
         }
+
+        apiRouter.get(path, descriptor.value);
     }
 }
 
@@ -1022,13 +1049,11 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
-            apiRouter.post(path, descriptor.value);
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
         }
+
+        apiRouter.post(path, descriptor.value);
     }
 }
 
@@ -1042,13 +1067,11 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
-            apiRouter.put(path, descriptor.value);
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
         }
+
+        apiRouter.put(path, descriptor.value);
     }
 }
 
@@ -1062,13 +1085,11 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
     return (target, propertyKey, descriptor) => {
         const controllerName = target.name.replace('Controller', '').toLowerCase();
 
-        if (canLoadFile(autoInjectControllerOptions, controllerName)) {
-            if (!rootPath) {
-                path = ('/' + controllerName + path);
-            }
-
-            apiRouter.delete(path, descriptor.value);
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
         }
+
+        apiRouter.delete(path, descriptor.value);
     }
 }
 
@@ -1096,11 +1117,8 @@ export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
-        if (canLoadFile(autoInjectPublisherOptions, publisherName)) {
-            const action = (publisherName + '.' + propertyKey);
-
-            stscpServer.reply(action, descriptor.value);
-        }
+        const action = publisherName + ActionBreak.MAP + propertyKey;
+        stscpServer.reply(action, descriptor.value);
     }
 }
 
@@ -1139,71 +1157,17 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
         if (dbManager.connection) {
             const modelName = target.name.replace('Model', '');
 
-            //Validate if the database type and model type match. Also validate if the file can be loaded.
-            if (canLoadFile(autoWireModelOptions, modelName)) {
-                try {
-                    dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
-                } catch (error) {
-                    if (error instanceof ModelError) {
-                        console.log(error.message);
-                    } else {
-                        console.error(error);
-                    }
-                    console.log('Will continue...');
+            //Validate if the database type and model type match.
+            try {
+                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+            } catch (error) {
+                if (error instanceof ModelError) {
+                    console.error(error.message);
+                } else {
+                    console.error('model', error);
                 }
+                console.log('Will continue...');
             }
         }
     }
-}
-
-//////////////////////////////
-//////Decorator Helpers
-//////////////////////////////
-/**
- * Helper function to validate if the file can be loaded.
- * Only `options.includes` or `options.excludes` is considered.
- * 
- * `*` includes all files.
- * 
- * @param injectOptions the auto wire/inject options.
- * @param fileName the file name to validate.
- */
-function canLoadFile(injectOptions: AutoLoadOptions, fileName: string) {
-    /**
-     * Validate if all files can be loaded based on `*`.
-     * 
-     * @param _list the list to validate with.
-     */
-    const _validateAll = (_list: Array<string>) => {
-        return _list.includes('*') && _list.length === 1;
-    }
-
-    /**
-     * Validate if a file can be loaded based on `_fileName`.
-     * 
-     * @param _list the list to validate with.
-     * @param _fileName the file name to validate.
-     */
-    const _validateOne = (_list: Array<string>, _fileName: string) => {
-        return _list.find(key => key.toLowerCase() === _fileName.toLowerCase());
-    }
-
-    if (injectOptions.includes) {
-        if (_validateAll(injectOptions.includes)) {
-            return true;
-        }
-        if (_validateOne(injectOptions.includes, fileName)) {
-            return true;
-        }
-        return false;
-    } else if (injectOptions.excludes) {
-        if (_validateAll(injectOptions.excludes)) {
-            return false;
-        }
-        if (!_validateOne(injectOptions.excludes, fileName)) {
-            return true;
-        }
-        return false;
-    }
-    return false;
 }

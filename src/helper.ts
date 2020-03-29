@@ -98,7 +98,7 @@ export default class Helper {
      * 
      * @returns true if filter is applied and valid, false otherwise.
      */
-    private static filterFile(file: string, options: FileOptions) {
+    public static filterFile(file: string, options: FileOptions) {
         if (options.include) {
             //If the pattern is found; true is returned, false otherwise.
             return this.matchFilePattern(file, options.include) ? true : false;
@@ -116,7 +116,7 @@ export default class Helper {
      * 
      * @returns true if the pattern matches, undefined otherwise.
      */
-    private static matchFilePattern(file: string, options: FilePattern) {
+    public static matchFilePattern(file: string, options: FilePattern) {
         const _file = path.parse(file);
 
         if (options.startsWith && options.startsWith.find(pattern => _file.name.startsWith(pattern))) {
@@ -201,22 +201,22 @@ export interface FileOptions {
  */
 export interface FilePattern {
     /**
-     * The optional, file that starts with.
+     * The optional, filename that starts with.
      */
     startsWith?: Array<string>;
 
     /**
-     * The optional, file that ends with.
+     * The optional, filename that ends with.
      */
     endsWith?: Array<string>;
 
     /**
-     * The optional, file that is like.
+     * The optional, filename that is like.
      */
     likeName?: Array<string>;
 
     /**
-     * The optional, file that has extension.
+     * The optional, file extention that has extension.
      */
     extension?: Array<string>;
 }
