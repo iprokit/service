@@ -170,7 +170,7 @@ export default class Service extends EventEmitter {
      * { include: { endsWith: ['.model'] } }
      */
     private _autoWireModelOptions: FileOptions;
-    
+
     /**
      * Auto inject `Publisher` options.
      * 
@@ -178,7 +178,7 @@ export default class Service extends EventEmitter {
      * { include: { endsWith: ['.publisher'] } }
      */
     private _autoInjectPublisherOptions: FileOptions;
-    
+
     /**
      * Auto inject `Controller` options.
      * 
@@ -818,21 +818,25 @@ export default class Service extends EventEmitter {
      * @returns the API `Router` report.
      */
     private apiRouteReport() {
-        const apiRoutes = new Array();
-
-        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-53
+        const apiRoutes: { [controller: string]: Array<{ fn: string, [method: string]: string }> } = {};
 
         //Get API Routes.
         apiRouter.stack.forEach(item => {
-            const functionName: string = item.route.stack[0].handle.name;
-            const method: string = (item.route.stack[0].method === undefined) ? 'all' : item.route.stack[0].method;
-            const path: string = this.apiBaseUrl + item.route.path;
+            const _stack = item.route.stack[0];
 
-            const route = {
-                function: functionName,
-                [method.toUpperCase()]: path
+            //Create Variables.
+            const path = String(item.route.path);
+            const controllerName = path.split('/').filter(Boolean)[0];
+            const functionName = (_stack.handle.name === '') ? '<anonymous>' : String(_stack.handle.name);
+            const method = (_stack.method === undefined) ? 'all' : String(_stack.method).toUpperCase();
+
+            //Try creating empty object.
+            if (!apiRoutes[controllerName]) {
+                apiRoutes[controllerName] = [];
             }
-            apiRoutes.push(route);
+
+            //Add to object.
+            apiRoutes[controllerName].push({ fn: functionName, [method]: this.apiBaseUrl + path });
         });
 
         return apiRoutes;
@@ -842,16 +846,16 @@ export default class Service extends EventEmitter {
      * @returns the STSCP `Router` report.
      */
     private stscpRouteReport() {
-        const stscpRoutes = new Array();
-
-        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-53
+        const stscpRoutes: { [publisher: string]: string } = {};
 
         //Get STSCP Routes.
         stscpServer.routes.forEach(item => {
-            const route = {
-                [item.type.toUpperCase()]: item.action
-            }
-            stscpRoutes.push(route);
+            //Create Variables.
+            const map = String(item.map);
+            const type = String(item.type).toUpperCase();
+
+            //Add to object.
+            stscpRoutes[map] = type;
         });
 
         return stscpRoutes;
