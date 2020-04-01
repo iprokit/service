@@ -252,20 +252,27 @@ export default class Service extends EventEmitter {
             winston.format.label(),
             winston.format.timestamp(),
             winston.format.printf((info) => {
+                let log: string;
+
+                const timestamp = info.timestamp;
+                const level = info.level.toUpperCase();
                 const message = info.message === undefined ? '' : info.message;
-                return `${info.timestamp} | ${info.level.toUpperCase()} | ${message}`;
+                const component = info.component;
+
+                if (info.component) {
+                    const id = info.id;
+                    const ip = info.address;
+                    const type = info.type;
+                    const action = info.action === undefined ? '' : info.action.map;
+
+                    log = `${timestamp} | ${level} | ${component} | [${id} - ${ip}]: [${type}] ${action} ${message}`;
+                } else {
+                    log = `${timestamp} | ${level} | ${message}`;
+                }
+
+                return log;
             })
         )
-
-        // winston.format.printf((info) => {
-        //     const id = info.id;
-        //     const ip = info.address;
-        //     const type = info.type;
-        //     const action = info.action === undefined ? '' : info.action.map;
-        //     const message = info.message === undefined ? '' : info.message;
-
-        //     return `${info.timestamp} | ${info.level.toUpperCase()} | [${id} - ${ip}]: [${type}] ${action} ${message}`;
-        // })
 
         this._logger = winston.createLogger({
             transports: [
@@ -317,8 +324,13 @@ export default class Service extends EventEmitter {
      * Initialize STSCP by setting up `StscpServer` and `StscpClientManager`.
      */
     private initSTSCP() {
-        stscpServer = new StscpServer(this.name);
-        stscpClientManager = new StscpClientManager(this.name);
+        //Setup child logger for STSCP.
+        const stscpServerLogger = this._logger.child({ component: 'stscpServer' });
+        const stscpClientManagerLogger = this._logger.child({ component: 'stscpClientManager' });
+
+        //Setup STSCP
+        stscpServer = new StscpServer(this.name, stscpServerLogger);
+        stscpClientManager = new StscpClientManager(this.name, stscpClientManagerLogger);
 
         //Bind Events for stscpClientManager
         stscpClientManager.on('clientConnected', (client: StscpClient) => {

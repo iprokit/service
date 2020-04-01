@@ -56,13 +56,13 @@ export default class Gateway extends Service {
             return targetRequest;
         };
 
-        if(redirect){
-            return expressProxy(this.parseUrl(url), {proxyReqPathResolver, proxyReqOptDecorator});
-        }else{
-            return expressProxy(this.parseUrl(url), {proxyReqOptDecorator});
+        if (redirect) {
+            return expressProxy(this.parseUrl(url), { proxyReqPathResolver, proxyReqOptDecorator });
+        } else {
+            return expressProxy(this.parseUrl(url), { proxyReqOptDecorator });
         }
     }
-    
+
     //////////////////////////////
     //////Helpers
     //////////////////////////////
