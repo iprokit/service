@@ -46,7 +46,8 @@
     "ip": "1.1.5",
     "mongoose": "5.8.1",
     "mysql2": "2.0.2",
-    "sequelize": "5.21.3"
+    "sequelize": "5.21.3",
+    "winston": "3.2.1"
   },
   "devDependencies": {
     "@types/node": "13.1.4",

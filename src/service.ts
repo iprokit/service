@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, ActionBreak } from '@iprotechs/stscp';
+import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, Action } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -12,6 +12,7 @@ import { Server as HttpServer } from 'http';
 import cors from 'cors';
 import createError from 'http-errors';
 import HttpCodes from 'http-status-codes';
+import winston, { Logger } from 'winston';
 
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
@@ -189,6 +190,11 @@ export default class Service extends EventEmitter {
     private _autoInjectControllerOptions: FileOptions;
 
     /**
+     * The logger instance.
+     */
+    private _logger: Logger;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param baseUrl the optional, base/root url.
@@ -224,6 +230,9 @@ export default class Service extends EventEmitter {
         this._autoInjectPublisherOptions = { include: { endsWith: ['.publisher'] } };
         this._autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
 
+        //Initialize Logger.
+        this.initLogger();
+
         //Initialize Components.
         this.initAPIServer();
         this.initSTSCP();
@@ -235,6 +244,37 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Init
     //////////////////////////////
+    /**
+     * Initialize logger by setting up winston.
+     */
+    private initLogger() {
+        const format = winston.format.combine(
+            winston.format.label(),
+            winston.format.timestamp(),
+            winston.format.printf((info) => {
+                const message = info.message === undefined ? '' : info.message;
+                return `${info.timestamp} | ${info.level.toUpperCase()} | ${message}`;
+            })
+        )
+
+        // winston.format.printf((info) => {
+        //     const id = info.id;
+        //     const ip = info.address;
+        //     const type = info.type;
+        //     const action = info.action === undefined ? '' : info.action.map;
+        //     const message = info.message === undefined ? '' : info.message;
+
+        //     return `${info.timestamp} | ${info.level.toUpperCase()} | [${id} - ${ip}]: [${type}] ${action} ${message}`;
+        // })
+
+        this._logger = winston.createLogger({
+            transports: [
+                new winston.transports.Console({ level: 'debug', format: format }),
+                // new winston.transports.File({ level: 'debug', format: format, filename: 'log.log',  })
+            ]
+        });
+    }
+
     /**
      * Initialize API Server by setting up `Express` and `ExpressRouter`.
      * Adds default API Endpoints by calling `service.addDefaultAPIEndpoints()`.
@@ -281,9 +321,24 @@ export default class Service extends EventEmitter {
         stscpClientManager = new StscpClientManager(this.name);
 
         //Bind Events for stscpClientManager
-        stscpClientManager.on('clientConnected', (client: StscpClient) => this.emit('stscpClientConnected', client));
-        stscpClientManager.on('clientDisconnected', (client: StscpClient) => this.emit('stscpClientDisconnected', client));
-        stscpClientManager.on('clientReconnecting', (client: StscpClient) => this.emit('stscpClientReconnecting', client));
+        stscpClientManager.on('clientConnected', (client: StscpClient) => {
+            //Log Event.
+            this._logger.info(`Node connected to stscp://${client.host}:${client.port}`);
+
+            this.emit('stscpClientConnected', client);
+        });
+        stscpClientManager.on('clientDisconnected', (client: StscpClient) => {
+            //Log Event.
+            this._logger.info(`Node disconnected from stscp://${client.host}:${client.port}`);
+
+            this.emit('stscpClientDisconnected', client);
+        });
+        stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
+            //Log Event.
+            this._logger.debug(`Node reconnecting to stscp://${client.host}:${client.port}`);
+
+            this.emit('stscpClientReconnecting', client);
+        });
     }
 
     /**
@@ -317,6 +372,9 @@ export default class Service extends EventEmitter {
                 //Load.
                 const _Model: Model = require(file).default;
 
+                //Log Event.
+                this._logger.debug(`Wiring model: ${_Model.name}`);
+
                 this.emit('autoWireModel', _Model.name);
             }
         });
@@ -329,6 +387,8 @@ export default class Service extends EventEmitter {
                 const publisher: Publisher = new _Publisher();
                 this._publishers.push(publisher);
 
+                //Log Event.
+                this._logger.debug(`Adding actions from publisher: ${publisher.name}`);
 
                 this.emit('autoInjectPublisher', publisher.name);
             }
@@ -341,6 +401,9 @@ export default class Service extends EventEmitter {
                 const _Controller = require(file).default;
                 const controller: Controller = new _Controller();
                 this._controllers.push(controller);
+
+                //Log Event.
+                this._logger.debug(`Adding endpoints from controller: ${controller.name}`);
 
                 this.emit('autoInjectController', controller.name);
             }
@@ -391,6 +454,9 @@ export default class Service extends EventEmitter {
      * @param callback optional callback, called when the service is started.
      */
     public start(callback?: () => void) {
+        //Log Event.
+        this._logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
+
         //Emit Global: starting.
         this.emit('starting');
 
@@ -399,16 +465,25 @@ export default class Service extends EventEmitter {
 
         //Start API Server
         apiServer = apiApp.listen(this.apiPort, () => {
+            //Log Event.
+            this._logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
+
             //Emit Global: apiServerListening.
             this.emit('apiServerListening');
 
             //Start STSCP Server
             stscpServer.listen(this.stscpPort, () => {
+                //Log Event.
+                this._logger.info(`STSCP server running on ${this.ip}:${this.stscpPort}`);
+
                 //Emit Global: stscpServerListening.
                 this.emit('stscpServerListening');
 
                 //Start STSCP Client Manager
                 (stscpClientManager.clients.length > 0) && stscpClientManager.connect(() => {
+                    //Log Event.
+                    this._logger.info(`STSCP client manager connected.`);
+
                     //Emit Global: stscpClientManagerConnected.
                     this.emit('stscpClientManagerConnected');
                 });
@@ -416,6 +491,9 @@ export default class Service extends EventEmitter {
                 //Start DB Manager
                 (dbManager.connection) && dbManager.connect((error) => {
                     if (!error) {
+                        //Log Event.
+                        this._logger.info(`DB client connected to ${dbManager.type}://${dbManager.host}/${dbManager.name}`);
+
                         //Emit Global: dbManagerConnected.
                         this.emit('dbManagerConnected');
                     } else {
@@ -427,6 +505,9 @@ export default class Service extends EventEmitter {
                         console.log('Will continue...');
                     }
                 });
+
+                //Log Event.
+                this._logger.info(`${this.name} ready.`);
 
                 //Emit Global: ready.
                 this.emit('ready');
@@ -449,6 +530,9 @@ export default class Service extends EventEmitter {
      * @param callback optional callback, called when the service is stopped.
      */
     public stop(callback: (exitCode: number) => void) {
+        //Log Event.
+        this._logger.info(`Stopping ${this.name}...`);
+
         //Emit Global: stopping.
         this.emit('stopping');
 
@@ -460,6 +544,9 @@ export default class Service extends EventEmitter {
         //Stop API Servers
         apiServer.close((error) => {
             if (!error) {
+                //Log Event.
+                this._logger.info(`Stopped API server.`);
+
                 //Emit Global: apiServerStopped.
                 this.emit('apiServerStopped');
             }
@@ -467,12 +554,18 @@ export default class Service extends EventEmitter {
             //Stop STSCP Servers
             stscpServer.close((error) => {
                 if (!error) {
+                    //Log Event.
+                    this._logger.info(`Stopped STSCP Server.`);
+
                     //Emit Global: stscpServerStopped.
                     this.emit('stscpServerStopped');
                 }
 
                 //Stop STSCP Client Manager
                 (stscpClientManager.clients.length > 0) && stscpClientManager.disconnect(() => {
+                    //Log Event.
+                    this._logger.info(`STSCP client manager disconnected.`);
+
                     //Emit Global: stscpClientManagerDisconnected.
                     this.emit('stscpClientManagerDisconnected');
                 });
@@ -480,10 +573,16 @@ export default class Service extends EventEmitter {
                 //Stop DB Manager
                 (dbManager.connection) && dbManager.disconnect((error) => {
                     if (!error) {
+                        //Log Event.
+                        this._logger.info(`DB Disconnected.`);
+
                         //Emit Global: dbManagerDisconnected.
                         this.emit('dbManagerDisconnected');
                     }
                 });
+
+                //Log Event.
+                this._logger.info(`${this.name} stopped.`);
 
                 //Emit Global: stopped.
                 this.emit('stopped');
@@ -923,46 +1022,15 @@ export default class Service extends EventEmitter {
      */
     public addListeners() {
         //Service
-        this.on('starting', () => console.log('Starting %s: %o', this.name, { version: this.version, environment: this.environment }));
-        this.on('ready', () => console.log('%s ready.', this.name));
-        this.on('stopping', () => console.log('Stopping %s...', this.name));
-        this.on('stopped', () => console.log('%s stopped.', this.name));
+        // stscpServer.on('error', (error: any) => {
+        //     console.error('stscpServer', error);
+        //     console.log('Will continue...');
+        // });
 
-        //API Server
-        this.on('apiServerListening', () => console.log('API server running on %s:%s%s', this.ip, this.apiPort, this.apiBaseUrl));
-        this.on('apiServerStopped', () => console.log('Stopped API server.'));
-
-        //STSCP Server
-        this.on('stscpServerListening', () => console.log('STSCP server running on %s:%s', this.ip, this.stscpPort));
-        this.on('stscpServerStopped', () => console.log('Stopped STSCP Server.'));
-        stscpServer.on('error', (error: any) => {
-            console.error('stscpServer', error);
-            console.log('Will continue...');
-        });
-
-        //STSCP Client Manager
-        this.on('stscpClientManagerConnected', () => console.log('STSCP client manager connected.'));
-        this.on('stscpClientManagerDisconnected', () => console.log('STSCP client manager disconnected.'));
-        this.on('stscpClientConnected', (client: StscpClient) => {
-            console.log('Node connected to stscp://%s:%s', client.host, client.port);
-
-            client.on('error', (error: any) => {
-                console.error('stscpClientManager', error);
-                console.log('Will continue...');
-            });
-
-        });
-        this.on('stscpClientDisconnected', (client: StscpClient) => console.log('Node disconnected from stscp://%s:%s', client.host, client.port));
-        // this.on('stscpClientReconnecting', (client: StscpClient) => console.log('Node reconnecting to stscp://%s:%s', client.host, client.port));
-
-        //DB Manager
-        this.on('dbManagerConnected', () => console.log('DB client connected to %s://%s/%s', dbManager.type, dbManager.host, dbManager.name));
-        this.on('dbManagerDisconnected', () => console.log('DB Disconnected'));
-
-        //Autoload Variables
-        // this.on('autoWireModel', (name) => console.log('Wiring model: %s', name));
-        // this.on('autoInjectPublisher', (name) => console.log('Adding actions from publisher: %s', name));
-        // this.on('autoInjectController', (name) => console.log('Adding endpoints from controller: %s', name));
+        // client.on('error', (error: any) => {
+        //     console.error('stscpClientManager', error);
+        //     console.log('Will continue...');
+        // });
     }
 }
 
@@ -1097,7 +1165,7 @@ export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
-        const action = publisherName + ActionBreak.MAP + propertyKey;
+        const action = publisherName + Action.MAP + propertyKey;
         stscpServer.reply(action, descriptor.value);
     }
 }
