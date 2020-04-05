@@ -2,6 +2,7 @@
 import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes } from 'sequelize';
 import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
+import { Logger } from 'winston';
 
 //Export Libs
 const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
@@ -41,21 +42,21 @@ export default class DBManager {
     /**
      * The name of the database, retrieved from `process.env.DB_NAME`.
      * 
-     * @constant process.env.DB_NAME
+     * @default process.env.DB_NAME
      */
     private _name: string;
 
     /**
      * The username of the database, retrieved from `process.env.DB_USERNAME`.
      * 
-     * @constant process.env.DB_USERNAME
+     * @default process.env.DB_USERNAME
      */
     private _username: string;
 
     /**
      * The password of the database, retrieved from `process.env.DB_PASSWORD`.
      * 
-     * @constant process.env.DB_PASSWORD
+     * @default process.env.DB_PASSWORD
      */
     private _password: string;
 
@@ -65,11 +66,21 @@ export default class DBManager {
     private _connection: Connection;
 
     /**
-     * Creates an instance of a `DBManager`.
+     * The logger instance.
      */
-    public constructor() {
+    private _logger: Logger;
+
+    /**
+     * Creates an instance of a `DBManager`.
+     * 
+     * @param logger the logger instance.
+     */
+    public constructor(logger: Logger) {
         //Set default connected.
         this._connected = false;
+
+        //Initialize Logger.
+        this._logger = logger;
     }
 
     //////////////////////////////
@@ -92,7 +103,7 @@ export default class DBManager {
     /**
      * The name of the database, retrieved from `process.env.DB_NAME`.
      * 
-     * @constant process.env.DB_NAME
+     * @default process.env.DB_NAME
      */
     public get name() {
         return this._name;
@@ -101,7 +112,7 @@ export default class DBManager {
     /**
      * The username of the database, retrieved from `process.env.DB_USERNAME`.
      * 
-     * @constant process.env.DB_USERNAME
+     * @default process.env.DB_USERNAME
      */
     public get username() {
         return this._username;
@@ -110,7 +121,7 @@ export default class DBManager {
     /**
      * The password of the database, retrieved from `process.env.DB_PASSWORD`.
      * 
-     * @constant process.env.DB_PASSWORD
+     * @default process.env.DB_PASSWORD
      */
     public get password() {
         return this._password;
@@ -206,6 +217,9 @@ export default class DBManager {
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
+            mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
+                this._logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
+            });
             //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
         }
 
@@ -214,7 +228,10 @@ export default class DBManager {
             //Sequelize constructor.
             this._connection = new RDB(this._name, this._username, this._password, {
                 host: this._host,
-                dialect: (this._type as Dialect)
+                dialect: (this._type as Dialect),
+                logging: (sql: string) => {
+                    this._logger.info(sql);
+                }
             });
         }
     }

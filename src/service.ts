@@ -13,6 +13,8 @@ import cors from 'cors';
 import createError from 'http-errors';
 import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
+import morgan from 'morgan';
+import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
@@ -118,7 +120,7 @@ export default class Service extends EventEmitter {
     /**
      * The environment of the service, retrieved from `process.env.NODE_ENV`.
      * 
-     * @default `Defaults.ENVIRONMENT`
+     * @default `Default.ENVIRONMENT`
      */
     public readonly environment: string;
 
@@ -248,38 +250,35 @@ export default class Service extends EventEmitter {
      * Initialize logger by setting up winston.
      */
     private initLogger() {
+        //Define _logger format.
         const format = winston.format.combine(
             winston.format.label(),
             winston.format.timestamp(),
             winston.format.printf((info) => {
-                let log: string;
+                //Set info variables
+                const component = info.component ? `${info.component}` : '-';
+                const ms = info.durationMs ? `- ${info.durationMs} ms` : '';
 
-                const timestamp = info.timestamp;
-                const level = info.level.toUpperCase();
-                const message = info.message === undefined ? '' : info.message;
-                const component = info.component;
-
-                if (info.component) {
-                    const id = info.id;
-                    const ip = info.address;
-                    const type = info.type;
-                    const action = info.action === undefined ? '' : info.action.map;
-
-                    log = `${timestamp} | ${level} | ${component} | [${id} - ${ip}]: [${type}] ${action} ${message}`;
-                } else {
-                    log = `${timestamp} | ${level} | ${message}`;
-                }
-
-                return log;
+                //Return the log to stream.
+                return `${info.timestamp} | ${info.level.toUpperCase()} | ${component} | ${info.message} ${ms}`;
             })
         )
 
-        this._logger = winston.createLogger({
-            transports: [
-                new winston.transports.Console({ level: 'debug', format: format }),
-                // new winston.transports.File({ level: 'debug', format: format, filename: 'log.log',  })
-            ]
-        });
+        //Initialize _logger.
+        this._logger = winston.createLogger();
+
+        //Add console transport.
+        this._logger.add(new winston.transports.Console({ level: 'debug', format: format }));
+
+        //Try, Add file transport.
+        if (this.environment !== 'development') {
+            this._logger.add(new WinstonDailyRotateFile({
+                level: 'info',
+                format: format,
+                filename: `${this.name}-%DATE%.log`,
+                datePattern: 'DD-MM-YY-HH',
+            }));
+        }
     }
 
     /**
@@ -293,6 +292,18 @@ export default class Service extends EventEmitter {
         apiApp.options('*', cors());
         apiApp.use(express.json());
         apiApp.use(express.urlencoded({ extended: false }));
+
+        //Setup child logger for API.
+        const apiLogger = this._logger.child({ component: 'API' });
+
+        //Setup Morgan and bind it with Winston.
+        apiApp.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
+            stream: {
+                write: (str: string) => {
+                    apiLogger.info(`${str.trim()}`);
+                }
+            }
+        }));
 
         //Setup proxy pass.
         apiApp.use((request: Request, response: Response, next: NextFunction) => {
@@ -311,10 +322,10 @@ export default class Service extends EventEmitter {
         });
 
         // Default error handler
-        apiApp.use((error: any, request: Request, response: Response, next: NextFunction) => {
+        apiApp.use((error: Error, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
-            response.locals.error = request.app.get('env') === 'development' ? error : {};
-            response.status(error.status || 500).send(error.message);
+            response.locals.error = this.environment === 'development' ? error : {};
+            response.status((error as any).status || 500).send(error.message);
         });
 
         this.addDefaultAPIEndpoints();
@@ -325,14 +336,17 @@ export default class Service extends EventEmitter {
      */
     private initSTSCP() {
         //Setup child logger for STSCP.
-        const stscpServerLogger = this._logger.child({ component: 'stscpServer' });
-        const stscpClientManagerLogger = this._logger.child({ component: 'stscpClientManager' });
+        const stscpLogger = this._logger.child({ component: 'STSCP' });
+        const meshLogger = this._logger.child({ component: 'Mesh' });
 
-        //Setup STSCP
-        stscpServer = new StscpServer(this.name, stscpServerLogger);
-        stscpClientManager = new StscpClientManager(this.name, stscpClientManagerLogger);
+        //Setup STSCP server and bind events.
+        stscpServer = new StscpServer(this.name, stscpLogger);
+        stscpServer.on('error', (error: Error) => {
+            this._logger.error(error.stack);
+        });
 
-        //Bind Events for stscpClientManager
+        //Setup STSCP client manager and bind events.
+        stscpClientManager = new StscpClientManager(this.name, meshLogger);
         stscpClientManager.on('clientConnected', (client: StscpClient) => {
             //Log Event.
             this._logger.info(`Node connected to stscp://${client.host}:${client.port}`);
@@ -347,7 +361,7 @@ export default class Service extends EventEmitter {
         });
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
             //Log Event.
-            this._logger.debug(`Node reconnecting to stscp://${client.host}:${client.port}`);
+            this._logger.silly(`Node reconnecting to stscp://${client.host}:${client.port}`);
 
             this.emit('stscpClientReconnecting', client);
         });
@@ -357,8 +371,11 @@ export default class Service extends EventEmitter {
      * Initialize `DBManager`.
      */
     private initDBManager() {
+        //Setup child logger for DB manager.
+        const dbLogger = this._logger.child({ component: 'DB' });
+
         //Setup DB Manager.
-        dbManager = new DBManager();
+        dbManager = new DBManager(dbLogger);
     }
 
     //////////////////////////////
@@ -449,11 +466,10 @@ export default class Service extends EventEmitter {
             });
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
-                console.error(error.message);
+                this._logger.warn(error.message);
             } else {
-                console.error('dbManager', error);
+                this._logger.error(error.stack);
             }
-            console.log('Will continue...');
         }
     }
 
@@ -510,11 +526,10 @@ export default class Service extends EventEmitter {
                         this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
-                            console.error(error.message);
+                            this._logger.warn(error.message);
                         } else {
-                            console.error('dbManager', error);
+                            this._logger.error(error.stack);
                         }
-                        console.log('Will continue...');
                     }
                 });
 
@@ -550,7 +565,7 @@ export default class Service extends EventEmitter {
 
         setTimeout(() => {
             callback(1);
-            console.error('Forcefully shutting down.');
+            this._logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
         //Stop API Servers
@@ -758,7 +773,10 @@ export default class Service extends EventEmitter {
      * @param nodeName The callable name of the node.
      */
     public defineNode(url: string, nodeName: string) {
-        stscpClientManager.createClient(url, nodeName);
+        const client = stscpClientManager.createClient(url, nodeName);
+        client.on('error', (error: Error) => {
+            this._logger.error(error.stack);
+        });
     }
 
     //////////////////////////////
@@ -872,7 +890,7 @@ export default class Service extends EventEmitter {
         apiRouter.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({ status: true, message: "Will shutdown in 2 seconds..." });
             setTimeout(() => {
-                console.log('Received shutdown from %s', request.url);
+                this._logger.info(`Received shutdown from ${request.url}`);
                 process.kill(process.pid, 'SIGTERM');
             }, 2000);
         });
@@ -964,7 +982,7 @@ export default class Service extends EventEmitter {
         stscpServer.routes.forEach(item => {
             //Create Variables.
             const map = String(item.map);
-            const type = String(item.type).toUpperCase();
+            const type = String(item.type);
 
             //Add to object.
             stscpRoutes[map] = type;
@@ -1009,7 +1027,7 @@ export default class Service extends EventEmitter {
     private addProcessListeners() {
         //Exit
         process.once('SIGTERM', () => {
-            console.log('Received SIGTERM.');
+            this._logger.info('Received SIGTERM.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
@@ -1017,32 +1035,15 @@ export default class Service extends EventEmitter {
 
         //Ctrl + C
         process.on('SIGINT', () => {
-            console.log('Received SIGINT.');
+            this._logger.info('Received SIGINT.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
         });
 
         process.on('unhandledRejection', (reason, promise) => {
-            console.error('Caught: unhandledRejection', reason, promise);
-            console.log('Will continue...');
+            this._logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
-    }
-
-    /**
-     * Adds listeners to call `console.log()`.
-     */
-    public addListeners() {
-        //Service
-        // stscpServer.on('error', (error: any) => {
-        //     console.error('stscpServer', error);
-        //     console.log('Will continue...');
-        // });
-
-        // client.on('error', (error: any) => {
-        //     console.error('stscpClientManager', error);
-        //     console.log('Will continue...');
-        // });
     }
 }
 
@@ -1222,11 +1223,10 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             } catch (error) {
                 if (error instanceof ModelError) {
-                    console.error(error.message);
+                    this._logger.warn(error.message);
                 } else {
-                    console.error('model', error);
+                    this._logger.error(error.stack);
                 }
-                console.log('Will continue...');
             }
         }
     }
