@@ -111,9 +111,9 @@ npm start
 
 By default the service is assigned the following service and environment variables.
 
-| name | version | baseURL | NODE_ENV | API_PORT | STSCP_PORT
-| --- | --- | --- | --- | --- | --- |
-| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000` | `6000` |
+| name               | version               | baseURL  | NODE_ENV     | API_PORT | STSCP_PORT | LOG_PATH |
+|--------------------|-----------------------|----------|--------------|----------|------------|----------|
+| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`   | `6000`     | `/logs`  |
 
 `Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
@@ -144,9 +144,10 @@ const helloMicroService = new MicroService(baseURL, options);
 
 You can also override the environment variables by adding the following optional environment variables to .env file to the root folder of the project.
 ```sh
-NODE_ENV=development
+NODE_ENV='development'
 API_PORT=3001
 STSCP_PORT=6001
+LOG_PATH='/user/logs'
 ```
 
 Congratulations!!! you have successfully created your first Hello ProMicro Service.
@@ -162,6 +163,7 @@ DB_HOST=
 DB_NAME=
 DB_USERNAME=
 DB_PASSWORD=
+LOG_PATH=
 ```
 
 * index.js
@@ -278,17 +280,11 @@ As you can see from the `Report` endpoint, The Service has **magically** found t
 
 * You can configure the injection and auto wire to find files as per your criteria.
 ```javascript
-//Example 1: Exclude all the models in the project.
-heroMicroService.setAutoWireModelOptions({excludes: ['*']});
+//Default for models.
+heroMicroService.setAutoWireModelOptions({ include: { endsWith: ['.model'] } });
 
-//Example 2: Include all the controllers in the project.
-heroMicroService.setAutoInjectControllerOptions({includes: ['*']});
-
-//Example 3: Include only the hero controller in the project.
-heroMicroService.setAutoInjectControllerOptions({includes: ['hero']});
-
-//Example 4: Exclude only the hero model in the project.
-heroMicroService.setAutoWireModelOptions({excludes: ['hero']});
+//Default for Controllers.
+heroMicroService.setAutoInjectControllerOptions({ include: { endsWith: ['.controller'] } });
 ```
 
 # Hero & Sidekick Service

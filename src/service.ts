@@ -254,6 +254,10 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+
+    //////////////////////////////
     //////Init
     //////////////////////////////
     /**
@@ -315,8 +319,8 @@ export default class Service extends EventEmitter {
         //Setup Morgan and bind it with Winston.
         apiApp.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
             stream: {
-                write: (str: string) => {
-                    apiLogger.info(`${str.trim()}`);
+                write: (log: string) => {
+                    apiLogger.info(`${log.trim()}`);
                 }
             }
         }));
@@ -846,7 +850,7 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Model's, Action's, API's
+    //////Gets/Sets
     //////////////////////////////
     /**
      * The autowired `Model`'s under the database `Connection` object.
@@ -867,6 +871,13 @@ export default class Service extends EventEmitter {
      */
     public get controllers() {
         return this._controllers;
+    }
+
+    /**
+     * The logger instance.
+     */
+    public get logger(){
+        return this._logger;
     }
 
     //////////////////////////////
@@ -995,7 +1006,7 @@ export default class Service extends EventEmitter {
             }
 
             //Add to object.
-            apiRoutes[controllerName].push({ fn: functionName, [method]: this.apiBaseUrl + path });
+            apiRoutes[controllerName].push({ fn: functionName, [method]: (this.apiBaseUrl + path) });
         });
 
         return apiRoutes;

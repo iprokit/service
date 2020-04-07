@@ -45,21 +45,38 @@ export default class Gateway extends Service {
      * @param redirect the optional, path of the enpoint in that target service.
      */
     public proxy(url: string, redirect?: string) {
-        let proxyReqPathResolver = (request: Request) => {
-            //Redirect path.
-            return redirect;
-        };
+        //Parse the url.
+        const URL = this.parseUrl(url);
 
-        let proxyReqOptDecorator = (targetRequest: RequestOptions, sourceRequest: Request) => {
+        /**
+         * Internal function to massage the request object.
+         * 
+         * @param targetRequest the outgoing request object.
+         * @param sourceRequest the incoming request object.
+         */
+        const proxyReqOptDecorator = (targetRequest: RequestOptions, sourceRequest: Request) => {
+            //Log Event.
+            this.logger.info(`${sourceRequest.originalUrl} -> http://${URL}${redirect || targetRequest.path}`, { component: 'PROXY' });
+
             //Generate Proxy headers from object.
             Helper.generateProxyHeaders(sourceRequest, targetRequest);
             return targetRequest;
         };
 
+        /**
+         * Internal function to massage the request url.
+         * 
+         * @param request the outgoing request object.
+         */
+        const proxyReqPathResolver = (request: Request) => {
+            //Redirect path.
+            return redirect;
+        };
+
         if (redirect) {
-            return expressProxy(this.parseUrl(url), { proxyReqPathResolver, proxyReqOptDecorator });
+            return expressProxy(URL, { proxyReqOptDecorator, proxyReqPathResolver });
         } else {
-            return expressProxy(this.parseUrl(url), { proxyReqOptDecorator });
+            return expressProxy(URL, { proxyReqOptDecorator });
         }
     }
 
