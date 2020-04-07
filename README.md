@@ -119,17 +119,17 @@ By default the service is assigned the following service and environment variabl
 
 `Health` Endpoint: 
 ```sh
-GET: http://localhost:$apiPort/$name/health
+GET: http://localhost:${apiPort}/${name}/health
 ```
 
 `Report` Endpoint: 
 ```sh
-GET: http://localhost:$apiPort/$name/report
+GET: http://localhost:${apiPort}/${name}/report
 ```
 
 `Shutdown` Endpoint: 
 ```sh
-POST: http://localhost:$apiPort/$name/shutdown
+POST: http://localhost:${apiPort}/${name}/shutdown
 ```
 
 You can override the service variables by assigning options to service constructor like so.
@@ -163,7 +163,6 @@ DB_HOST=
 DB_NAME=
 DB_USERNAME=
 DB_PASSWORD=
-LOG_PATH=
 ```
 
 * index.js
@@ -302,13 +301,25 @@ const heroMicroService = new MicroService();
  * Define the `Node` object.
  * localhost:6002: is the host address of the `Node`.
  * sidekickSvc: is the callable name of that `Node`.
- * 
  */
 heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
 
+/**
+ * Define broadcast names.
+ */
+this.defineBroadcast('hero.poke');
+
 //Start the microservice.
 heroMicroService.start(() => {
-    console.log('Hero Microservice has started.');
+    console.log('Hero Microservice started.');
+
+    //Send a broadcast every 5 seconds.
+    for(let i = 0; i <= 10; i++){
+        setTimeout(() => {
+            const body = { message: 'Poke' };
+            MicroService.broadcast('hero.poke', body);
+        }, 5 * 1000);
+    }
 });
 ```
 
@@ -345,7 +356,7 @@ export default class HeroController extends Controller {
 ## Sidekick Service
 * index.js
 ```javascript
-import MicroService from '@iprotechs/promicro';
+import MicroService, { Mesh } from '@iprotechs/promicro';
 
 //Declare microservice.
 const sidekickMicroService = new MicroService();
@@ -357,6 +368,11 @@ const sidekickMicroService = new MicroService();
  * 
  */
 sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
+
+//Listen to broadcast from heroSvc.
+Mesh.heroSvc.on('hero.poke', (body) => {
+    console.log(`HeroSvc has poked me: ${body}`);
+});
 
 //Start the microservice.
 sidekickMicroService.start(() => {

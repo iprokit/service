@@ -498,7 +498,7 @@ export default class Service extends EventEmitter {
             });
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
-                this._logger.warn(error.message);
+                this._logger.error(error.message);
             } else {
                 this._logger.error(error.stack);
             }
@@ -558,7 +558,7 @@ export default class Service extends EventEmitter {
                         this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
-                            this._logger.warn(error.message);
+                            this._logger.error(error.message);
                         } else {
                             this._logger.error(error.stack);
                         }
