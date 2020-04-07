@@ -352,7 +352,7 @@ export default class DBManager {
         try {
             this.models.map(model => (model as typeof RDBModel).associate());
         } catch (error) {
-            console.error(error);
+            this._logger.error(error.stack);
         }
 
         //Start Connection.
@@ -433,10 +433,10 @@ export default class DBManager {
 
                 try {
                     if (force) {
-                        console.log('EXECUTING: DROP COLLECTION IF EXISTS `%s`;', name);
+                        this._logger.info(`EXECUTING: DROP COLLECTION IF EXISTS ${name}`);
                         await (this._connection as NoSQL).db.dropCollection(name);
                     }
-                    console.log('EXECUTING: CREATE COLLECTION IF NOT EXISTS `%s`;', name);
+                    this._logger.info(`EXECUTING: CREATE COLLECTION IF NOT EXISTS ${name}`);
                     await model.createCollection();
                 } catch (error) {
                     if (error.code === 26) {

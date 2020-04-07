@@ -29,4 +29,11 @@ export default class Default {
      * @default 1000 * 5
      */
     public static readonly FORCE_STOP_TIME: number = 1000 * 5;
+
+    /**
+     * The default path to log files of the service.
+     * 
+     * @default '/logs'
+     */
+    public static readonly LOG_PATH: string = '/logs';
 }

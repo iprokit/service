@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, Action } from '@iprotechs/stscp';
+import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, Action, StatusType, Logging } from '@iprotechs/stscp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -139,23 +139,30 @@ export default class Service extends EventEmitter {
     /**
      * The API Server port of the service, retrieved from `process.env.API_PORT`.
      * 
-     * @default `Defaults.API_PORT`
+     * @default `Default.API_PORT`
      */
     public readonly apiPort: number;
 
     /**
      * The STSCP Server port of the service, retrieved from `process.env.STSCP_PORT`.
      * 
-     * @default `Defaults.STSCP_PORT`
+     * @default `Default.STSCP_PORT`
      */
     public readonly stscpPort: number;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      * 
-     * @default `Defaults.FORCE_STOP_TIME`
+     * @default `Default.FORCE_STOP_TIME`
      */
     public forceStopTime: number;
+
+    /**
+     * The path to log files of the service, retrieved from `process.env.LOG_PATH`.
+     * 
+     * @default `Default.LOG_PATH`
+     */
+    public readonly logPath: string;
 
     /**
      * The autoinjected `Publisher`'s under this service.
@@ -223,6 +230,9 @@ export default class Service extends EventEmitter {
         //Initialize STSCP variables.
         this.stscpPort = Number(process.env.STSCP_PORT) || Default.STSCP_PORT;
 
+        //Initialize Logger variables.
+        this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
+
         //Initialize Action's/API's
         this._publishers = new Array();
         this._controllers = new Array();
@@ -257,10 +267,9 @@ export default class Service extends EventEmitter {
             winston.format.printf((info) => {
                 //Set info variables
                 const component = info.component ? `${info.component}` : '-';
-                const ms = info.durationMs ? `- ${info.durationMs} ms` : '';
 
                 //Return the log to stream.
-                return `${info.timestamp} | ${info.level.toUpperCase()} | ${component} | ${info.message} ${ms}`;
+                return `${info.timestamp} | ${info.level.toUpperCase()} | ${component} | ${info.message}`;
             })
         )
 
@@ -272,11 +281,18 @@ export default class Service extends EventEmitter {
 
         //Try, Add file transport.
         if (this.environment !== 'development') {
+            //Try creating path if it does not exist.
+            if (!fs.existsSync(this.logPath)) {
+                fs.mkdirSync(this.logPath);
+            }
+
+            //Add file transport.
             this._logger.add(new WinstonDailyRotateFile({
                 level: 'info',
                 format: format,
                 filename: `${this.name}-%DATE%.log`,
                 datePattern: 'DD-MM-YY-HH',
+                dirname: this.logPath
             }));
         }
     }
@@ -339,14 +355,26 @@ export default class Service extends EventEmitter {
         const stscpLogger = this._logger.child({ component: 'STSCP' });
         const meshLogger = this._logger.child({ component: 'Mesh' });
 
+        const stscpLoggerWrite: Logging = {
+            action: (id, remoteAddress, verbose, action, status, ms) => {
+                stscpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            }
+        }
+
+        const meshLoggerWrite: Logging = {
+            action: (id, remoteAddress, verbose, action, status, ms) => {
+                meshLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            }
+        }
+
         //Setup STSCP server and bind events.
-        stscpServer = new StscpServer(this.name, stscpLogger);
+        stscpServer = new StscpServer(this.name, stscpLoggerWrite);
         stscpServer.on('error', (error: Error) => {
             this._logger.error(error.stack);
         });
 
         //Setup STSCP client manager and bind events.
-        stscpClientManager = new StscpClientManager(this.name, meshLogger);
+        stscpClientManager = new StscpClientManager(this.name, meshLoggerWrite);
         stscpClientManager.on('clientConnected', (client: StscpClient) => {
             //Log Event.
             this._logger.info(`Node connected to stscp://${client.host}:${client.port}`);
@@ -872,7 +900,8 @@ export default class Service extends EventEmitter {
                         ip: this.ip,
                         apiPort: this.apiPort,
                         stscpPort: this.stscpPort,
-                        environment: this.environment
+                        environment: this.environment,
+                        logPath: this.logPath
                     },
                     system: this.getSystemReport(),
                     db: dbManager.connection && this.getDBReport(),
