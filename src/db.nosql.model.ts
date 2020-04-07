@@ -1,5 +1,5 @@
 //Import modules
-import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document } from 'mongoose';
+import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document, ModelUpdateOptions } from 'mongoose';
 
 /**
  * A generic `NoSQLModel` is a wrapper around `Mongoose` model.
@@ -25,7 +25,7 @@ export default class NoSQLModel {
      * 
      * @returns the created record/'s.
      * 
-     * @alias `model.create()`
+     * @alias `$model.create()`
      */
     public static async create(...records: any[]) {
         return await this._model.create(records);
@@ -39,7 +39,7 @@ export default class NoSQLModel {
      * @alias `model.find()`
      */
     public static async getAll() {
-        return await this._model.find();
+        return await this.find();
     }
 
     /**
@@ -54,9 +54,9 @@ export default class NoSQLModel {
      */
     public static async getAllOrderByCreatedAt(orderType: 'new' | 'old') {
         if (orderType === 'new') {
-            return await this._model.find().sort({ createdAt: -1 });
+            return await this.find().sort({ createdAt: -1 });
         } else if (orderType === 'old') {
-            return await this._model.find().sort({ createdAt: 1 });
+            return await this.find().sort({ createdAt: 1 });
         }
     }
 
@@ -72,7 +72,7 @@ export default class NoSQLModel {
      * @alias `model.findOne()`
      */
     public static async getOneByID(id: any) {
-        return await this._model.findOne({ _id: id })
+        return await this.findOne({ _id: id })
             .then(async data => {
                 if (data) {
                     return data
@@ -98,7 +98,7 @@ export default class NoSQLModel {
      * @alias `model.updateOne()`
      */
     public static async updateOneByID(id: any, values: any) {
-        return await this._model.updateOne({ _id: id }, values)
+        return await this.updateOne({ _id: id }, values)
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.nModified === 0) {
                     throw new Error('No records found!');
@@ -123,7 +123,7 @@ export default class NoSQLModel {
      * @alias `model.deleteOne()`
      */
     public static async deleteOneByID(id: any) {
-        return await this._model.deleteOne({ _id: id })
+        return await this.deleteOne({ _id: id })
             .then(async affectedRows => {
                 if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
                     throw new Error('No records found!');
@@ -134,6 +134,121 @@ export default class NoSQLModel {
             .catch(error => {
                 throw error;
             });
+    }
+
+    //////////////////////////////
+    //////Wrappers
+    //////////////////////////////
+    /**
+     * Performs asynchronous, get one record.
+     * 
+     * @param conditions the record to retrieve by conditions.
+     * @param projection the optional fields to return.
+     * @param options the options.
+     * 
+     * @returns the record found.
+     * 
+     * @alias `$model.findOne()`
+     */
+    public static findOne(conditions?: any, projection?: any, options?: any) {
+        return this._model.findOne(conditions, projection, options);
+    }
+
+    /**
+     * Performs asynchronous, get records.
+     * 
+     * @param conditions the records to retrieve by conditions.
+     * @param projection the optional fields to return.
+     * @param options the options.
+     * 
+     * @returns the records found.
+     * 
+     * @alias `$model.find()`
+     */
+    public static find(conditions?: any, projection?: any, options?: any) {
+        return this._model.find(conditions, projection, options);
+    }
+
+    /**
+     * Performs asynchronous, update one record.
+     * 
+     * @param conditions the record to update by conditions.
+     * @param doc the doc of the record.
+     * @param options the options.
+     * 
+     * @returns the record updated.
+     * 
+     * @alias `$model.updateOne()`
+     */
+    public static updateOne(conditions: any, doc: any, options?: ModelUpdateOptions) {
+        return this._model.updateOne(conditions, doc, options);
+    }
+
+    /**
+     * Performs asynchronous, update many records.
+     * 
+     * @param conditions the records to update by conditions.
+     * @param doc the doc of the record.
+     * @param options the options.
+     * 
+     * @returns the records updated.
+     * 
+     * @alias `$model.updateMany()`
+     */
+    public static updateMany(conditions: any, doc: any, options?: ModelUpdateOptions) {
+        return this._model.updateMany(conditions, doc, options);
+    }
+
+    /**
+     * Performs asynchronous, delete one record.
+     * 
+     * @param conditions the record to delete by conditions.
+     * 
+     * @returns the record deleted.
+     * 
+     * @alias `$model.deleteOne()`
+     */
+    public static deleteOne(conditions: any) {
+        return this._model.deleteOne(conditions);
+    }
+
+    /**
+     * Performs asynchronous, delete many records.
+     * 
+     * @param conditions the records to delete by conditions.
+     * 
+     * @returns the records deleted.
+     * 
+     * @alias `$model.deleteMany()`
+     */
+    public static deleteMany(conditions: any) {
+        return this._model.deleteMany(conditions);
+    }
+
+    /**
+     * Performs asynchronous, aggregations on the records.
+     * 
+     * @param conditions the records to aggregate.
+     * 
+     * @returns the records aggregated.
+     * 
+     * @alias `$model.aggregate()`
+     */
+    public static aggregate(aggregations?: any[]) {
+        return this._model.aggregate(aggregations);
+    }
+
+    /**
+     * Performs asynchronous, counts number of matching records.
+     * 
+     * @param conditions the records to count by conditions.
+     * 
+     * @returns the count.
+     * 
+     * @alias `$model.count()`
+     */
+    public static count(conditions: any) {
+        return this._model.count(conditions);
     }
 
     //////////////////////////////
@@ -171,7 +286,6 @@ export default class NoSQLModel {
         this.mongoose = options.mongoose;
         this._model = this.mongoose.model(options.modelName, schema, options.collectionName);
     }
-
 }
 
 //////////////////////////////
@@ -201,5 +315,3 @@ export interface InitOptions {
      */
     timestamps: boolean;
 }
-
-//TODO: https://iprotechs.atlassian.net/browse/PMICRO-52
