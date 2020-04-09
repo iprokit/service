@@ -35,7 +35,7 @@ The underyling API is built on `Express` and the database managment is done by `
 * Generic/Customizable Controllers, Models, Publishers
 * Autowire & Inject Classes and Objects
 * Auto Create Endpoints
-* Production ready Logging
+* Production Ready Logging
 * Supports Versioned Services
 * Master-less Architecture
 * Docker Compatible
@@ -308,7 +308,7 @@ heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
 /**
  * Define broadcast names.
  */
-this.defineBroadcast('hero.poke');
+heroMicroService.defineBroadcast('hero.poke');
 
 //Start the microservice.
 heroMicroService.start(() => {
@@ -338,7 +338,7 @@ export default class HeroPublisher extends Publisher {
 
 * hero.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, NodeError, ErrorReply } from '@iprotechs/promicro';
 
 export default class HeroController extends Controller {
     @Get('/')
@@ -349,14 +349,13 @@ export default class HeroController extends Controller {
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
             //When node is unavailable.
-            if(error instanceof SocketError){
+            if(error instanceof NodeError){
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
             if(error instanceof ErrorReply){
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                console.log(error.message);
                 return;
             }
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
@@ -406,7 +405,7 @@ export default class SidekickPublisher extends Publisher {
 
 * sidekick.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, NodeError, ErrorReply } from '@iprotechs/promicro';
 
 export default class SidekickController extends Controller {
     @Get('/')
@@ -417,14 +416,13 @@ export default class SidekickController extends Controller {
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
             //When node is unavailable.
-            if(error instanceof SocketError){
+            if(error instanceof NodeError){
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
             if(error instanceof ErrorReply){
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                console.log(error.message);
                 return;
             }
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
@@ -459,7 +457,7 @@ gatewayService.start(() => {
 ```
 
 ## Versions:
-| Version | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 2.1.0   | Resolved null body and greeting bug by updating to STSCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and publishers. Upgraded wire functions to handle file filters. Exposes models, controllers, publishers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
-| 2.0.0   | Deprecated MQTT and implemented STSCP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Version | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.1.0   | Resolved null body and greeting bug by updating to STSCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Throws `NodeError` when node is unavailable. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and publishers. Upgraded wire functions to handle file filters. Exposes models, controllers, publishers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
+| 2.0.0   | Deprecated MQTT and implemented STSCP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

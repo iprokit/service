@@ -872,7 +872,7 @@ export default class Service extends EventEmitter {
     /**
      * The logger instance.
      */
-    public get logger(){
+    public get logger() {
         return this._logger;
     }
 
