@@ -377,19 +377,19 @@ export default class Service extends EventEmitter {
         stscpClientManager = new StscpClientManager(this.name, meshLoggerWrite);
         stscpClientManager.on('clientConnected', (client: StscpClient) => {
             //Log Event.
-            this._logger.info(`Node connected to stscp://${client.host}:${client.port}`);
+            this._logger.info(`Node connected to stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientConnected', client);
         });
         stscpClientManager.on('clientDisconnected', (client: StscpClient) => {
             //Log Event.
-            this._logger.info(`Node disconnected from stscp://${client.host}:${client.port}`);
+            this._logger.info(`Node disconnected from stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientDisconnected', client);
         });
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
             //Log Event.
-            this._logger.silly(`Node reconnecting to stscp://${client.host}:${client.port}`);
+            this._logger.silly(`Node reconnecting to stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientReconnecting', client);
         });
@@ -801,7 +801,7 @@ export default class Service extends EventEmitter {
      * @param nodeName The callable name of the node.
      */
     public defineNode(url: string, nodeName: string) {
-        const client = stscpClientManager.createClient(url, nodeName);
+        const client = stscpClientManager.createClient(`stscp://${url}`, nodeName);
         client.on('error', (error: Error) => {
             this._logger.error(error.stack);
         });
@@ -1037,7 +1037,7 @@ export default class Service extends EventEmitter {
         stscpClientManager.clients.forEach(item => {
             const client = {
                 name: item.node.name,
-                host: item.host,
+                hostname: item.hostname,
                 port: item.port,
                 connected: item.connected,
                 reconnecting: item.reconnecting,

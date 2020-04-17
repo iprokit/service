@@ -210,7 +210,7 @@ export default class DBManager {
         //Initialize NoSQL connection object.
         if (this.noSQL) {
             //Mongoose connection.
-            this._connection = mongoose.createConnection('mongodb://' + this._host, {
+            this._connection = mongoose.createConnection(`mongodb://${this._host}`, {
                 dbName: this._name,
                 user: this._username,
                 pass: this._password,

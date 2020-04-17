@@ -2,6 +2,7 @@
 import { Request } from 'express';
 import expressProxy from 'express-http-proxy';
 import { RequestOptions } from 'https';
+import { URL } from 'url';
 
 //Local Imports
 import Default from './default';
@@ -45,8 +46,9 @@ export default class Gateway extends Service {
      * @param redirect the optional, path of the enpoint in that target service.
      */
     public proxy(url: string, redirect?: string) {
-        //Parse the url.
-        const URL = this.parseUrl(url);
+        //Define URL.
+        const _url = new URL(`http://${url}`);
+        _url.port = _url.port === '' ? Default.API_PORT.toString() : _url.port;
 
         /**
          * Internal function to massage the request object.
@@ -56,7 +58,7 @@ export default class Gateway extends Service {
          */
         const proxyReqOptDecorator = (targetRequest: RequestOptions, sourceRequest: Request) => {
             //Log Event.
-            this.logger.info(`${sourceRequest.originalUrl} -> http://${URL}${redirect || targetRequest.path}`, { component: 'PROXY' });
+            this.logger.info(`${sourceRequest.originalUrl} -> http://${_url}${redirect || targetRequest.path}`, { component: 'PROXY' });
 
             //Generate Proxy headers from object.
             Helper.generateProxyHeaders(sourceRequest, targetRequest);
@@ -74,29 +76,9 @@ export default class Gateway extends Service {
         };
 
         if (redirect) {
-            return expressProxy(URL, { proxyReqOptDecorator, proxyReqPathResolver });
+            return expressProxy(_url.host, { proxyReqOptDecorator, proxyReqPathResolver });
         } else {
-            return expressProxy(URL, { proxyReqOptDecorator });
+            return expressProxy(_url.host, { proxyReqOptDecorator });
         }
-    }
-
-    //////////////////////////////
-    //////Helpers
-    //////////////////////////////
-    /**
-     * Helper to parse the url. Adds the port to the url if no port exists.
-     * 
-     * @param url the url to parse.
-     * 
-     * @default Defaults.API_PORT
-     */
-    public parseUrl(url: string) {
-        //Split url into host and port.
-        const _url = url.split(':');
-        const _host = _url[0];
-        const _port = Number(_url[1]) || Default.API_PORT;
-
-        //New URL
-        return _host + ':' + _port;
     }
 }
