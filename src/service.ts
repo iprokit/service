@@ -49,11 +49,6 @@ let apiRouter: Router;
 let apiServer: HttpServer;
 
 /**
- * The dbManager, i.e: `DBManager`.
- */
-let dbManager: DBManager;
-
-/**
  * The stscpServer, i.e: `StscpServer`.
  */
 let stscpServer: StscpServer;
@@ -72,6 +67,11 @@ let stscpClientManager: StscpClientManager;
  * which can be declared with `service.defineNode()`.
  */
 export const Mesh: StscpMesh = StscpClientManager.mesh;
+
+/**
+ * The dbManager, i.e: `DBManager`.
+ */
+let dbManager: DBManager;
 
 /**
  * This class is an implementation of a simple and lightweight service.
