@@ -74,6 +74,11 @@ export const Mesh: StscpMesh = StscpClientManager.mesh;
 let dbManager: DBManager;
 
 /**
+ * The logger instance.
+ */
+let logger: Logger;
+
+/**
  * This class is an implementation of a simple and lightweight service.
  * It can be used to implement a service/micro-service.
  * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
@@ -199,11 +204,6 @@ export default class Service extends EventEmitter {
     private _autoInjectControllerOptions: FileOptions;
 
     /**
-     * The logger instance.
-     */
-    private _logger: Logger;
-
-    /**
      * Creates an instance of a `Service`.
      * 
      * @param baseUrl the optional, base/root url.
@@ -274,10 +274,10 @@ export default class Service extends EventEmitter {
         )
 
         //Initialize _logger.
-        this._logger = winston.createLogger();
+        logger = winston.createLogger();
 
         //Add console transport.
-        this._logger.add(new winston.transports.Console({ level: 'debug', format: format }));
+        logger.add(new winston.transports.Console({ level: 'debug', format: format }));
 
         //Try, Add file transport.
         if (this.environment !== 'development') {
@@ -287,7 +287,7 @@ export default class Service extends EventEmitter {
             }
 
             //Add file transport.
-            this._logger.add(new WinstonDailyRotateFile({
+            logger.add(new WinstonDailyRotateFile({
                 level: 'info',
                 format: format,
                 filename: `${this.name}-%DATE%.log`,
@@ -310,7 +310,7 @@ export default class Service extends EventEmitter {
         apiApp.use(express.urlencoded({ extended: false }));
 
         //Setup child logger for API.
-        const apiLogger = this._logger.child({ component: 'API' });
+        const apiLogger = logger.child({ component: 'API' });
 
         //Setup Morgan and bind it with Winston.
         apiApp.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
@@ -352,8 +352,8 @@ export default class Service extends EventEmitter {
      */
     private initSTSCP() {
         //Setup child logger for STSCP.
-        const stscpLogger = this._logger.child({ component: 'STSCP' });
-        const meshLogger = this._logger.child({ component: 'Mesh' });
+        const stscpLogger = logger.child({ component: 'STSCP' });
+        const meshLogger = logger.child({ component: 'Mesh' });
 
         const stscpLoggerWrite: Logging = {
             action: (id, remoteAddress, verbose, action, status, ms) => {
@@ -370,26 +370,26 @@ export default class Service extends EventEmitter {
         //Setup STSCP server and bind events.
         stscpServer = new StscpServer(this.name, stscpLoggerWrite);
         stscpServer.on('error', (error: Error) => {
-            this._logger.error(error.stack);
+            logger.error(error.stack);
         });
 
         //Setup STSCP client manager and bind events.
         stscpClientManager = new StscpClientManager(this.name, meshLoggerWrite);
         stscpClientManager.on('clientConnected', (client: StscpClient) => {
             //Log Event.
-            this._logger.info(`Node connected to stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node connected to stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientConnected', client);
         });
         stscpClientManager.on('clientDisconnected', (client: StscpClient) => {
             //Log Event.
-            this._logger.info(`Node disconnected from stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node disconnected from stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientDisconnected', client);
         });
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
             //Log Event.
-            this._logger.silly(`Node reconnecting to stscp://${client.hostname}:${client.port}`);
+            logger.silly(`Node reconnecting to stscp://${client.hostname}:${client.port}`);
 
             this.emit('stscpClientReconnecting', client);
         });
@@ -400,7 +400,7 @@ export default class Service extends EventEmitter {
      */
     private initDBManager() {
         //Setup child logger for DB manager.
-        const dbLogger = this._logger.child({ component: 'DB' });
+        const dbLogger = logger.child({ component: 'DB' });
 
         //Setup DB Manager.
         dbManager = new DBManager(dbLogger);
@@ -430,7 +430,7 @@ export default class Service extends EventEmitter {
                 const _Model: Model = require(file).default;
 
                 //Log Event.
-                this._logger.debug(`Wiring model: ${_Model.name}`);
+                logger.debug(`Wiring model: ${_Model.name}`);
 
                 this.emit('autoWireModel', _Model.name);
             }
@@ -445,7 +445,7 @@ export default class Service extends EventEmitter {
                 this._publishers.push(publisher);
 
                 //Log Event.
-                this._logger.debug(`Adding actions from publisher: ${publisher.name}`);
+                logger.debug(`Adding actions from publisher: ${publisher.name}`);
 
                 this.emit('autoInjectPublisher', publisher.name);
             }
@@ -460,7 +460,7 @@ export default class Service extends EventEmitter {
                 this._controllers.push(controller);
 
                 //Log Event.
-                this._logger.debug(`Adding endpoints from controller: ${controller.name}`);
+                logger.debug(`Adding endpoints from controller: ${controller.name}`);
 
                 this.emit('autoInjectController', controller.name);
             }
@@ -494,9 +494,9 @@ export default class Service extends EventEmitter {
             });
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
-                this._logger.error(error.message);
+                logger.error(error.message);
             } else {
-                this._logger.error(error.stack);
+                logger.error(error.stack);
             }
         }
     }
@@ -511,7 +511,7 @@ export default class Service extends EventEmitter {
      */
     public start(callback?: () => void) {
         //Log Event.
-        this._logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
+        logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
 
         //Emit Global: starting.
         this.emit('starting');
@@ -522,7 +522,7 @@ export default class Service extends EventEmitter {
         //Start API Server
         apiServer = apiApp.listen(this.apiPort, () => {
             //Log Event.
-            this._logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
+            logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
 
             //Emit Global: apiServerListening.
             this.emit('apiServerListening');
@@ -530,7 +530,7 @@ export default class Service extends EventEmitter {
             //Start STSCP Server
             stscpServer.listen(this.stscpPort, () => {
                 //Log Event.
-                this._logger.info(`STSCP server running on ${this.ip}:${this.stscpPort}`);
+                logger.info(`STSCP server running on ${this.ip}:${this.stscpPort}`);
 
                 //Emit Global: stscpServerListening.
                 this.emit('stscpServerListening');
@@ -538,7 +538,7 @@ export default class Service extends EventEmitter {
                 //Start STSCP Client Manager
                 (stscpClientManager.clients.length > 0) && stscpClientManager.connect(() => {
                     //Log Event.
-                    this._logger.info(`STSCP client manager connected.`);
+                    logger.info(`STSCP client manager connected.`);
 
                     //Emit Global: stscpClientManagerConnected.
                     this.emit('stscpClientManagerConnected');
@@ -548,21 +548,21 @@ export default class Service extends EventEmitter {
                 (dbManager.connection) && dbManager.connect((error) => {
                     if (!error) {
                         //Log Event.
-                        this._logger.info(`DB client connected to ${dbManager.type}://${dbManager.host}/${dbManager.name}`);
+                        logger.info(`DB client connected to ${dbManager.type}://${dbManager.host}/${dbManager.name}`);
 
                         //Emit Global: dbManagerConnected.
                         this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
-                            this._logger.error(error.message);
+                            logger.error(error.message);
                         } else {
-                            this._logger.error(error.stack);
+                            logger.error(error.stack);
                         }
                     }
                 });
 
                 //Log Event.
-                this._logger.info(`${this.name} ready.`);
+                logger.info(`${this.name} ready.`);
 
                 //Emit Global: ready.
                 this.emit('ready');
@@ -586,21 +586,21 @@ export default class Service extends EventEmitter {
      */
     public stop(callback: (exitCode: number) => void) {
         //Log Event.
-        this._logger.info(`Stopping ${this.name}...`);
+        logger.info(`Stopping ${this.name}...`);
 
         //Emit Global: stopping.
         this.emit('stopping');
 
         setTimeout(() => {
             callback(1);
-            this._logger.error('Forcefully shutting down.');
+            logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
         //Stop API Servers
         apiServer.close((error) => {
             if (!error) {
                 //Log Event.
-                this._logger.info(`Stopped API server.`);
+                logger.info(`Stopped API server.`);
 
                 //Emit Global: apiServerStopped.
                 this.emit('apiServerStopped');
@@ -610,7 +610,7 @@ export default class Service extends EventEmitter {
             stscpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    this._logger.info(`Stopped STSCP Server.`);
+                    logger.info(`Stopped STSCP Server.`);
 
                     //Emit Global: stscpServerStopped.
                     this.emit('stscpServerStopped');
@@ -619,7 +619,7 @@ export default class Service extends EventEmitter {
                 //Stop STSCP Client Manager
                 (stscpClientManager.clients.length > 0) && stscpClientManager.disconnect(() => {
                     //Log Event.
-                    this._logger.info(`STSCP client manager disconnected.`);
+                    logger.info(`STSCP client manager disconnected.`);
 
                     //Emit Global: stscpClientManagerDisconnected.
                     this.emit('stscpClientManagerDisconnected');
@@ -629,7 +629,7 @@ export default class Service extends EventEmitter {
                 (dbManager.connection) && dbManager.disconnect((error) => {
                     if (!error) {
                         //Log Event.
-                        this._logger.info(`DB Disconnected.`);
+                        logger.info(`DB Disconnected.`);
 
                         //Emit Global: dbManagerDisconnected.
                         this.emit('dbManagerDisconnected');
@@ -637,7 +637,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Log Event.
-                this._logger.info(`${this.name} stopped.`);
+                logger.info(`${this.name} stopped.`);
 
                 //Emit Global: stopped.
                 this.emit('stopped');
@@ -803,7 +803,7 @@ export default class Service extends EventEmitter {
     public defineNode(url: string, nodeName: string) {
         const client = stscpClientManager.createClient(`stscp://${url}`, nodeName);
         client.on('error', (error: Error) => {
-            this._logger.error(error.stack);
+            logger.error(error.stack);
         });
     }
 
@@ -873,7 +873,7 @@ export default class Service extends EventEmitter {
      * The logger instance.
      */
     public get logger() {
-        return this._logger;
+        return logger;
     }
 
     //////////////////////////////
@@ -926,7 +926,7 @@ export default class Service extends EventEmitter {
         apiRouter.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({ status: true, message: "Will shutdown in 2 seconds..." });
             setTimeout(() => {
-                this._logger.info(`Received shutdown from ${request.url}`);
+                logger.info(`Received shutdown from ${request.url}`);
                 process.kill(process.pid, 'SIGTERM');
             }, 2000);
         });
@@ -1063,7 +1063,7 @@ export default class Service extends EventEmitter {
     private addProcessListeners() {
         //Exit
         process.once('SIGTERM', () => {
-            this._logger.info('Received SIGTERM.');
+            logger.info('Received SIGTERM.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
@@ -1071,14 +1071,14 @@ export default class Service extends EventEmitter {
 
         //Ctrl + C
         process.on('SIGINT', () => {
-            this._logger.info('Received SIGINT.');
+            logger.info('Received SIGINT.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
         });
 
         process.on('unhandledRejection', (reason, promise) => {
-            this._logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
+            logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
     }
 }
@@ -1259,9 +1259,9 @@ export function Entity(entityOptions: EntityOptions): ModelClass {
                 dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
             } catch (error) {
                 if (error instanceof ModelError) {
-                    this._logger.warn(error.message);
+                    logger.warn(error.message);
                 } else {
-                    this._logger.error(error.stack);
+                    logger.error(error.stack);
                 }
             }
         }
