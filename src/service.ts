@@ -377,19 +377,19 @@ export default class Service extends EventEmitter {
         stscpClientManager = new StscpClientManager(this.name, meshLoggerWrite);
         stscpClientManager.on('clientConnected', (client: StscpClient) => {
             //Log Event.
-            logger.info(`Node connected to stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node connected to stscp://${client.host}:${client.port}`);
 
             this.emit('stscpClientConnected', client);
         });
         stscpClientManager.on('clientDisconnected', (client: StscpClient) => {
             //Log Event.
-            logger.info(`Node disconnected from stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node disconnected from stscp://${client.host}:${client.port}`);
 
             this.emit('stscpClientDisconnected', client);
         });
         stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
             //Log Event.
-            logger.silly(`Node reconnecting to stscp://${client.hostname}:${client.port}`);
+            logger.silly(`Node reconnecting to stscp://${client.host}:${client.port}`);
 
             this.emit('stscpClientReconnecting', client);
         });
@@ -1037,7 +1037,7 @@ export default class Service extends EventEmitter {
         stscpClientManager.clients.forEach(item => {
             const client = {
                 name: item.node.name,
-                hostname: item.hostname,
+                hostname: item.host,
                 port: item.port,
                 connected: item.connected,
                 reconnecting: item.reconnecting,
