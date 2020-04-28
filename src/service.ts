@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Server as StscpServer, ClientManager as StscpClientManager, Client as StscpClient, Mesh as StscpMesh, MessageReplyHandler, Body, Action, StatusType, Logging } from '@iprotechs/stscp';
+import scp, { Server as ScpServer, ClientManager as ScpClientManager, NodeClient, Mesh as ScpMesh, MessageReplyHandler, Body, Action, StatusType, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -15,6 +15,7 @@ import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
 import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
+import { URL } from 'url';
 
 //Load Environment variables from .env file.
 const projectPath = path.dirname(require.main.filename);
@@ -26,7 +27,7 @@ if (fs.existsSync(envPath)) {
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
-import Publisher from './stscp.publisher';
+import Publisher from './scp.publisher';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
 
@@ -36,12 +37,12 @@ import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, Connecti
 /**
  * The apiApp, i.e: `Express`.
  */
-let apiApp: Express;
+let apiApp: Express = express();
 
 /**
  * The apiRouter, i.e: `ExpressRouter`.
  */
-let apiRouter: Router;
+let apiRouter: Router = express.Router();
 
 /**
  * The apiServer, i.e: `HttpServer`.
@@ -49,24 +50,24 @@ let apiRouter: Router;
 let apiServer: HttpServer;
 
 /**
- * The stscpServer, i.e: `StscpServer`.
+ * The scpServer, i.e: `ScpServer`.
  */
-let stscpServer: StscpServer;
+let scpServer: ScpServer = scp.createServer();
 
 /**
- * The stscpClientManager, i.e: `StscpClientManager`.
+ * The scpClientManager, i.e: `ScpClientManager`.
  */
-let stscpClientManager: StscpClientManager;
+let scpClientManager: ScpClientManager = scp.createClientManager();
 
 /**
  * `Mesh` is a representation of unique server's in the form of Object's.
  *
  * During runtime:
  * `Node` objects are populated into `Mesh` with its name as a get accessor.
- * All the `Node` objects are exposed in this with its callable name,
+ * All the `Node` objects are exposed in this with its node name,
  * which can be declared with `service.defineNode()`.
  */
-export const Mesh: StscpMesh = StscpClientManager.mesh;
+export const Mesh: ScpMesh = scpClientManager.mesh;
 
 /**
  * The dbManager, i.e: `DBManager`.
@@ -81,7 +82,7 @@ let logger: Logger;
 /**
  * This class is an implementation of a simple and lightweight service.
  * It can be used to implement a service/micro-service.
- * It can communicate with other `Service`'s using STSCP(service to service communication protocol).
+ * It can communicate with other `Service`'s using SCP(service communication protocol).
  * The API Server is built on top of `Express` and its components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
  * It auto wires and injects, generic `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
@@ -98,13 +99,13 @@ let logger: Logger;
  * @emits `stopped` when the service is stopped.
  * @emits `apiServerListening` when the `apiServer` is listening.
  * @emits `apiServerStopped` when the `apiServer` is stopped.
- * @emits `stscpServerListening` when the `stscpServer` is listening.
- * @emits `stscpServerStopped` when the `stscpServer` is stopped.
- * @emits `stscpClientManagerConnected` when the `stscpClientManager` is connected.
- * @emits `stscpClientManagerDisconnected` when the `stscpClientManager` is disconnected.
- * @emits `stscpClientConnected` when the `stscpClient` is connected.
- * @emits `stscpClientDisconnected` when the `stscpClient` is disconnected.
- * @emits `stscpClientReconnecting` when the `stscpClient` is reconnecting.
+ * @emits `scpServerListening` when the `scpServer` is listening.
+ * @emits `scpServerStopped` when the `scpServer` is stopped.
+ * @emits `scpClientManagerConnected` when the `scpClientManager` is connected.
+ * @emits `scpClientManagerDisconnected` when the `scpClientManager` is disconnected.
+ * @emits `scpClientConnected` when the `scpClient` is connected.
+ * @emits `scpClientDisconnected` when the `scpClient` is disconnected.
+ * @emits `scpClientReconnecting` when the `scpClient` is reconnecting.
  * @emits `dbManagerConnected` when the `dbManager` is connected.
  * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
  * @emits `autoWireModel` when a model is auto wired.
@@ -149,11 +150,11 @@ export default class Service extends EventEmitter {
     public readonly apiPort: number;
 
     /**
-     * The STSCP Server port of the service, retrieved from `process.env.STSCP_PORT`.
+     * The SCP Server port of the service, retrieved from `process.env.SCP_PORT`.
      * 
-     * @default `Default.STSCP_PORT`
+     * @default `Default.SCP_PORT`
      */
-    public readonly stscpPort: number;
+    public readonly scpPort: number;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
@@ -227,8 +228,8 @@ export default class Service extends EventEmitter {
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
         this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
 
-        //Initialize STSCP variables.
-        this.stscpPort = Number(process.env.STSCP_PORT) || Default.STSCP_PORT;
+        //Initialize SCP variables.
+        this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
 
         //Initialize Logger variables.
         this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
@@ -247,7 +248,7 @@ export default class Service extends EventEmitter {
 
         //Initialize Components.
         this.initAPIServer();
-        this.initSTSCP();
+        this.initSCP();
         this.initDBManager();
 
         this.addProcessListeners();
@@ -303,7 +304,6 @@ export default class Service extends EventEmitter {
      */
     private initAPIServer() {
         //Setup Express
-        apiApp = express();
         apiApp.use(cors());
         apiApp.options('*', cors());
         apiApp.use(express.json());
@@ -329,7 +329,6 @@ export default class Service extends EventEmitter {
         });
 
         //Setup Router
-        apiRouter = express.Router();
         apiApp.use(this.apiBaseUrl, apiRouter);
 
         // Error handler for 404
@@ -348,16 +347,16 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Initialize STSCP by setting up `StscpServer` and `StscpClientManager`.
+     * Initialize SCP by setting up `ScpServer` and `ScpClientManager`.
      */
-    private initSTSCP() {
-        //Setup child logger for STSCP.
-        const stscpLogger = logger.child({ component: 'STSCP' });
+    private initSCP() {
+        //Setup child logger for SCP.
+        const scpLogger = logger.child({ component: 'SCP' });
         const meshLogger = logger.child({ component: 'Mesh' });
 
-        const stscpLoggerWrite: Logging = {
+        const scpLoggerWrite: Logging = {
             action: (id, remoteAddress, verbose, action, status, ms) => {
-                stscpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+                scpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
 
@@ -367,31 +366,31 @@ export default class Service extends EventEmitter {
             }
         }
 
-        //Setup STSCP server and bind events.
-        stscpServer = new StscpServer(this.name, stscpLoggerWrite);
-        stscpServer.on('error', (error: Error) => {
+        //Setup SCP server and bind events.
+        scpServer.logging = scpLoggerWrite;
+        scpServer.on('error', (error: Error) => {
             logger.error(error.stack);
         });
 
-        //Setup STSCP client manager and bind events.
-        stscpClientManager = new StscpClientManager(this.name, meshLoggerWrite);
-        stscpClientManager.on('clientConnected', (client: StscpClient) => {
+        //Setup SCP client manager and bind events.
+        scpClientManager.logging = meshLoggerWrite;
+        scpClientManager.on('clientConnected', (client: NodeClient) => {
             //Log Event.
-            logger.info(`Node connected to stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node connected to ${client.url}`);
 
-            this.emit('stscpClientConnected', client);
+            this.emit('scpClientConnected', client);
         });
-        stscpClientManager.on('clientDisconnected', (client: StscpClient) => {
+        scpClientManager.on('clientDisconnected', (client: NodeClient) => {
             //Log Event.
-            logger.info(`Node disconnected from stscp://${client.hostname}:${client.port}`);
+            logger.info(`Node disconnected from ${client.url}`);
 
-            this.emit('stscpClientDisconnected', client);
+            this.emit('scpClientDisconnected', client);
         });
-        stscpClientManager.on('clientReconnecting', (client: StscpClient) => {
+        scpClientManager.on('clientReconnecting', (client: NodeClient) => {
             //Log Event.
-            logger.silly(`Node reconnecting to stscp://${client.hostname}:${client.port}`);
+            logger.silly(`Node reconnecting to ${client.url}`);
 
-            this.emit('stscpClientReconnecting', client);
+            this.emit('scpClientReconnecting', client);
         });
     }
 
@@ -527,21 +526,21 @@ export default class Service extends EventEmitter {
             //Emit Global: apiServerListening.
             this.emit('apiServerListening');
 
-            //Start STSCP Server
-            stscpServer.listen(this.stscpPort, () => {
+            //Start SCP Server
+            scpServer.listen(this.scpPort, () => {
                 //Log Event.
-                logger.info(`STSCP server running on ${this.ip}:${this.stscpPort}`);
+                logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
-                //Emit Global: stscpServerListening.
-                this.emit('stscpServerListening');
+                //Emit Global: scpServerListening.
+                this.emit('scpServerListening');
 
-                //Start STSCP Client Manager
-                (stscpClientManager.clients.length > 0) && stscpClientManager.connect(() => {
+                //Start SCP Client Manager
+                (scpClientManager.clients.length > 0) && scpClientManager.connect(() => {
                     //Log Event.
-                    logger.info(`STSCP client manager connected.`);
+                    logger.info(`SCP client manager connected.`);
 
-                    //Emit Global: stscpClientManagerConnected.
-                    this.emit('stscpClientManagerConnected');
+                    //Emit Global: scpClientManagerConnected.
+                    this.emit('scpClientManagerConnected');
                 });
 
                 //Start DB Manager
@@ -606,23 +605,23 @@ export default class Service extends EventEmitter {
                 this.emit('apiServerStopped');
             }
 
-            //Stop STSCP Servers
-            stscpServer.close((error) => {
+            //Stop SCP Servers
+            scpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    logger.info(`Stopped STSCP Server.`);
+                    logger.info(`Stopped SCP Server.`);
 
-                    //Emit Global: stscpServerStopped.
-                    this.emit('stscpServerStopped');
+                    //Emit Global: scpServerStopped.
+                    this.emit('scpServerStopped');
                 }
 
-                //Stop STSCP Client Manager
-                (stscpClientManager.clients.length > 0) && stscpClientManager.disconnect(() => {
+                //Stop SCP Client Manager
+                (scpClientManager.clients.length > 0) && scpClientManager.disconnect(() => {
                     //Log Event.
-                    logger.info(`STSCP client manager disconnected.`);
+                    logger.info(`SCP client manager disconnected.`);
 
-                    //Emit Global: stscpClientManagerDisconnected.
-                    this.emit('stscpClientManagerDisconnected');
+                    //Emit Global: scpClientManagerDisconnected.
+                    this.emit('scpClientManagerDisconnected');
                 });
 
                 //Stop DB Manager
@@ -741,43 +740,43 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////STSCP Server
+    //////SCP Server
     //////////////////////////////
     /**
-     * Creates a `reply` handler on the `StscpServer`.
+     * Creates a `reply` handler on the `ScpServer`.
      * 
      * @param action the unique action.
      * @param handler the handler to be called. The handler will take message and reply as parameters.
      */
     public reply(action: string, handler: MessageReplyHandler) {
-        stscpServer.reply(action, handler);
+        scpServer.reply(action, handler);
     }
 
     /**
-     * Defines a STSCP broadcast action on the `StscpServer`.
+     * Defines a SCP broadcast action on the `ScpServer`.
      * 
      * @param action the action.
      */
     public defineBroadcast(action: string) {
-        stscpServer.defineBroadcast(action);
+        scpServer.defineBroadcast(action);
     }
 
     /**
-     * Triggers the broadcast action on the `StscpServer` and transmits the body to all the clients connected to this `StscpServer`.
+     * Triggers the broadcast action on the `ScpServer` and transmits the body to all the clients connected to this `ScpServer`.
      * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
      * 
      * @param action the action.
      * @param body the body to send.
      */
     public broadcast(action: string, body: Body) {
-        stscpServer.broadcast(action, body);
+        scpServer.broadcast(action, body);
     }
 
     //////////////////////////////
-    //////STSCP Server - Static
+    //////SCP Server - Static
     //////////////////////////////
     /**
-     * Triggers the broadcast action on the `StscpServer` and transmits the body to all the clients connected to this `StscpServer`.
+     * Triggers the broadcast action on the `ScpServer` and transmits the body to all the clients connected to this `ScpServer`.
      * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
      * 
      * @param action the action.
@@ -786,14 +785,14 @@ export default class Service extends EventEmitter {
      * @static
      */
     public static broadcast(action: string, body: Body) {
-        stscpServer.broadcast(action, body);
+        scpServer.broadcast(action, body);
     }
 
     //////////////////////////////
-    //////STSCP Client Manager
+    //////SCP Client Manager
     //////////////////////////////
     /**
-     * Creates a new `StscpClient` and `Node` on `StscpClientManager`.
+     * Creates a new `ScpClient` and `Node` on `ScpClientManager`.
      * 
      * Retrieve the Node by importing `Mesh` from the package.
      *
@@ -801,7 +800,10 @@ export default class Service extends EventEmitter {
      * @param nodeName The callable name of the node.
      */
     public defineNode(url: string, nodeName: string) {
-        const client = stscpClientManager.createClient(`stscp://${url}`, nodeName);
+        const _url = new URL(`scp://${url}`);
+        _url.port = _url.port || Default.SCP_PORT.toString();
+
+        const client = scpClientManager.createClient(nodeName, _url.toString());
         client.on('error', (error: Error) => {
             logger.error(error.stack);
         });
@@ -890,10 +892,10 @@ export default class Service extends EventEmitter {
                 version: this.version,
                 environment: this.environment,
                 api: apiServer.listening,
-                stscp: stscpServer.listening,
-                mesh: stscpClientManager.connected,
+                scp: scpServer.listening,
+                mesh: scpClientManager.connected,
                 db: dbManager.connected,
-                healthy: (apiServer.listening && stscpServer.listening)
+                healthy: (apiServer.listening && scpServer.listening)
             }
             response.status(HttpCodes.OK).send(health);
         });
@@ -906,15 +908,15 @@ export default class Service extends EventEmitter {
                         version: this.version,
                         ip: this.ip,
                         apiPort: this.apiPort,
-                        stscpPort: this.stscpPort,
+                        scpPort: this.scpPort,
                         environment: this.environment,
                         logPath: this.logPath
                     },
                     system: this.getSystemReport(),
                     db: dbManager.connection && this.getDBReport(),
                     api: this.apiRouteReport(),
-                    stscp: this.stscpRouteReport(),
-                    mesh: this.stscpMeshReport()
+                    scp: this.scpRouteReport(),
+                    mesh: this.scpMeshReport()
                 }
 
                 response.status(HttpCodes.OK).send(report);
@@ -1009,36 +1011,35 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * @returns the STSCP `Router` report.
+     * @returns the SCP `Router` report.
      */
-    private stscpRouteReport() {
-        const stscpRoutes: { [publisher: string]: string } = {};
+    private scpRouteReport() {
+        const scpRoutes: { [publisher: string]: string } = {};
 
-        //Get STSCP Routes.
-        stscpServer.routes.forEach(item => {
+        //Get SCP Routes.
+        scpServer.routes.forEach(item => {
             //Create Variables.
             const map = String(item.map);
             const type = String(item.type);
 
             //Add to object.
-            stscpRoutes[map] = type;
+            scpRoutes[map] = type;
         });
 
-        return stscpRoutes;
+        return scpRoutes;
     }
 
     /**
-     * @returns the STSCP `Mesh` report.
+     * @returns the SCP `Mesh` report.
      */
-    private stscpMeshReport() {
+    private scpMeshReport() {
         const mesh = new Array();
 
-        //Get STSCP Clients.
-        stscpClientManager.clients.forEach(item => {
+        //Get SCP Clients.
+        scpClientManager.clients.forEach(item => {
             const client = {
-                name: item.node.name,
-                hostname: item.hostname,
-                port: item.port,
+                name: item.nodeName,
+                host: item.url,
                 connected: item.connected,
                 reconnecting: item.reconnecting,
                 disconnected: item.disconnected,
@@ -1191,7 +1192,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
 }
 
 //////////////////////////////
-//////STSCP Server Decorators
+//////SCP Server Decorators
 //////////////////////////////
 /**
  * Interface for `MessageReplyFunction` descriptor.
@@ -1201,21 +1202,21 @@ interface MessageReplyDescriptor extends PropertyDescriptor {
 }
 
 /**
- * Interface for `StscpServer` decorators.
+ * Interface for `ScpServer` decorators.
  */
 export interface MessageReplyFunction {
     (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor): void;
 }
 
 /**
- * Creates a `reply` handler on the `StscpServer`.
+ * Creates a `reply` handler on the `ScpServer`.
  */
 export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
         const publisherName = target.name.replace('Publisher', '');
 
-        const action = publisherName + Action.MAP + propertyKey;
-        stscpServer.reply(action, descriptor.value);
+        const action = publisherName + Action.MAP_BREAK + propertyKey;
+        scpServer.reply(action, descriptor.value);
     }
 }
 

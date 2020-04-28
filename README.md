@@ -2,7 +2,7 @@
 
 ProMicro is blazing fast, modern and powerful lightweight microservices framework. It helps you build efficient, reliable & scalable services that can talk to each other; quickly out of the box with very few lines of code. ProMicro provides many other features for building and managing your microservices.
 
-The underyling API is built on `Express` and the database managment is done by `Sequelize`(RDB) and `Mongoose`(NoSQL). The service to service communication is fulfilled by STSCP.
+The underyling API is built on `Express` and the database managment is done by `Sequelize`(RDB) and `Mongoose`(NoSQL). The service to service communication is fulfilled by SCP.
 
 # Features
 * Fast & Lightweight
@@ -112,9 +112,9 @@ npm start
 
 By default the service is assigned the following service and environment variables.
 
-| name               | version               | baseURL  | NODE_ENV     | API_PORT | STSCP_PORT | LOG_PATH |
-|--------------------|-----------------------|----------|--------------|----------|------------|----------|
-| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`   | `6000`     | `/logs`  |
+| name               | version               | baseURL  | NODE_ENV     | API_PORT | SCP_PORT | LOG_PATH |
+|--------------------|-----------------------|----------|--------------|----------|----------|----------|
+| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`   | `6000`   | `/logs`  |
 
 `Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
@@ -147,7 +147,7 @@ You can also override the environment variables by adding the following optional
 ```sh
 NODE_ENV='development'
 API_PORT=3001
-STSCP_PORT=6001
+SCP_PORT=6001
 LOG_PATH='/user/logs'
 ```
 
@@ -288,7 +288,7 @@ heroMicroService.setAutoInjectControllerOptions({ include: { endsWith: ['.contro
 ```
 
 # Hero & Sidekick Service
-Lets create a hero service and a sidekick service that can talk to each other through (STSCP)service to service communication protocol.
+Lets create a hero service and a sidekick service that can talk to each other through (SCP)service communication protocol.
 
 ## HeroService
 * index.js
@@ -301,7 +301,7 @@ const heroMicroService = new MicroService();
 /**
  * Define the `Node` object.
  * localhost:6002: is the host address of the `Node`.
- * sidekickSvc: is the callable name of that `Node`.
+ * sidekickSvc: is the name of that `Node`.
  */
 heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
 
@@ -331,25 +331,29 @@ import { Publisher, Reply } from '@iprotechs/promicro';
 export default class HeroPublisher extends Publisher {
     @Reply()
     async introduction(message, reply){
-        reply.send({intro: 'I am Hero Service.'});
+        try{
+            reply.send({intro: 'I am Hero Service.'});
+        }catch(error){
+            reply.sendError(error);
+        }
     }
 }
 ```
 
 * hero.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, NodeError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
 
 export default class HeroController extends Controller {
     @Get('/')
     async callSidekick(request, response) {
         try {
-            //Call: Mesh.NodeCallableName.PublisherName.functionName();
+            //Call: Mesh.NodeName.PublisherName.functionName();
             const data = await Mesh.sidekickSvc.Sidekick.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
             //When node is unavailable.
-            if(error instanceof NodeError){
+            if(error instanceof SocketError){
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
@@ -375,7 +379,7 @@ const sidekickMicroService = new MicroService();
 /**
  * Define the `Node` object.
  * localhost:6001: is the host address of the `Node`.
- * heroSvc: is the callable name of that `Node`.
+ * heroSvc: is the name of that `Node`.
  * 
  */
 sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
@@ -398,25 +402,29 @@ import { Publisher, Reply } from '@iprotechs/promicro';
 export default class SidekickPublisher extends Publisher {
     @Reply()
     async introduction(message, reply){
-        reply.send({intro: 'I am Sidekick Service.'});
+        try{
+            reply.send({intro: 'I am Sidekick Service.'});
+        }catch(error){
+            reply.sendError(error);
+        }
     }
 }
 ```
 
 * sidekick.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, NodeError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
 
 export default class SidekickController extends Controller {
     @Get('/')
     async callHero(request, response) {
         try {
-            //Call: Mesh.NodeCallableName.PublisherName.functionName();
+            //Call: Mesh.NodeName.PublisherName.functionName();
             const data = await Mesh.heroSvc.Hero.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
             //When node is unavailable.
-            if(error instanceof NodeError){
+            if(error instanceof SocketError){
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
@@ -457,8 +465,8 @@ gatewayService.start(() => {
 ```
 
 ## Versions:
-| Version | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 2.0.0   | Deprecated MQTT and implemented STSCP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 2.1.0   | Resolved null body and greeting bug by updating to STSCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Throws `SocketError` when node is unavailable. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and publishers. Upgraded wire functions to handle file filters. Exposes models, controllers, publishers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
-| 2.2.0   | _logger bug fixed. |
+| Version | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 2.0.0   | Deprecated MQTT and implemented SCP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2.1.0   | Resolved null body and greeting bug by updating to SCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Throws `SocketError` when node is unavailable. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and publishers. Upgraded wire functions to handle file filters. Exposes models, controllers, publishers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
+| 2.2.0   | _logger bug fixed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

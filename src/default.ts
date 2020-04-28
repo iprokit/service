@@ -17,11 +17,11 @@ export default class Default {
     public static readonly API_PORT: number = 3000;
 
     /**
-     * The default STSCP server port of the service.
+     * The default SCP server port of the service.
      * 
      * @default 6000
      */
-    public static readonly STSCP_PORT: number = 6000;
+    public static readonly SCP_PORT: number = 6000;
 
     /**
      * The default time to wait before the service is forcefully stopped when `service.stop()`is called.

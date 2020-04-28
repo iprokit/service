@@ -6,9 +6,9 @@ import HttpStatusCodes from 'http-status-codes';
 export const HttpCodes = HttpStatusCodes;
 export { default as Controller } from './api.controller';
 
-//Export STSCP
-export { default as Publisher } from './stscp.publisher';
-export { SocketError, ReplyError } from '@iprotechs/stscp';
+//Export SCP
+export { default as Publisher } from './scp.publisher';
+export { SocketError, ErrorReply } from '@iprotechs/scp';
 
 //Export DB Components
 export { RDB, NoSQL, RDBDataTypes, NoSQLDataTypes, RDBOp } from './db.manager';

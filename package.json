@@ -10,10 +10,10 @@
     "Micro Framework",
     "CRUD",
     "Boilerplate",
-    "stscp",
+    "scp",
+    "micro",
     "service",
-    "service-service",
-    "micro-service",
+    "microservice",
     "iprotechs"
   ],
   "author": {
@@ -35,7 +35,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/stscp": "1.1.1",
+    "@iprotechs/scp": "../scp",
     "express": "4.17.1",
     "http-errors": "1.7.3",
     "http-status-codes": "1.4.0",
