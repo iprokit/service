@@ -1,5 +1,5 @@
 /**
- * 
+ * A generic `Messenger` acts as an interface between two services to process all incoming data as `Action`'s.
  */
 export default class Messenger {
     /**
