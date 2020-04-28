@@ -7,7 +7,7 @@ export const HttpCodes = HttpStatusCodes;
 export { default as Controller } from './api.controller';
 
 //Export SCP
-export { default as Publisher } from './scp.publisher';
+export { default as Messenger } from './scp.messenger';
 export { SocketError, ErrorReply } from '@iprotechs/scp';
 
 //Export DB Components

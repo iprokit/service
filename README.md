@@ -32,7 +32,7 @@ The underyling API is built on `Express` and the database managment is done by `
     * Maria Database
     * Microsoft SQL Database
 * Auto Sync Tables/Collections
-* Generic/Customizable Controllers, Models, Publishers
+* Generic/Customizable Controllers, Models, Messengers
 * Autowire & Inject Classes and Objects
 * Auto Create Endpoints
 * Production Ready Logging
@@ -324,11 +324,11 @@ heroMicroService.start(() => {
 });
 ```
 
-* hero.publisher.js
+* hero.messenger.js
 ```javascript
-import { Publisher, Reply } from '@iprotechs/promicro';
+import { Messenger, Reply } from '@iprotechs/promicro';
 
-export default class HeroPublisher extends Publisher {
+export default class HeroMessenger extends Messenger {
     @Reply()
     async introduction(message, reply){
         try{
@@ -348,7 +348,7 @@ export default class HeroController extends Controller {
     @Get('/')
     async callSidekick(request, response) {
         try {
-            //Call: Mesh.NodeName.PublisherName.functionName();
+            //Call: Mesh.NodeName.MessengerName.functionName();
             const data = await Mesh.sidekickSvc.Sidekick.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
@@ -395,11 +395,11 @@ sidekickMicroService.start(() => {
 });
 ```
 
-* sidekick.publisher.js
+* sidekick.messenger.js
 ```javascript
-import { Publisher, Reply } from '@iprotechs/promicro';
+import { Messenger, Reply } from '@iprotechs/promicro';
 
-export default class SidekickPublisher extends Publisher {
+export default class SidekickMessenger extends Messenger {
     @Reply()
     async introduction(message, reply){
         try{
@@ -419,7 +419,7 @@ export default class SidekickController extends Controller {
     @Get('/')
     async callHero(request, response) {
         try {
-            //Call: Mesh.NodeName.PublisherName.functionName();
+            //Call: Mesh.NodeName.MessengerName.functionName();
             const data = await Mesh.heroSvc.Hero.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch(error) {
@@ -468,5 +468,5 @@ gatewayService.start(() => {
 | Version | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 2.0.0   | Deprecated MQTT and implemented SCP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| 2.1.0   | Resolved null body and greeting bug by updating to SCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Throws `SocketError` when node is unavailable. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and publishers. Upgraded wire functions to handle file filters. Exposes models, controllers, publishers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
+| 2.1.0   | Resolved null body and greeting bug by updating to SCP v1.1.0. Deprecated **`service.addListeners()`**, this removes the static console logs. Throws `InvalidModelError` when incompatible model and db is loaded. Throws `SocketError` when node is unavailable. Upgraded `/health` endpoint to show sub-component status. Upgraded `/report` endpoint to show system usage and better filters for models, controllers and messengers. Upgraded wire functions to handle file filters. Exposes models, controllers, messengers to consumer. Implemented Winston and Morgan logging, optional `LOG_PATH` in environment variables, defaults to *`projectPath/logs`*. Upgraded additonal DAO's in `NoSQLModel` as per `PMICRO-29`. |
 | 2.2.0   | _logger bug fixed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

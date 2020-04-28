@@ -27,7 +27,7 @@ if (fs.existsSync(envPath)) {
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
-import Publisher from './scp.publisher';
+import Messenger from './scp.messenger';
 import Controller from './api.controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
 
@@ -85,7 +85,7 @@ let logger: Logger;
  * It can communicate with other `Service`'s using SCP(service communication protocol).
  * The API Server is built on top of `Express` and its components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * It auto wires and injects, generic `Model`'s, `Controller`'s and `Publisher`'s into the service from the project with decorators.
+ * It auto wires and injects, generic `Model`'s, `Controller`'s and `Messenger`'s into the service from the project with decorators.
  * Creates default API Endpoints.
  * 
  * Default API Endpoints.
@@ -109,7 +109,7 @@ let logger: Logger;
  * @emits `dbManagerConnected` when the `dbManager` is connected.
  * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
  * @emits `autoWireModel` when a model is auto wired.
- * @emits `autoInjectPublisher` when a publisher actions are injected.
+ * @emits `autoInjectMessenger` when a messenger actions are injected.
  * @emits `autoInjectController` when a controler endpoints are injected.
  */
 export default class Service extends EventEmitter {
@@ -171,9 +171,9 @@ export default class Service extends EventEmitter {
     public readonly logPath: string;
 
     /**
-     * The autoinjected `Publisher`'s under this service.
+     * The autoinjected `Messenger`'s under this service.
      */
-    private readonly _publishers: Array<Publisher>;
+    private readonly _messengers: Array<Messenger>;
 
     /**
      * The autoinjected `Controller`'s under this service.
@@ -189,12 +189,12 @@ export default class Service extends EventEmitter {
     private _autoWireModelOptions: FileOptions;
 
     /**
-     * Auto inject `Publisher` options.
+     * Auto inject `Messenger` options.
      * 
      * @default
-     * { include: { endsWith: ['.publisher'] } }
+     * { include: { endsWith: ['.messenger'] } }
      */
-    private _autoInjectPublisherOptions: FileOptions;
+    private _autoInjectMessengerOptions: FileOptions;
 
     /**
      * Auto inject `Controller` options.
@@ -235,12 +235,12 @@ export default class Service extends EventEmitter {
         this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
 
         //Initialize Action's/API's
-        this._publishers = new Array();
+        this._messengers = new Array();
         this._controllers = new Array();
 
         //Initialize Autoload Variables.
         this._autoWireModelOptions = { include: { endsWith: ['.model'] } };
-        this._autoInjectPublisherOptions = { include: { endsWith: ['.publisher'] } };
+        this._autoInjectMessengerOptions = { include: { endsWith: ['.messenger'] } };
         this._autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
 
         //Initialize Logger.
@@ -411,10 +411,10 @@ export default class Service extends EventEmitter {
     /**
      * Inject files into the module. Respecting the order of loading for dependency.
      * 
-     * Order: Model, Publisher, Controller
+     * Order: Model, Messenger, Controller
      * 
      * After each `require()`, annotation will automatically be called.
-     * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Publisher, Controller).
+     * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
      */
     private injectFiles() {
         /**
@@ -435,18 +435,18 @@ export default class Service extends EventEmitter {
             }
         });
 
-        //Injecting Publishers.
+        //Injecting Messengers.
         files.forEach(file => {
-            if (Helper.filterFile(file, this._autoInjectPublisherOptions)) {
+            if (Helper.filterFile(file, this._autoInjectMessengerOptions)) {
                 //Load, Initialize, Push to array.
-                const _Publisher = require(file).default;
-                const publisher: Publisher = new _Publisher();
-                this._publishers.push(publisher);
+                const _Messenger = require(file).default;
+                const messenger: Messenger = new _Messenger();
+                this._messengers.push(messenger);
 
                 //Log Event.
-                logger.debug(`Adding actions from publisher: ${publisher.name}`);
+                logger.debug(`Adding actions from messenger: ${messenger.name}`);
 
-                this.emit('autoInjectPublisher', publisher.name);
+                this.emit('autoInjectMessenger', messenger.name);
             }
         });
 
@@ -663,15 +663,15 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Set's the auto inject `Publisher` options.
+     * Set's the auto inject `Messenger` options.
      * 
      * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
      * 
      * @default
-     * { include: { endsWith: ['.publisher'] } }
+     * { include: { endsWith: ['.messenger'] } }
      */
-    public setAutoInjectPublisherOptions(options?: FileOptions) {
-        this._autoInjectPublisherOptions = (options === undefined) ? this._autoInjectPublisherOptions : options;
+    public setAutoInjectMessengerOptions(options?: FileOptions) {
+        this._autoInjectMessengerOptions = (options === undefined) ? this._autoInjectMessengerOptions : options;
     }
 
     /**
@@ -858,10 +858,10 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * The autoinjected `Publisher`'s under this service.
+     * The autoinjected `Messenger`'s under this service.
      */
-    public get publishers() {
-        return this._publishers;
+    public get messengers() {
+        return this._messengers;
     }
 
     /**
@@ -1014,7 +1014,7 @@ export default class Service extends EventEmitter {
      * @returns the SCP `Router` report.
      */
     private scpRouteReport() {
-        const scpRoutes: { [publisher: string]: string } = {};
+        const scpRoutes: { [messenger: string]: string } = {};
 
         //Get SCP Routes.
         scpServer.routes.forEach(item => {
@@ -1205,7 +1205,7 @@ interface MessageReplyDescriptor extends PropertyDescriptor {
  * Interface for `ScpServer` decorators.
  */
 export interface MessageReplyFunction {
-    (target: typeof Publisher, propertyKey: string, descriptor: MessageReplyDescriptor): void;
+    (target: typeof Messenger, propertyKey: string, descriptor: MessageReplyDescriptor): void;
 }
 
 /**
@@ -1213,9 +1213,9 @@ export interface MessageReplyFunction {
  */
 export function Reply(): MessageReplyFunction {
     return (target, propertyKey, descriptor) => {
-        const publisherName = target.name.replace('Publisher', '');
+        const messengerName = target.name.replace('Messenger', '');
 
-        const action = publisherName + Action.MAP_BREAK + propertyKey;
+        const action = messengerName + Action.MAP_BREAK + propertyKey;
         scpServer.reply(action, descriptor.value);
     }
 }
