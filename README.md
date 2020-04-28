@@ -213,15 +213,15 @@ export default class HeroModel extends RDBModel {
     /**
      * Define pre/post hooks. 
      */
-    static hooks(){
-
+    static hooks() {
+        //Add Hooks
     }
 
     /**
      * Define relations(associations) to other models.
      */
-    static associate(){
-
+    static associate() {
+        //Define associations
     }
 
     //Define additional DAO operations.
@@ -264,7 +264,7 @@ export default class HeroController extends Controller {
     async getOneByID(request, response) {
         await super.getOneByID(HeroModel, request, response);
     }
-    
+
     @Get('/orderBy/:orderType')
     async getAllOrderByCreatedAt(request, response) {
         await super.getAllOrderByCreatedAt(HeroModel, request, response);
@@ -315,7 +315,7 @@ heroMicroService.start(() => {
     console.log('Hero Microservice started.');
 
     //Send a broadcast every 5 seconds.
-    for(let i = 0; i <= 10; i++){
+    for (let i = 0; i <= 10; i++) {
         setTimeout(() => {
             const body = { message: 'Poke' };
             MicroService.broadcast('hero.poke', body);
@@ -330,10 +330,10 @@ import { Messenger, Reply } from '@iprotechs/micro';
 
 export default class HeroMessenger extends Messenger {
     @Reply()
-    async introduction(message, reply){
-        try{
-            reply.send({intro: 'I am Hero Service.'});
-        }catch(error){
+    async introduction(message, reply) {
+        try {
+            reply.send({ intro: 'I am Hero Service.' });
+        } catch (error) {
             reply.sendError(error);
         }
     }
@@ -351,14 +351,14 @@ export default class HeroController extends Controller {
             //Call: Mesh.NodeName.MessengerName.functionName();
             const data = await Mesh.sidekickSvc.Sidekick.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
-        } catch(error) {
+        } catch (error) {
             //When node is unavailable.
-            if(error instanceof SocketError){
+            if (error instanceof SocketError) {
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
-            if(error instanceof ErrorReply){
+            if (error instanceof ErrorReply) {
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 return;
             }
@@ -401,10 +401,10 @@ import { Messenger, Reply } from '@iprotechs/micro';
 
 export default class SidekickMessenger extends Messenger {
     @Reply()
-    async introduction(message, reply){
-        try{
-            reply.send({intro: 'I am Sidekick Service.'});
-        }catch(error){
+    async introduction(message, reply) {
+        try {
+            reply.send({ intro: 'I am Sidekick Service.' });
+        } catch (error) {
             reply.sendError(error);
         }
     }
@@ -422,14 +422,14 @@ export default class SidekickController extends Controller {
             //Call: Mesh.NodeName.MessengerName.functionName();
             const data = await Mesh.heroSvc.Hero.introduction({});
             response.status(HttpCodes.OK).send({ status: true, data: data });
-        } catch(error) {
+        } catch (error) {
             //When node is unavailable.
-            if(error instanceof SocketError){
+            if (error instanceof SocketError) {
                 response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
-            if(error instanceof ErrorReply){
+            if (error instanceof ErrorReply) {
                 response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 return;
             }
