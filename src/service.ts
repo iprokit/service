@@ -37,12 +37,12 @@ import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, Connecti
 /**
  * The apiApp, i.e: `Express`.
  */
-let apiApp: Express = express();
+const apiApp: Express = express();
 
 /**
  * The apiRouter, i.e: `ExpressRouter`.
  */
-let apiRouter: Router = express.Router();
+const apiRouter: Router = express.Router();
 
 /**
  * The apiServer, i.e: `HttpServer`.
@@ -52,12 +52,12 @@ let apiServer: HttpServer;
 /**
  * The scpServer, i.e: `ScpServer`.
  */
-let scpServer: ScpServer = scp.createServer();
+const scpServer: ScpServer = scp.createServer();
 
 /**
  * The scpClientManager, i.e: `ScpClientManager`.
  */
-let scpClientManager: ScpClientManager = scp.createClientManager();
+const scpClientManager: ScpClientManager = scp.createClientManager();
 
 /**
  * `Mesh` is a representation of unique server's in the form of Object's.
@@ -72,12 +72,12 @@ export const Mesh: ScpMesh = scpClientManager.mesh;
 /**
  * The dbManager, i.e: `DBManager`.
  */
-let dbManager: DBManager;
+const dbManager: DBManager = new DBManager();
 
 /**
  * The logger instance.
  */
-let logger: Logger;
+const logger: Logger = winston.createLogger();
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -274,11 +274,11 @@ export default class Service extends EventEmitter {
             })
         )
 
-        //Initialize _logger.
-        logger = winston.createLogger();
-
         //Add console transport.
-        logger.add(new winston.transports.Console({ level: 'debug', format: format }));
+        logger.add(new winston.transports.Console({
+            level: 'debug',
+            format: format
+        }));
 
         //Try, Add file transport.
         if (this.environment !== 'development') {
@@ -399,10 +399,7 @@ export default class Service extends EventEmitter {
      */
     private initDBManager() {
         //Setup child logger for DB manager.
-        const dbLogger = logger.child({ component: 'DB' });
-
-        //Setup DB Manager.
-        dbManager = new DBManager(dbLogger);
+        dbManager.logger = logger.child({ component: 'DB' });
     }
 
     //////////////////////////////

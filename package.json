@@ -1,10 +1,10 @@
 {
-  "name": "@iprotechs/promicro",
+  "name": "@iprotechs/micro",
   "version": "2.2.0",
-  "description": "Powerful lightweight microservices framework.",
+  "description": "Powerful lightweight microservice framework.",
   "repository": {
     "type": "git",
-    "url": "git+https://bitbucket.org/iprotechs/pro-micro.git"
+    "url": "git+https://bitbucket.org/iprotechs/micro.git"
   },
   "keywords": [
     "Micro Framework",
@@ -21,7 +21,7 @@
     "email": "rutvik.katuri@iprotechs.com"
   },
   "license": "ISC",
-  "homepage": "https://bitbucket.org/iprotechs/pro-micro#readme",
+  "homepage": "https://bitbucket.org/iprotechs/micro#readme",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [

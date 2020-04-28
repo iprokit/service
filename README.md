@@ -1,6 +1,6 @@
-# Pro-Micro
+# Micro
 
-ProMicro is blazing fast, modern and powerful lightweight microservices framework. It helps you build efficient, reliable & scalable services that can talk to each other; quickly out of the box with very few lines of code. ProMicro provides many other features for building and managing your microservices.
+Micro is blazing fast, modern and powerful lightweight microservices framework. It helps you build efficient, reliable & scalable services that can talk to each other; quickly out of the box with very few lines of code. Micro provides many other features for building and managing your microservices.
 
 The underyling API is built on `Express` and the database managment is done by `Sequelize`(RDB) and `Mongoose`(NoSQL). The service to service communication is fulfilled by SCP.
 
@@ -45,9 +45,9 @@ The underyling API is built on `Express` and the database managment is done by `
 
 # Installation
 
-* Install ProMicro.
+* Install Micro.
 ```sh
-npm install @iprotechs/pro-micro --save
+npm install @iprotechs/micro --save
 ```
 
 * Install Node.js and Babel.
@@ -87,13 +87,13 @@ npm install @babel/plugin-proposal-decorators @babel/plugin-proposal-class-prope
 ```
 
 # Hello Microservice
-Let's create your first microservice with ProMicro. It will be quick and painless.
+Let's create your first microservice with Micro. It will be quick and painless.
 
 ```javascript
 /**
  * index.js
  */
-import MicroService from '@iprotechs/promicro';
+import MicroService from '@iprotechs/micro';
 
 //Declare microservice.
 const helloMicroService = new MicroService();
@@ -151,7 +151,7 @@ SCP_PORT=6001
 LOG_PATH='/user/logs'
 ```
 
-Congratulations!!! you have successfully created your first Hello ProMicro Service.
+Congratulations!!! you have successfully created your first Hello Micro Service.
 
 # Hero Service
 Lets create a hero service with CRUD API that responds to HTTP client and queries data from RDB(MySQL) Database.
@@ -168,7 +168,7 @@ DB_PASSWORD=
 
 * index.js
 ```javascript
-import MicroService from '@iprotechs/promicro';
+import MicroService from '@iprotechs/micro';
 
 //Declare microservice.
 const heroMicroService = new MicroService('/heroApi');
@@ -184,7 +184,7 @@ heroMicroService.start(() => {
 
 * hero.model.js
 ```javascript
-import { Entity, RDBModel, RDBDataTypes } from '@iprotechs/promicro';
+import { Entity, RDBModel, RDBDataTypes } from '@iprotechs/micro';
 
 /**
  * Define the ORM entity by calling the decorator and declaring its attributes.
@@ -230,7 +230,7 @@ export default class HeroModel extends RDBModel {
 
 * hero.controller.js
 ```javascript
-import { Controller, Get, Post, Put, Delete } from '@iprotechs/promicro';
+import { Controller, Get, Post, Put, Delete } from '@iprotechs/micro';
 import HeroModel from './hero.model';
 
 /**
@@ -293,7 +293,7 @@ Lets create a hero service and a sidekick service that can talk to each other th
 ## HeroService
 * index.js
 ```javascript
-import MicroService from '@iprotechs/promicro';
+import MicroService from '@iprotechs/micro';
 
 //Declare microservice.
 const heroMicroService = new MicroService();
@@ -326,7 +326,7 @@ heroMicroService.start(() => {
 
 * hero.messenger.js
 ```javascript
-import { Messenger, Reply } from '@iprotechs/promicro';
+import { Messenger, Reply } from '@iprotechs/micro';
 
 export default class HeroMessenger extends Messenger {
     @Reply()
@@ -342,7 +342,7 @@ export default class HeroMessenger extends Messenger {
 
 * hero.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
 
 export default class HeroController extends Controller {
     @Get('/')
@@ -371,7 +371,7 @@ export default class HeroController extends Controller {
 ## Sidekick Service
 * index.js
 ```javascript
-import MicroService, { Mesh } from '@iprotechs/promicro';
+import MicroService, { Mesh } from '@iprotechs/micro';
 
 //Declare microservice.
 const sidekickMicroService = new MicroService();
@@ -397,7 +397,7 @@ sidekickMicroService.start(() => {
 
 * sidekick.messenger.js
 ```javascript
-import { Messenger, Reply } from '@iprotechs/promicro';
+import { Messenger, Reply } from '@iprotechs/micro';
 
 export default class SidekickMessenger extends Messenger {
     @Reply()
@@ -413,7 +413,7 @@ export default class SidekickMessenger extends Messenger {
 
 * sidekick.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/promicro';
+import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
 
 export default class SidekickController extends Controller {
     @Get('/')
@@ -446,7 +446,7 @@ In this example we will implement a gateway service that will proxy requests to 
 
 * index.js
 ```javascript
-import { Gateway } from '@iprotechs/promicro';
+import { Gateway } from '@iprotechs/micro';
 
 //Declare gateway.
 const gatewayService = new Gateway();

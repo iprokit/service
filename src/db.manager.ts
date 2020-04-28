@@ -68,19 +68,19 @@ export default class DBManager {
     /**
      * The logger instance.
      */
-    private _logger: Logger;
+    public logger: Logger;
 
     /**
      * Creates an instance of a `DBManager`.
      * 
      * @param logger the logger instance.
      */
-    public constructor(logger: Logger) {
+    public constructor(logger?: Logger) {
         //Set default connected.
         this._connected = false;
 
         //Initialize Logger.
-        this._logger = logger;
+        this.logger = logger;
     }
 
     //////////////////////////////
@@ -218,7 +218,7 @@ export default class DBManager {
                 useUnifiedTopology: true
             });
             mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
-                this._logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
+                this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
             });
             //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
         }
@@ -230,7 +230,7 @@ export default class DBManager {
                 host: this._host,
                 dialect: (this._type as Dialect),
                 logging: (sql: string) => {
-                    this._logger.info(sql);
+                    this.logger.info(sql);
                 }
             });
         }
@@ -352,7 +352,7 @@ export default class DBManager {
         try {
             this.models.map(model => (model as typeof RDBModel).associate());
         } catch (error) {
-            this._logger.error(error.stack);
+            this.logger.error(error.stack);
         }
 
         //Start Connection.
@@ -433,10 +433,10 @@ export default class DBManager {
 
                 try {
                     if (force) {
-                        this._logger.info(`EXECUTING: DROP COLLECTION IF EXISTS ${name}`);
+                        this.logger.info(`EXECUTING: DROP COLLECTION IF EXISTS ${name}`);
                         await (this._connection as NoSQL).db.dropCollection(name);
                     }
-                    this._logger.info(`EXECUTING: CREATE COLLECTION IF NOT EXISTS ${name}`);
+                    this.logger.info(`EXECUTING: CREATE COLLECTION IF NOT EXISTS ${name}`);
                     await model.createCollection();
                 } catch (error) {
                     if (error.code === 26) {
