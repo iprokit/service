@@ -68,7 +68,7 @@ export default class DBManager {
     /**
      * The logger instance.
      */
-    public logger: Logger;
+    public readonly logger: Logger;
 
     /**
      * Creates an instance of a `DBManager`.

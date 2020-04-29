@@ -182,9 +182,9 @@ export default class Helper {
 //////File: Interface
 //////////////////////////////
 /**
- * Interface for file find options.
+ * File find options.
  */
-export interface FileOptions {
+export type FileOptions = {
     /**
      * The optional, files to include.
      */
@@ -197,9 +197,9 @@ export interface FileOptions {
 }
 
 /**
- * Interface for matching files.
+ * Files matching options.
  */
-export interface FilePattern {
+export type FilePattern = {
     /**
      * The optional, filename that starts with.
      */

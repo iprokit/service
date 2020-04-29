@@ -27,38 +27,13 @@ if (fs.existsSync(envPath)) {
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
-import Messenger from './scp.messenger';
-import Controller from './api.controller';
+import Messenger from './messenger';
+import Controller from './controller';
 import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
 
 //////////////////////////////
 //////Global Variables
 //////////////////////////////
-/**
- * The apiApp, i.e: `Express`.
- */
-const apiApp: Express = express();
-
-/**
- * The apiRouter, i.e: `ExpressRouter`.
- */
-const apiRouter: Router = express.Router();
-
-/**
- * The apiServer, i.e: `HttpServer`.
- */
-let apiServer: HttpServer;
-
-/**
- * The scpServer, i.e: `ScpServer`.
- */
-const scpServer: ScpServer = scp.createServer();
-
-/**
- * The scpClientManager, i.e: `ScpClientManager`.
- */
-const scpClientManager: ScpClientManager = scp.createClientManager();
-
 /**
  * `Mesh` is a representation of unique server's in the form of Object's.
  *
@@ -67,17 +42,8 @@ const scpClientManager: ScpClientManager = scp.createClientManager();
  * All the `Node` objects are exposed in this with its node name,
  * which can be declared with `service.defineNode()`.
  */
-export const Mesh: ScpMesh = scpClientManager.mesh;
-
-/**
- * The dbManager, i.e: `DBManager`.
- */
-const dbManager: DBManager = new DBManager();
-
-/**
- * The logger instance.
- */
-const logger: Logger = winston.createLogger();
+export const Mesh: ScpMesh = new ScpMesh();
+//TODO: Move this to micro.
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -161,7 +127,7 @@ export default class Service extends EventEmitter {
      * 
      * @default `Default.FORCE_STOP_TIME`
      */
-    public forceStopTime: number;
+    public readonly forceStopTime: number;
 
     /**
      * The path to log files of the service, retrieved from `process.env.LOG_PATH`.
@@ -173,12 +139,12 @@ export default class Service extends EventEmitter {
     /**
      * The autoinjected `Messenger`'s under this service.
      */
-    private readonly _messengers: Array<Messenger>;
+    public readonly messengers: Array<Messenger>;
 
     /**
      * The autoinjected `Controller`'s under this service.
      */
-    private readonly _controllers: Array<Controller>;
+    public readonly controllers: Array<Controller>;
 
     /**
      * Auto wire `Model` options.
@@ -205,6 +171,41 @@ export default class Service extends EventEmitter {
     private _autoInjectControllerOptions: FileOptions;
 
     /**
+     * Instance of `Express` application.
+     */
+    public readonly express: Express;
+
+    /**
+     * Instance of `ExpressRouter`.
+     */
+    public readonly expressRouter: Router;
+
+    /**
+     * Instance of `HttpServer`.
+     */
+    private _apiServer: HttpServer;
+
+    /**
+     * Instance of `ScpServer`.
+     */
+    public readonly scpServer: ScpServer;
+
+    /**
+     * Instance of `ScpClientManager`.
+     */
+    public readonly scpClientManager: ScpClientManager;
+
+    /**
+     * Instance of `DBManager`.
+     */
+    public readonly dbManager: DBManager;
+
+    /**
+     * The logger instance.
+     */
+    public readonly logger: Logger;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param baseUrl the optional, base/root url.
@@ -220,9 +221,9 @@ export default class Service extends EventEmitter {
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
+        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
-        this.forceStopTime = Default.FORCE_STOP_TIME;
 
         //Initialize API server variables.
         this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
@@ -235,8 +236,8 @@ export default class Service extends EventEmitter {
         this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
 
         //Initialize Action's/API's
-        this._messengers = new Array();
-        this._controllers = new Array();
+        this.messengers = new Array();
+        this.controllers = new Array();
 
         //Initialize Autoload Variables.
         this._autoWireModelOptions = { include: { endsWith: ['.model'] } };
@@ -244,14 +245,39 @@ export default class Service extends EventEmitter {
         this._autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
 
         //Initialize Logger.
+        this.logger = winston.createLogger();
         this.initLogger();
 
-        //Initialize Components.
-        this.initAPIServer();
-        this.initSCP();
-        this.initDBManager();
+        //Initialize Express.
+        this.express = express();
+        this.expressRouter = express.Router();
+        this.configExpress();
 
-        this.addProcessListeners();
+        //Initialize SCP
+        const scpLogger = this.logger.child({ component: 'SCP' });
+        const scpLoggerWrite: Logging = {
+            action: (id, remoteAddress, verbose, action, status, ms) => {
+                scpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            }
+        }
+
+        const meshLogger = this.logger.child({ component: 'Mesh' });
+        const meshLoggerWrite: Logging = {
+            action: (id, remoteAddress, verbose, action, status, ms) => {
+                meshLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            }
+        }
+
+        this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
+        this.scpClientManager = scp.createClientManager({ name: this.name, mesh: Mesh, logging: meshLoggerWrite })
+        this.configSCP();
+
+        //Initialize DB Manager
+        const dbLogger = this.logger.child({ component: 'DB' });
+        this.dbManager = new DBManager(dbLogger);
+
+        //Bind Process Events.
+        this.bindProcessEvents();
     }
 
     //////////////////////////////
@@ -275,7 +301,7 @@ export default class Service extends EventEmitter {
         )
 
         //Add console transport.
-        logger.add(new winston.transports.Console({
+        this.logger.add(new winston.transports.Console({
             level: 'debug',
             format: format
         }));
@@ -288,7 +314,7 @@ export default class Service extends EventEmitter {
             }
 
             //Add file transport.
-            logger.add(new WinstonDailyRotateFile({
+            this.logger.add(new WinstonDailyRotateFile({
                 level: 'info',
                 format: format,
                 filename: `${this.name}-%DATE%.log`,
@@ -299,21 +325,21 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Initialize API Server by setting up `Express` and `ExpressRouter`.
+     * Configures API Server by setting up `Express` and `ExpressRouter`.
      * Adds default API Endpoints by calling `service.addDefaultAPIEndpoints()`.
      */
-    private initAPIServer() {
+    private configExpress() {
         //Setup Express
-        apiApp.use(cors());
-        apiApp.options('*', cors());
-        apiApp.use(express.json());
-        apiApp.use(express.urlencoded({ extended: false }));
+        this.express.use(cors());
+        this.express.options('*', cors());
+        this.express.use(express.json());
+        this.express.use(express.urlencoded({ extended: false }));
 
         //Setup child logger for API.
-        const apiLogger = logger.child({ component: 'API' });
+        const apiLogger = this.logger.child({ component: 'API' });
 
         //Setup Morgan and bind it with Winston.
-        apiApp.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
+        this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
             stream: {
                 write: (log: string) => {
                     apiLogger.info(`${log.trim()}`);
@@ -322,22 +348,22 @@ export default class Service extends EventEmitter {
         }));
 
         //Setup proxy pass.
-        apiApp.use((request: Request, response: Response, next: NextFunction) => {
+        this.express.use((request: Request, response: Response, next: NextFunction) => {
             //Generate Proxy object from headers.
             Helper.generateProxyObjects(request);
             next();
         });
 
         //Setup Router
-        apiApp.use(this.apiBaseUrl, apiRouter);
+        this.express.use(this.apiBaseUrl, this.expressRouter);
 
         // Error handler for 404
-        apiApp.use((request: Request, response: Response, next: NextFunction) => {
+        this.express.use((request: Request, response: Response, next: NextFunction) => {
             next(createError(404));
         });
 
         // Default error handler
-        apiApp.use((error: Error, request: Request, response: Response, next: NextFunction) => {
+        this.express.use((error: Error, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
             response.locals.error = this.environment === 'development' ? error : {};
             response.status((error as any).status || 500).send(error.message);
@@ -347,59 +373,33 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Initialize SCP by setting up `ScpServer` and `ScpClientManager`.
+     * Configures SCP by setting up `ScpServer` and `ScpClientManager`.
      */
-    private initSCP() {
-        //Setup child logger for SCP.
-        const scpLogger = logger.child({ component: 'SCP' });
-        const meshLogger = logger.child({ component: 'Mesh' });
-
-        const scpLoggerWrite: Logging = {
-            action: (id, remoteAddress, verbose, action, status, ms) => {
-                scpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
-            }
-        }
-
-        const meshLoggerWrite: Logging = {
-            action: (id, remoteAddress, verbose, action, status, ms) => {
-                meshLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
-            }
-        }
-
+    private configSCP() {
         //Setup SCP server and bind events.
-        scpServer.logging = scpLoggerWrite;
-        scpServer.on('error', (error: Error) => {
-            logger.error(error.stack);
+        this.scpServer.on('error', (error: Error) => {
+            this.logger.error(error.stack);
         });
 
         //Setup SCP client manager and bind events.
-        scpClientManager.logging = meshLoggerWrite;
-        scpClientManager.on('clientConnected', (client: NodeClient) => {
+        this.scpClientManager.on('clientConnected', (client: NodeClient) => {
             //Log Event.
-            logger.info(`Node connected to ${client.url}`);
+            this.logger.info(`Node connected to ${client.url}`);
 
             this.emit('scpClientConnected', client);
         });
-        scpClientManager.on('clientDisconnected', (client: NodeClient) => {
+        this.scpClientManager.on('clientDisconnected', (client: NodeClient) => {
             //Log Event.
-            logger.info(`Node disconnected from ${client.url}`);
+            this.logger.info(`Node disconnected from ${client.url}`);
 
             this.emit('scpClientDisconnected', client);
         });
-        scpClientManager.on('clientReconnecting', (client: NodeClient) => {
+        this.scpClientManager.on('clientReconnecting', (client: NodeClient) => {
             //Log Event.
-            logger.silly(`Node reconnecting to ${client.url}`);
+            this.logger.silly(`Node reconnecting to ${client.url}`);
 
             this.emit('scpClientReconnecting', client);
         });
-    }
-
-    /**
-     * Initialize `DBManager`.
-     */
-    private initDBManager() {
-        //Setup child logger for DB manager.
-        dbManager.logger = logger.child({ component: 'DB' });
     }
 
     //////////////////////////////
@@ -426,7 +426,7 @@ export default class Service extends EventEmitter {
                 const _Model: Model = require(file).default;
 
                 //Log Event.
-                logger.debug(`Wiring model: ${_Model.name}`);
+                this.logger.debug(`Wiring model: ${_Model.name}`);
 
                 this.emit('autoWireModel', _Model.name);
             }
@@ -438,10 +438,10 @@ export default class Service extends EventEmitter {
                 //Load, Initialize, Push to array.
                 const _Messenger = require(file).default;
                 const messenger: Messenger = new _Messenger();
-                this._messengers.push(messenger);
+                this.messengers.push(messenger);
 
                 //Log Event.
-                logger.debug(`Adding actions from messenger: ${messenger.name}`);
+                this.logger.debug(`Adding actions from messenger: ${messenger.name}`);
 
                 this.emit('autoInjectMessenger', messenger.name);
             }
@@ -453,10 +453,10 @@ export default class Service extends EventEmitter {
                 //Load, Initialize, Push to array.
                 const _Controller = require(file).default;
                 const controller: Controller = new _Controller();
-                this._controllers.push(controller);
+                this.controllers.push(controller);
 
                 //Log Event.
-                logger.debug(`Adding endpoints from controller: ${controller.name}`);
+                this.logger.debug(`Adding endpoints from controller: ${controller.name}`);
 
                 this.emit('autoInjectController', controller.name);
             }
@@ -477,12 +477,12 @@ export default class Service extends EventEmitter {
     public useDB(type: DBType, paperTrail?: boolean) {
         try {
             //Initialize the database connection.
-            dbManager.init(type, paperTrail);
+            this.dbManager.init(type, paperTrail);
 
             //DB routes.
-            apiRouter.post('/db/sync', async (request, response) => {
+            this.expressRouter.post('/db/sync', async (request, response) => {
                 try {
-                    const sync = await dbManager.sync(request.body.force);
+                    const sync = await this.dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
                 } catch (error) {
                     response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
@@ -490,9 +490,9 @@ export default class Service extends EventEmitter {
             });
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
-                logger.error(error.message);
+                this.logger.error(error.message);
             } else {
-                logger.error(error.stack);
+                this.logger.error(error.stack);
             }
         }
     }
@@ -507,7 +507,7 @@ export default class Service extends EventEmitter {
      */
     public start(callback?: () => void) {
         //Log Event.
-        logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
+        this.logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
 
         //Emit Global: starting.
         this.emit('starting');
@@ -515,50 +515,52 @@ export default class Service extends EventEmitter {
         //Load files
         this.injectFiles();
 
+        //TODO: Work on sequence PMICRO-88
+
         //Start API Server
-        apiServer = apiApp.listen(this.apiPort, () => {
+        this._apiServer = this.express.listen(this.apiPort, () => {
             //Log Event.
-            logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
+            this.logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
 
             //Emit Global: apiServerListening.
             this.emit('apiServerListening');
 
             //Start SCP Server
-            scpServer.listen(this.scpPort, () => {
+            this.scpServer.listen(this.scpPort, () => {
                 //Log Event.
-                logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
+                this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
                 //Emit Global: scpServerListening.
                 this.emit('scpServerListening');
 
                 //Start SCP Client Manager
-                (scpClientManager.clients.length > 0) && scpClientManager.connect(() => {
+                (this.scpClientManager.clients.length > 0) && this.scpClientManager.connect(() => {
                     //Log Event.
-                    logger.info(`SCP client manager connected.`);
+                    this.logger.info(`SCP client manager connected.`);
 
                     //Emit Global: scpClientManagerConnected.
                     this.emit('scpClientManagerConnected');
                 });
 
                 //Start DB Manager
-                (dbManager.connection) && dbManager.connect((error) => {
+                (this.dbManager.connection) && this.dbManager.connect((error) => {
                     if (!error) {
                         //Log Event.
-                        logger.info(`DB client connected to ${dbManager.type}://${dbManager.host}/${dbManager.name}`);
+                        this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
 
                         //Emit Global: dbManagerConnected.
                         this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
-                            logger.error(error.message);
+                            this.logger.error(error.message);
                         } else {
-                            logger.error(error.stack);
+                            this.logger.error(error.stack);
                         }
                     }
                 });
 
                 //Log Event.
-                logger.info(`${this.name} ready.`);
+                this.logger.info(`${this.name} ready.`);
 
                 //Emit Global: ready.
                 this.emit('ready');
@@ -582,50 +584,50 @@ export default class Service extends EventEmitter {
      */
     public stop(callback: (exitCode: number) => void) {
         //Log Event.
-        logger.info(`Stopping ${this.name}...`);
+        this.logger.info(`Stopping ${this.name}...`);
 
         //Emit Global: stopping.
         this.emit('stopping');
 
         setTimeout(() => {
             callback(1);
-            logger.error('Forcefully shutting down.');
+            this.logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
         //Stop API Servers
-        apiServer.close((error) => {
+        this._apiServer.close((error) => {
             if (!error) {
                 //Log Event.
-                logger.info(`Stopped API server.`);
+                this.logger.info(`Stopped API server.`);
 
                 //Emit Global: apiServerStopped.
                 this.emit('apiServerStopped');
             }
 
             //Stop SCP Servers
-            scpServer.close((error) => {
+            this.scpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    logger.info(`Stopped SCP Server.`);
+                    this.logger.info(`Stopped SCP Server.`);
 
                     //Emit Global: scpServerStopped.
                     this.emit('scpServerStopped');
                 }
 
                 //Stop SCP Client Manager
-                (scpClientManager.clients.length > 0) && scpClientManager.disconnect(() => {
+                (this.scpClientManager.clients.length > 0) && this.scpClientManager.disconnect(() => {
                     //Log Event.
-                    logger.info(`SCP client manager disconnected.`);
+                    this.logger.info(`SCP client manager disconnected.`);
 
                     //Emit Global: scpClientManagerDisconnected.
                     this.emit('scpClientManagerDisconnected');
                 });
 
                 //Stop DB Manager
-                (dbManager.connection) && dbManager.disconnect((error) => {
+                (this.dbManager.connection) && this.dbManager.disconnect((error) => {
                     if (!error) {
                         //Log Event.
-                        logger.info(`DB Disconnected.`);
+                        this.logger.info(`DB Disconnected.`);
 
                         //Emit Global: dbManagerDisconnected.
                         this.emit('dbManagerDisconnected');
@@ -633,7 +635,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Log Event.
-                logger.info(`${this.name} stopped.`);
+                this.logger.info(`${this.name} stopped.`);
 
                 //Emit Global: stopped.
                 this.emit('stopped');
@@ -693,7 +695,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
-        apiRouter.all(path, ...handlers);
+        this.expressRouter.all(path, ...handlers);
     }
 
     /**
@@ -703,7 +705,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
-        apiRouter.get(path, ...handlers);
+        this.expressRouter.get(path, ...handlers);
     }
 
     /**
@@ -713,7 +715,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
-        apiRouter.post(path, ...handlers);
+        this.expressRouter.post(path, ...handlers);
     }
 
     /**
@@ -723,7 +725,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
-        apiRouter.put(path, ...handlers);
+        this.expressRouter.put(path, ...handlers);
     }
 
     /**
@@ -733,7 +735,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
-        apiRouter.delete(path, ...handlers);
+        this.expressRouter.delete(path, ...handlers);
     }
 
     //////////////////////////////
@@ -746,7 +748,7 @@ export default class Service extends EventEmitter {
      * @param handler the handler to be called. The handler will take message and reply as parameters.
      */
     public reply(action: string, handler: MessageReplyHandler) {
-        scpServer.reply(action, handler);
+        this.scpServer.reply(action, handler);
     }
 
     /**
@@ -755,7 +757,7 @@ export default class Service extends EventEmitter {
      * @param action the action.
      */
     public defineBroadcast(action: string) {
-        scpServer.defineBroadcast(action);
+        this.scpServer.defineBroadcast(action);
     }
 
     /**
@@ -766,23 +768,7 @@ export default class Service extends EventEmitter {
      * @param body the body to send.
      */
     public broadcast(action: string, body: Body) {
-        scpServer.broadcast(action, body);
-    }
-
-    //////////////////////////////
-    //////SCP Server - Static
-    //////////////////////////////
-    /**
-     * Triggers the broadcast action on the `ScpServer` and transmits the body to all the clients connected to this `ScpServer`.
-     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
-     * 
-     * @param action the action.
-     * @param body the body to send.
-     * 
-     * @static
-     */
-    public static broadcast(action: string, body: Body) {
-        scpServer.broadcast(action, body);
+        this.scpServer.broadcast(action, body);
     }
 
     //////////////////////////////
@@ -800,9 +786,9 @@ export default class Service extends EventEmitter {
         const _url = new URL(`scp://${url}`);
         _url.port = _url.port || Default.SCP_PORT.toString();
 
-        const client = scpClientManager.createClient(nodeName, _url.toString());
+        const client = this.scpClientManager.createClient(nodeName, _url.toString());
         client.on('error', (error: Error) => {
-            logger.error(error.stack);
+            this.logger.error(error.stack);
         });
     }
 
@@ -813,35 +799,14 @@ export default class Service extends EventEmitter {
      * The RDB `Connection` object.
      */
     public get rdbConnection(): RDB {
-        return dbManager.connection as RDB;
+        return this.dbManager.connection as RDB;
     }
 
     /**
      * The NoSQL `Connection` object.
      */
     public get noSQLConnection(): NoSQL {
-        return dbManager.connection as NoSQL;
-    }
-
-    //////////////////////////////
-    //////DB Manager - Static
-    //////////////////////////////
-    /**
-     * The RDB `Connection` object.
-     * 
-     * @static
-     */
-    public static get rdbConnection(): RDB {
-        return dbManager.connection as RDB;
-    }
-
-    /**
-     * The NoSQL `Connection` object.
-     * 
-     * @static
-     */
-    public static get noSQLConnection(): NoSQL {
-        return dbManager.connection as NoSQL;
+        return this.dbManager.connection as NoSQL;
     }
 
     //////////////////////////////
@@ -851,28 +816,7 @@ export default class Service extends EventEmitter {
      * The autowired `Model`'s under the database `Connection` object.
      */
     public get models() {
-        return dbManager.models;
-    }
-
-    /**
-     * The autoinjected `Messenger`'s under this service.
-     */
-    public get messengers() {
-        return this._messengers;
-    }
-
-    /**
-     * The autoinjected `Controller`'s under this service.
-     */
-    public get controllers() {
-        return this._controllers;
-    }
-
-    /**
-     * The logger instance.
-     */
-    public get logger() {
-        return logger;
+        return this.dbManager.models;
     }
 
     //////////////////////////////
@@ -883,21 +827,21 @@ export default class Service extends EventEmitter {
      */
     private addDefaultAPIEndpoints() {
         //Default Service Routes
-        apiRouter.get('/health', (request, response) => {
+        this.expressRouter.get('/health', (request, response) => {
             const health = {
                 name: this.name,
                 version: this.version,
                 environment: this.environment,
-                api: apiServer.listening,
-                scp: scpServer.listening,
-                mesh: scpClientManager.connected,
-                db: dbManager.connected,
-                healthy: (apiServer.listening && scpServer.listening)
+                api: this._apiServer.listening,
+                scp: this.scpServer.listening,
+                mesh: this.scpClientManager.connected,
+                db: this.dbManager.connected,
+                healthy: (this._apiServer.listening && this.scpServer.listening)
             }
             response.status(HttpCodes.OK).send(health);
         });
 
-        apiRouter.get('/report', (request, response) => {
+        this.expressRouter.get('/report', (request, response) => {
             try {
                 const report = {
                     service: {
@@ -910,7 +854,7 @@ export default class Service extends EventEmitter {
                         logPath: this.logPath
                     },
                     system: this.getSystemReport(),
-                    db: dbManager.connection && this.getDBReport(),
+                    db: this.dbManager.connection && this.getDBReport(),
                     api: this.apiRouteReport(),
                     scp: this.scpRouteReport(),
                     mesh: this.scpMeshReport()
@@ -922,10 +866,10 @@ export default class Service extends EventEmitter {
             }
         });
 
-        apiRouter.post('/shutdown', (request, response) => {
+        this.expressRouter.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({ status: true, message: "Will shutdown in 2 seconds..." });
             setTimeout(() => {
-                logger.info(`Received shutdown from ${request.url}`);
+                this.logger.info(`Received shutdown from ${request.url}`);
                 process.kill(process.pid, 'SIGTERM');
             }, 2000);
         });
@@ -960,21 +904,21 @@ export default class Service extends EventEmitter {
         let models: { [name: string]: string } = {};
 
         //Gets models.
-        if (dbManager.noSQL) {
-            (dbManager.models).forEach(model => {
+        if (this.dbManager.noSQL) {
+            (this.dbManager.models).forEach(model => {
                 models[model.name] = model.collection.name;
             });
         } else {
-            dbManager.models.forEach(model => {
+            this.dbManager.models.forEach(model => {
                 models[model.name] = model.tableName;
             });
         }
 
         return {
-            name: dbManager.name,
-            host: dbManager.host,
-            type: dbManager.type,
-            connected: dbManager.connected,
+            name: this.dbManager.name,
+            host: this.dbManager.host,
+            type: this.dbManager.type,
+            connected: this.dbManager.connected,
             models: models
         }
     }
@@ -986,7 +930,7 @@ export default class Service extends EventEmitter {
         const apiRoutes: { [controller: string]: Array<{ fn: string, [method: string]: string }> } = {};
 
         //Get API Routes.
-        apiRouter.stack.forEach(item => {
+        this.expressRouter.stack.forEach(item => {
             const _stack = item.route.stack[0];
 
             //Create Variables.
@@ -1014,7 +958,7 @@ export default class Service extends EventEmitter {
         const scpRoutes: { [messenger: string]: string } = {};
 
         //Get SCP Routes.
-        scpServer.routes.forEach(item => {
+        this.scpServer.routes.forEach(item => {
             //Create Variables.
             const map = String(item.map);
             const type = String(item.type);
@@ -1033,7 +977,7 @@ export default class Service extends EventEmitter {
         const mesh = new Array();
 
         //Get SCP Clients.
-        scpClientManager.clients.forEach(item => {
+        this.scpClientManager.clients.forEach(item => {
             const client = {
                 name: item.nodeName,
                 host: item.url,
@@ -1041,7 +985,7 @@ export default class Service extends EventEmitter {
                 reconnecting: item.reconnecting,
                 disconnected: item.disconnected,
                 node: {
-                    id: item.node.id,
+                    id: item.node.identifier,
                     broadcasts: item.broadcasts,
                     replies: item.replies
                 }
@@ -1056,12 +1000,12 @@ export default class Service extends EventEmitter {
     //////Listeners
     //////////////////////////////
     /**
-     * Adds process listeners on `SIGTERM` and `SIGINT`.
+     * Binds process events on `SIGTERM` and `SIGINT`.
      */
-    private addProcessListeners() {
+    private bindProcessEvents() {
         //Exit
         process.once('SIGTERM', () => {
-            logger.info('Received SIGTERM.');
+            this.logger.info('Received SIGTERM.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
@@ -1069,14 +1013,14 @@ export default class Service extends EventEmitter {
 
         //Ctrl + C
         process.on('SIGINT', () => {
-            logger.info('Received SIGINT.');
+            this.logger.info('Received SIGINT.');
             this.stop((exitCode: number) => {
                 process.exit(exitCode);
             });
         });
 
         process.on('unhandledRejection', (reason, promise) => {
-            logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
+            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
     }
 }
@@ -1085,9 +1029,9 @@ export default class Service extends EventEmitter {
 //////Type Definitions
 //////////////////////////////
 /**
- * Interface for the initialization options of `Service`.
+ * The optional constructor options for the service.
  */
-export interface Options {
+export type Options = {
     /**
      * The name of the service.
      */
@@ -1097,6 +1041,11 @@ export interface Options {
      * The version of the service.
      */
     version?: string;
+
+    /**
+     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
+     */
+    forceStopTime?: number;
 }
 
 //////////////////////////////
@@ -1130,7 +1079,7 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             path = ('/' + controllerName + path);
         }
 
-        apiRouter.get(path, descriptor.value);
+        // apiRouter.get(path, descriptor.value);
     }
 }
 
@@ -1148,7 +1097,7 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
             path = ('/' + controllerName + path);
         }
 
-        apiRouter.post(path, descriptor.value);
+        // apiRouter.post(path, descriptor.value);
     }
 }
 
@@ -1166,7 +1115,7 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
             path = ('/' + controllerName + path);
         }
 
-        apiRouter.put(path, descriptor.value);
+        // apiRouter.put(path, descriptor.value);
     }
 }
 
@@ -1184,7 +1133,7 @@ export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFun
             path = ('/' + controllerName + path);
         }
 
-        apiRouter.delete(path, descriptor.value);
+        // apiRouter.delete(path, descriptor.value);
     }
 }
 
@@ -1213,7 +1162,7 @@ export function Reply(): MessageReplyFunction {
         const messengerName = target.name.replace('Messenger', '');
 
         const action = messengerName + Action.MAP_BREAK + propertyKey;
-        scpServer.reply(action, descriptor.value);
+        // scpServer.reply(action, descriptor.value);
     }
 }
 
@@ -1249,19 +1198,19 @@ export interface EntityOptions {
  */
 export function Entity(entityOptions: EntityOptions): ModelClass {
     return (target) => {
-        if (dbManager.connection) {
-            const modelName = target.name.replace('Model', '');
+        // if (dbManager.connection) {
+        //     const modelName = target.name.replace('Model', '');
 
-            //Validate if the database type and model type match.
-            try {
-                dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
-            } catch (error) {
-                if (error instanceof ModelError) {
-                    logger.warn(error.message);
-                } else {
-                    logger.error(error.stack);
-                }
-            }
-        }
+        //     //Validate if the database type and model type match.
+        //     try {
+        //         dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
+        //     } catch (error) {
+        //         if (error instanceof ModelError) {
+        //             logger.warn(error.message);
+        //         } else {
+        //             logger.error(error.stack);
+        //         }
+        //     }
+        // }
     }
 }

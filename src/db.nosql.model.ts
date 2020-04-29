@@ -292,9 +292,9 @@ export default class NoSQLModel {
 //////InitOptions
 //////////////////////////////
 /**
- * Interface for the initialization options of a model.
+ * The initialization options for the model.
  */
-export interface InitOptions {
+export type InitOptions = {
     /**
      * The name of the collection.
      */
