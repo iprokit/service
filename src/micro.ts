@@ -6,8 +6,8 @@ import { PathParams, RequestHandler } from 'express-serve-static-core';
 
 //Local Imports
 import Service, { Options as ServiceOptions } from "./service";
-import Gateway from './gateway';
-import { Model, ModelAttributes, ModelError, RDB, NoSQL } from './db.manager';
+import GatewayService from './gateway';
+import { Model, ModelAttributes, ModelError } from './db.manager';
 import Controller from "./controller";
 import Messenger from './messenger';
 
@@ -15,30 +15,108 @@ import Messenger from './messenger';
 //////Global Variables
 //////////////////////////////
 /**
- * 
+ * Singleton instance of the `Service`.
  */
-let service: Service | Gateway;
+let service: Service;
+
+/**
+ * Singleton instance of the `Gateway`.
+ */
+let gatewayService: GatewayService;
 
 //////////////////////////////
-//////Entrypoints
+//////Top-level
 //////////////////////////////
 /**
- * Creates an instance of a `Service`.
+ * Creates an instance of a service. `micro()` is the top-level function exported by the micro module.
  * 
- * @param options the optional service configuration.
+ * @param options the optional, initialization options.
+ * 
+ * @returns the service.
  */
-export default function micro(options?: Options): Service {
+function micro(options?: Options) {
     //Initialize Options.
     const _options: ServiceOptions = options || {};
 
     //Override mesh.
     _options.mesh = Mesh;
 
+    //Override as gateway if this is a gateway service.
+    if (options && options.gateway) {
+        _options.name = _options.name || 'gateway';
+        _options.baseUrl = _options.baseUrl || '/api';
+    }
+
+    //Return the singleton service.
     return service = service || new Service(_options);
 }
 
+namespace micro {
+    /**
+     * Creates an instance of a `Gateway`.
+     * 
+     * @returns the gateway.
+     */
+    export function Gateway() {
+        //Return the singleton gateway.
+        return gatewayService = gatewayService || new GatewayService(service.logger);
+    }
+
+    /**
+     * Triggers the broadcast action on all the connected services.
+     * A broadcast has to be defined `micro.defineBroadcast()` before broadcast action can be triggered.
+     * 
+     * @param action the action.
+     * @param body the body to send.
+     */
+    export function broadcast(action: string, body: Body) {
+        service.broadcast(action, body);
+    }
+
+    /**
+     * The underlying database `Connection`.
+     */
+    export function connection() {
+        return service.connection;
+    }
+
+    /**
+     * The RDB `Connection`.
+     */
+    export function rdbConnection() {
+        return service.rdbConnection;
+    }
+
+    /**
+     * The NoSQL `Connection`.
+     */
+    export function noSQLConnection() {
+        return service.noSQLConnection;
+    }
+
+    /**
+     * The logger instance.
+     */
+    export function logger() {
+        return service.logger;
+    }
+}
+
+//Overload Export.
+export default micro;
+
+/**
+ * `Mesh` is a representation of unique services's in the form of Object's.
+ *
+ * During runtime:
+ * `Node` objects are populated into `Mesh` with its name as a get accessor.
+ * All the `Node` objects are populated in this with its node name,
+ * which can be declared with `micro.defineNode()`.
+ */
+export const Mesh: ScpMesh = new ScpMesh();
+
 //////////////////////////////
-//////Micro: Options
+//////Entrypoint: Options
 //////////////////////////////
 /**
  * The optional service configuration.
@@ -63,47 +141,12 @@ export type Options = {
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      */
     forceStopTime?: number;
+
+    /**
+     * Set to true if this is a `gateway` service, false otherwise.
+     */
+    gateway?: boolean;
 }
-
-//////////////////////////////
-//////Handlers
-//////////////////////////////
-export class Micro {
-    /**
-     * Triggers the broadcast action on the `ScpServer` and transmits the body to all the clients connected to this `ScpServer`.
-     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
-     * 
-     * @param action the action.
-     * @param body the body to send.
-     */
-    public static broadcast(action: string, body: Body) {
-        service.broadcast(action, body);
-    }
-
-    /**
-     * The RDB `Connection` object.
-     */
-    public static get rdbConnection() {
-        return service.rdbConnection;
-    }
-
-    /**
-     * The NoSQL `Connection` object.
-     */
-    public static get noSQLConnection() {
-        return service.noSQLConnection;
-    }
-}
-
-/**
- * `Mesh` is a representation of unique server's in the form of Object's.
- *
- * During runtime:
- * `Node` objects are populated into `Mesh` with its name as a get accessor.
- * All the `Node` objects are populated in this with its node name,
- * which can be declared with `service.defineNode()`.
- */
-export const Mesh: ScpMesh = new ScpMesh();
 
 //////////////////////////////
 //////API Server Decorators

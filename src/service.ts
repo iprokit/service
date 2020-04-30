@@ -23,14 +23,13 @@ const envPath = path.join(projectPath, '.env');
 if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
 }
-//TODO: Move this to micro.
 
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
 import Messenger from './messenger';
 import Controller from './controller';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ConnectionOptionsError } from './db.manager';
+import DBManager, { Type as DBType, Model, ConnectionOptionsError } from './db.manager';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -211,14 +210,8 @@ export default class Service extends EventEmitter {
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
-
-        //Initialize API server variables.
         this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
-
-        //Initialize SCP variables.
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
-
-        //Initialize Logger variables.
         this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
 
         //Initialize Action's/API's
@@ -270,28 +263,35 @@ export default class Service extends EventEmitter {
     //////Gets/Sets
     //////////////////////////////
     /**
-     * The RDB `Connection` object.
+     * The underlying database `Connection`.
      */
-    public get rdbConnection(): RDB {
-        return this.dbManager.connection as RDB;
+    public get connection() {
+        return this.dbManager.connection;
     }
 
     /**
-     * The NoSQL `Connection` object.
+     * The RDB `Connection`.
      */
-    public get noSQLConnection(): NoSQL {
-        return this.dbManager.connection as NoSQL;
+    public get rdbConnection() {
+        return this.dbManager.rdbConnection;
     }
 
     /**
-     * The autowired `Model`'s under the database `Connection` object.
+     * The NoSQL `Connection`.
+     */
+    public get noSQLConnection() {
+        return this.dbManager.noSQLConnection;
+    }
+
+    /**
+     * The autowired `Model`'s under the database `Connection`.
      */
     public get models() {
         return this.dbManager.models;
     }
-    
+
     /**
-     * `Node`'s are populated into this `Mesh` during runtime.
+     * `Node`'s are populated into this `Mesh` instance during runtime.
      */
     public get mesh() {
         return this.scpClientManager.mesh;
@@ -778,8 +778,8 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Triggers the broadcast action on the `ScpServer` and transmits the body to all the clients connected to this `ScpServer`.
-     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be transmitted.
+     * Triggers the broadcast action on all the connected services.
+     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be triggered.
      * 
      * @param action the action.
      * @param body the body to send.
@@ -793,8 +793,7 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Creates a new `ScpClient` and `Node` on `ScpClientManager`.
-     * 
-     * Retrieve the Node by importing `Mesh` from the package.
+     * Retrieve the Node instance by importing `Mesh` from the module.
      *
      * @param url The remote server address.
      * @param nodeName The callable name of the node.

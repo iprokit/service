@@ -16,8 +16,7 @@ export { default as RDBModel } from './db.rdb.model';
 export { default as NoSQLModel } from './db.nosql.model';
 
 //Export Decorators
-export { Micro, Mesh, Entity, Get, Post, Put, Delete, Reply } from './micro';
+export { Mesh, Entity, Get, Post, Put, Delete, Reply } from './micro';
 
-//Export Entrypoints
-export { default as Gateway } from './gateway';
+//Export Entrypoint
 export default micro;

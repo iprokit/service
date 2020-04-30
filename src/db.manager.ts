@@ -75,7 +75,7 @@ export default class DBManager {
      * 
      * @param logger the logger instance.
      */
-    public constructor(logger?: Logger) {
+    public constructor(logger: Logger) {
         //Set default connected.
         this._connected = false;
 
@@ -128,14 +128,32 @@ export default class DBManager {
     }
 
     /**
-     * The underlying database `Connection` object.
+     * The underlying database `Connection`.
      */
     public get connection(): Connection {
         return this._connection;
     }
 
     /**
-     * The models under the database `Connection` object.
+     * The RDB `Connection`.
+     */
+    public get rdbConnection(): RDB {
+        if (this.rdb) {
+            return this._connection as RDB;
+        }
+    }
+
+    /**
+     * The NoSQL `Connection`.
+     */
+    public get noSQLConnection(): NoSQL {
+        if (this.noSQL) {
+            return this._connection as NoSQL;
+        }
+    }
+
+    /**
+     * The models under the database `Connection`.
      */
     public get models() {
         return Object.values(this._connection.models);
