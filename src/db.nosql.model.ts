@@ -289,7 +289,7 @@ export default class NoSQLModel {
 }
 
 //////////////////////////////
-//////InitOptions
+//////Init: Options
 //////////////////////////////
 /**
  * The initialization options for the model.

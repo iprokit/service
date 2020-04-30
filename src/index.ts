@@ -1,5 +1,5 @@
 //Local Imports
-import Service from './service';
+import micro from './micro';
 
 //Export API
 import HttpStatusCodes from 'http-status-codes';
@@ -16,9 +16,8 @@ export { default as RDBModel } from './db.rdb.model';
 export { default as NoSQLModel } from './db.nosql.model';
 
 //Export Decorators
-export { Entity, Get, Post, Put, Delete, Reply, Mesh } from './service';
+export { Micro, Mesh, Entity, Get, Post, Put, Delete, Reply } from './micro';
 
-//Main Components + Default
-export default Service;
+//Export Entrypoints
 export { default as Gateway } from './gateway';
-
+export default micro;

@@ -138,7 +138,7 @@ export default class Helper {
     //////////////////////////////
     /**
      * Generate proxy headers from proxy objects.
-     * This is used to pass proxy headers from gateway service to micro-service/general-service during proxy redirect.
+     * This is used to pass proxy headers from gateway service to a service during proxy redirect.
      * 
      * @param sourceRequest the source service request.
      * @param targetRequest the target service request.
@@ -148,7 +148,7 @@ export default class Helper {
         if (proxyObject) {
             //Convert Proxy dict to array and get each proxy.
             Object.entries(proxyObject).forEach(([name, proxy]) => {
-                targetRequest.headers['proxy-' + name] = JSON.stringify(proxy);
+                targetRequest.headers[`proxy-${name}`] = JSON.stringify(proxy);
             });
         }
     }
@@ -179,7 +179,7 @@ export default class Helper {
 }
 
 //////////////////////////////
-//////File: Interface
+//////File: Options
 //////////////////////////////
 /**
  * File find options.

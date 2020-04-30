@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import scp, { Server as ScpServer, ClientManager as ScpClientManager, NodeClient, Mesh as ScpMesh, MessageReplyHandler, Body, Action, StatusType, Logging } from '@iprotechs/scp';
+import scp, { Body, StatusType, Server as ScpServer, ClientManager, NodeClient, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -23,27 +23,14 @@ const envPath = path.join(projectPath, '.env');
 if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
 }
+//TODO: Move this to micro.
 
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
 import Messenger from './messenger';
 import Controller from './controller';
-import DBManager, { RDB, NoSQL, Type as DBType, Model, ModelAttributes, ConnectionOptionsError, ModelError } from './db.manager';
-
-//////////////////////////////
-//////Global Variables
-//////////////////////////////
-/**
- * `Mesh` is a representation of unique server's in the form of Object's.
- *
- * During runtime:
- * `Node` objects are populated into `Mesh` with its name as a get accessor.
- * All the `Node` objects are exposed in this with its node name,
- * which can be declared with `service.defineNode()`.
- */
-export const Mesh: ScpMesh = new ScpMesh();
-//TODO: Move this to micro.
+import DBManager, { RDB, NoSQL, Type as DBType, Model, ConnectionOptionsError } from './db.manager';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -193,7 +180,7 @@ export default class Service extends EventEmitter {
     /**
      * Instance of `ScpClientManager`.
      */
-    public readonly scpClientManager: ScpClientManager;
+    public readonly scpClientManager: ClientManager;
 
     /**
      * Instance of `DBManager`.
@@ -208,25 +195,24 @@ export default class Service extends EventEmitter {
     /**
      * Creates an instance of a `Service`.
      * 
-     * @param baseUrl the optional, base/root url.
-     * @param options the optional, `Service` options.
+     * @param options the optional constructor options.
      */
-    public constructor(baseUrl?: string, options?: Options) {
+    public constructor(options?: Options) {
         //Call super for EventEmitter.
         super();
 
-        //Set null defaults.
+        //Initialize Options.
         options = options || {};
 
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
+        this.apiBaseUrl = options.baseUrl || `/${this.name.toLowerCase()}`;
         this.version = options.version || process.env.npm_package_version;
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
 
         //Initialize API server variables.
-        this.apiBaseUrl = baseUrl || '/' + this.name.toLowerCase();
         this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
 
         //Initialize SCP variables.
@@ -246,7 +232,7 @@ export default class Service extends EventEmitter {
 
         //Initialize Logger.
         this.logger = winston.createLogger();
-        this.initLogger();
+        this.configLogger();
 
         //Initialize Express.
         this.express = express();
@@ -269,7 +255,7 @@ export default class Service extends EventEmitter {
         }
 
         this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
-        this.scpClientManager = scp.createClientManager({ name: this.name, mesh: Mesh, logging: meshLoggerWrite })
+        this.scpClientManager = scp.createClientManager({ name: this.name, mesh: options.mesh, logging: meshLoggerWrite });
         this.configSCP();
 
         //Initialize DB Manager
@@ -281,12 +267,43 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Init
+    //////Gets/Sets
     //////////////////////////////
     /**
-     * Initialize logger by setting up winston.
+     * The RDB `Connection` object.
      */
-    private initLogger() {
+    public get rdbConnection(): RDB {
+        return this.dbManager.connection as RDB;
+    }
+
+    /**
+     * The NoSQL `Connection` object.
+     */
+    public get noSQLConnection(): NoSQL {
+        return this.dbManager.connection as NoSQL;
+    }
+
+    /**
+     * The autowired `Model`'s under the database `Connection` object.
+     */
+    public get models() {
+        return this.dbManager.models;
+    }
+    
+    /**
+     * `Node`'s are populated into this `Mesh` during runtime.
+     */
+    public get mesh() {
+        return this.scpClientManager.mesh;
+    }
+
+    //////////////////////////////
+    //////Config's
+    //////////////////////////////
+    /**
+     * Configures logger by setting up winston.
+     */
+    private configLogger() {
         //Define _logger format.
         const format = winston.format.combine(
             winston.format.label(),
@@ -793,33 +810,6 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////DB Manager
-    //////////////////////////////
-    /**
-     * The RDB `Connection` object.
-     */
-    public get rdbConnection(): RDB {
-        return this.dbManager.connection as RDB;
-    }
-
-    /**
-     * The NoSQL `Connection` object.
-     */
-    public get noSQLConnection(): NoSQL {
-        return this.dbManager.connection as NoSQL;
-    }
-
-    //////////////////////////////
-    //////Gets/Sets
-    //////////////////////////////
-    /**
-     * The autowired `Model`'s under the database `Connection` object.
-     */
-    public get models() {
-        return this.dbManager.models;
-    }
-
-    //////////////////////////////
     //////Default API & Reports
     //////////////////////////////
     /**
@@ -867,7 +857,7 @@ export default class Service extends EventEmitter {
         });
 
         this.expressRouter.post('/shutdown', (request, response) => {
-            response.status(HttpCodes.OK).send({ status: true, message: "Will shutdown in 2 seconds..." });
+            response.status(HttpCodes.OK).send({ status: true, message: 'Will shutdown in 2 seconds...' });
             setTimeout(() => {
                 this.logger.info(`Received shutdown from ${request.url}`);
                 process.kill(process.pid, 'SIGTERM');
@@ -882,7 +872,7 @@ export default class Service extends EventEmitter {
         let memoryUsage: { [key: string]: string } = {};
 
         Object.entries(process.memoryUsage()).forEach(([key, value]) => {
-            memoryUsage[key] = Math.round(value / 1024 / 1024 * 100) / 100 + 'MB';
+            memoryUsage[key] = `${Math.round(value / 1024 / 1024 * 100) / 100}MB`;
         });
 
         const cpuUsage = process.cpuUsage();
@@ -945,7 +935,7 @@ export default class Service extends EventEmitter {
             }
 
             //Add to object.
-            apiRoutes[controllerName].push({ fn: functionName, [method]: (this.apiBaseUrl + path) });
+            apiRoutes[controllerName].push({ fn: functionName, [method]: `${this.apiBaseUrl}${path}` });
         });
 
         return apiRoutes;
@@ -1026,7 +1016,7 @@ export default class Service extends EventEmitter {
 }
 
 //////////////////////////////
-//////Type Definitions
+//////Constructor: Options
 //////////////////////////////
 /**
  * The optional constructor options for the service.
@@ -1038,6 +1028,11 @@ export type Options = {
     name?: string;
 
     /**
+     * The base URL of the service.
+     */
+    baseUrl?: string;
+
+    /**
      * The version of the service.
      */
     version?: string;
@@ -1046,171 +1041,9 @@ export type Options = {
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      */
     forceStopTime?: number;
-}
-
-//////////////////////////////
-//////API Server Decorators
-//////////////////////////////
-/**
- * Interface for `RequestResponseFunction` descriptor.
- */
-export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
-    value: RequestHandler;
-}
-
-/**
- * Interface for `apiServer` decorators.
- */
-export interface RequestResponseFunction {
-    (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor): void
-};
-
-/**
- * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        // apiRouter.get(path, descriptor.value);
-    }
-}
-
-/**
- * Creates `post` middlewear handler on the API `Router` that works on `post` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        // apiRouter.post(path, descriptor.value);
-    }
-}
-
-/**
- * Creates `put` middlewear handler on the API `Router` that works on `put` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        // apiRouter.put(path, descriptor.value);
-    }
-}
-
-/**
- * Creates `delete` middlewear handler on the API `Router` that works on `delete` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        // apiRouter.delete(path, descriptor.value);
-    }
-}
-
-//////////////////////////////
-//////SCP Server Decorators
-//////////////////////////////
-/**
- * Interface for `MessageReplyFunction` descriptor.
- */
-interface MessageReplyDescriptor extends PropertyDescriptor {
-    value: MessageReplyHandler;
-}
-
-/**
- * Interface for `ScpServer` decorators.
- */
-export interface MessageReplyFunction {
-    (target: typeof Messenger, propertyKey: string, descriptor: MessageReplyDescriptor): void;
-}
-
-/**
- * Creates a `reply` handler on the `ScpServer`.
- */
-export function Reply(): MessageReplyFunction {
-    return (target, propertyKey, descriptor) => {
-        const messengerName = target.name.replace('Messenger', '');
-
-        const action = messengerName + Action.MAP_BREAK + propertyKey;
-        // scpServer.reply(action, descriptor.value);
-    }
-}
-
-//////////////////////////////
-//////DB Decorators
-//////////////////////////////
-/**
- * Interface for `DBManager` decorators.
- */
-export interface ModelClass {
-    (target: Model): void;
-}
-
-/**
- * Interface for Entity options.
- */
-export interface EntityOptions {
-    /**
-     * @param name the entity name of the model, i.e : collectionName/tableName.
-     */
-    name: string;
 
     /**
-     * @param attributes the entity attributes.
+     * `Node`'s are populated into this `Mesh` during runtime.
      */
-    attributes: ModelAttributes;
-}
-
-/**
- * Initialize the `Model` instance.
- * 
- * @param entityOptions the entity options.
- */
-export function Entity(entityOptions: EntityOptions): ModelClass {
-    return (target) => {
-        // if (dbManager.connection) {
-        //     const modelName = target.name.replace('Model', '');
-
-        //     //Validate if the database type and model type match.
-        //     try {
-        //         dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
-        //     } catch (error) {
-        //         if (error instanceof ModelError) {
-        //             logger.warn(error.message);
-        //         } else {
-        //             logger.error(error.stack);
-        //         }
-        //     }
-        // }
-    }
+    mesh?: Mesh;
 }

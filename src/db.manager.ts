@@ -270,7 +270,7 @@ export default class DBManager {
             //Call Hooks.
             model.hooks();
         } else {
-            throw new ModelError(modelName);
+            throw new ModelError(`Database connection type and model type mismatched for ${modelName}`);
         }
     }
 
@@ -555,8 +555,8 @@ export class ConnectionOptionsError extends Error {
  * Thrown when database `Connection` type and `Model` type do not match.
  */
 export class ModelError extends Error {
-    constructor(name: string) {
-        super('Database connection type and model type mismatched for ' + name);
+    constructor(message: string) {
+        super(message);
 
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;

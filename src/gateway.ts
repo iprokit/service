@@ -20,19 +20,18 @@ export default class Gateway extends Service {
     /**
      * Creates an instance of a `Gateway`.
      * 
-     * @param baseUrl the optional, base/root url. The default url is '/api'.
-     * @param options the optional, `Gateway` options. The default name is 'gateway'.
+     * @param options the optional constructor options.
      */
-    public constructor(baseUrl?: string, options?: Options) {
-        //Set null defaults.
+    public constructor(options?: Options) {
+        //Initialize Options.
         options = options || {};
 
-        //Initialize service variables.
-        baseUrl = baseUrl || '/api';
+        //Initialize gateway variables.
         options.name = options.name || 'gateway';
+        options.baseUrl = options.baseUrl || '/api';
 
-        //Calling super
-        super(baseUrl, options);
+        //Call super for Service.
+        super(options);
     }
 
     //////////////////////////////
