@@ -263,6 +263,13 @@ export default class Service extends EventEmitter {
     //////Gets/Sets
     //////////////////////////////
     /**
+     * Instance of `HttpServer`.
+     */
+    public get apiServer() {
+        return this._apiServer;
+    }
+
+    /**
      * The underlying database `Connection`.
      */
     public get connection() {
@@ -497,7 +504,7 @@ export default class Service extends EventEmitter {
             this.dbManager.init(type, paperTrail);
 
             //DB routes.
-            this.expressRouter.post('/db/sync', async (request, response) => {
+            this.post('/db/sync', async (request, response) => {
                 try {
                     const sync = await this.dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
@@ -816,7 +823,7 @@ export default class Service extends EventEmitter {
      */
     private addDefaultAPIEndpoints() {
         //Default Service Routes
-        this.expressRouter.get('/health', (request, response) => {
+        this.get('/health', (request, response) => {
             const health = {
                 name: this.name,
                 version: this.version,
@@ -830,7 +837,7 @@ export default class Service extends EventEmitter {
             response.status(HttpCodes.OK).send(health);
         });
 
-        this.expressRouter.get('/report', (request, response) => {
+        this.get('/report', (request, response) => {
             try {
                 const report = {
                     service: {
@@ -855,7 +862,7 @@ export default class Service extends EventEmitter {
             }
         });
 
-        this.expressRouter.post('/shutdown', (request, response) => {
+        this.post('/shutdown', (request, response) => {
             response.status(HttpCodes.OK).send({ status: true, message: 'Will shutdown in 2 seconds...' });
             setTimeout(() => {
                 this.logger.info(`Received shutdown from ${request.url}`);
