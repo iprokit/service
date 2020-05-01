@@ -17,19 +17,10 @@ import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 import { URL } from 'url';
 
-//Load Environment variables from .env file.
-const projectPath = path.dirname(require.main.filename);
-const envPath = path.join(projectPath, '.env');
-if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-}
-
 //Local Imports
 import Default from './default';
-import Helper, { FileOptions } from './helper';
-import Messenger from './messenger';
-import Controller from './controller';
-import DBManager, { Type as DBType, Model, ConnectionOptionsError } from './db.manager';
+import Helper from './helper';
+import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -116,45 +107,16 @@ export default class Service extends EventEmitter {
     public readonly forceStopTime: number;
 
     /**
+     * The root project path of the service.
+     */
+    public readonly projectPath: string;
+
+    /**
      * The path to log files of the service, retrieved from `process.env.LOG_PATH`.
      * 
      * @default `Default.LOG_PATH`
      */
     public readonly logPath: string;
-
-    /**
-     * The autoinjected `Messenger`'s under this service.
-     */
-    public readonly messengers: Array<Messenger>;
-
-    /**
-     * The autoinjected `Controller`'s under this service.
-     */
-    public readonly controllers: Array<Controller>;
-
-    /**
-     * Auto wire `Model` options.
-     * 
-     * @default
-     * { include: { endsWith: ['.model'] } }
-     */
-    private _autoWireModelOptions: FileOptions;
-
-    /**
-     * Auto inject `Messenger` options.
-     * 
-     * @default
-     * { include: { endsWith: ['.messenger'] } }
-     */
-    private _autoInjectMessengerOptions: FileOptions;
-
-    /**
-     * Auto inject `Controller` options.
-     * 
-     * @default
-     * { include: { endsWith: ['.controller'] } }
-     */
-    private _autoInjectControllerOptions: FileOptions;
 
     /**
      * Instance of `Express` application.
@@ -200,6 +162,13 @@ export default class Service extends EventEmitter {
         //Call super for EventEmitter.
         super();
 
+        //Load Environment variables from .env file.
+        this.projectPath = path.dirname(require.main.filename);
+        const envPath = path.join(this.projectPath, '.env');
+        if (fs.existsSync(envPath)) {
+            dotenv.config({ path: envPath });
+        }
+
         //Initialize Options.
         options = options || {};
 
@@ -212,16 +181,7 @@ export default class Service extends EventEmitter {
         this.ip = Helper.getContainerIP();
         this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
-        this.logPath = process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH);
-
-        //Initialize Action's/API's
-        this.messengers = new Array();
-        this.controllers = new Array();
-
-        //Initialize Autoload Variables.
-        this._autoWireModelOptions = { include: { endsWith: ['.model'] } };
-        this._autoInjectMessengerOptions = { include: { endsWith: ['.messenger'] } };
-        this._autoInjectControllerOptions = { include: { endsWith: ['.controller'] } };
+        this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -254,6 +214,7 @@ export default class Service extends EventEmitter {
         //Initialize DB Manager
         const dbLogger = this.logger.child({ component: 'DB' });
         this.dbManager = new DBManager(dbLogger);
+        options.db && this.configDatabase(options.db.type, options.db.paperTrail);
 
         //Bind Process Events.
         this.bindProcessEvents();
@@ -426,79 +387,13 @@ export default class Service extends EventEmitter {
         });
     }
 
-    //////////////////////////////
-    //////Inject
-    //////////////////////////////
     /**
-     * Inject files into the module. Respecting the order of loading for dependency.
-     * 
-     * Order: Model, Messenger, Controller
-     * 
-     * After each `require()`, annotation will automatically be called.
-     * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
-     */
-    private injectFiles() {
-        /**
-         * All the files in this project.
-         */
-        const files = Helper.findFilePaths(projectPath, { include: { extension: ['.js'] } });
-
-        //Wiring Models.
-        files.forEach(file => {
-            if (Helper.filterFile(file, this._autoWireModelOptions)) {
-                //Load.
-                const _Model: Model = require(file).default;
-
-                //Log Event.
-                this.logger.debug(`Wiring model: ${_Model.name}`);
-
-                this.emit('autoWireModel', _Model.name);
-            }
-        });
-
-        //Injecting Messengers.
-        files.forEach(file => {
-            if (Helper.filterFile(file, this._autoInjectMessengerOptions)) {
-                //Load, Initialize, Push to array.
-                const _Messenger = require(file).default;
-                const messenger: Messenger = new _Messenger();
-                this.messengers.push(messenger);
-
-                //Log Event.
-                this.logger.debug(`Adding actions from messenger: ${messenger.name}`);
-
-                this.emit('autoInjectMessenger', messenger.name);
-            }
-        });
-
-        //Injecting Controllers.
-        files.forEach(file => {
-            if (Helper.filterFile(file, this._autoInjectControllerOptions)) {
-                //Load, Initialize, Push to array.
-                const _Controller = require(file).default;
-                const controller: Controller = new _Controller();
-                this.controllers.push(controller);
-
-                //Log Event.
-                this.logger.debug(`Adding endpoints from controller: ${controller.name}`);
-
-                this.emit('autoInjectController', controller.name);
-            }
-        });
-    }
-
-    //////////////////////////////
-    //////DB
-    //////////////////////////////
-    /**
-     * Initialize and use database.
-     * 
-     * Supports NoSQL/RDB types, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+     * Configures the database by setting up `DBManager`.
      * 
      * @param type the type of the database.
      * @param paperTrail set to true if the paper trail operation should be performed, false otherwise.
      */
-    public useDB(type: DBType, paperTrail?: boolean) {
+    private configDatabase(type: DBType, paperTrail?: boolean) {
         try {
             //Initialize the database connection.
             this.dbManager.init(type, paperTrail);
@@ -535,11 +430,6 @@ export default class Service extends EventEmitter {
 
         //Emit Global: starting.
         this.emit('starting');
-
-        //Load files
-        this.injectFiles();
-
-        //TODO: Work on sequence PMICRO-88
 
         //Start API Server
         this._apiServer = this.express.listen(this.apiPort, () => {
@@ -668,45 +558,6 @@ export default class Service extends EventEmitter {
                 callback(0);
             });
         });
-    }
-
-    //////////////////////////////
-    //////Wire/Inject
-    //////////////////////////////
-    /**
-     * Set's the auto wire `Model` options.
-     * 
-     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
-     * 
-     * @default
-     * { include: { endsWith: ['.model'] } }
-     */
-    public setAutoWireModelOptions(options?: FileOptions) {
-        this._autoWireModelOptions = (options === undefined) ? this._autoWireModelOptions : options;
-    }
-
-    /**
-     * Set's the auto inject `Messenger` options.
-     * 
-     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
-     * 
-     * @default
-     * { include: { endsWith: ['.messenger'] } }
-     */
-    public setAutoInjectMessengerOptions(options?: FileOptions) {
-        this._autoInjectMessengerOptions = (options === undefined) ? this._autoInjectMessengerOptions : options;
-    }
-
-    /**
-     * Set's the auto inject `Controller` options.
-     * 
-     * @param options the options to set. Only `options.includes` or `options.excludes` is considered.
-     * 
-     * @default
-     * { include: { endsWith: ['.controller'] } }
-     */
-    public setAutoInjectControllerOptions(options?: FileOptions) {
-        this._autoInjectControllerOptions = (options === undefined) ? this._autoInjectControllerOptions : options;
     }
 
     //////////////////////////////
@@ -1052,4 +903,21 @@ export type Options = {
      * `Node`'s are populated into this `Mesh` during runtime.
      */
     mesh?: Mesh;
+
+    /**
+     * The database configuration options.
+     */
+    db?: {
+        /**
+         * The type of the database.
+         * 
+         * Supports NoSQL/RDB types, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+         */
+        type: DBType;
+
+        /**
+         * Set to true if the paper trail operation should be performed, false otherwise.
+         */
+        paperTrail?: boolean;
+    }
 }

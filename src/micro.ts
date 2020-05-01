@@ -7,9 +7,10 @@ import { PathParams, RequestHandler } from 'express-serve-static-core';
 //Local Imports
 import Service, { Options as ServiceOptions } from "./service";
 import GatewayService from './gateway';
-import { Model, ModelAttributes, ModelError } from './db.manager';
+import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
 import Controller from "./controller";
 import Messenger from './messenger';
+import Helper, { FileOptions } from './helper';
 
 //////////////////////////////
 //////Global Variables
@@ -23,6 +24,40 @@ let service: Service;
  * Singleton instance of the `Gateway`.
  */
 let gatewayService: GatewayService;
+
+/**
+ * The autoinjected `Messenger`'s under this service.
+ */
+const messengers: Array<Messenger> = new Array();
+
+/**
+ * The autoinjected `Controller`'s under this service.
+ */
+const controllers: Array<Controller> = new Array();
+
+/**
+ * Auto wire `Model` options.
+ * 
+ * @default
+ * { include: { endsWith: ['.model'] } }
+ */
+const autoWireModelOptions: FileOptions = { include: { endsWith: ['.model'] } };
+
+/**
+ * Auto inject `Messenger` options.
+ * 
+ * @default
+ * { include: { endsWith: ['.messenger'] } }
+ */
+const autoInjectMessengerOptions: FileOptions = { include: { endsWith: ['.messenger'] } };
+
+/**
+ * Auto inject `Controller` options.
+ * 
+ * @default
+ * { include: { endsWith: ['.controller'] } }
+ */
+const autoInjectControllerOptions: FileOptions = { include: { endsWith: ['.controller'] } };
 
 //////////////////////////////
 //////Top-level
@@ -47,8 +82,11 @@ function micro(options?: Options) {
         _options.baseUrl = _options.baseUrl || '/api';
     }
 
+    service = service || new Service(_options);
+    injectFiles();
+
     //Return the singleton service.
-    return service = service || new Service(_options);
+    return service;
 }
 
 namespace micro {
@@ -143,9 +181,81 @@ export type Options = {
     forceStopTime?: number;
 
     /**
+     * The database configuration options.
+     */
+    db?: {
+        /**
+         * The type of the database.
+         * 
+         * Supports NoSQL/RDB types, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
+         */
+        type: DBType;
+
+        /**
+         * Set to true if the paper trail operation should be performed, false otherwise.
+         */
+        paperTrail?: boolean;
+    }
+
+    /**
      * Set to true if this is a `gateway` service, false otherwise.
      */
     gateway?: boolean;
+}
+
+ //////////////////////////////
+//////Helpers
+//////////////////////////////
+/**
+ * Inject files into the module. Respecting the order of loading for dependency.
+ * 
+ * Order: Model, Messenger, Controller
+ * 
+ * After each `require()`, annotation will automatically be called.
+ * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
+ */
+function injectFiles() {
+    /**
+     * All the files in this project.
+     */
+    const files = Helper.findFilePaths(service.projectPath, { include: { extension: ['.js'] } });
+
+    //Wiring Models.
+    files.forEach(file => {
+        if (Helper.filterFile(file, autoWireModelOptions)) {
+            //Load.
+            const _Model: Model = require(file).default;
+
+            //Log Event.
+            service.logger.debug(`Wiring model: ${_Model.name}`);
+        }
+    });
+
+    //Injecting Messengers.
+    files.forEach(file => {
+        if (Helper.filterFile(file, autoInjectMessengerOptions)) {
+            //Load, Initialize, Push to array.
+            const _Messenger = require(file).default;
+            const messenger: Messenger = new _Messenger();
+            messengers.push(messenger);
+
+            //Log Event.
+            service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
+        }
+    });
+
+    //Injecting Controllers.
+    files.forEach(file => {
+        if (Helper.filterFile(file, autoInjectControllerOptions)) {
+            //Load, Initialize, Push to array.
+            const _Controller = require(file).default;
+            const controller: Controller = new _Controller();
+            controllers.push(controller);
+
+            //Log Event.
+            service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
+        }
+    });
 }
 
 //////////////////////////////
