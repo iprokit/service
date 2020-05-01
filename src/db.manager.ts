@@ -262,7 +262,7 @@ export default class DBManager {
      * @param attributes the entity attributes.
      * @param model the model instance.
      * 
-     * @throws InvalidModelError when database `Connection` type and `Model` type do not match.
+     * @throws ModelError when database `Connection` type and `Model` type do not match.
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
         if (this.noSQL && model.prototype instanceof NoSQLModel) {

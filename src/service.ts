@@ -28,7 +28,6 @@ import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager'
  * It can communicate with other `Service`'s using SCP(service communication protocol).
  * The API Server is built on top of `Express` and its components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * It auto wires and injects, generic `Model`'s, `Controller`'s and `Messenger`'s into the service from the project with decorators.
  * Creates default API Endpoints.
  * 
  * Default API Endpoints.
@@ -51,9 +50,6 @@ import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager'
  * @emits `scpClientReconnecting` when the `scpClient` is reconnecting.
  * @emits `dbManagerConnected` when the `dbManager` is connected.
  * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
- * @emits `autoWireModel` when a model is auto wired.
- * @emits `autoInjectMessenger` when a messenger actions are injected.
- * @emits `autoInjectController` when a controler endpoints are injected.
  */
 export default class Service extends EventEmitter {
     /**
@@ -252,13 +248,6 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * The autowired `Model`'s under the database `Connection`.
-     */
-    public get models() {
-        return this.dbManager.models;
-    }
-
-    /**
      * `Node`'s are populated into this `Mesh` instance during runtime.
      */
     public get mesh() {
@@ -354,6 +343,7 @@ export default class Service extends EventEmitter {
             response.status((error as any).status || 500).send(error.message);
         });
 
+        //TODO: Move this to a new class.
         this.addDefaultAPIEndpoints();
     }
 

@@ -28,42 +28,28 @@ let gatewayService: GatewayService;
 /**
  * The autoinjected `Messenger`'s under this service.
  */
-const messengers: Array<Messenger> = new Array();
+const _messengers: Array<Messenger> = new Array();
 
 /**
  * The autoinjected `Controller`'s under this service.
  */
-const controllers: Array<Controller> = new Array();
+const _controllers: Array<Controller> = new Array();
 
 /**
- * Auto wire `Model` options.
- * 
- * @default
- * { include: { endsWith: ['.model'] } }
+ * `Mesh` is a representation of unique services's in the form of Object's.
+ *
+ * During runtime:
+ * `Node` objects are populated into `Mesh` with its name as a get accessor.
+ * All the `Node` objects are populated in this with its node name,
+ * which can be declared with `micro.defineNode()`.
  */
-const autoWireModelOptions: FileOptions = { include: { endsWith: ['.model'] } };
-
-/**
- * Auto inject `Messenger` options.
- * 
- * @default
- * { include: { endsWith: ['.messenger'] } }
- */
-const autoInjectMessengerOptions: FileOptions = { include: { endsWith: ['.messenger'] } };
-
-/**
- * Auto inject `Controller` options.
- * 
- * @default
- * { include: { endsWith: ['.controller'] } }
- */
-const autoInjectControllerOptions: FileOptions = { include: { endsWith: ['.controller'] } };
+export const Mesh: ScpMesh = new ScpMesh();
 
 //////////////////////////////
 //////Top-level
 //////////////////////////////
 /**
- * Creates an instance of a service. `micro()` is the top-level function exported by the micro module.
+ * Creates an instance of a singleton service. `micro()` is the top-level function exported by the micro module.
  * 
  * @param options the optional, initialization options.
  * 
@@ -71,19 +57,25 @@ const autoInjectControllerOptions: FileOptions = { include: { endsWith: ['.contr
  */
 function micro(options?: Options) {
     //Initialize Options.
-    const _options: ServiceOptions = options || {};
+    options = options || {};
+
+    //Initialize serviceOptions.
+    const serviceOptions: ServiceOptions = options;
 
     //Override mesh.
-    _options.mesh = Mesh;
+    serviceOptions.mesh = Mesh;
 
     //Override as gateway if this is a gateway service.
-    if (options && options.gateway) {
-        _options.name = _options.name || 'gateway';
-        _options.baseUrl = _options.baseUrl || '/api';
+    if (options.gateway) {
+        serviceOptions.name = serviceOptions.name || 'gateway';
+        serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
     }
 
-    service = service || new Service(_options);
-    injectFiles();
+    //Create or retrieve the singleton service.
+    service = service || new Service(serviceOptions);
+
+    //Inject Files.
+    injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
 
     //Return the singleton service.
     return service;
@@ -133,6 +125,27 @@ namespace micro {
     }
 
     /**
+     * The auto wired `Model`'s.
+     */
+    export function models() {
+        return service.dbManager.models;
+    }
+
+    /**
+     * The auto injected `Controller`'s.
+     */
+    export function controllers() {
+        return _controllers;
+    }
+
+    /**
+     * The auto injected `Messenger`'s.
+     */
+    export function messengers() {
+        return _messengers;
+    }
+
+    /**
      * The logger instance.
      */
     export function logger() {
@@ -143,15 +156,69 @@ namespace micro {
 //Overload Export.
 export default micro;
 
+//////////////////////////////
+//////micro(): Helpers
+//////////////////////////////
 /**
- * `Mesh` is a representation of unique services's in the form of Object's.
- *
- * During runtime:
- * `Node` objects are populated into `Mesh` with its name as a get accessor.
- * All the `Node` objects are populated in this with its node name,
- * which can be declared with `micro.defineNode()`.
+ * Inject files into the service. Respecting the order of loading for dependency.
+ * 
+ * Order: Model, Messenger, Controller
+ * 
+ * After each `require()`, decorator will automatically be called.
+ * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
+ * 
+ * @param modelOptions the auto wire `Model` options.
+ * @param messengerOptions the auto inject `Messenger` options.
+ * @param controllerOptions the auto inject `Controller` options.
  */
-export const Mesh: ScpMesh = new ScpMesh();
+function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
+    //Initialize Options.
+    modelOptions = (modelOptions === undefined) ? { include: { endsWith: ['.model'] } } : modelOptions;
+    messengerOptions = (messengerOptions === undefined) ? { include: { endsWith: ['.messenger'] } } : messengerOptions;
+    controllerOptions = (controllerOptions === undefined) ? { include: { endsWith: ['.controller'] } } : controllerOptions;
+
+    /**
+     * All the files in this project.
+     */
+    const files = Helper.findFilePaths(service.projectPath, { include: { extension: ['.js'] } });
+
+    //Wiring Models.
+    files.forEach(file => {
+        if (Helper.filterFile(file, modelOptions)) {
+            //Load.
+            const _Model: Model = require(file).default;
+
+            //Log Event.
+            service.logger.debug(`Wiring model: ${_Model.name}`);
+        }
+    });
+
+    //Injecting Messengers.
+    files.forEach(file => {
+        if (Helper.filterFile(file, messengerOptions)) {
+            //Load, Initialize, Push to array.
+            const _Messenger = require(file).default;
+            const messenger: Messenger = new _Messenger();
+            _messengers.push(messenger);
+
+            //Log Event.
+            service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
+        }
+    });
+
+    //Injecting Controllers.
+    files.forEach(file => {
+        if (Helper.filterFile(file, controllerOptions)) {
+            //Load, Initialize, Push to array.
+            const _Controller = require(file).default;
+            const controller: Controller = new _Controller();
+            _controllers.push(controller);
+
+            //Log Event.
+            service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
+        }
+    });
+}
 
 //////////////////////////////
 //////Entrypoint: Options
@@ -201,61 +268,30 @@ export type Options = {
      * Set to true if this is a `gateway` service, false otherwise.
      */
     gateway?: boolean;
-}
 
- //////////////////////////////
-//////Helpers
-//////////////////////////////
-/**
- * Inject files into the module. Respecting the order of loading for dependency.
- * 
- * Order: Model, Messenger, Controller
- * 
- * After each `require()`, annotation will automatically be called.
- * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
- */
-function injectFiles() {
     /**
-     * All the files in this project.
+     * Auto wire `Model` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.model'] } }
      */
-    const files = Helper.findFilePaths(service.projectPath, { include: { extension: ['.js'] } });
+    autoWireModel?: FileOptions;
 
-    //Wiring Models.
-    files.forEach(file => {
-        if (Helper.filterFile(file, autoWireModelOptions)) {
-            //Load.
-            const _Model: Model = require(file).default;
+    /**
+     * Auto inject `Messenger` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.messenger'] } }
+     */
+    autoInjectMessenger?: FileOptions;
 
-            //Log Event.
-            service.logger.debug(`Wiring model: ${_Model.name}`);
-        }
-    });
-
-    //Injecting Messengers.
-    files.forEach(file => {
-        if (Helper.filterFile(file, autoInjectMessengerOptions)) {
-            //Load, Initialize, Push to array.
-            const _Messenger = require(file).default;
-            const messenger: Messenger = new _Messenger();
-            messengers.push(messenger);
-
-            //Log Event.
-            service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
-        }
-    });
-
-    //Injecting Controllers.
-    files.forEach(file => {
-        if (Helper.filterFile(file, autoInjectControllerOptions)) {
-            //Load, Initialize, Push to array.
-            const _Controller = require(file).default;
-            const controller: Controller = new _Controller();
-            controllers.push(controller);
-
-            //Log Event.
-            service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
-        }
-    });
+    /**
+     * Auto inject `Controller` options.
+     * 
+     * @default
+     * { include: { endsWith: ['.controller'] } }
+     */
+    autoInjectController?: FileOptions;
 }
 
 //////////////////////////////
