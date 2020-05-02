@@ -6,10 +6,28 @@ import HttpCodes from 'http-status-codes';
  * This generic `Controller` is responsible for handling incoming `Requests` and returning `Responses` to the client.
  */
 export default class Controller {
+    public readonly model: any;
     /**
      * Creates an instance of a `Controller`.
      */
-    constructor() { }
+    constructor(model: any) {
+        this.model = model;
+    }
+
+    /**
+     * Performs asynchronous, get all records on the `Model`.
+     * 
+     * @param request the http request.
+     * @param response the http response.
+     */
+    public async test(request: Request, response: Response) {
+        try {
+            const data = await this.model.getAll();
+            response.status(HttpCodes.OK).send({ status: true, data: data });
+        } catch (error) {
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+        }
+    };
 
     //////////////////////////////
     //////Gets/Sets

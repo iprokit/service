@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Action, Body, MessageReplyHandler, Mesh as ScpMesh } from '@iprotechs/scp';
+import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
 
 //Import Modules
 import { PathParams, RequestHandler } from 'express-serve-static-core';
@@ -26,14 +26,19 @@ let service: Service;
 let gatewayService: GatewayService;
 
 /**
+ * The auto wired `Model`'s under this service.
+ */
+export const models: Array<Model> = new Array();
+
+/**
  * The autoinjected `Messenger`'s under this service.
  */
-const _messengers: Array<Messenger> = new Array();
+export const messengers: Array<Messenger> = new Array();
 
 /**
  * The autoinjected `Controller`'s under this service.
  */
-const _controllers: Array<Controller> = new Array();
+export const controllers: Array<Controller> = new Array();
 
 /**
  * `Mesh` is a representation of unique services's in the form of Object's.
@@ -43,7 +48,7 @@ const _controllers: Array<Controller> = new Array();
  * All the `Node` objects are populated in this with its node name,
  * which can be declared with `micro.defineNode()`.
  */
-export const Mesh: ScpMesh = new ScpMesh();
+export const mesh: Mesh = new Mesh();
 
 //////////////////////////////
 //////Top-level
@@ -63,7 +68,7 @@ function micro(options?: Options) {
     const serviceOptions: ServiceOptions = options;
 
     //Override mesh.
-    serviceOptions.mesh = Mesh;
+    serviceOptions.mesh = mesh;
 
     //Override as gateway if this is a gateway service.
     if (options.gateway) {
@@ -125,27 +130,6 @@ namespace micro {
     }
 
     /**
-     * The auto wired `Model`'s.
-     */
-    export function models() {
-        return service.dbManager.models;
-    }
-
-    /**
-     * The auto injected `Controller`'s.
-     */
-    export function controllers() {
-        return _controllers;
-    }
-
-    /**
-     * The auto injected `Messenger`'s.
-     */
-    export function messengers() {
-        return _messengers;
-    }
-
-    /**
      * The logger instance.
      */
     export function logger() {
@@ -157,7 +141,7 @@ namespace micro {
 export default micro;
 
 //////////////////////////////
-//////micro(): Helpers
+//////Helpers
 //////////////////////////////
 /**
  * Inject files into the service. Respecting the order of loading for dependency.
@@ -185,11 +169,12 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     //Wiring Models.
     files.forEach(file => {
         if (Helper.filterFile(file, modelOptions)) {
-            //Load.
-            const _Model: Model = require(file).default;
+            //Load, Initialize, Push to array.
+            const ModelInstance: Model = require(file).default;
+            models.push(ModelInstance);
 
             //Log Event.
-            service.logger.debug(`Wiring model: ${_Model.name}`);
+            service.logger.debug(`Wiring model: ${ModelInstance.name}`);
         }
     });
 
@@ -197,9 +182,9 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     files.forEach(file => {
         if (Helper.filterFile(file, messengerOptions)) {
             //Load, Initialize, Push to array.
-            const _Messenger = require(file).default;
-            const messenger: Messenger = new _Messenger();
-            _messengers.push(messenger);
+            const MessengerInstance = require(file).default;
+            const messenger: Messenger = new MessengerInstance();
+            messengers.push(messenger);
 
             //Log Event.
             service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
@@ -210,9 +195,18 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     files.forEach(file => {
         if (Helper.filterFile(file, controllerOptions)) {
             //Load, Initialize, Push to array.
-            const _Controller = require(file).default;
-            const controller: Controller = new _Controller();
-            _controllers.push(controller);
+            const ControllerInstance = require(file).default;
+            const controller = new ControllerInstance();
+
+            //TODO: Work from here.
+
+            if (controller.meta) {
+                let meta = controller.meta;
+                controller[meta.name] = controller[meta.name].bind(controller);
+                service.get(meta.path, controller[meta.name]);
+            }
+
+            controllers.push(controller);
 
             //Log Event.
             service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
@@ -310,6 +304,26 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
 export interface RequestResponseFunction {
     (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor): void
 };
+
+/**
+ * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
+export function Test(path: PathParams, rootPath?: boolean): RequestResponseFunction {
+    return (target, propertyKey, descriptor) => {
+        const controllerName = target.name.replace('Controller', '').toLowerCase();
+
+        if (!rootPath) {
+            path = ('/' + controllerName + path);
+        }
+
+        const meta = { path: path, name: propertyKey };
+
+        Object.defineProperty(target, 'meta', { value: meta });
+    }
+}
 
 /**
  * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.

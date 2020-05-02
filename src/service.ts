@@ -39,17 +39,6 @@ import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager'
  * @emits `ready` when the service is ready to be used to make API calls.
  * @emits `stopping` when the service is in the process of stopping.
  * @emits `stopped` when the service is stopped.
- * @emits `apiServerListening` when the `apiServer` is listening.
- * @emits `apiServerStopped` when the `apiServer` is stopped.
- * @emits `scpServerListening` when the `scpServer` is listening.
- * @emits `scpServerStopped` when the `scpServer` is stopped.
- * @emits `scpClientManagerConnected` when the `scpClientManager` is connected.
- * @emits `scpClientManagerDisconnected` when the `scpClientManager` is disconnected.
- * @emits `scpClientConnected` when the `scpClient` is connected.
- * @emits `scpClientDisconnected` when the `scpClient` is disconnected.
- * @emits `scpClientReconnecting` when the `scpClient` is reconnecting.
- * @emits `dbManagerConnected` when the `dbManager` is connected.
- * @emits `dbManagerDisconnected` when the `dbManager` is disconnected.
  */
 export default class Service extends EventEmitter {
     /**
@@ -360,20 +349,14 @@ export default class Service extends EventEmitter {
         this.scpClientManager.on('clientConnected', (client: NodeClient) => {
             //Log Event.
             this.logger.info(`Node connected to ${client.url}`);
-
-            this.emit('scpClientConnected', client);
         });
         this.scpClientManager.on('clientDisconnected', (client: NodeClient) => {
             //Log Event.
             this.logger.info(`Node disconnected from ${client.url}`);
-
-            this.emit('scpClientDisconnected', client);
         });
         this.scpClientManager.on('clientReconnecting', (client: NodeClient) => {
             //Log Event.
             this.logger.silly(`Node reconnecting to ${client.url}`);
-
-            this.emit('scpClientReconnecting', client);
         });
     }
 
@@ -426,24 +409,15 @@ export default class Service extends EventEmitter {
             //Log Event.
             this.logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
 
-            //Emit Global: apiServerListening.
-            this.emit('apiServerListening');
-
             //Start SCP Server
             this.scpServer.listen(this.scpPort, () => {
                 //Log Event.
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
-                //Emit Global: scpServerListening.
-                this.emit('scpServerListening');
-
                 //Start SCP Client Manager
                 (this.scpClientManager.clients.length > 0) && this.scpClientManager.connect(() => {
                     //Log Event.
                     this.logger.info(`SCP client manager connected.`);
-
-                    //Emit Global: scpClientManagerConnected.
-                    this.emit('scpClientManagerConnected');
                 });
 
                 //Start DB Manager
@@ -451,9 +425,6 @@ export default class Service extends EventEmitter {
                     if (!error) {
                         //Log Event.
                         this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
-
-                        //Emit Global: dbManagerConnected.
-                        this.emit('dbManagerConnected');
                     } else {
                         if (error instanceof ConnectionOptionsError) {
                             this.logger.error(error.message);
@@ -503,9 +474,6 @@ export default class Service extends EventEmitter {
             if (!error) {
                 //Log Event.
                 this.logger.info(`Stopped API server.`);
-
-                //Emit Global: apiServerStopped.
-                this.emit('apiServerStopped');
             }
 
             //Stop SCP Servers
@@ -513,18 +481,12 @@ export default class Service extends EventEmitter {
                 if (!error) {
                     //Log Event.
                     this.logger.info(`Stopped SCP Server.`);
-
-                    //Emit Global: scpServerStopped.
-                    this.emit('scpServerStopped');
                 }
 
                 //Stop SCP Client Manager
                 (this.scpClientManager.clients.length > 0) && this.scpClientManager.disconnect(() => {
                     //Log Event.
                     this.logger.info(`SCP client manager disconnected.`);
-
-                    //Emit Global: scpClientManagerDisconnected.
-                    this.emit('scpClientManagerDisconnected');
                 });
 
                 //Stop DB Manager
@@ -532,9 +494,6 @@ export default class Service extends EventEmitter {
                     if (!error) {
                         //Log Event.
                         this.logger.info(`DB Disconnected.`);
-
-                        //Emit Global: dbManagerDisconnected.
-                        this.emit('dbManagerDisconnected');
                     }
                 });
 
