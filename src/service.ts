@@ -21,6 +21,7 @@ import { URL } from 'url';
 import Default from './default';
 import Helper from './helper';
 import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager';
+import ServiceRoutes from './service.routes';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -244,7 +245,7 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Config's
+    //////Config
     //////////////////////////////
     /**
      * Configures logger by setting up winston.
@@ -332,8 +333,12 @@ export default class Service extends EventEmitter {
             response.status((error as any).status || 500).send(error.message);
         });
 
-        //TODO: Move this to a new class.
-        this.addDefaultAPIEndpoints();
+        //Adds the default(`/health`, `/report`, `/shutdown`) API Endpoints to the router and bind them with the `ServiceRoutes` context.
+        const serviceRoutes = new ServiceRoutes(this);
+        //Bind + Add Routes.
+        this.get('/health', serviceRoutes.getHealth.bind(serviceRoutes));
+        this.get('/report', serviceRoutes.getReport.bind(serviceRoutes));
+        this.post('/shutdown', serviceRoutes.shutdown.bind(serviceRoutes));
     }
 
     /**
@@ -613,183 +618,6 @@ export default class Service extends EventEmitter {
         client.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
-    }
-
-    //////////////////////////////
-    //////Default API & Reports
-    //////////////////////////////
-    /**
-     * Adds the default(`/health`, `/report`, `/shutdown`) API Endpoints.
-     */
-    private addDefaultAPIEndpoints() {
-        //Default Service Routes
-        this.get('/health', (request, response) => {
-            const health = {
-                name: this.name,
-                version: this.version,
-                environment: this.environment,
-                api: this._apiServer.listening,
-                scp: this.scpServer.listening,
-                mesh: this.scpClientManager.connected,
-                db: this.dbManager.connected,
-                healthy: (this._apiServer.listening && this.scpServer.listening)
-            }
-            response.status(HttpCodes.OK).send(health);
-        });
-
-        this.get('/report', (request, response) => {
-            try {
-                const report = {
-                    service: {
-                        name: this.name,
-                        version: this.version,
-                        ip: this.ip,
-                        apiPort: this.apiPort,
-                        scpPort: this.scpPort,
-                        environment: this.environment,
-                        logPath: this.logPath
-                    },
-                    system: this.getSystemReport(),
-                    db: this.dbManager.connection && this.getDBReport(),
-                    api: this.apiRouteReport(),
-                    scp: this.scpRouteReport(),
-                    mesh: this.scpMeshReport()
-                }
-
-                response.status(HttpCodes.OK).send(report);
-            } catch (error) {
-                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-            }
-        });
-
-        this.post('/shutdown', (request, response) => {
-            response.status(HttpCodes.OK).send({ status: true, message: 'Will shutdown in 2 seconds...' });
-            setTimeout(() => {
-                this.logger.info(`Received shutdown from ${request.url}`);
-                process.kill(process.pid, 'SIGTERM');
-            }, 2000);
-        });
-    }
-
-    /**
-     * @returns the CPU and Memory report.
-     */
-    private getSystemReport() {
-        let memoryUsage: { [key: string]: string } = {};
-
-        Object.entries(process.memoryUsage()).forEach(([key, value]) => {
-            memoryUsage[key] = `${Math.round(value / 1024 / 1024 * 100) / 100}MB`;
-        });
-
-        const cpuUsage = process.cpuUsage();
-
-        return {
-            pid: process.pid,
-            cpu: {
-                system: cpuUsage.system,
-                user: cpuUsage.user
-            },
-            memory: memoryUsage
-        }
-    }
-
-    /**
-     * @returns the `DBManager` report.
-     */
-    private getDBReport() {
-        let models: { [name: string]: string } = {};
-
-        //Gets models.
-        if (this.dbManager.noSQL) {
-            (this.dbManager.models).forEach(model => {
-                models[model.name] = model.collection.name;
-            });
-        } else {
-            this.dbManager.models.forEach(model => {
-                models[model.name] = model.tableName;
-            });
-        }
-
-        return {
-            name: this.dbManager.name,
-            host: this.dbManager.host,
-            type: this.dbManager.type,
-            connected: this.dbManager.connected,
-            models: models
-        }
-    }
-
-    /**
-     * @returns the API `Router` report.
-     */
-    private apiRouteReport() {
-        const apiRoutes: { [controller: string]: Array<{ fn: string, [method: string]: string }> } = {};
-
-        //Get API Routes.
-        this.expressRouter.stack.forEach(item => {
-            const _stack = item.route.stack[0];
-
-            //Create Variables.
-            const path = String(item.route.path);
-            const controllerName = path.split('/').filter(Boolean)[0];
-            const functionName = (_stack.handle.name === '') ? '<anonymous>' : String(_stack.handle.name);
-            const method = (_stack.method === undefined) ? 'all' : String(_stack.method).toUpperCase();
-
-            //Try creating empty object.
-            if (!apiRoutes[controllerName]) {
-                apiRoutes[controllerName] = [];
-            }
-
-            //Add to object.
-            apiRoutes[controllerName].push({ fn: functionName, [method]: `${this.apiBaseUrl}${path}` });
-        });
-
-        return apiRoutes;
-    }
-
-    /**
-     * @returns the SCP `Router` report.
-     */
-    private scpRouteReport() {
-        const scpRoutes: { [messenger: string]: string } = {};
-
-        //Get SCP Routes.
-        this.scpServer.routes.forEach(item => {
-            //Create Variables.
-            const map = String(item.map);
-            const type = String(item.type);
-
-            //Add to object.
-            scpRoutes[map] = type;
-        });
-
-        return scpRoutes;
-    }
-
-    /**
-     * @returns the SCP `Mesh` report.
-     */
-    private scpMeshReport() {
-        const mesh = new Array();
-
-        //Get SCP Clients.
-        this.scpClientManager.clients.forEach(item => {
-            const client = {
-                name: item.nodeName,
-                host: item.url,
-                connected: item.connected,
-                reconnecting: item.reconnecting,
-                disconnected: item.disconnected,
-                node: {
-                    id: item.node.identifier,
-                    broadcasts: item.broadcasts,
-                    replies: item.replies
-                }
-            };
-            mesh.push(client);
-        });
-
-        return mesh;
     }
 
     //////////////////////////////
