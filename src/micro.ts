@@ -196,14 +196,30 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
         if (Helper.filterFile(file, controllerOptions)) {
             //Load, Initialize, Push to array.
             const ControllerInstance = require(file).default;
-            const controller = new ControllerInstance();
+            const controller: ControllerMeta = new ControllerInstance();
+            const controllerName = controller.name.replace('Controller', '').toLowerCase();
 
-            //TODO: Work from here.
+            if (controller.metas) {
+                controller.metas.forEach(meta => {
+                    if (!meta.rootPath) {
+                        meta.path = ('/' + controllerName + meta.path);
+                    }
 
-            if (controller.meta) {
-                let meta = controller.meta;
-                controller[meta.name] = controller[meta.name].bind(controller);
-                service.get(meta.path, controller[meta.name]);
+                    switch (meta.method) {
+                        case 'GET':
+                            service.get(meta.path, controller[meta.functionName].bind(controller));
+                            break;
+                        case 'POST':
+                            service.post(meta.path, controller[meta.functionName].bind(controller));
+                            break;
+                        case 'PUT':
+                            service.put(meta.path, controller[meta.functionName].bind(controller));
+                            break;
+                        case 'DELETE':
+                            service.delete(meta.path, controller[meta.functionName].bind(controller));
+                            break;
+                    }
+                });
             }
 
             controllers.push(controller);
@@ -212,6 +228,12 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
             service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
         }
     });
+}
+
+interface ControllerMeta extends Controller {
+    metas: Array<{ functionName: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: PathParams, rootPath: boolean }>;
+
+    [functionName: string]: any;
 }
 
 //////////////////////////////
@@ -302,7 +324,7 @@ export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
  * Interface for `apiServer` decorators.
  */
 export interface RequestResponseFunction {
-    (target: typeof Controller, propertyKey: string, descriptor: RequestResponseFunctionDescriptor): void
+    (controller: ControllerMeta, fnName: string, fn: RequestResponseFunctionDescriptor): void
 };
 
 /**
@@ -311,35 +333,15 @@ export interface RequestResponseFunction {
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
  */
-export function Test(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
-        }
-
-        const meta = { path: path, name: propertyKey };
-
-        Object.defineProperty(target, 'meta', { value: meta });
-    }
-}
-
-/**
- * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
 export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
+    return (controller, functionName, descriptor) => {
+        //Try adding metas if they dont exist.
+        if (!controller.metas) {
+            controller.metas = new Array();
         }
 
-        service.get(path, descriptor.value);
+        //Add Meta to metas
+        controller.metas.push({ functionName: functionName, method: 'GET', path: path, rootPath });
     }
 }
 
@@ -350,14 +352,14 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
  * @param rootPath set to true if the path is root path, false by default.
  */
 export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
+    return (controller, functionName, descriptor) => {
+        //Try adding metas if they dont exist.
+        if (!controller.metas) {
+            controller.metas = new Array();
         }
 
-        service.post(path, descriptor.value);
+        //Add Meta to metas
+        controller.metas.push({ functionName: functionName, method: 'POST', path: path, rootPath });
     }
 }
 
@@ -368,14 +370,14 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
  * @param rootPath set to true if the path is root path, false by default.
  */
 export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
+    return (controller, functionName, descriptor) => {
+        //Try adding metas if they dont exist.
+        if (!controller.metas) {
+            controller.metas = new Array();
         }
 
-        service.put(path, descriptor.value);
+        //Add Meta to metas
+        controller.metas.push({ functionName: functionName, method: 'PUT', path: path, rootPath });
     }
 }
 
@@ -386,14 +388,14 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
  * @param rootPath set to true if the path is root path, false by default.
  */
 export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (target, propertyKey, descriptor) => {
-        const controllerName = target.name.replace('Controller', '').toLowerCase();
-
-        if (!rootPath) {
-            path = ('/' + controllerName + path);
+    return (controller, functionName, descriptor) => {
+        //Try adding metas if they dont exist.
+        if (!controller.metas) {
+            controller.metas = new Array();
         }
 
-        service.delete(path, descriptor.value);
+        //Add Meta to metas
+        controller.metas.push({ functionName: functionName, method: 'DELETE', path: path, rootPath });
     }
 }
 
