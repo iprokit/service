@@ -205,6 +205,10 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
                         meta.path = ('/' + controllerName + meta.path);
                     }
 
+                    //Bind Function.
+                    controller[meta.functionName] = controller[meta.functionName].bind(controller);
+
+                    //Add Route.
                     switch (meta.method) {
                         case 'GET':
                             service.get(meta.path, controller[meta.functionName].bind(controller));
