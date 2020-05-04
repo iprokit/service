@@ -41,6 +41,16 @@ export const messengers: Array<Messenger> = new Array();
 export const controllers: Array<Controller> = new Array();
 
 /**
+ * An array of `MessengerMeta`.
+ */
+const messengerMetas: Array<MessengerMeta> = new Array();
+
+/**
+ * An array of `ControllerMeta`.
+ */
+const controllerMetas: Array<ControllerMeta> = new Array();
+
+/**
  * `Mesh` is a representation of unique services's in the form of Object's.
  *
  * During runtime:
@@ -141,34 +151,6 @@ namespace micro {
 export default micro;
 
 //////////////////////////////
-//////Metas
-//////////////////////////////
-/**
- * An array of `ControllerMeta`.
- */
-let controllerMetas: Array<ControllerMeta> = new Array();
-
-/**
- * Definition of ControllerMeta.
- */
-type ControllerMeta = {
-    controllerName: string,
-    handlerName: string,
-    method: 'get' | 'post' | 'put' | 'delete',
-    path: PathParams,
-    rootPath: boolean
-}
-
-/**
- * Returns an array of controller metas.
- * 
- * @param name the controller name.
- */
-function getControllerMeta(name: string) {
-    return controllerMetas.filter(controllerMeta => controllerMeta.controllerName === name);
-}
-
-//////////////////////////////
 //////Helpers
 //////////////////////////////
 /**
@@ -211,9 +193,29 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     //Injecting Messengers.
     files.forEach(file => {
         if (Helper.filterFile(file, messengerOptions)) {
-            //Load, Initialize, Push to array.
+            //Load the messenger from the file location.
             const MessengerInstance = require(file).default;
-            const messenger: Messenger = new MessengerInstance();
+
+            //Initialize the messenger.
+            const messenger = new MessengerInstance();
+
+            //Get messengerMeta and name.
+            let messengerMeta = getMessengerMeta(messenger.name);
+            const messengerName = messenger.name.replace('Messenger', '');
+
+            //Get each meta, bind the function and add action to the scpServer.
+            messengerMeta && messengerMeta.forEach(meta => {
+                //Set action.
+                const action = messengerName + Action.MAP_BREAK + meta.handlerName;
+
+                //Bind Function.
+                messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
+
+                //Add Action.
+                service[meta.action](action, messenger[meta.handlerName]);
+            });
+
+            //Push to array.
             messengers.push(messenger);
 
             //Log Event.
@@ -248,12 +250,171 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
                 service[meta.method](meta.path, controller[meta.handlerName]);
             });
 
+            //Push to array.
             controllers.push(controller);
 
             //Log Event.
             service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
         }
     });
+}
+
+/**
+ * Returns an array of messenger metas.
+ * 
+ * @param name the messenger name.
+ */
+function getMessengerMeta(name: string) {
+    return messengerMetas.filter(messengerMeta => messengerMeta.messengerName === name);
+}
+
+/**
+ * Returns an array of controller metas.
+ * 
+ * @param name the controller name.
+ */
+function getControllerMeta(name: string) {
+    return controllerMetas.filter(controllerMeta => controllerMeta.controllerName === name);
+}
+
+//////////////////////////////
+//////DB Decorators
+//////////////////////////////
+/**
+ * Interface for `Model`.
+ */
+export interface ModelClass {
+    (target: Model): void;
+}
+
+/**
+ * Interface for Entity options.
+ */
+export interface EntityOptions {
+    /**
+     * @param name the entity name of the model, i.e : collectionName/tableName.
+     */
+    name: string;
+
+    /**
+     * @param attributes the entity attributes.
+     */
+    attributes: ModelAttributes;
+}
+
+/**
+ * Initialize the `Model` instance.
+ * 
+ * @param options the entity options.
+ */
+export function Entity(options: EntityOptions): ModelClass {
+    return (target) => {
+        if (service.dbManager.connection) {
+            const modelName = target.name.replace('Model', '');
+
+            //Validate if the database type and model type match.
+            try {
+                service.dbManager.initModel(modelName, options.name, options.attributes, target);
+            } catch (error) {
+                if (error instanceof ModelError) {
+                    service.logger.warn(error.message);
+                } else {
+                    service.logger.error(error.stack);
+                }
+            }
+        }
+    }
+}
+
+//////////////////////////////
+//////SCP Server Decorators
+//////////////////////////////
+/**
+ * Interface for `ReplyFunction` descriptor.
+ */
+export interface ReplyDescriptor extends PropertyDescriptor {
+    value: MessageReplyHandler;
+}
+
+/**
+ * Interface for SCP action.
+ */
+export interface ReplyFunction {
+    (messenger: typeof Messenger, handlerName: string, replyDescriptor: ReplyDescriptor): void;
+}
+
+/**
+ * Creates a `reply` action on the `ScpServer`.
+ */
+export function Reply(): ReplyFunction {
+    return (messenger, handlerName, replyDescriptor) => {
+        messengerMetas.push({ messengerName: messenger.name, handlerName: handlerName, action: 'reply' });
+    }
+}
+
+//////////////////////////////
+//////API Server Decorators
+//////////////////////////////
+/**
+ * Interface for `RequestFunction` descriptor.
+ */
+export interface RequestDescriptor extends PropertyDescriptor {
+    value: RequestHandler;
+}
+
+/**
+ * Interface for router middlewear.
+ */
+export interface RequestFunction {
+    (controller: typeof Controller, handlerName: string, requestDescriptor: RequestDescriptor): void
+};
+
+/**
+ * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
+export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, requestDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'get', path: path, rootPath: rootPath });
+    }
+}
+
+/**
+ * Creates `post` middlewear handler on the API `Router` that works on `post` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
+export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, requestDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'post', path: path, rootPath: rootPath });
+    }
+}
+
+/**
+ * Creates `put` middlewear handler on the API `Router` that works on `put` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
+export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, requestDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'put', path: path, rootPath: rootPath });
+    }
+}
+
+/**
+ * Creates `delete` middlewear handler on the API `Router` that works on `delete` HTTP/HTTPs verbose.
+ * 
+ * @param path the endpoint path.
+ * @param rootPath set to true if the path is root path, false by default.
+ */
+export function Delete(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, requestDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'delete', path: path, rootPath: rootPath });
+    }
 }
 
 //////////////////////////////
@@ -331,144 +492,54 @@ export type Options = {
 }
 
 //////////////////////////////
-//////API Server Decorators
+//////Meta's
 //////////////////////////////
 /**
- * Interface for `RequestDescriptor`.
+ * Definition of MessengerMeta.
  */
-export interface RequestDescriptor extends PropertyDescriptor {
-    value: RequestHandler;
-}
-
-/**
- * Interface for router `middlewear`.
- */
-export interface RequestFunction {
-    (controller: typeof Controller, handlerName: string, handlerDescriptor: RequestDescriptor): void
-};
-
-/**
- * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
-    return (controller, handlerName, handlerDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'get', path: path, rootPath: rootPath })
-    }
-}
-
-/**
- * Creates `post` middlewear handler on the API `Router` that works on `post` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
-    return (controller, handlerName, handlerDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'post', path: path, rootPath: rootPath })
-    }
-}
-
-/**
- * Creates `put` middlewear handler on the API `Router` that works on `put` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
-    return (controller, handlerName, handlerDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'put', path: path, rootPath: rootPath })
-    }
-}
-
-/**
- * Creates `delete` middlewear handler on the API `Router` that works on `delete` HTTP/HTTPs verbose.
- * 
- * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
- */
-export function Delete(path: PathParams, rootPath?: boolean): RequestFunction {
-    return (controller, handlerName, handlerDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'delete', path: path, rootPath: rootPath })
-    }
-}
-
-//////////////////////////////
-//////SCP Server Decorators
-//////////////////////////////
-/**
- * Interface for `MessageReplyFunction` descriptor.
- */
-export interface MessageReplyDescriptor extends PropertyDescriptor {
-    value: MessageReplyHandler;
-}
-
-/**
- * Interface for `ScpServer` decorators.
- */
-export interface MessageReplyFunction {
-    (target: typeof Messenger, propertyKey: string, descriptor: MessageReplyDescriptor): void;
-}
-
-/**
- * Creates a `reply` handler on the `ScpServer`.
- */
-export function Reply(): MessageReplyFunction {
-    return (target, propertyKey, descriptor) => {
-        const messengerName = target.name.replace('Messenger', '');
-
-        const action = messengerName + Action.MAP_BREAK + propertyKey;
-        service.reply(action, descriptor.value);
-    }
-}
-
-//////////////////////////////
-//////DB Decorators
-//////////////////////////////
-/**
- * Interface for `DBManager` decorators.
- */
-export interface ModelClass {
-    (target: Model): void;
-}
-
-/**
- * Interface for Entity options.
- */
-export interface EntityOptions {
+type MessengerMeta = {
     /**
-     * @param name the entity name of the model, i.e : collectionName/tableName.
+     * The name of the messenger.
      */
-    name: string;
+    messengerName: string;
 
     /**
-     * @param attributes the entity attributes.
+     * The name of the handler.
      */
-    attributes: ModelAttributes;
+    handlerName: string;
+
+    /**
+     * The type of action.
+     */
+    action: 'reply';
 }
 
 /**
- * Initialize the `Model` instance.
- * 
- * @param entityOptions the entity options.
+ * Definition of ControllerMeta.
  */
-export function Entity(entityOptions: EntityOptions): ModelClass {
-    return (target) => {
-        if (service.dbManager.connection) {
-            const modelName = target.name.replace('Model', '');
+type ControllerMeta = {
+    /**
+     * The name of the controller.
+     */
+    controllerName: string;
 
-            //Validate if the database type and model type match.
-            try {
-                service.dbManager.initModel(modelName, entityOptions.name, entityOptions.attributes, target);
-            } catch (error) {
-                if (error instanceof ModelError) {
-                    service.logger.warn(error.message);
-                } else {
-                    service.logger.error(error.stack);
-                }
-            }
-        }
-    }
+    /**
+     * The name of the handler.
+     */
+    handlerName: string;
+
+    /**
+     * The type of method.
+     */
+    method: 'get' | 'post' | 'put' | 'delete';
+
+    /**
+     * The path.
+     */
+    path: PathParams;
+
+    /**
+     * Set to true if the path is root path, false by default.
+     */
+    rootPath: boolean;
 }
