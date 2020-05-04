@@ -333,15 +333,15 @@ export default class Service extends EventEmitter {
             response.status((error as any).status || 500).send(error.message);
         });
 
-        //Adds the default(`/health`, `/report`, `/shutdown`) API Endpoints to the router and bind them with the `ServiceRoutes` context.
+        //Initialize serviceRoutes.
         const serviceRoutes = new ServiceRoutes(this);
 
-        //Bind Functions.
+        //Bind functions with the `ServiceRoutes` context.
         serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
         serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
         serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
 
-        //Add Routes.
+        //Add the default API Endpoints to the router.
         this.get('/health', serviceRoutes.getHealth);
         this.get('/report', serviceRoutes.getReport);
         this.post('/shutdown', serviceRoutes.shutdown);

@@ -141,6 +141,34 @@ namespace micro {
 export default micro;
 
 //////////////////////////////
+//////Metas
+//////////////////////////////
+/**
+ * An array of `ControllerMeta`.
+ */
+let controllerMetas: Array<ControllerMeta> = new Array();
+
+/**
+ * Definition of ControllerMeta.
+ */
+type ControllerMeta = {
+    controllerName: string,
+    handlerName: string,
+    method: 'get' | 'post' | 'put' | 'delete',
+    path: PathParams,
+    rootPath: boolean
+}
+
+/**
+ * Returns an array of controller metas.
+ * 
+ * @param name the controller name.
+ */
+function getControllerMeta(name: string) {
+    return controllerMetas.filter(controllerMeta => controllerMeta.controllerName === name);
+}
+
+//////////////////////////////
 //////Helpers
 //////////////////////////////
 /**
@@ -148,8 +176,10 @@ export default micro;
  * 
  * Order: Model, Messenger, Controller
  * 
- * After each `require()`, decorator will automatically be called.
- * Allowing it to be binded to its parent component, i.e: dbManager(Model), Service(Messenger, Controller).
+ * After each `require()` the following steps happen:
+ * - Decorator is called. Each Decorator will add its meta.
+ * - Control is returned to the constructor.
+ * - Get each meta, bind the function to the constructor context.
  * 
  * @param modelOptions the auto wire `Model` options.
  * @param messengerOptions the auto inject `Messenger` options.
@@ -194,37 +224,29 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     //Injecting Controllers.
     files.forEach(file => {
         if (Helper.filterFile(file, controllerOptions)) {
-            //Load, Initialize, Push to array.
+            //Load the controller from the file location.
             const ControllerInstance = require(file).default;
-            const controller: ControllerMeta = new ControllerInstance();
+
+            //Initialize the controller.
+            const controller = new ControllerInstance();
+
+            //Get controllerMeta and name.
+            let controllerMeta = getControllerMeta(controller.name);
             const controllerName = controller.name.replace('Controller', '').toLowerCase();
 
-            if (controller.metas) {
-                controller.metas.forEach(meta => {
-                    if (!meta.rootPath) {
-                        meta.path = ('/' + controllerName + meta.path);
-                    }
+            //Get each meta, bind the function and add route to the router.
+            controllerMeta && controllerMeta.forEach(meta => {
+                //Validate if the given path is the root path.
+                if (!meta.rootPath) {
+                    meta.path = ('/' + controllerName + meta.path);
+                }
 
-                    //Bind Function.
-                    controller[meta.functionName] = controller[meta.functionName].bind(controller);
+                //Bind Function.
+                controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
 
-                    //Add Route.
-                    switch (meta.method) {
-                        case 'GET':
-                            service.get(meta.path, controller[meta.functionName].bind(controller));
-                            break;
-                        case 'POST':
-                            service.post(meta.path, controller[meta.functionName].bind(controller));
-                            break;
-                        case 'PUT':
-                            service.put(meta.path, controller[meta.functionName].bind(controller));
-                            break;
-                        case 'DELETE':
-                            service.delete(meta.path, controller[meta.functionName].bind(controller));
-                            break;
-                    }
-                });
-            }
+                //Add Route.
+                service[meta.method](meta.path, controller[meta.handlerName]);
+            });
 
             controllers.push(controller);
 
@@ -232,12 +254,6 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
             service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
         }
     });
-}
-
-interface ControllerMeta extends Controller {
-    metas: Array<{ functionName: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: PathParams, rootPath: boolean }>;
-
-    [functionName: string]: any;
 }
 
 //////////////////////////////
@@ -318,17 +334,17 @@ export type Options = {
 //////API Server Decorators
 //////////////////////////////
 /**
- * Interface for `RequestResponseFunction` descriptor.
+ * Interface for `RequestDescriptor`.
  */
-export interface RequestResponseFunctionDescriptor extends PropertyDescriptor {
+export interface RequestDescriptor extends PropertyDescriptor {
     value: RequestHandler;
 }
 
 /**
- * Interface for `apiServer` decorators.
+ * Interface for router `middlewear`.
  */
-export interface RequestResponseFunction {
-    (controller: ControllerMeta, fnName: string, fn: RequestResponseFunctionDescriptor): void
+export interface RequestFunction {
+    (controller: typeof Controller, handlerName: string, handlerDescriptor: RequestDescriptor): void
 };
 
 /**
@@ -337,15 +353,9 @@ export interface RequestResponseFunction {
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
  */
-export function Get(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (controller, functionName, descriptor) => {
-        //Try adding metas if they dont exist.
-        if (!controller.metas) {
-            controller.metas = new Array();
-        }
-
-        //Add Meta to metas
-        controller.metas.push({ functionName: functionName, method: 'GET', path: path, rootPath });
+export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, handlerDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'get', path: path, rootPath: rootPath })
     }
 }
 
@@ -355,15 +365,9 @@ export function Get(path: PathParams, rootPath?: boolean): RequestResponseFuncti
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
  */
-export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (controller, functionName, descriptor) => {
-        //Try adding metas if they dont exist.
-        if (!controller.metas) {
-            controller.metas = new Array();
-        }
-
-        //Add Meta to metas
-        controller.metas.push({ functionName: functionName, method: 'POST', path: path, rootPath });
+export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, handlerDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'post', path: path, rootPath: rootPath })
     }
 }
 
@@ -373,15 +377,9 @@ export function Post(path: PathParams, rootPath?: boolean): RequestResponseFunct
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
  */
-export function Put(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (controller, functionName, descriptor) => {
-        //Try adding metas if they dont exist.
-        if (!controller.metas) {
-            controller.metas = new Array();
-        }
-
-        //Add Meta to metas
-        controller.metas.push({ functionName: functionName, method: 'PUT', path: path, rootPath });
+export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, handlerDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'put', path: path, rootPath: rootPath })
     }
 }
 
@@ -391,15 +389,9 @@ export function Put(path: PathParams, rootPath?: boolean): RequestResponseFuncti
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
  */
-export function Delete(path: PathParams, rootPath?: boolean): RequestResponseFunction {
-    return (controller, functionName, descriptor) => {
-        //Try adding metas if they dont exist.
-        if (!controller.metas) {
-            controller.metas = new Array();
-        }
-
-        //Add Meta to metas
-        controller.metas.push({ functionName: functionName, method: 'DELETE', path: path, rootPath });
+export function Delete(path: PathParams, rootPath?: boolean): RequestFunction {
+    return (controller, handlerName, handlerDescriptor) => {
+        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'delete', path: path, rootPath: rootPath })
     }
 }
 
