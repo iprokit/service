@@ -622,6 +622,13 @@ export default class Service extends EventEmitter {
 
         const client = this.scpClientManager.createClient(nodeName, _url.toString());
         client.on('error', (error: Error) => {
+            const _error: any = error;
+
+            //Ignore hostname not found.
+            if (_error.code === 'ENOTFOUND') {
+                return;
+            }
+
             this.logger.error(error.stack);
         });
     }
