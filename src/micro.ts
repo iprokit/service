@@ -353,7 +353,7 @@ export function Reply(): ReplyFunction {
 }
 
 //////////////////////////////
-//////API Server Decorators
+//////HTTP Server Decorators
 //////////////////////////////
 /**
  * Interface for `RequestFunction` descriptor.
@@ -370,7 +370,7 @@ export interface RequestFunction {
 };
 
 /**
- * Creates `get` middlewear handler on the API `Router` that works on `get` HTTP/HTTPs verbose.
+ * Creates `get` middlewear handler on the `ExpressRouter` that works on `get` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
@@ -382,7 +382,7 @@ export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
 }
 
 /**
- * Creates `post` middlewear handler on the API `Router` that works on `post` HTTP/HTTPs verbose.
+ * Creates `post` middlewear handler on the `ExpressRouter` that works on `post` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
@@ -394,7 +394,7 @@ export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
 }
 
 /**
- * Creates `put` middlewear handler on the API `Router` that works on `put` HTTP/HTTPs verbose.
+ * Creates `put` middlewear handler on the `ExpressRouter` that works on `put` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.
@@ -406,7 +406,7 @@ export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
 }
 
 /**
- * Creates `delete` middlewear handler on the API `Router` that works on `delete` HTTP/HTTPs verbose.
+ * Creates `delete` middlewear handler on the `ExpressRouter` that works on `delete` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
  * @param rootPath set to true if the path is root path, false by default.

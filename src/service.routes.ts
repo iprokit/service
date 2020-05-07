@@ -34,7 +34,7 @@ export default class ServiceRoutes {
     /**
      * Endpoint to return the health status of the service. The health status includes the following:
      * - The Service configuration.
-     * - The status of the `HttpServer` as `ApiServer`.
+     * - The status of the `HttpServer`.
      * - The status of the `ScpServer`.
      * - The status of the `Mesh`.
      * - The status of the `DBManager`.
@@ -44,11 +44,11 @@ export default class ServiceRoutes {
             name: this.service.name,
             version: this.service.version,
             environment: this.service.environment,
-            api: this.service.apiServer.listening,
+            http: this.service.httpServer.listening,
             scp: this.service.scpServer.listening,
             mesh: this.service.scpClientManager.connected,
             db: this.service.dbManager.connected,
-            healthy: (this.service.apiServer.listening && this.service.scpServer.listening)
+            healthy: (this.service.httpServer.listening && this.service.scpServer.listening)
         }
         response.status(HttpCodes.OK).send(health);
     }
@@ -58,8 +58,8 @@ export default class ServiceRoutes {
      * - Service: The Service configuration.
      * - System: The CPU and Memory usage of the service.
      * - DB: The `DBManager` connection configuration and `Model`'s loaded.
-     * - API: The `API` endpoints exposed.
-     * - SCP: The `SCP` `Action`'s exposed.
+     * - Endpoints: The `HTTP` `Endpoint`'s exposed.
+     * - Actions: The `SCP` `Action`'s exposed.
      * - Mesh: The `Mesh` object which includes `Node`'s. Each `Node` contains its configuration and the `Action`'s that can be called.
      */
     public getReport(request: Request, response: Response) {
@@ -69,15 +69,15 @@ export default class ServiceRoutes {
                     name: this.service.name,
                     version: this.service.version,
                     ip: this.service.ip,
-                    apiPort: this.service.apiPort,
+                    httpPort: this.service.httpPort,
                     scpPort: this.service.scpPort,
                     environment: this.service.environment,
                     logPath: this.service.logPath
                 },
                 system: this.systemReport,
                 db: this.service.dbManager.connection && this.dbReport,
-                api: this.apiReport,
-                scp: this.scpReport,
+                endpoints: this.endpointsReport,
+                actions: this.actionsReport,
                 mesh: this.meshReport
             }
 
@@ -150,12 +150,12 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The `API` endpoints exposed.
+     * The `HTTP` `Endpoint`'s exposed.
      */
-    private get apiReport() {
-        const apiRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
+    private get endpointsReport() {
+        const httpRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
 
-        //Get API Routes.
+        //Get HTTP Routes.
         this.service.expressRouter.stack.forEach(item => {
             const stack = item.route.stack[0];
 
@@ -172,21 +172,21 @@ export default class ServiceRoutes {
              */
 
             //Try creating empty object.
-            if (!apiRoutes[routeName]) {
-                apiRoutes[routeName] = [];
+            if (!httpRoutes[routeName]) {
+                httpRoutes[routeName] = [];
             }
 
             //Add to object.
-            apiRoutes[routeName].push({ fn: functionName, [method]: `${this.service.apiBaseUrl}${path}` });
+            httpRoutes[routeName].push({ fn: functionName, [method]: `${this.service.httpBaseUrl}${path}` });
         });
 
-        return apiRoutes;
+        return httpRoutes;
     }
 
     /**
      * The `SCP` `Action`'s exposed.
      */
-    private get scpReport() {
+    private get actionsReport() {
         const scpRoutes: { [action: string]: string } = {};
 
         //Get SCP Routes.
@@ -209,12 +209,13 @@ export default class ServiceRoutes {
     private get meshReport() {
         const mesh: Array<{
             name: string,
+            identifier: string,
             host: URL,
             connected: boolean,
             reconnecting: boolean,
             disconnected: boolean,
             node: {
-                id: string,
+                identifier: string,
                 broadcasts: Array<string>,
                 replies: Array<string>
             }
@@ -224,14 +225,15 @@ export default class ServiceRoutes {
         this.service.scpClientManager.clients.forEach(item => {
             const client = {
                 name: item.nodeName,
+                identifier: item.identifier,
                 host: item.url,
                 connected: item.connected,
                 reconnecting: item.reconnecting,
                 disconnected: item.disconnected,
                 node: {
-                    id: item.node.identifier,
-                    broadcasts: item.broadcasts,
-                    replies: item.replies
+                    identifier: item.node.identifier,
+                    broadcasts: item.node.broadcasts,
+                    replies: item.node.replies
                 }
             };
             mesh.push(client);

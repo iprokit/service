@@ -13,11 +13,12 @@ The underyling API is built on `Express` and the database managment is done by `
 * Zero-configuration
 * Service-Discovery
 * Plugable components & middlewares
-* API Server
-* API Gateway
+* HTTP Server
+* SCP Server
+* Gateway Support
+    * Proxy
 * Dynamic Route Mapping
-* Proxy and Load-balancing
-* API for Health Monitoring and Reporting
+* Endpoints for Health Monitoring and Reporting
 * Native Middlewear Support
 * Dynamic Service Discovery
 * Service to service communication Support
@@ -35,6 +36,7 @@ The underyling API is built on `Express` and the database managment is done by `
 * Generic/Customizable Controllers, Models, Messengers
 * Autowire & Inject Classes and Objects
 * Auto Create Endpoints
+* Auto Create Actions
 * Production Ready Logging
 * Supports Versioned Services
 * Master-less Architecture
@@ -93,10 +95,10 @@ Let's create your first microservice with Micro. It will be quick and painless.
 /**
  * index.js
  */
-import MicroService from '@iprotechs/micro';
+import Micro from '@iprotechs/micro';
 
 //Declare microservice.
-const helloMicroService = new MicroService();
+const helloMicroService = Micro();
 
 //Start the microservice.
 helloMicroService.start(() => {
@@ -112,41 +114,36 @@ npm start
 
 By default the service is assigned the following service and environment variables.
 
-| name               | version               | baseURL  | NODE_ENV     | API_PORT | SCP_PORT | LOG_PATH |
-|--------------------|-----------------------|----------|--------------|----------|----------|----------|
-| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`   | `6000`   | `/logs`  |
+| name               | version               | baseURL  | NODE_ENV     | HTTP_PORT | SCP_PORT | LOG_PATH |
+|--------------------|-----------------------|----------|--------------|-----------|----------|----------|
+| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`    | `6000`   | `/logs`  |
 
 `Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
 `Health` Endpoint: 
 ```sh
-GET: http://localhost:${apiPort}/${name}/health
+GET: http://localhost:${httpPort}/${name}/health
 ```
 
 `Report` Endpoint: 
 ```sh
-GET: http://localhost:${apiPort}/${name}/report
+GET: http://localhost:${httpPort}/${name}/report
 ```
 
 `Shutdown` Endpoint: 
 ```sh
-POST: http://localhost:${apiPort}/${name}/shutdown
+POST: http://localhost:${httpPort}/${name}/shutdown
 ```
 
 You can override the service variables by assigning options to service constructor like so.
 ```javascript
-const baseURL = '/hello';
-const options = {
-    name: 'Hello Service',
-    version: '1.0.0'
-}
-const helloMicroService = new MicroService(baseURL, options);
+const helloMicroService = Micro({ baseUrl: '/hello', name: 'Hello Service', version: '1.0.0' });
 ```
 
 You can also override the environment variables by adding the following optional environment variables to .env file to the root folder of the project.
 ```sh
 NODE_ENV='development'
-API_PORT=3001
+HTTP_PORT=3001
 SCP_PORT=6001
 LOG_PATH='/user/logs'
 ```
@@ -154,7 +151,7 @@ LOG_PATH='/user/logs'
 Congratulations!!! you have successfully created your first Hello Micro Service.
 
 # Hero Service
-Lets create a hero service with CRUD API that responds to HTTP client and queries data from RDB(MySQL) Database.
+Lets create a hero service with CRUD operations that responds to HTTP client and queries data from RDB(MySQL) Database.
 
 Add the following optional environment variables to .env file to the root folder of the project to configure the database.
 
@@ -168,13 +165,10 @@ DB_PASSWORD=
 
 * index.js
 ```javascript
-import MicroService from '@iprotechs/micro';
+import Micro from '@iprotechs/micro';
 
 //Declare microservice.
-const heroMicroService = new MicroService('/heroApi');
-
-//Declare the database you want to use.
-heroMicroService.useDB('mysql', true);
+const heroMicroService = Micro({ baseUrl: '/heroApi', db: { type: 'mysql', paperTrail: true } });
 
 //Start the microservice.
 heroMicroService.start(() => {
@@ -281,10 +275,12 @@ As you can see from the `Report` endpoint, The Service has **magically** found t
 * You can configure the injection and auto wire to find files as per your criteria.
 ```javascript
 //Default for models.
-heroMicroService.setAutoWireModelOptions({ include: { endsWith: ['.model'] } });
+let autoWireModel = { include: { endsWith: ['.model'] } };
 
 //Default for Controllers.
-heroMicroService.setAutoInjectControllerOptions({ include: { endsWith: ['.controller'] } });
+let autoInjectController = { include: { endsWith: ['.controller'] } };
+
+Micro({ autoWireModel: autoWireModel, autoInjectController: autoInjectController });
 ```
 
 # Hero & Sidekick Service
@@ -293,10 +289,10 @@ Lets create a hero service and a sidekick service that can talk to each other th
 ## HeroService
 * index.js
 ```javascript
-import MicroService from '@iprotechs/micro';
+import Micro from '@iprotechs/micro';
 
 //Declare microservice.
-const heroMicroService = new MicroService();
+const heroMicroService = Micro();
 
 /**
  * Define the `Node` object.
@@ -371,10 +367,10 @@ export default class HeroController extends Controller {
 ## Sidekick Service
 * index.js
 ```javascript
-import MicroService, { Mesh } from '@iprotechs/micro';
+import Micro, { Mesh } from '@iprotechs/micro';
 
 //Declare microservice.
-const sidekickMicroService = new MicroService();
+const sidekickMicroService = Micro();
 
 /**
  * Define the `Node` object.
@@ -446,17 +442,18 @@ In this example we will implement a gateway service that will proxy requests to 
 
 * index.js
 ```javascript
-import { Gateway } from '@iprotechs/micro';
+import Micro from '@iprotechs/micro';
 
 //Declare gateway.
-const gatewayService = new Gateway();
+const gatewayService = Micro({ gateway: true });
+const gateway = Micro.Gateway();
 
 //Forward the request directly.
-gatewayService.all('/user/*', this.proxy('localhost:3001'));
-gatewayService.all('/hero/*', this.proxy('localhost:3002'));
+gatewayService.all('/user/*', gateway.proxy('localhost:3001'));
+gatewayService.all('/hero/*', gateway.proxy('localhost:3002'));
 
 //Rewrite the reqest url to '/user/report'.
-gatewayService.get('/user/help', this.proxy('localhost:3001', '/user/report'));
+gatewayService.get('/user/help', gateway.proxy('localhost:3001', '/user/report'));
 
 //Start the gateway service.
 gatewayService.start(() => {

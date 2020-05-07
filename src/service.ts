@@ -27,17 +27,17 @@ import ServiceRoutes from './service.routes';
  * This class is an implementation of a simple and lightweight service.
  * It can be used to implement a service/micro-service.
  * It can communicate with other `Service`'s using SCP(service communication protocol).
- * The API Server is built on top of `Express` and its components.
+ * The HTTP Server is built on top of `Express` and its components.
  * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * Creates default API Endpoints.
+ * Creates default HTTP Endpoints.
  * 
- * Default API Endpoints.
+ * Default HTTP Endpoints.
  * - /health - To validate if the service is healthy.
  * - /report - To get all the service reports.
  * - /shutdown - To shutdown the service safely.
  * 
  * @emits `starting` when the service is starting.
- * @emits `ready` when the service is ready to be used to make API calls.
+ * @emits `ready` when the service is ready to be used to make HTTP calls.
  * @emits `stopping` when the service is in the process of stopping.
  * @emits `stopped` when the service is stopped.
  */
@@ -69,14 +69,14 @@ export default class Service extends EventEmitter {
      * 
      * @default `service.name`
      */
-    public readonly apiBaseUrl: string;
+    public readonly httpBaseUrl: string;
 
     /**
-     * The API Server port of the service, retrieved from `process.env.API_PORT`.
+     * The HTTP Server port of the service, retrieved from `process.env.HTTP_PORT`.
      * 
-     * @default `Default.API_PORT`
+     * @default `Default.HTTP_PORT`
      */
-    public readonly apiPort: number;
+    public readonly httpPort: number;
 
     /**
      * The SCP Server port of the service, retrieved from `process.env.SCP_PORT`.
@@ -117,7 +117,7 @@ export default class Service extends EventEmitter {
     /**
      * Instance of `HttpServer`.
      */
-    private _apiServer: HttpServer;
+    private _httpServer: HttpServer;
 
     /**
      * Instance of `ScpServer`.
@@ -160,12 +160,12 @@ export default class Service extends EventEmitter {
 
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
-        this.apiBaseUrl = options.baseUrl || `/${this.name.toLowerCase()}`;
+        this.httpBaseUrl = options.baseUrl || `/${this.name.toLowerCase()}`;
         this.version = options.version || process.env.npm_package_version;
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = Helper.getContainerIP();
-        this.apiPort = Number(process.env.API_PORT) || Default.API_PORT;
+        this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
 
@@ -181,15 +181,15 @@ export default class Service extends EventEmitter {
         //Initialize SCP
         const scpLogger = this.logger.child({ component: 'SCP' });
         const scpLoggerWrite: Logging = {
-            action: (id, remoteAddress, verbose, action, status, ms) => {
-                scpLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            action: (identifier, remoteAddress, verbose, action, status, ms) => {
+                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
 
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
-            action: (id, remoteAddress, verbose, action, status, ms) => {
-                meshLogger.info(`${id}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+            action: (identifier, remoteAddress, verbose, action, status, ms) => {
+                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
 
@@ -212,8 +212,8 @@ export default class Service extends EventEmitter {
     /**
      * Instance of `HttpServer`.
      */
-    public get apiServer() {
-        return this._apiServer;
+    public get httpServer() {
+        return this._httpServer;
     }
 
     /**
@@ -289,8 +289,8 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures API Server by setting up `Express` and `ExpressRouter`.
-     * Adds default API Endpoints by calling `service.addDefaultAPIEndpoints()`.
+     * Configures HTTP Server by setting up `Express` and `ExpressRouter`.
+     * Adds default HTTP Endpoints.
      */
     private configExpress() {
         //Setup Express
@@ -299,14 +299,14 @@ export default class Service extends EventEmitter {
         this.express.use(express.json());
         this.express.use(express.urlencoded({ extended: false }));
 
-        //Setup child logger for API.
-        const apiLogger = this.logger.child({ component: 'API' });
+        //Setup child logger for HTTP.
+        const httpLogger = this.logger.child({ component: 'HTTP' });
 
         //Setup Morgan and bind it with Winston.
         this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
             stream: {
                 write: (log: string) => {
-                    apiLogger.info(`${log.trim()}`);
+                    httpLogger.info(`${log.trim()}`);
                 }
             }
         }));
@@ -319,7 +319,7 @@ export default class Service extends EventEmitter {
         });
 
         //Setup Router
-        this.express.use(this.apiBaseUrl, this.expressRouter);
+        this.express.use(this.httpBaseUrl, this.expressRouter);
 
         // Error handler for 404
         this.express.use((request: Request, response: Response, next: NextFunction) => {
@@ -341,7 +341,7 @@ export default class Service extends EventEmitter {
         serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
         serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
 
-        //Add the default API Endpoints to the router.
+        //Add the default HTTP Endpoints to the router.
         this.get('/health', serviceRoutes.getHealth);
         this.get('/report', serviceRoutes.getReport);
         this.post('/shutdown', serviceRoutes.shutdown);
@@ -415,10 +415,10 @@ export default class Service extends EventEmitter {
         //Emit Global: starting.
         this.emit('starting');
 
-        //Start API Server
-        this._apiServer = this.express.listen(this.apiPort, () => {
+        //Start HTTP Server
+        this._httpServer = this.express.listen(this.httpPort, () => {
             //Log Event.
-            this.logger.info(`API server running on ${this.ip}:${this.apiPort}${this.apiBaseUrl}`);
+            this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}${this.httpBaseUrl}`);
 
             //Start SCP Server
             this.scpServer.listen(this.scpPort, () => {
@@ -480,11 +480,11 @@ export default class Service extends EventEmitter {
             this.logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
-        //Stop API Servers
-        this._apiServer.close((error) => {
+        //Stop HTTP Servers
+        this._httpServer.close((error) => {
             if (!error) {
                 //Log Event.
-                this.logger.info(`Stopped API server.`);
+                this.logger.info(`Stopped HTTP server.`);
             }
 
             //Stop SCP Servers
@@ -521,10 +521,10 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////API Server
+    //////HTTP Server
     //////////////////////////////
     /**
-     * Creates `all` middlewear handlers on the API `Router` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
+     * Creates `all` middlewear handlers on the `ExpressRouter` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
@@ -534,7 +534,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Creates `get` middlewear handlers on the API `Router` that works on `get` HTTP/HTTPs verbose.
+     * Creates `get` middlewear handlers on the `ExpressRouter` that works on `get` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
@@ -544,7 +544,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Creates `post` middlewear handlers on the API `Router` that works on `post` HTTP/HTTPs verbose.
+     * Creates `post` middlewear handlers on the `ExpressRouter` that works on `post` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
@@ -554,7 +554,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Creates `put` middlewear handlers on the API `Router` that works on `put` HTTP/HTTPs verbose.
+     * Creates `put` middlewear handlers on the `ExpressRouter` that works on `put` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
@@ -564,7 +564,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Creates `delete` middlewear handlers on the API `Router` that works on `delete` HTTP/HTTPs verbose.
+     * Creates `delete` middlewear handlers on the `ExpressRouter` that works on `delete` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.

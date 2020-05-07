@@ -41,7 +41,7 @@ export default class Gateway {
     public proxy(url: string, redirect?: string) {
         //Define URL.
         const _url = new URL(`http://${url}`);
-        _url.port = _url.port === '' ? Default.API_PORT.toString() : _url.port;
+        _url.port = _url.port === '' ? Default.HTTP_PORT.toString() : _url.port;
 
         /**
          * Internal function to massage the request object.

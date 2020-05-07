@@ -10,11 +10,11 @@ export default class Default {
     public static readonly ENVIRONMENT: string = 'production';
 
     /**
-     * The default API server port of the service.
+     * The default HTTP server port of the service.
      * 
      * @default 3000
      */
-    public static readonly API_PORT: number = 3000;
+    public static readonly HTTP_PORT: number = 3000;
 
     /**
      * The default SCP server port of the service.

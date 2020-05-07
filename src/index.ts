@@ -1,7 +1,7 @@
 //Local Imports
 import micro from './micro';
 
-//Export API
+//Export HTTP
 import HttpStatusCodes from 'http-status-codes';
 export const HttpCodes = HttpStatusCodes;
 export { default as Controller } from './controller';
