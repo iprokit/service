@@ -234,34 +234,38 @@ import HeroModel from './hero.model';
  * - By removing the decorator the endpoint will not be exposed.
  */
 export default class HeroController extends Controller {
+    constructor() {
+        super(HeroModel);
+    }
+
     @Post('/')
     async create(request, response) {
-        await super.create(HeroModel, request, response);
+        await super.create(request, response);
     }
 
     @Put('/')
     async updateOneByID(request, response) {
-        await super.updateOneByID(HeroModel, request, response);
+        await super.updateOneByID(request, response);
     }
 
     @Delete('/:id')
     async deleteOneByID(request, response) {
-        await super.deleteOneByID(HeroModel, request, response);
+        await super.deleteOneByID(request, response);
     }
 
     @Get('/')
     async getAll(request, response) {
-        await super.getAll(HeroModel, request, response);
+        await super.getAll(request, response);
     }
 
     @Get('/id/:id')
     async getOneByID(request, response) {
-        await super.getOneByID(HeroModel, request, response);
+        await super.getOneByID(request, response);
     }
 
     @Get('/orderBy/:orderType')
     async getAllOrderByCreatedAt(request, response) {
-        await super.getAllOrderByCreatedAt(HeroModel, request, response);
+        await super.getAllOrderByCreatedAt(request, response);
     }
 
     //Define additional endpoints to handle business logic.
@@ -314,7 +318,7 @@ heroMicroService.start(() => {
     for (let i = 0; i <= 10; i++) {
         setTimeout(() => {
             const body = { message: 'Poke' };
-            MicroService.broadcast('hero.poke', body);
+            Micro.broadcast('hero.poke', body);
         }, 5 * 1000);
     }
 });
