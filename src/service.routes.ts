@@ -166,8 +166,7 @@ export default class ServiceRoutes {
             const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
 
             /**
-             * Note:
-             * Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
+             * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
              * This has to be replaced with empty string for the `functionName`.
              */
 

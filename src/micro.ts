@@ -31,14 +31,29 @@ let gatewayService: GatewayService;
 export const models: Array<Model> = new Array();
 
 /**
- * The autoinjected `Messenger`'s under this service.
+ * The auto injected `Messenger`'s under this service.
  */
 export const messengers: Array<Messenger> = new Array();
 
 /**
- * The autoinjected `Controller`'s under this service.
+ * The auto injected `Controller`'s under this service.
  */
 export const controllers: Array<Controller> = new Array();
+
+/**
+ * The auto wire `Model` options.
+ */
+let autoWireModelOptions: FileOptions = { include: { endsWith: ['.model'] } };
+
+/**
+ * The auto inject `Messenger` options.
+ */
+let autoInjectMessengerOptions: FileOptions = { include: { endsWith: ['.messenger'] } };
+
+/**
+ * The auto inject `Controller` options.
+ */
+let autoInjectControllerOptions: FileOptions = { include: { endsWith: ['.controller'] } };
 
 /**
  * An array of `MessengerMeta`.
@@ -71,26 +86,33 @@ export const mesh: Mesh = new Mesh();
  * @returns the service.
  */
 function micro(options?: Options) {
-    //Initialize Options.
-    options = options || {};
+    if (!service) {
+        //Initialize Options.
+        options = options || {};
 
-    //Initialize serviceOptions.
-    const serviceOptions: ServiceOptions = options;
+        //Initialize serviceOptions.
+        const serviceOptions: ServiceOptions = options;
 
-    //Override mesh.
-    serviceOptions.mesh = mesh;
+        //Override mesh.
+        serviceOptions.mesh = mesh;
 
-    //Override as gateway if this is a gateway service.
-    if (options.gateway) {
-        serviceOptions.name = serviceOptions.name || 'gateway';
-        serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
+        //Override as gateway if this is a gateway service.
+        if (options.gateway) {
+            serviceOptions.name = serviceOptions.name || 'gateway';
+            serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
+        }
+
+        //Initialize micro options.
+        autoWireModelOptions = options.autoWireModel && options.autoWireModel;
+        autoInjectMessengerOptions = options.autoInjectMessenger && options.autoInjectMessenger;
+        autoInjectControllerOptions = options.autoInjectController && options.autoInjectController;
+
+        //Create or retrieve the singleton service.
+        service = new Service(serviceOptions);
+
+        //Inject Files.
+        injectFiles();
     }
-
-    //Create or retrieve the singleton service.
-    service = service || new Service(serviceOptions);
-
-    //Inject Files.
-    injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
 
     //Return the singleton service.
     return service;
@@ -151,28 +173,16 @@ namespace micro {
 export default micro;
 
 //////////////////////////////
-//////Helpers
+//////Injections
 //////////////////////////////
 /**
  * Inject files into the service. Respecting the order of loading for dependency.
- * 
- * Order: Model, Messenger, Controller
- * 
- * After each `require()` the following steps happen:
- * - Decorator is called. Each Decorator will add its meta.
- * - Control is returned to the constructor.
- * - Get each meta, bind the function to the constructor context.
- * 
- * @param modelOptions the auto wire `Model` options.
- * @param messengerOptions the auto inject `Messenger` options.
- * @param controllerOptions the auto inject `Controller` options.
+ * The order is as follows.
+ * - Model
+ * - Messenger
+ * - Controller
  */
-function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
-    //Initialize Options.
-    modelOptions = (modelOptions === undefined) ? { include: { endsWith: ['.model'] } } : modelOptions;
-    messengerOptions = (messengerOptions === undefined) ? { include: { endsWith: ['.messenger'] } } : messengerOptions;
-    controllerOptions = (controllerOptions === undefined) ? { include: { endsWith: ['.controller'] } } : controllerOptions;
-
+function injectFiles() {
     /**
      * All the files in this project.
      */
@@ -180,83 +190,120 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
 
     //Wiring Models.
     files.forEach(file => {
-        if (Helper.filterFile(file, modelOptions)) {
-            //Load, Initialize, Push to array.
-            const ModelInstance: Model = require(file).default;
-            models.push(ModelInstance);
-
-            //Log Event.
-            service.logger.debug(`Wiring model: ${ModelInstance.name}`);
+        if (Helper.filterFile(file, autoWireModelOptions)) {
+            loadModel(file);
         }
     });
 
     //Injecting Messengers.
     files.forEach(file => {
-        if (Helper.filterFile(file, messengerOptions)) {
-            //Load the messenger from the file location.
-            const MessengerInstance = require(file).default;
-
-            //Initialize the messenger.
-            const messenger = new MessengerInstance();
-
-            //Get messengerMeta and name.
-            let messengerMeta = getMessengerMeta(messenger.name);
-            const messengerName = messenger.name.replace('Messenger', '');
-
-            //Get each meta, bind the function and add action to the scpServer.
-            messengerMeta && messengerMeta.forEach(meta => {
-                //Set action.
-                const action = messengerName + Action.MAP_BREAK + meta.handlerName;
-
-                //Bind Function.
-                messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
-
-                //Add Action.
-                service[meta.action](action, messenger[meta.handlerName]);
-            });
-
-            //Push to array.
-            messengers.push(messenger);
-
-            //Log Event.
-            service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
+        if (Helper.filterFile(file, autoInjectMessengerOptions)) {
+            loadMessenger(file);
         }
     });
 
     //Injecting Controllers.
     files.forEach(file => {
-        if (Helper.filterFile(file, controllerOptions)) {
-            //Load the controller from the file location.
-            const ControllerInstance = require(file).default;
-
-            //Initialize the controller.
-            const controller = new ControllerInstance();
-
-            //Get controllerMeta and name.
-            let controllerMeta = getControllerMeta(controller.name);
-            const controllerName = controller.name.replace('Controller', '').toLowerCase();
-
-            //Get each meta, bind the function and add route to the router.
-            controllerMeta && controllerMeta.forEach(meta => {
-                //Validate if the given path is the root path.
-                if (!meta.rootPath) {
-                    meta.path = ('/' + controllerName + meta.path);
-                }
-
-                //Bind Function.
-                controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
-
-                //Add Route.
-                service[meta.method](meta.path, controller[meta.handlerName]);
-            });
-
-            //Push to array.
-            controllers.push(controller);
-
-            //Log Event.
-            service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
+        if (Helper.filterFile(file, autoInjectControllerOptions)) {
+            loadController(file);
         }
     });
+}
+
+/**
+ * Load the `Model` with the following steps.
+ * - Call `require()`. Decorator is called automatically.
+ * - Push to array.
+ * 
+ * @param file the path of the model.
+ */
+function loadModel(file: string) {
+    //Load, Initialize, Push to array.
+    const ModelInstance: Model = require(file).default;
+    models.push(ModelInstance);
+
+    //Log Event.
+    service.logger.debug(`Wiring model: ${ModelInstance.name}`);
+}
+
+/**
+ * Load the `Messenger` with the following steps.
+ * - Call `require()`. Decorator is called automatically, It will add its meta.
+ * - Call the messenger constructor.
+ * - Get the meta, bind the function to the constructor context.
+ * - Push to array.
+ * 
+ * @param file the path of the messenger.
+ */
+function loadMessenger(file: string) {
+    //Load the messenger from the file location.
+    const MessengerInstance = require(file).default;
+
+    //Initialize the messenger.
+    const messenger = new MessengerInstance();
+
+    //Get messengerMeta and name.
+    let messengerMeta = getMessengerMeta(messenger.name);
+    const messengerName = messenger.name.replace('Messenger', '');
+
+    //Get each meta, bind the function and add action to the scpServer.
+    messengerMeta && messengerMeta.forEach(meta => {
+        //Set action.
+        const action = messengerName + Action.MAP_BREAK + meta.handlerName;
+
+        //Bind Function.
+        messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
+
+        //Add Action.
+        service[meta.action](action, messenger[meta.handlerName]);
+    });
+
+    //Push to array.
+    messengers.push(messenger);
+
+    //Log Event.
+    service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
+}
+
+/**
+ * Load the `Controller` with the following steps.
+ * - Call `require()`. Decorator is called automatically, It will add its meta.
+ * - Call the controller constructor.
+ * - Get the meta, bind the function to the constructor context.
+ * - Push to array.
+ * 
+ * @param file the path of the controller.
+ */
+function loadController(file: string) {
+    //Load the controller from the file location.
+    const ControllerInstance = require(file).default;
+
+    //Initialize the controller.
+    const controller = new ControllerInstance();
+
+    //Get controllerMeta and name.
+    let controllerMeta = getControllerMeta(controller.name);
+    const controllerName = controller.name.replace('Controller', '').toLowerCase();
+
+    //Get each meta, bind the function and add route to the router.
+    controllerMeta && controllerMeta.forEach(meta => {
+        //Validate if the given path is the root path.
+        if (!meta.rootPath) {
+            meta.path = ('/' + controllerName + meta.path);
+        }
+
+        //Bind Function.
+        controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
+
+        //Add Route.
+        service[meta.method](meta.path, controller[meta.handlerName]);
+    });
+
+    //Push to array.
+    controllers.push(controller);
+
+    //Log Event.
+    service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
 }
 
 /**
@@ -317,7 +364,7 @@ export function Entity(options: EntityOptions): ModelClass {
                 service.dbManager.initModel(modelName, options.name, options.attributes, target);
             } catch (error) {
                 if (error instanceof ModelError) {
-                    service.logger.warn(error.message);
+                    service.logger.error(error.message);
                 } else {
                     service.logger.error(error.stack);
                 }
