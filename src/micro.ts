@@ -41,21 +41,6 @@ export const messengers: Array<Messenger> = new Array();
 export const controllers: Array<Controller> = new Array();
 
 /**
- * The auto wire `Model` options.
- */
-let autoWireModelOptions: FileOptions = { include: { endsWith: ['.model'] } };
-
-/**
- * The auto inject `Messenger` options.
- */
-let autoInjectMessengerOptions: FileOptions = { include: { endsWith: ['.messenger'] } };
-
-/**
- * The auto inject `Controller` options.
- */
-let autoInjectControllerOptions: FileOptions = { include: { endsWith: ['.controller'] } };
-
-/**
  * An array of `MessengerMeta`.
  */
 const messengerMetas: Array<MessengerMeta> = new Array();
@@ -102,16 +87,11 @@ function micro(options?: Options) {
             serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
         }
 
-        //Initialize micro options.
-        autoWireModelOptions = options.autoWireModel && options.autoWireModel;
-        autoInjectMessengerOptions = options.autoInjectMessenger && options.autoInjectMessenger;
-        autoInjectControllerOptions = options.autoInjectController && options.autoInjectController;
-
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
         //Inject Files.
-        injectFiles();
+        injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
     }
 
     //Return the singleton service.
@@ -177,12 +157,18 @@ export default micro;
 //////////////////////////////
 /**
  * Inject files into the service. Respecting the order of loading for dependency.
- * The order is as follows.
- * - Model
- * - Messenger
- * - Controller
+ * The order is as follows; Model, Messenger and finally the Controller.
+ * 
+ * @param modelOptions the auto wire `Model` options.
+ * @param messengerOptions the auto inject `Messenger` options.
+ * @param controllerOptions the auto inject `Controller` options.
  */
-function injectFiles() {
+function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
+    //Initialize Options.
+    modelOptions = (modelOptions === undefined) ? { include: { endsWith: ['.model'] } } : modelOptions;
+    messengerOptions = (messengerOptions === undefined) ? { include: { endsWith: ['.messenger'] } } : messengerOptions;
+    controllerOptions = (controllerOptions === undefined) ? { include: { endsWith: ['.controller'] } } : controllerOptions;
+
     /**
      * All the files in this project.
      */
@@ -190,21 +176,21 @@ function injectFiles() {
 
     //Wiring Models.
     files.forEach(file => {
-        if (Helper.filterFile(file, autoWireModelOptions)) {
+        if (Helper.filterFile(file, modelOptions)) {
             loadModel(file);
         }
     });
 
     //Injecting Messengers.
     files.forEach(file => {
-        if (Helper.filterFile(file, autoInjectMessengerOptions)) {
+        if (Helper.filterFile(file, messengerOptions)) {
             loadMessenger(file);
         }
     });
 
     //Injecting Controllers.
     files.forEach(file => {
-        if (Helper.filterFile(file, autoInjectControllerOptions)) {
+        if (Helper.filterFile(file, controllerOptions)) {
             loadController(file);
         }
     });
@@ -212,7 +198,7 @@ function injectFiles() {
 
 /**
  * Load the `Model` with the following steps.
- * - Call `require()`. Decorator is called automatically.
+ * - Call `require()`. DB Decorators are called automatically.
  * - Push to array.
  * 
  * @param file the path of the model.
@@ -228,7 +214,7 @@ function loadModel(file: string) {
 
 /**
  * Load the `Messenger` with the following steps.
- * - Call `require()`. Decorator is called automatically, It will add its meta.
+ * - Call `require()`. SCP Decorators are called automatically, It will add its meta.
  * - Call the messenger constructor.
  * - Get the meta, bind the function to the constructor context.
  * - Push to array.
@@ -267,7 +253,7 @@ function loadMessenger(file: string) {
 
 /**
  * Load the `Controller` with the following steps.
- * - Call `require()`. Decorator is called automatically, It will add its meta.
+ * - Call `require()`. HTTP Decorators are called automatically, It will add its meta.
  * - Call the controller constructor.
  * - Get the meta, bind the function to the constructor context.
  * - Push to array.
