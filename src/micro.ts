@@ -2,6 +2,7 @@
 import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
 
 //Import Modules
+import { Request, Response } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 
 //Local Imports
@@ -97,13 +98,8 @@ function micro(options?: Options) {
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
-        service.get('/doc', (request, response) => {
-            const doc = {}
 
-            //TODO: Work from here PMICRO-60.
-
-            response.status(200).send(doc);
-        });
+        service.get('/doc', getDoc);
     }
 
     //Return the singleton service.
@@ -242,18 +238,14 @@ function loadMessenger(file: string) {
 
     //Get messengerMeta and name.
     let messengerMeta = getMessengerMeta(messenger.name);
-    const messengerName = messenger.name.replace('Messenger', '');
 
     //Get each meta, bind the function and add action to the scpServer.
     messengerMeta && messengerMeta.forEach(meta => {
-        //Set action.
-        const action = messengerName + Action.MAP_BREAK + meta.handlerName;
-
         //Bind Function.
         messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
 
         //Add Action.
-        service[meta.action](action, messenger[meta.handlerName]);
+        service[meta.type](meta.action, messenger[meta.handlerName]);
     });
 
     //Push to array.
@@ -281,15 +273,9 @@ function loadController(file: string) {
 
     //Get controllerMeta and name.
     let controllerMeta = getControllerMeta(controller.name);
-    const controllerName = controller.name.replace('Controller', '').toLowerCase();
 
     //Get each meta, bind the function and add route to the router.
     controllerMeta && controllerMeta.forEach(meta => {
-        //Validate if the given path is the root path.
-        if (!meta.rootPath) {
-            meta.path = ('/' + controllerName + meta.path);
-        }
-
         //Bind Function.
         controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
 
@@ -393,7 +379,7 @@ export interface ReplyFunction {
  */
 export function Reply(): ReplyFunction {
     return (messenger, handlerName, replyDescriptor) => {
-        messengerMetas.push({ messengerName: messenger.name, handlerName: handlerName, action: 'reply' });
+        messengerMetas.push(new MessengerMeta(messenger.name, handlerName, 'reply'));
     }
 }
 
@@ -418,11 +404,10 @@ export interface RequestFunction {
  * Creates `get` middlewear handler on the `ExpressRouter` that works on `get` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
  */
-export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
+export function Get(path: PathParams): RequestFunction {
     return (controller, handlerName, requestDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'get', path: path, rootPath: rootPath });
+        controllerMetas.push(new ControllerMeta(controller.name, handlerName, 'get', path));
     }
 }
 
@@ -430,11 +415,10 @@ export function Get(path: PathParams, rootPath?: boolean): RequestFunction {
  * Creates `post` middlewear handler on the `ExpressRouter` that works on `post` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
  */
-export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
+export function Post(path: PathParams): RequestFunction {
     return (controller, handlerName, requestDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'post', path: path, rootPath: rootPath });
+        controllerMetas.push(new ControllerMeta(controller.name, handlerName, 'post', path));
     }
 }
 
@@ -442,11 +426,10 @@ export function Post(path: PathParams, rootPath?: boolean): RequestFunction {
  * Creates `put` middlewear handler on the `ExpressRouter` that works on `put` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
  */
-export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
+export function Put(path: PathParams): RequestFunction {
     return (controller, handlerName, requestDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'put', path: path, rootPath: rootPath });
+        controllerMetas.push(new ControllerMeta(controller.name, handlerName, 'put', path));
     }
 }
 
@@ -454,11 +437,133 @@ export function Put(path: PathParams, rootPath?: boolean): RequestFunction {
  * Creates `delete` middlewear handler on the `ExpressRouter` that works on `delete` HTTP/HTTPs verbose.
  * 
  * @param path the endpoint path.
- * @param rootPath set to true if the path is root path, false by default.
  */
-export function Delete(path: PathParams, rootPath?: boolean): RequestFunction {
+export function Delete(path: PathParams): RequestFunction {
     return (controller, handlerName, requestDescriptor) => {
-        controllerMetas.push({ controllerName: controller.name, handlerName: handlerName, method: 'delete', path: path, rootPath: rootPath });
+        controllerMetas.push(new ControllerMeta(controller.name, handlerName, 'delete', path));
+    }
+}
+
+//////////////////////////////
+//////MessengerMeta
+//////////////////////////////
+/**
+ * The SCP action types.
+ */
+export type ScpType = 'reply';
+
+/**
+ * Definition of MessengerMeta.
+ */
+export class MessengerMeta {
+    /**
+     * The constructor name of the messenger.
+     */
+    public readonly messengerName: string;
+
+    /**
+     * The name of the handler.
+     */
+    public readonly handlerName: string;
+
+    /**
+     * The type of the SCP actions.
+     */
+    public readonly type: ScpType;
+
+    /**
+     * Creates an instance of `MessengerMeta`.
+     * 
+     * @param className the constructor name of the messenger.
+     * @param handlerName the name of the handler.
+     * @param type the type of the SCP actions.
+     */
+    constructor(className: string, handlerName: string, type: ScpType) {
+        this.messengerName = className;
+        this.handlerName = handlerName;
+        this.type = type;
+    }
+
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    /**
+     * The name of the messenger.
+     */
+    public get name() {
+        return this.messengerName.replace('Messenger', '');
+    }
+
+    /**
+     * The SCP `Action`.
+     */
+    public get action() {
+        return this.name + Action.MAP_BREAK + this.handlerName;
+    }
+}
+
+//////////////////////////////
+//////ControllerMeta
+//////////////////////////////
+/**
+ * The HTTP method types.
+ */
+export type Method = 'get' | 'post' | 'put' | 'delete';
+
+/**
+ * Definition of ControllerMeta.
+ */
+export class ControllerMeta {
+    /**
+     * The constructor name of the controller.
+     */
+    public readonly controllerName: string;
+
+    /**
+     * The name of the handler.
+     */
+    public readonly handlerName: string;
+
+    /**
+     * The type of HTTP methods.
+     */
+    public readonly method: Method;
+
+    /**
+     * The relative path of the HTTP endpoint.
+     */
+    public readonly relativePath: PathParams;
+
+    /**
+     * Creates an instance of `ControllerMeta`.
+     * 
+     * @param controllerName the constructor name of the controller.
+     * @param handlerName the name of the handler.
+     * @param method the type of HTTP methods.
+     * @param relativePath the relative path of the HTTP endpoint.
+     */
+    constructor(controllerName: string, handlerName: string, method: Method, relativePath: PathParams) {
+        this.controllerName = controllerName;
+        this.handlerName = handlerName;
+        this.method = method;
+        this.relativePath = relativePath;
+    }
+
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    /**
+     * The name of the controller.
+     */
+    public get name() {
+        return this.controllerName.replace('Controller', '').toLowerCase();
+    }
+
+    /**
+     * The absolute path of the HTTP endpoint.
+     */
+    public get path() {
+        return `/${this.name}${this.relativePath}`;
     }
 }
 
@@ -537,54 +642,50 @@ export type Options = {
 }
 
 //////////////////////////////
-//////Meta's
+//////Doc
 //////////////////////////////
-/**
- * Definition of MessengerMeta.
- */
-type MessengerMeta = {
-    /**
-     * The name of the messenger.
-     */
-    messengerName: string;
+function getDoc(request: Request, response: Response) {
+    let paths: any = {};
 
-    /**
-     * The name of the handler.
-     */
-    handlerName: string;
+    controllers.forEach(controller => {
+        const model = controller.model;
 
-    /**
-     * The type of action.
-     */
-    action: 'reply';
-}
+        //Get Controller Meta.
+        getControllerMeta(controller.name).forEach(meta => {
+            /**
+             * TODO: Work from here.
+             * 
+             * Post is not working because its being replaced by the latest attribute.
+             * Need to figure out a way to append to the existing object.
+             */
 
-/**
- * Definition of ControllerMeta.
- */
-type ControllerMeta = {
-    /**
-     * The name of the controller.
-     */
-    controllerName: string;
+            paths[meta.path] = {
+                [meta.method]: {
+                    tags: [meta.name],
+                    operationId: `${meta.controllerName}.${meta.handlerName}`,
+                    consumes: ["application/json"],
+                    produces: ["application/json"],
+                    parameters: [
+                        {
+                            schema: {
+                                "$ref": `#/definitions/${model.name}`
+                            }
+                        }
+                    ],
+                }
+            };
+        });
+    });
 
-    /**
-     * The name of the handler.
-     */
-    handlerName: string;
+    const doc = {
+        openapi: "3.0.0",
+        info: {
+            title: service.name,
+            version: service.version
+        },
+        paths: paths,
+        definitions: {}
+    }
 
-    /**
-     * The type of method.
-     */
-    method: 'get' | 'post' | 'put' | 'delete';
-
-    /**
-     * The path.
-     */
-    path: PathParams;
-
-    /**
-     * Set to true if the path is root path, false by default.
-     */
-    rootPath: boolean;
+    response.status(200).send(doc);
 }
