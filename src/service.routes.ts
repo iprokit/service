@@ -157,26 +157,28 @@ export default class ServiceRoutes {
 
         //Get HTTP Routes.
         this.service.expressRouter.stack.forEach(item => {
-            const stack = item.route.stack[0];
+            if (item.route) {
+                const stack = item.route.stack[0];
 
-            //Create Variables.
-            const path = String(item.route.path);
-            const routeName = path.split('/').filter(Boolean)[0];
-            const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
-            const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
+                //Create Variables.
+                const path = String(item.route.path);
+                const routeName = path.split('/').filter(Boolean)[0];
+                const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
+                const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
 
-            /**
-             * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
-             * This has to be replaced with empty string for the `functionName`.
-             */
+                /**
+                 * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
+                 * This has to be replaced with empty string for the `functionName`.
+                 */
 
-            //Try creating empty object.
-            if (!httpRoutes[routeName]) {
-                httpRoutes[routeName] = [];
+                //Try creating empty object.
+                if (!httpRoutes[routeName]) {
+                    httpRoutes[routeName] = [];
+                }
+
+                //Add to object.
+                httpRoutes[routeName].push({ fn: functionName, [method]: `${this.service.httpBaseUrl}${path}` });
             }
-
-            //Add to object.
-            httpRoutes[routeName].push({ fn: functionName, [method]: `${this.service.httpBaseUrl}${path}` });
         });
 
         return httpRoutes;

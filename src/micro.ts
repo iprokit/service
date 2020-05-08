@@ -78,8 +78,16 @@ function micro(options?: Options) {
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = options;
 
-        //Override mesh.
+        //Initialize mesh.
         serviceOptions.mesh = mesh;
+
+        //Initialize hooks.
+        serviceOptions.hooks = {
+            preStart: () => {
+                //Inject Files.
+                injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+            }
+        }
 
         //Override as gateway if this is a gateway service.
         if (options.gateway) {
@@ -89,9 +97,6 @@ function micro(options?: Options) {
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
-
-        //Inject Files.
-        injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
     }
 
     //Return the singleton service.

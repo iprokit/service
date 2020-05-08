@@ -140,6 +140,11 @@ export default class Service extends EventEmitter {
     public readonly logger: Logger;
 
     /**
+     * The functions called before and after each part of the service execution.
+     */
+    public readonly hooks: Hooks;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param options the optional constructor options.
@@ -168,6 +173,7 @@ export default class Service extends EventEmitter {
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
+        this.hooks = options.hooks || {};
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -415,6 +421,9 @@ export default class Service extends EventEmitter {
         //Emit Global: starting.
         this.emit('starting');
 
+        //Run Hook: Pre Start.
+        this.hooks.preStart && this.hooks.preStart();
+
         //Start HTTP Server
         this._httpServer = this.express.listen(this.httpPort, () => {
             //Log Event.
@@ -445,6 +454,9 @@ export default class Service extends EventEmitter {
                     }
                 });
 
+                //Run Hook: Post Start.
+                this.hooks.postStart && this.hooks.postStart();
+
                 //Log Event.
                 this.logger.info(`${this.name} ready.`);
 
@@ -474,6 +486,9 @@ export default class Service extends EventEmitter {
 
         //Emit Global: stopping.
         this.emit('stopping');
+
+        //Run Hook: Pre Stop.
+        this.hooks.preStop && this.hooks.preStop();
 
         setTimeout(() => {
             callback(1);
@@ -508,6 +523,9 @@ export default class Service extends EventEmitter {
                     }
                 });
 
+                //Run Hook: Post Stop.
+                this.hooks.postStop && this.hooks.postStop();
+
                 //Log Event.
                 this.logger.info(`${this.name} stopped.`);
 
@@ -523,6 +541,16 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////HTTP Server
     //////////////////////////////
+    /**
+     * Mounts the middleware handlers on the `ExpressRouter` at the specified path.
+     * 
+     * @param path the endpoint path.
+     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
+     */
+    public use(path: PathParams, ...handlers: RequestHandler[]) {
+        this.expressRouter.use(path, ...handlers);
+    }
+
     /**
      * Creates `all` middlewear handlers on the `ExpressRouter` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
      * 
@@ -710,4 +738,37 @@ export type Options = {
          */
         paperTrail?: boolean;
     }
+
+    /**
+     * The functions called before and after each part of the service execution.
+     */
+    hooks?: Hooks;
+}
+
+//////////////////////////////
+//////Hooks
+//////////////////////////////
+/**
+ * The pre/post hooks of the service.
+ */
+export type Hooks = {
+    /**
+     * The function called before the service is started.
+     */
+    preStart?: () => void;
+
+    /**
+     * The function called after the service has started.
+     */
+    postStart?: () => void;
+
+    /**
+     * The function called before the service is stopped.
+     */
+    preStop?: () => void;
+
+    /**
+     * The function called after the service has stopped.
+     */
+    postStop?: () => void;
 }
