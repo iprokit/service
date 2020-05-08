@@ -97,6 +97,13 @@ function micro(options?: Options) {
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
+        service.get('/doc', (request, response) => {
+            const doc = {}
+
+            //TODO: Work from here PMICRO-60.
+
+            response.status(200).send(doc);
+        });
     }
 
     //Return the singleton service.

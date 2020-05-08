@@ -388,15 +388,18 @@ export default class Service extends EventEmitter {
             //Initialize the database connection.
             this.dbManager.init(type, paperTrail);
 
-            //DB routes.
-            this.post('/db/sync', async (request, response) => {
+            //Create db sync endpoint.
+            const dbSync = async (request: Request, response: Response) => {
                 try {
                     const sync = await this.dbManager.sync(request.body.force);
                     response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
                 } catch (error) {
                     response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 }
-            });
+            }
+
+            //Add the endpoint to the router.
+            this.post('/db/sync', dbSync);
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
                 this.logger.error(error.message);
