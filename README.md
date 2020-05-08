@@ -243,6 +243,11 @@ export default class HeroController extends Controller {
         await super.create(request, response);
     }
 
+    @Get('/')
+    async getAll(request, response) {
+        await super.getAll(request, response);
+    }
+
     @Put('/')
     async updateOneByID(request, response) {
         await super.updateOneByID(request, response);
@@ -251,11 +256,6 @@ export default class HeroController extends Controller {
     @Delete('/:id')
     async deleteOneByID(request, response) {
         await super.deleteOneByID(request, response);
-    }
-
-    @Get('/')
-    async getAll(request, response) {
-        await super.getAll(request, response);
     }
 
     @Get('/id/:id')

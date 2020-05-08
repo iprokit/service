@@ -655,7 +655,7 @@ function getDoc(request: Request, response: Response) {
             /**
              * TODO: Work from here.
              * 
-             * Post is not working because its being replaced by the latest attribute.
+             * `Post` is not working because its being replaced by the latest attribute.
              * Need to figure out a way to append to the existing object.
              */
 
