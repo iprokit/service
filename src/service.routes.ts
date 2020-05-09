@@ -161,8 +161,8 @@ export default class ServiceRoutes {
                 const stack = item.route.stack[0];
 
                 //Create Variables.
-                const path = String(item.route.path);
-                const routeName = path.split('/').filter(Boolean)[0];
+                const routePath = String(item.route.path);
+                const routeName = routePath.split('/').filter(Boolean)[0];
                 const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
                 const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
 
@@ -176,8 +176,11 @@ export default class ServiceRoutes {
                     httpRoutes[routeName] = [];
                 }
 
+                //The absolute path.
+                const path = (this.service.httpBaseUrl === '/') ? routePath : `${this.service.httpBaseUrl}${routePath}`;
+
                 //Add to object.
-                httpRoutes[routeName].push({ fn: functionName, [method]: `${this.service.httpBaseUrl}${path}` });
+                httpRoutes[routeName].push({ fn: functionName, [method]: path });
             }
         });
 

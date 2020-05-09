@@ -4,6 +4,7 @@ import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
 //Import Modules
 import { Request, Response } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
+import HttpCodes from 'http-status-codes';
 
 //Local Imports
 import Service, { Options as ServiceOptions } from "./service";
@@ -99,7 +100,7 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        service.get('/doc', getDoc);
+        // service.get('/doc', getDoc);
     }
 
     //Return the singleton service.
@@ -212,8 +213,10 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
  * @param file the path of the model.
  */
 function loadModel(file: string) {
-    //Load, Initialize, Push to array.
+    //Load, the model from the file location.
     const ModelInstance: Model = require(file).default;
+
+    //Push to array.
     models.push(ModelInstance);
 
     //Log Event.
@@ -236,11 +239,11 @@ function loadMessenger(file: string) {
     //Initialize the messenger.
     const messenger = new MessengerInstance();
 
-    //Get messengerMeta and name.
-    let messengerMeta = getMessengerMeta(messenger.name);
+    //Get messengerMeta.
+    const messengerMeta = getMessengerMeta(messenger.name);
 
     //Get each meta, bind the function and add action to the scpServer.
-    messengerMeta && messengerMeta.forEach(meta => {
+    messengerMeta.forEach(meta => {
         //Bind Function.
         messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
 
@@ -271,11 +274,11 @@ function loadController(file: string) {
     //Initialize the controller.
     const controller = new ControllerInstance();
 
-    //Get controllerMeta and name.
-    let controllerMeta = getControllerMeta(controller.name);
+    //Get controllerMeta.
+    const controllerMeta = getControllerMeta(controller.name);
 
     //Get each meta, bind the function and add route to the router.
-    controllerMeta && controllerMeta.forEach(meta => {
+    controllerMeta.forEach(meta => {
         //Bind Function.
         controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
 
@@ -315,7 +318,7 @@ function getControllerMeta(name: string) {
  * Interface for `Model`.
  */
 export interface ModelClass {
-    (target: Model): void;
+    (model: Model): void;
 }
 
 /**
@@ -339,13 +342,13 @@ export interface EntityOptions {
  * @param options the entity options.
  */
 export function Entity(options: EntityOptions): ModelClass {
-    return (target) => {
+    return (model) => {
         if (service.dbManager.connection) {
-            const modelName = target.name.replace('Model', '');
+            const modelName = model.name.replace('Model', '');
 
             //Validate if the database type and model type match.
             try {
-                service.dbManager.initModel(modelName, options.name, options.attributes, target);
+                service.dbManager.initModel(modelName, options.name, options.attributes, model);
             } catch (error) {
                 if (error instanceof ModelError) {
                     service.logger.error(error.message);
@@ -644,48 +647,144 @@ export type Options = {
 //////////////////////////////
 //////Doc
 //////////////////////////////
-function getDoc(request: Request, response: Response) {
-    let paths: any = {};
+// function getDoc(request: Request, response: Response) {
+//     let endpoints: any = {};
+//     let schemas: any = {};
 
-    controllers.forEach(controller => {
-        const model = controller.model;
+//     //Get the endpoints.
+//     controllers.forEach(controller => {
+//         //Get the model.
+//         const model = controller.model;
 
-        //Get Controller Meta.
-        getControllerMeta(controller.name).forEach(meta => {
-            /**
-             * TODO: Work from here.
-             * 
-             * `Post` is not working because its being replaced by the latest attribute.
-             * Need to figure out a way to append to the existing object.
-             */
+//         //Get the meta.
+//         getControllerMeta(controller.name).forEach(meta => {
+//             const parameters = new Array();
 
-            paths[meta.path] = {
-                [meta.method]: {
-                    tags: [meta.name],
-                    operationId: `${meta.controllerName}.${meta.handlerName}`,
-                    consumes: ["application/json"],
-                    produces: ["application/json"],
-                    parameters: [
-                        {
-                            schema: {
-                                "$ref": `#/definitions/${model.name}`
-                            }
-                        }
-                    ],
-                }
-            };
-        });
-    });
+//             //Get the route.
+//             const route = getRoute(meta.path);
+//             route.keys.forEach((key: { name: string, optional: boolean }) => {
+//                 parameters.push({
+//                     name: key.name,
+//                     in: "path",
+//                     required: !key.optional,
+//                     schema: {
+//                         type: 'string'
+//                     }
+//                 })
+//             });
 
-    const doc = {
-        openapi: "3.0.0",
-        info: {
-            title: service.name,
-            version: service.version
-        },
-        paths: paths,
-        definitions: {}
-    }
+//             //Validate if a path exists and retrieve it.
+//             endpoints[meta.path] = endpoints[meta.path] || {};
 
-    response.status(200).send(doc);
-}
+//             //Add the path object.
+//             endpoints[meta.path][meta.method] = {
+//                 tags: [meta.name],
+//                 operationId: `${meta.name}.${meta.handlerName}`,
+//                 parameters: parameters,
+//                 responses: {
+//                     200: {
+//                         content: {
+//                             "application/json": {
+//                                 schema: {
+//                                     type: 'array',
+//                                     items: {
+//                                         $ref: `#/components/schemas/${model.name}`,
+//                                     }
+//                                 }
+//                             }
+//                         },
+//                         description: `${meta.name}.${meta.handlerName}`
+//                     }
+//                 }
+//             }
+//         });
+//     });
+
+//     //Get the RDB models.
+//     if (service.dbManager.rdb) {
+//         service.dbManager.models.forEach(model => {
+//             let required = new Array();
+//             let properties: any = {};
+
+//             //Get the attributes.
+//             Object.entries(model.rawAttributes).forEach(([key, value]: any) => {
+//                 //Add required.
+//                 if(!value._autoGenerated){
+//                     value.allowNull || required.push(key);
+//                 }
+
+//                 //Add properties.
+//                 properties[key] = {
+//                     type: getModelAttributeType(value.type.toString()),
+//                     $ref: value.references && `#/definitions/${getModel(value.references.model).name}`
+//                 }
+
+//                 console.log(key, value._autoGenerated, value.allowNull);
+//             });
+
+//             schemas[model.name] = {
+//                 type: "object",
+//                 required: required,
+//                 properties: properties
+//             }
+//         });
+//     }
+//     // if(service.dbManager.noSQL){
+//     //     // console.log(ModelInstance._model.schema);
+//     // }
+
+//     const doc = {
+//         openapi: "3.0.0",
+//         info: {
+//             title: service.name,
+//             description: process.env.npm_package_description,
+//             version: service.version
+//         },
+//         contact: {
+//             name: process.env.npm_package_author_name,
+//             email: process.env.npm_package_author_email
+//         },
+//         basePath: service.httpBaseUrl,
+//         paths: endpoints,
+//         components: {
+//             schemas: schemas
+//         }
+//     }
+
+//     response.status(HttpCodes.OK).send(doc);
+// }
+
+// function getModelAttributeType(attribute: string) {
+//     attribute = attribute.toLowerCase();
+//     if(attribute.includes('varchar')){
+//         attribute = 'string';
+//     }
+//     if(attribute.includes('datetime')){
+//         attribute = 'string';
+//     }
+//     if(attribute.includes('time')){
+//         attribute = 'string';
+//     }
+//     if(attribute.includes('date')){
+//         attribute = 'string';
+//     }
+//     return attribute;
+// }
+
+// /**
+//  * Returns the route found.
+//  * 
+//  * @param path the route/endpoint path.
+//  */
+// function getRoute(path: string) {
+//     return service.expressRouter.stack.find(item => item.route && item.route.path === path);
+// }
+
+// /**
+//  * Returns the model found.
+//  * 
+//  * @param name the name of the model.
+//  */
+// function getModel(name: string) {
+//     return models.find(model => model.name.toLowerCase() === name.toLowerCase());
+// }

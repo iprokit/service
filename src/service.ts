@@ -350,7 +350,7 @@ export default class Service extends EventEmitter {
         //Add the default HTTP Endpoints to the router.
         this.get('/health', serviceRoutes.getHealth);
         this.get('/report', serviceRoutes.getReport);
-        this.post('/shutdown', serviceRoutes.shutdown);
+        this.get('/shutdown', serviceRoutes.shutdown);
     }
 
     /**
@@ -399,7 +399,7 @@ export default class Service extends EventEmitter {
             }
 
             //Add the endpoint to the router.
-            this.post('/db/sync', dbSync);
+            this.get('/db/sync', dbSync);
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
                 this.logger.error(error.message);
