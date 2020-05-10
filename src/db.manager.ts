@@ -3,6 +3,7 @@ import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRe
 import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes } from 'sequelize';
 import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
 import { Logger } from 'winston';
+import { EventEmitter } from 'events';
 
 //Export Libs
 const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
@@ -17,8 +18,11 @@ import NoSQLModel from './db.nosql.model';
  * This class is a wrapper around the database `connection`.
  * The underlying connection object is built on `Sequelize` and `Mongoose`.
  * It also manages the database `Model`'s.
+ * 
+ * @emits `connected` when the database is connected.
+ * @emits `disconnected` when the database is disconnected.
  */
-export default class DBManager {
+export default class DBManager extends EventEmitter {
     /**
      * Set to true if the paper trail operation should be performed, false otherwise.
      */
@@ -76,6 +80,9 @@ export default class DBManager {
      * @param logger the logger instance.
      */
     public constructor(logger: Logger) {
+        //Call super for EventEmitter.
+        super();
+
         //Set default connected.
         this._connected = false;
 
@@ -303,20 +310,12 @@ export default class DBManager {
     public connect(callback?: (error?: Error) => void) {
         //NoSQL Connection
         if (this.noSQL) {
-            this.connectNoSQL((error) => {
-                if (callback) {
-                    callback(error);
-                }
-            });
+            this.connectNoSQL(callback);
         }
 
         //RDB Connection.
         if (this.rdb) {
-            this.connectRDB((error) => {
-                if (callback) {
-                    callback(error);
-                }
-            });
+            this.connectRDB(callback);
         }
     }
 
@@ -330,6 +329,9 @@ export default class DBManager {
         (this._connection as NoSQL).once('connected', () => {
             //Set connected Flag 
             this._connected = true;
+
+            //Emit Global: connected.
+            this.emit('connected');
 
             //Callback.
             if (callback) {
@@ -379,6 +381,9 @@ export default class DBManager {
                 //Set connected Flag 
                 this._connected = true;
 
+                //Emit Global: connected.
+                this.emit('connected');
+
                 //Callback.
                 if (callback) {
                     callback();
@@ -418,6 +423,9 @@ export default class DBManager {
             .then(() => {
                 //Set connected Flag 
                 this._connected = false;
+
+                //Emit Global: disconnected.
+                this.emit('disconnected');
 
                 //Callback.
                 if (callback) {
