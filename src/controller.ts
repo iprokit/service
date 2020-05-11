@@ -74,7 +74,9 @@ export default class Controller {
     };
 
     /**
-     * Performs asynchronous, get all records by `createdAt` on the`Model`.
+     * TODO: Delete this.
+     * 
+     * Performs asynchronous, get all records by `createdAt` on the `Model`.
      * 
      * The `request.params.orderType` types:
      * @type new(DESC) - The lastest records will be on the top.

@@ -10,7 +10,6 @@ import express, { Express, Router, Request, Response, NextFunction } from 'expre
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
-import createError from 'http-errors';
 import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
 import morgan from 'morgan';
@@ -327,16 +326,16 @@ export default class Service extends EventEmitter {
         //Setup Router
         this.express.use(this.httpBaseUrl, this.expressRouter);
 
-        // Error handler for 404
-        this.express.use((request: Request, response: Response, next: NextFunction) => {
-            next(createError(404));
-        });
-
         // Default error handler
         this.express.use((error: Error, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
-            response.locals.error = this.environment === 'development' ? error : {};
+            response.locals.error = (this.environment === 'development') ? error : {};
             response.status((error as any).status || 500).send(error.message);
+        });
+
+        // Error handler for 404
+        this.express.use((request: Request, response: Response, next: NextFunction) => {
+            response.status(404).send('Not Found');
         });
 
         //Initialize serviceRoutes.
