@@ -298,7 +298,7 @@ export default class Service extends EventEmitter {
      * Adds default HTTP Endpoints.
      */
     private configExpress() {
-        //Setup Express
+        //Middleware: Setup Basic.
         this.express.use(cors());
         this.express.options('*', cors());
         this.express.use(express.json());
@@ -307,7 +307,7 @@ export default class Service extends EventEmitter {
         //Setup child logger for HTTP.
         const httpLogger = this.logger.child({ component: 'HTTP' });
 
-        //Setup Morgan and bind it with Winston.
+        //Middleware: Morgan, bind it with Winston.
         this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
             stream: {
                 write: (log: string) => {
@@ -316,7 +316,7 @@ export default class Service extends EventEmitter {
             }
         }));
 
-        //Setup proxy pass.
+        //Middleware: Proxy pass.
         this.express.use((request: Request, response: Response, next: NextFunction) => {
             //Generate Proxy object from headers.
             Helper.generateProxyObjects(request);
@@ -437,7 +437,7 @@ export default class Service extends EventEmitter {
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
                 //Start SCP Client Manager
-                (this.scpClientManager.clients.length > 0) && this.scpClientManager.connect(() => {
+                (this.scpClientManager.clients.length) && this.scpClientManager.connect(() => {
                     //Log Event.
                     this.logger.info(`SCP client manager connected.`);
                 });
@@ -512,7 +512,7 @@ export default class Service extends EventEmitter {
                 }
 
                 //Stop SCP Client Manager
-                (this.scpClientManager.clients.length > 0) && this.scpClientManager.disconnect(() => {
+                (this.scpClientManager.clients.length) && this.scpClientManager.disconnect(() => {
                     //Log Event.
                     this.logger.info(`SCP client manager disconnected.`);
                 });
