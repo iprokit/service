@@ -326,6 +326,9 @@ export default class Service extends EventEmitter {
         //Setup Router
         this.express.use(this.httpBaseUrl, this.expressRouter);
 
+        /**
+         * ISSUE: Use (defaultErrorHandler = true) to identify if this function should be called.
+         */
         // Default error handler
         this.express.use((error: Error, request: Request, response: Response, next: NextFunction) => {
             response.locals.message = error.message;
@@ -333,6 +336,10 @@ export default class Service extends EventEmitter {
             response.status((error as any).status || 500).send(error.message);
         });
 
+        /**
+         * ISSUE: Move this to start.
+         * Use (defaultNotFoundHandler = true) to identify if this function should be called.
+         */
         // Error handler for 404
         this.express.use((request: Request, response: Response, next: NextFunction) => {
             response.status(404).send('Not Found');
