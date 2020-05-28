@@ -77,26 +77,22 @@ function micro(options?: Options) {
 
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = options;
-
-        //Initialize mesh.
         serviceOptions.mesh = mesh;
-
-        //Initialize hooks.
-        serviceOptions.hooks = {
-            preStart: () => {
-                //Inject Files.
-                injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
-            }
-        }
 
         //Override as gateway if this is a gateway service.
         if (options.gateway) {
             serviceOptions.name = serviceOptions.name || 'gateway';
-            serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
+            // serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
         }
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
+
+        //Add Pre Hook.
+        service.hooks.preStart.push(() => {
+            //Inject Files.
+            // injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+        });
 
         // service.get('/doc', getDoc);
     }

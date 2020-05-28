@@ -6,7 +6,7 @@ import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import express, { Express, Router, Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
@@ -64,13 +64,6 @@ export default class Service extends EventEmitter {
     public readonly ip: string;
 
     /**
-     * The base URL of the service.
-     * 
-     * @default `service.name`
-     */
-    public readonly httpBaseUrl: string;
-
-    /**
      * The HTTP Server port of the service, retrieved from `process.env.HTTP_PORT`.
      * 
      * @default `Default.HTTP_PORT`
@@ -104,14 +97,19 @@ export default class Service extends EventEmitter {
     public readonly logPath: string;
 
     /**
+     * The functions called before and after each part of the service execution.
+     */
+    public readonly hooks: Hooks;
+
+    /**
+     * The logger instance.
+     */
+    public readonly logger: Logger;
+
+    /**
      * Instance of `Express` application.
      */
     public readonly express: Express;
-
-    /**
-     * Instance of `ExpressRouter`.
-     */
-    public readonly expressRouter: Router;
 
     /**
      * Instance of `HttpServer`.
@@ -134,16 +132,6 @@ export default class Service extends EventEmitter {
     public readonly dbManager: DBManager;
 
     /**
-     * The logger instance.
-     */
-    public readonly logger: Logger;
-
-    /**
-     * The functions called before and after each part of the service execution.
-     */
-    public readonly hooks: Hooks;
-
-    /**
      * Creates an instance of a `Service`.
      * 
      * @param options the optional constructor options.
@@ -164,7 +152,6 @@ export default class Service extends EventEmitter {
 
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
-        this.httpBaseUrl = options.baseUrl || `/${this.name.toLowerCase()}`;
         this.version = options.version || process.env.npm_package_version;
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
@@ -172,7 +159,9 @@ export default class Service extends EventEmitter {
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
-        this.hooks = options.hooks || {};
+
+        //Initialize Hooks.
+        this.hooks = new Hooks();
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -180,7 +169,6 @@ export default class Service extends EventEmitter {
 
         //Initialize Express.
         this.express = express();
-        this.expressRouter = express.Router();
         this.configExpress();
 
         //Initialize SCP
@@ -206,6 +194,9 @@ export default class Service extends EventEmitter {
         const dbLogger = this.logger.child({ component: 'DB' });
         this.dbManager = new DBManager(dbLogger);
         options.db && this.configDatabase(options.db.type, options.db.paperTrail);
+
+        //Add service routes.
+        this.addServiceRoutes();
 
         //Bind Process Events.
         this.bindProcessEvents();
@@ -294,8 +285,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures HTTP Server by setting up `Express` and `ExpressRouter`.
-     * Adds default HTTP Endpoints.
+     * Configures HTTP Server by setting up `Express`.
      */
     private configExpress() {
         //Middleware: Setup Basic.
@@ -323,40 +313,12 @@ export default class Service extends EventEmitter {
             next();
         });
 
-        //Setup Router
-        this.express.use(this.httpBaseUrl, this.expressRouter);
-
-        /**
-         * ISSUE: Use (defaultErrorHandler = true) to identify if this function should be called.
-         */
-        // Default error handler
-        this.express.use((error: Error, request: Request, response: Response, next: NextFunction) => {
-            response.locals.message = error.message;
-            response.locals.error = (this.environment === 'development') ? error : {};
-            response.status((error as any).status || 500).send(error.message);
+        //Middleware: Error handler for 404.
+        this.hooks.preStart.push(() => {
+            this.express.use((request: Request, response: Response, next: NextFunction) => {
+                response.status(HttpCodes.NOT_FOUND).send('Not Found');
+            });
         });
-
-        /**
-         * ISSUE: Move this to start.
-         * Use (defaultNotFoundHandler = true) to identify if this function should be called.
-         */
-        // Error handler for 404
-        this.express.use((request: Request, response: Response, next: NextFunction) => {
-            response.status(404).send('Not Found');
-        });
-
-        //Initialize serviceRoutes.
-        const serviceRoutes = new ServiceRoutes(this);
-
-        //Bind functions with the `ServiceRoutes` context.
-        serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
-        serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
-        serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
-
-        //Add the default HTTP Endpoints to the router.
-        this.get('/health', serviceRoutes.getHealth);
-        this.get('/report', serviceRoutes.getReport);
-        this.get('/shutdown', serviceRoutes.shutdown);
     }
 
     /**
@@ -393,19 +355,6 @@ export default class Service extends EventEmitter {
         try {
             //Initialize the database connection.
             this.dbManager.init(type, paperTrail);
-
-            //Create db sync endpoint.
-            const dbSync = async (request: Request, response: Response) => {
-                try {
-                    const sync = await this.dbManager.sync(request.body.force);
-                    response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
-                } catch (error) {
-                    response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                }
-            }
-
-            //Add the endpoint to the router.
-            this.get('/db/sync', dbSync);
         } catch (error) {
             if (error instanceof ConnectionOptionsError) {
                 this.logger.error(error.message);
@@ -413,6 +362,42 @@ export default class Service extends EventEmitter {
                 this.logger.error(error.stack);
             }
         }
+    }
+
+    //////////////////////////////
+    //////Init
+    //////////////////////////////
+    /**
+     * Adds the default service routes.
+     */
+    private addServiceRoutes() {
+        //Initialize serviceRoutes.
+        const serviceRoutes = new ServiceRoutes(this);
+
+        //Bind functions with the `ServiceRoutes` context.
+        serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
+        serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
+        serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
+        serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
+
+        //Service routes.
+        const defaultRouter = this.router();
+        defaultRouter.get('/health', serviceRoutes.getHealth);
+        defaultRouter.get('/report', serviceRoutes.getReport);
+        defaultRouter.get('/shutdown', serviceRoutes.shutdown);
+        this.express.use('/', defaultRouter);
+
+        //Database routes.
+        if (this.connection) {
+            const databaseRouter = this.router();
+            databaseRouter.get('/sync', serviceRoutes.syncDatabase);
+            this.express.use('/db', databaseRouter);
+        }
+
+        //ISSUE: Work from here.
+        this.express._router.stack.forEach((middleware: any) => {
+            console.log(middleware);
+        });
     }
 
     //////////////////////////////
@@ -431,12 +416,12 @@ export default class Service extends EventEmitter {
         this.emit('starting');
 
         //Run Hook: Pre Start.
-        this.hooks.preStart && this.hooks.preStart();
+        this.hooks.preStart.execute();
 
         //Start HTTP Server
         this._httpServer = this.express.listen(this.httpPort, () => {
             //Log Event.
-            this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}${this.httpBaseUrl}`);
+            this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
 
             //Start SCP Server
             this.scpServer.listen(this.scpPort, () => {
@@ -450,7 +435,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Start DB Manager
-                (this.dbManager.connection) && this.dbManager.connect((error) => {
+                (this.connection) && this.dbManager.connect((error) => {
                     if (!error) {
                         //Log Event.
                         this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
@@ -464,7 +449,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Run Hook: Post Start.
-                this.hooks.postStart && this.hooks.postStart();
+                this.hooks.postStart.execute();
 
                 //Log Event.
                 this.logger.info(`${this.name} ready.`);
@@ -497,7 +482,7 @@ export default class Service extends EventEmitter {
         this.emit('stopping');
 
         //Run Hook: Pre Stop.
-        this.hooks.preStop && this.hooks.preStop();
+        this.hooks.preStop.execute();
 
         setTimeout(() => {
             callback(1);
@@ -525,7 +510,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Stop DB Manager
-                (this.dbManager.connection) && this.dbManager.disconnect((error) => {
+                (this.connection) && this.dbManager.disconnect((error) => {
                     if (!error) {
                         //Log Event.
                         this.logger.info(`DB Disconnected.`);
@@ -533,7 +518,7 @@ export default class Service extends EventEmitter {
                 });
 
                 //Run Hook: Post Stop.
-                this.hooks.postStop && this.hooks.postStop();
+                this.hooks.postStop.execute();
 
                 //Log Event.
                 this.logger.info(`${this.name} stopped.`);
@@ -551,63 +536,72 @@ export default class Service extends EventEmitter {
     //////HTTP Server
     //////////////////////////////
     /**
-     * Mounts the middleware handlers on the `ExpressRouter` at the specified path.
+     * Creates a new `ExpressRouter`.
+     * 
+     * @returns the created router.
+     */
+    public router() {
+        return express.Router();
+    }
+
+    /**
+     * Mounts the middleware handlers on `Express` at the specified path.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public use(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.use(path, ...handlers);
+        this.express.use(path, ...handlers);
     }
 
     /**
-     * Creates `all` middlewear handlers on the `ExpressRouter` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
+     * Creates `all` middlewear handlers on `Express` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.all(path, ...handlers);
+        this.express.all(path, ...handlers);
     }
 
     /**
-     * Creates `get` middlewear handlers on the `ExpressRouter` that works on `get` HTTP/HTTPs verbose.
+     * Creates `get` middlewear handlers on `Express` that works on `get` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.get(path, ...handlers);
+        this.express.get(path, ...handlers);
     }
 
     /**
-     * Creates `post` middlewear handlers on the `ExpressRouter` that works on `post` HTTP/HTTPs verbose.
+     * Creates `post` middlewear handlers on `Express` that works on `post` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.post(path, ...handlers);
+        this.express.post(path, ...handlers);
     }
 
     /**
-     * Creates `put` middlewear handlers on the `ExpressRouter` that works on `put` HTTP/HTTPs verbose.
+     * Creates `put` middlewear handlers on `Express` that works on `put` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.put(path, ...handlers);
+        this.express.put(path, ...handlers);
     }
 
     /**
-     * Creates `delete` middlewear handlers on the `ExpressRouter` that works on `delete` HTTP/HTTPs verbose.
+     * Creates `delete` middlewear handlers on `Express` that works on `delete` HTTP/HTTPs verbose.
      * 
      * @param path the endpoint path.
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
-        this.expressRouter.delete(path, ...handlers);
+        this.express.delete(path, ...handlers);
     }
 
     //////////////////////////////
@@ -712,11 +706,6 @@ export type Options = {
     name?: string;
 
     /**
-     * The base URL of the service.
-     */
-    baseUrl?: string;
-
-    /**
      * The version of the service.
      */
     version?: string;
@@ -747,11 +736,6 @@ export type Options = {
          */
         paperTrail?: boolean;
     }
-
-    /**
-     * The functions called before and after each part of the service execution.
-     */
-    hooks?: Hooks;
 }
 
 //////////////////////////////
@@ -760,24 +744,47 @@ export type Options = {
 /**
  * The pre/post hooks of the service.
  */
-export type Hooks = {
+export class Hooks {
     /**
-     * The function called before the service is started.
+     * The functions called before the service starts.
      */
-    preStart?: () => void;
+    public readonly preStart: Hook;
 
     /**
-     * The function called after the service has started.
+     * The functions called after the service has started.
      */
-    postStart?: () => void;
+    public readonly postStart: Hook;
 
     /**
-     * The function called before the service is stopped.
+     * The functions called before the service stops.
      */
-    preStop?: () => void;
+    public readonly preStop: Hook;
 
     /**
-     * The function called after the service has stopped.
+     * The functions called after the service has stopped.
      */
-    postStop?: () => void;
+    public readonly postStop: Hook;
+
+    /**
+     * Creates an instance of `Hooks`.
+     */
+    public constructor() {
+        this.preStart = new Hook();
+        this.postStart = new Hook();
+        this.preStop = new Hook();
+        this.postStop = new Hook();
+    }
+}
+
+/**
+ * A Hook is an array of functions that will be executed in reverse order.
+ */
+export class Hook extends Array<() => void> {
+    /**
+     * Execute all the functions in reverse order.
+     */
+    public execute() {
+        const reversedFunctions = this.reverse();
+        reversedFunctions.forEach(fn => fn());
+    }
 }

@@ -98,6 +98,18 @@ export default class ServiceRoutes {
         }, 2000);
     }
 
+    /**
+     * Endpoint to synchronize the database.
+     */
+    public async syncDatabase(request: Request, response: Response) {
+        try {
+            const sync = await this.service.dbManager.sync(request.body.force);
+            response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
+        } catch (error) {
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+        }
+    }
+
     //////////////////////////////
     //////Helpers
     //////////////////////////////
@@ -155,34 +167,38 @@ export default class ServiceRoutes {
     private get endpointsReport() {
         const httpRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
 
-        //Get HTTP Routes.
-        this.service.expressRouter.stack.forEach(item => {
-            if (item.route) {
-                const stack = item.route.stack[0];
-
-                //Create Variables.
-                const routePath = String(item.route.path);
-                const routeName = routePath.split('/').filter(Boolean)[0];
-                const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
-                const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
-
-                /**
-                 * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
-                 * This has to be replaced with empty string for the `functionName`.
-                 */
-
-                //Try creating empty object.
-                if (!httpRoutes[routeName]) {
-                    httpRoutes[routeName] = [];
-                }
-
-                //The absolute path.
-                const path = (this.service.httpBaseUrl === '/') ? routePath : `${this.service.httpBaseUrl}${routePath}`;
-
-                //Add to object.
-                httpRoutes[routeName].push({ fn: functionName, [method]: path });
-            }
+        this.service.express._router.stack.forEach((middleware: any) => {
+            console.log(middleware);
         });
+
+        // //Get HTTP Routes.
+        // this.service.expressRouter.stack.forEach(item => {
+        //     if (item.route) {
+        //         const stack = item.route.stack[0];
+
+        //         //Create Variables.
+        //         const routePath = String(item.route.path);
+        //         const routeName = routePath.split('/').filter(Boolean)[0];
+        //         const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
+        //         const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
+
+        //         /**
+        //          * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
+        //          * This has to be replaced with empty string for the `functionName`.
+        //          */
+
+        //         //Try creating empty object.
+        //         if (!httpRoutes[routeName]) {
+        //             httpRoutes[routeName] = [];
+        //         }
+
+        //         //The absolute path.
+        //         const path = (this.service.httpBaseUrl === '/') ? routePath : `${this.service.httpBaseUrl}${routePath}`;
+
+        //         //Add to object.
+        //         httpRoutes[routeName].push({ fn: functionName, [method]: path });
+        //     }
+        // });
 
         return httpRoutes;
     }
@@ -194,10 +210,10 @@ export default class ServiceRoutes {
         const scpRoutes: { [action: string]: string } = {};
 
         //Get SCP Routes.
-        this.service.scpServer.routes.forEach(item => {
+        this.service.scpServer.routes.forEach(route => {
             //Create Variables.
-            const map = String(item.map);
-            const type = String(item.type);
+            const map = String(route.map);
+            const type = String(route.type);
 
             //Add to object.
             scpRoutes[map] = type;
@@ -226,21 +242,20 @@ export default class ServiceRoutes {
         }> = new Array();
 
         //Get SCP Clients.
-        this.service.scpClientManager.clients.forEach(item => {
-            const client = {
-                name: item.nodeName,
-                identifier: item.identifier,
-                host: item.url,
-                connected: item.connected,
-                reconnecting: item.reconnecting,
-                disconnected: item.disconnected,
+        this.service.scpClientManager.clients.forEach(client => {
+            mesh.push({
+                name: client.nodeName,
+                identifier: client.identifier,
+                host: client.url,
+                connected: client.connected,
+                reconnecting: client.reconnecting,
+                disconnected: client.disconnected,
                 node: {
-                    identifier: item.node.identifier,
-                    broadcasts: item.node.broadcasts,
-                    replies: item.node.replies
+                    identifier: client.node.identifier,
+                    broadcasts: client.node.broadcasts,
+                    replies: client.node.replies
                 }
-            };
-            mesh.push(client);
+            });
         });
 
         return mesh;
