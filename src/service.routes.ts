@@ -1,7 +1,6 @@
 //Import modules
 import { Request, Response } from "express";
 import HttpCodes from 'http-status-codes';
-import { URL } from "url";
 
 //Local Imports
 import Service from "./service";
@@ -263,10 +262,10 @@ export default class ServiceRoutes {
     private getHandlerInfo(handler: any) {
         const stack = handler.route.stack[0];
 
-        const fn = (stack.name === '') ? '<anonymous>' : String(stack.name).replace('bound ', '');
-        const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
-        const path = handler.route.path;
-
-        return { fn: fn, method: method, path: path };
+        return {
+            fn: (stack.name === '') ? '<anonymous>' : stack.name.replace('bound ', ''),
+            method: (stack.method === undefined) ? 'all' : stack.method.toUpperCase(),
+            path: handler.route.path
+        }
     }
 }

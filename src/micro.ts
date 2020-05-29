@@ -91,7 +91,7 @@ function micro(options?: Options) {
         //Add Pre Hook.
         service.hooks.preStart.push(() => {
             //Inject Files.
-            // injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+            injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
         });
 
         // service.get('/doc', getDoc);
@@ -271,13 +271,17 @@ function loadController(file: string) {
     //Get controllerMeta.
     const controllerMeta = getControllerMeta(controller.name);
 
+    //Setup a new Router.
+    const name = controller.name.replace('Controller', '').toLowerCase();
+    const router = service.router(`/${name}`);
+
     //Get each meta, bind the function and add route to the router.
     controllerMeta.forEach(meta => {
         //Bind Function.
         controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
 
         //Add Route.
-        service[meta.method](meta.path, controller[meta.handlerName]);
+        router[meta.method](meta.relativePath, controller[meta.handlerName]);
     });
 
     //Push to array.
@@ -544,23 +548,6 @@ export class ControllerMeta {
         this.handlerName = handlerName;
         this.method = method;
         this.relativePath = relativePath;
-    }
-
-    //////////////////////////////
-    //////Gets/Sets
-    //////////////////////////////
-    /**
-     * The name of the controller.
-     */
-    public get name() {
-        return this.controllerName.replace('Controller', '').toLowerCase();
-    }
-
-    /**
-     * The absolute path of the HTTP endpoint.
-     */
-    public get path() {
-        return `/${this.name}${this.relativePath}`;
     }
 }
 
