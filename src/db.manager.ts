@@ -1,18 +1,16 @@
 //Import modules
-import { Sequelize as RDB, Dialect, Op as RDBOp, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
-import { ModelAttributes as SequelizeModelAttributes, DataTypes as RDBDataTypes } from 'sequelize';
-import mongoose, { Connection as NoSQL, SchemaDefinition } from 'mongoose';
+import { Sequelize as RDB, Dialect, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
+import mongoose, { Connection as NoSQL } from 'mongoose';
 import { Logger } from 'winston';
 import { EventEmitter } from 'events';
 
-//Export Libs
-const NoSQLDataTypes: typeof mongoose.Types = mongoose.Types;
-export { NoSQL, NoSQLDataTypes };
-export { RDB, RDBOp, RDBDataTypes };
-
 //Local Imports
-import RDBModel from './db.rdb.model';
-import NoSQLModel from './db.nosql.model';
+import RDBModel, { RDBModelAttributes } from './db.rdb.model';
+import NoSQLModel, { NoSQLModelAttributes } from './db.nosql.model';
+
+//Export Libs
+export { RDB }
+export { NoSQL }
 
 /**
  * This class is a wrapper around the database `connection`.
@@ -534,16 +532,6 @@ export declare type Type = 'mongo' | Dialect;
  * @type `NoSQLModel` NoSQL(Mongoose) Model.
  */
 export declare type Model = typeof RDBModel | typeof NoSQLModel;
-
-/**
- * The type definitions for RDB Model Attributes.
- */
-export declare type RDBModelAttributes = SequelizeModelAttributes;
-
-/**
- * The type definitions for noSQL Model Attributes.
- */
-export declare type NoSQLModelAttributes = SchemaDefinition;
 
 /**
  * The type definitions for ModelAttributes.

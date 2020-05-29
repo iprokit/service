@@ -4,6 +4,7 @@ import HttpCodes from 'http-status-codes';
 
 //Local Imports
 import { Model } from './db.manager';
+import { FindOrder } from './db.model';
 
 /**
  * This generic `Controller` is responsible for handling incoming `Requests` and returning `Responses`.
@@ -66,7 +67,11 @@ export default class Controller {
     public async getAll(request: Request, response: Response) {
         try {
             const data = await this.model.getAll({
-                order: request.query.order as 'new' | 'old'
+                order: request.query.order as FindOrder,
+                pagination: {
+                    page: Number(request.query.page),
+                    size: Number(request.query.pageSize)
+                }
             });
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch (error) {

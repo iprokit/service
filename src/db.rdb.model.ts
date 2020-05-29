@@ -1,5 +1,11 @@
 //Import modules
-import { Model, Order } from 'sequelize';
+import { Model, ModelAttributes, DataTypes, Op, Order } from 'sequelize';
+
+//Local Imports
+import { FindOptions } from './db.model';
+
+//Export Libs
+export { ModelAttributes as RDBModelAttributes, DataTypes as RDBDataTypes, Op as RDBOp }
 
 /**
  * A generic `RDBModel` is an instance of `Sequelize` model.
@@ -117,19 +123,4 @@ export default class RDBModel extends Model {
      * Wrapper to declare associations.
      */
     public static associate() { }
-}
-
-//////////////////////////////
-//////Type Definitions
-//////////////////////////////
-/**
- * The find options for `model.find()`.
- */
-export type FindOptions = {
-    /**
-     * Order all the records by `model.createdAt`.
-     * Set to `new` if latest records should be on the top,
-     * `old` if latest records should be at the bottom.
-     */
-    order: 'new' | 'old'
 }

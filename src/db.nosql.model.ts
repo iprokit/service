@@ -1,5 +1,11 @@
 //Import modules
-import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document, ModelUpdateOptions } from 'mongoose';
+import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document, Types, ModelUpdateOptions } from 'mongoose';
+
+//Local Imports
+import { FindOptions } from './db.model';
+
+//Export Libs
+export { SchemaDefinition as NoSQLModelAttributes, Types as NoSQLDataTypes }
 
 /**
  * A generic `NoSQLModel` is a wrapper around `Mongoose` model.
@@ -306,19 +312,4 @@ export type InitOptions = {
      * Set to true if the timestamp fields should be added, false otherwise.
      */
     timestamps: boolean;
-}
-
-//////////////////////////////
-//////Type Definitions
-//////////////////////////////
-/**
- * The find options for `model.find()`.
- */
-export type FindOptions = {
-    /**
-     * Order all the records by `model.createdAt`.
-     * Set to `new` if latest records should be on the top,
-     * `old` if latest records should be at the bottom.
-     */
-    order: 'new' | 'old'
 }
