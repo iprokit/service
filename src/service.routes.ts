@@ -111,7 +111,7 @@ export default class ServiceRoutes {
     }
 
     //////////////////////////////
-    //////Helpers
+    //////Reports
     //////////////////////////////
     /**
      * The CPU and Memory usage of the service.
@@ -166,39 +166,42 @@ export default class ServiceRoutes {
      */
     private get endpointsReport() {
         const httpRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
+        const appRoutes: Array<{ fn: string, [method: string]: string }> = new Array();
 
+        /**
+         * Get array of middlewares from express.
+         * - Push app middlewares to `appRoutes`.
+         * - Push router middlewares to `httpRoutes`.
+         */
         this.service.express._router.stack.forEach((middleware: any) => {
-            console.log(middleware);
+            if (middleware.route) {
+                const route = this.getHandlerInfo(middleware);
+
+                this.isApiRoute(route.method) && appRoutes.push(route);
+            } else if (middleware.name === 'router') {
+                const routes = new Array();
+                const mountPath = (middleware.handle.mountPath === '/') ? '' : middleware.handle.mountPath;
+
+                //Get router handlers.
+                middleware.handle.stack.forEach((handler: any) => {
+                    if (handler.route) {
+                        const route = this.getHandlerInfo(handler);
+                        route.path = `${mountPath}${route.path}`;
+
+                        this.isApiRoute(route.method) && routes.push(route);
+                    }
+                });
+
+                httpRoutes[middleware.handle.mountPath] = routes;
+            }
         });
 
-        // //Get HTTP Routes.
-        // this.service.expressRouter.stack.forEach(item => {
-        //     if (item.route) {
-        //         const stack = item.route.stack[0];
-
-        //         //Create Variables.
-        //         const routePath = String(item.route.path);
-        //         const routeName = routePath.split('/').filter(Boolean)[0];
-        //         const functionName = (stack.handle.name === '') ? '<anonymous>' : String(stack.handle.name).replace('bound ', '');
-        //         const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
-
-        //         /**
-        //          * Note: Since handlers are called with bind() to pass the context, during the bind process its name is appended with `bound`.
-        //          * This has to be replaced with empty string for the `functionName`.
-        //          */
-
-        //         //Try creating empty object.
-        //         if (!httpRoutes[routeName]) {
-        //             httpRoutes[routeName] = [];
-        //         }
-
-        //         //The absolute path.
-        //         const path = (this.service.httpBaseUrl === '/') ? routePath : `${this.service.httpBaseUrl}${routePath}`;
-
-        //         //Add to object.
-        //         httpRoutes[routeName].push({ fn: functionName, [method]: path });
-        //     }
-        // });
+        //Merge Routes.
+        if (httpRoutes['/']) {
+            httpRoutes['/'].push(...appRoutes);
+        } else if (httpRoutes['/'] && appRoutes.length > 0) {
+            httpRoutes['/'] = appRoutes;
+        }
 
         return httpRoutes;
     }
@@ -211,12 +214,8 @@ export default class ServiceRoutes {
 
         //Get SCP Routes.
         this.service.scpServer.routes.forEach(route => {
-            //Create Variables.
-            const map = String(route.map);
-            const type = String(route.type);
-
             //Add to object.
-            scpRoutes[map] = type;
+            scpRoutes[route.map] = route.type;
         });
 
         return scpRoutes;
@@ -227,23 +226,8 @@ export default class ServiceRoutes {
      * Each `Node` contains its configuration and the `Action`'s that can be called.
      */
     private get meshReport() {
-        const mesh: Array<{
-            name: string,
-            identifier: string,
-            host: URL,
-            connected: boolean,
-            reconnecting: boolean,
-            disconnected: boolean,
-            node: {
-                identifier: string,
-                broadcasts: Array<string>,
-                replies: Array<string>
-            }
-        }> = new Array();
-
-        //Get SCP Clients.
-        this.service.scpClientManager.clients.forEach(client => {
-            mesh.push({
+        return this.service.scpClientManager.clients.map(client => {
+            return {
                 name: client.nodeName,
                 identifier: client.identifier,
                 host: client.url,
@@ -255,9 +239,34 @@ export default class ServiceRoutes {
                     broadcasts: client.node.broadcasts,
                     replies: client.node.replies
                 }
-            });
+            }
         });
+    }
 
-        return mesh;
+    //////////////////////////////
+    //////Helpers
+    //////////////////////////////
+    /**
+     * Validates if the HTTP verbose is a valid API method.
+     * 
+     * @param method the name of the HTTP verbose.
+     */
+    private isApiRoute(method: string) {
+        return method === 'GET' || method === 'POST' || method === 'PUT' || method === 'DELETE' || method === undefined;
+    }
+
+    /**
+     * Gets and returns the handler information.
+     * 
+     * @param handler the router/application handler.
+     */
+    private getHandlerInfo(handler: any) {
+        const stack = handler.route.stack[0];
+
+        const fn = (stack.name === '') ? '<anonymous>' : String(stack.name).replace('bound ', '');
+        const method = (stack.method === undefined) ? 'all' : String(stack.method).toUpperCase();
+        const path = handler.route.path;
+
+        return { fn: fn, method: method, path: path };
     }
 }

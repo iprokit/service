@@ -365,7 +365,7 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Init
+    //////Helpers
     //////////////////////////////
     /**
      * Adds the default service routes.
@@ -381,23 +381,16 @@ export default class Service extends EventEmitter {
         serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
 
         //Service routes.
-        const defaultRouter = this.router();
+        const defaultRouter = this.router('/');
         defaultRouter.get('/health', serviceRoutes.getHealth);
         defaultRouter.get('/report', serviceRoutes.getReport);
         defaultRouter.get('/shutdown', serviceRoutes.shutdown);
-        this.express.use('/', defaultRouter);
 
         //Database routes.
         if (this.connection) {
-            const databaseRouter = this.router();
+            const databaseRouter = this.router('/db');
             databaseRouter.get('/sync', serviceRoutes.syncDatabase);
-            this.express.use('/db', databaseRouter);
         }
-
-        //ISSUE: Work from here.
-        this.express._router.stack.forEach((middleware: any) => {
-            console.log(middleware);
-        });
     }
 
     //////////////////////////////
@@ -538,10 +531,22 @@ export default class Service extends EventEmitter {
     /**
      * Creates a new `ExpressRouter`.
      * 
+     * @param mountPath the path this router should be mounted on.
+     * 
      * @returns the created router.
      */
-    public router() {
-        return express.Router();
+    public router(mountPath: PathParams) {
+        //Create a new router.
+        const router = express.Router();
+
+        //Add mountPath to the router.
+        (router as any).mountPath = mountPath;
+
+        //Mount the router to express.
+        this.express.use(mountPath, router);
+
+        //Return the router.
+        return router;
     }
 
     /**
@@ -551,7 +556,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public use(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.use(path, ...handlers);
+        return this.express.use(path, ...handlers);
     }
 
     /**
@@ -561,7 +566,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.all(path, ...handlers);
+        return this.express.all(path, ...handlers);
     }
 
     /**
@@ -571,7 +576,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.get(path, ...handlers);
+        return this.express.get(path, ...handlers);
     }
 
     /**
@@ -581,7 +586,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.post(path, ...handlers);
+        return this.express.post(path, ...handlers);
     }
 
     /**
@@ -591,7 +596,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.put(path, ...handlers);
+        return this.express.put(path, ...handlers);
     }
 
     /**
@@ -601,7 +606,7 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.delete(path, ...handlers);
+        return this.express.delete(path, ...handlers);
     }
 
     //////////////////////////////
