@@ -34,30 +34,22 @@ export default class NoSQLModel {
     /**
      * Performs asynchronous, get all records.
      * 
+     * @param options the optional find options.
+     * 
      * @returns all the records.
      * 
      * @alias `model.find()`
      */
-    public static async getAll() {
-        return await this.find();
-    }
+    public static async getAll(options: FindOptions) {
+        let orderType: any;
 
-    /**
-     * Performs asynchronous, get all records by `model.createdAt`.
-     * 
-     * @param orderType set to `new` if latest records should be on the top,
-     * `old` if latest records should be at the bottom.
-     * 
-     * @returns all the records.
-     * 
-     * @alias `model.find().sort()`
-     */
-    public static async getAllOrderByCreatedAt(orderType: 'new' | 'old') {
-        if (orderType === 'new') {
-            return await this.find().sort({ createdAt: -1 });
-        } else if (orderType === 'old') {
-            return await this.find().sort({ createdAt: 1 });
+        if (options.orderType === 'new') {
+            orderType = { createdAt: -1 };
+        } else if (options.orderType === 'old') {
+            orderType = { createdAt: 1 };
         }
+
+        return await this.find().sort(orderType);
     }
 
     /**
@@ -314,4 +306,19 @@ export type InitOptions = {
      * Set to true if the timestamp fields should be added, false otherwise.
      */
     timestamps: boolean;
+}
+
+//////////////////////////////
+//////Type Definitions
+//////////////////////////////
+/**
+ * The find options for `model.find()`.
+ */
+export type FindOptions = {
+    /**
+     * Order all the records by `model.createdAt`.
+     * Set to `new` if latest records should be on the top,
+     * `old` if latest records should be at the bottom.
+     */
+    orderType: 'new' | 'old'
 }

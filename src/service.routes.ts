@@ -175,8 +175,7 @@ export default class ServiceRoutes {
         this.service.express._router.stack.forEach((middleware: any) => {
             if (middleware.route) {
                 const route = this.getHandlerInfo(middleware);
-
-                this.isApiRoute(route.method) && appRoutes.push(route);
+                this.isApiRoute(route.method) && appRoutes.push({ fn: route.fn, [route.method]: route.path });
             } else if (middleware.name === 'router') {
                 const routes = new Array();
                 const mountPath = (middleware.handle.mountPath === '/') ? '' : middleware.handle.mountPath;
@@ -185,9 +184,7 @@ export default class ServiceRoutes {
                 middleware.handle.stack.forEach((handler: any) => {
                     if (handler.route) {
                         const route = this.getHandlerInfo(handler);
-                        route.path = `${mountPath}${route.path}`;
-
-                        this.isApiRoute(route.method) && routes.push(route);
+                        this.isApiRoute(route.method) && routes.push({ fn: route.fn, [route.method]: `${mountPath}${route.path}` });
                     }
                 });
 
@@ -213,7 +210,6 @@ export default class ServiceRoutes {
 
         //Get SCP Routes.
         this.service.scpServer.routes.forEach(route => {
-            //Add to object.
             scpRoutes[route.map] = route.type;
         });
 

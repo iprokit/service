@@ -1,5 +1,5 @@
 //Import modules
-import { Model } from 'sequelize';
+import { Model, Order } from 'sequelize';
 
 /**
  * A generic `RDBModel` is an instance of `Sequelize` model.
@@ -11,30 +11,22 @@ export default class RDBModel extends Model {
     /**
      * Performs asynchronous, get all records.
      * 
+     * @param options the optional find options.
+     * 
      * @returns all the records.
      * 
      * @alias `model.findAll()`
      */
-    public static async getAll() {
-        return await this.findAll();
-    }
+    public static async getAll(options: FindOptions) {
+        let orderType: Order;
 
-    /**
-     * Performs asynchronous, get all records by `model.createdAt`.
-     * 
-     * @param orderType set to `new` if latest records should be on the top,
-     * `old` if latest records should be at the bottom.
-     * 
-     * @returns all the records.
-     * 
-     * @alias `model.findAll()`
-     */
-    public static async getAllOrderByCreatedAt(orderType: 'new' | 'old') {
-        if (orderType === 'new') {
-            return await this.findAll({ order: [['createdAt', 'DESC']] });
-        } else if (orderType === 'old') {
-            return await this.findAll({ order: [['createdAt', 'ASC']] });
+        if (options.orderType === 'new') {
+            orderType = [['createdAt', 'DESC']];
+        } else if (options.orderType === 'old') {
+            orderType = [['createdAt', 'ASC']];
         }
+
+        return await this.findAll({ order: orderType });
     }
 
     /**
@@ -125,4 +117,19 @@ export default class RDBModel extends Model {
      * Wrapper to declare associations.
      */
     public static associate() { }
+}
+
+//////////////////////////////
+//////Type Definitions
+//////////////////////////////
+/**
+ * The find options for `model.find()`.
+ */
+export type FindOptions = {
+    /**
+     * Order all the records by `model.createdAt`.
+     * Set to `new` if latest records should be on the top,
+     * `old` if latest records should be at the bottom.
+     */
+    orderType: 'new' | 'old'
 }

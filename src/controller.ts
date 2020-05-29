@@ -10,7 +10,6 @@ import { Model } from './db.manager';
  * It performs operations on the binded `Model`:
  * - Create - Creates a new record on the `Model`.
  * - getAll - Get all records on the `Model`.
- * - getAllOrderByCreatedAt - Get all records by `createdAt` on the`Model`.
  * - getOneByID - Get one record by `id` on the `Model`.
  * - updateOneByID - Update one record by `id` on the `Model`.
  * - deleteOneByID - Delete one record by `id` on the `Model`.
@@ -56,7 +55,7 @@ export default class Controller {
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
-    };
+    }
 
     /**
      * Performs asynchronous, get all records on the `Model`.
@@ -66,33 +65,14 @@ export default class Controller {
      */
     public async getAll(request: Request, response: Response) {
         try {
-            const data = await this.model.getAll();
+            const data = await this.model.getAll({
+                orderType: request.query.orderType as 'new' | 'old'
+            });
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
-    };
-
-    /**
-     * TODO: Delete this.
-     * 
-     * Performs asynchronous, get all records by `createdAt` on the `Model`.
-     * 
-     * The `request.params.orderType` types:
-     * @type new(DESC) - The lastest records will be on the top.
-     * @type old(ASC) - The lastest records will be at the bottom.
-     * 
-     * @param request the http request.
-     * @param response the http response.
-     */
-    public async getAllOrderByCreatedAt(request: Request, response: Response) {
-        try {
-            const data = await this.model.getAllOrderByCreatedAt(request.params.orderType as 'new' | 'old');
-            response.status(HttpCodes.OK).send({ status: true, data: data });
-        } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-        }
-    };
+    }
 
     /**
      * Performs asynchronous, get one record by `id` on the `Model`.
@@ -107,7 +87,7 @@ export default class Controller {
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
-    };
+    }
 
     /**
      * Performs asynchronous, update one record by `id` on the `Model`.
@@ -117,12 +97,12 @@ export default class Controller {
      */
     public async updateOneByID(request: Request, response: Response) {
         try {
-            await this.model.updateOneByID(request.body.id, request.body);
+            await this.model.updateOneByID(request.params.id, request.body);
             response.status(HttpCodes.OK).send({ status: true, message: 'Updated!' });
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
-    };
+    }
 
     /**
      * Performs asynchronous, delete one record by `id` on the `Model`.
@@ -137,5 +117,5 @@ export default class Controller {
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
-    };
+    }
 }
