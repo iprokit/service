@@ -18,15 +18,15 @@ export default class RDBModel extends Model {
      * @alias `model.findAll()`
      */
     public static async getAll(options: FindOptions) {
-        let orderType: Order;
+        let order: Order;
 
-        if (options.orderType === 'new') {
-            orderType = [['createdAt', 'DESC']];
-        } else if (options.orderType === 'old') {
-            orderType = [['createdAt', 'ASC']];
+        if (options.order === 'new') {
+            order = [['createdAt', 'DESC']];
+        } else if (options.order === 'old') {
+            order = [['createdAt', 'ASC']];
         }
 
-        return await this.findAll({ order: orderType });
+        return await this.findAll({ order: order });
     }
 
     /**
@@ -131,5 +131,5 @@ export type FindOptions = {
      * Set to `new` if latest records should be on the top,
      * `old` if latest records should be at the bottom.
      */
-    orderType: 'new' | 'old'
+    order: 'new' | 'old'
 }

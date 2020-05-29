@@ -66,7 +66,7 @@ export default class Controller {
     public async getAll(request: Request, response: Response) {
         try {
             const data = await this.model.getAll({
-                orderType: request.query.orderType as 'new' | 'old'
+                order: request.query.order as 'new' | 'old'
             });
             response.status(HttpCodes.OK).send({ status: true, data: data });
         } catch (error) {

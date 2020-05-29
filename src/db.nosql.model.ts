@@ -41,15 +41,15 @@ export default class NoSQLModel {
      * @alias `model.find()`
      */
     public static async getAll(options: FindOptions) {
-        let orderType: any;
+        let order;
 
-        if (options.orderType === 'new') {
-            orderType = { createdAt: -1 };
-        } else if (options.orderType === 'old') {
-            orderType = { createdAt: 1 };
+        if (options.order === 'new') {
+            order = { createdAt: -1 };
+        } else if (options.order === 'old') {
+            order = { createdAt: 1 };
         }
 
-        return await this.find().sort(orderType);
+        return await this.find().sort(order);
     }
 
     /**
@@ -320,5 +320,5 @@ export type FindOptions = {
      * Set to `new` if latest records should be on the top,
      * `old` if latest records should be at the bottom.
      */
-    orderType: 'new' | 'old'
+    order: 'new' | 'old'
 }
