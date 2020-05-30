@@ -51,17 +51,13 @@ export default class RDBModel extends Model {
      * @alias `model.findByPk()`
      */
     public static async getOneByID(id: any) {
-        return await this.findByPk(id)
-            .then(async data => {
-                if (data) {
-                    return data
-                } else {
-                    throw new Error('No records found!');
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const record = await this.findByPk(id);
+
+        if (record) {
+            return record;
+        } else {
+            throw new Error('No records found!');
+        }
     }
 
     /**
@@ -77,17 +73,13 @@ export default class RDBModel extends Model {
      * @alias `model.update()`
      */
     public static async updateOneByID(id: any, values: any) {
-        return await this.update(values, { where: { id: id }, individualHooks: true })
-            .then(async affectedRows => {
-                if (affectedRows[0] === 0 && affectedRows[1].length === 0) {
-                    throw new Error('No records found!');
-                } else {
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const affectedRecords = await this.update(values, { where: { id: id }, individualHooks: true });
+
+        if (affectedRecords[0] === 0 && affectedRecords[1].length === 0) {
+            throw new Error('No records found!');
+        } else {
+            return true;
+        }
     }
 
     /**
@@ -102,17 +94,13 @@ export default class RDBModel extends Model {
      * @alias `model.update()`
      */
     public static async deleteOneByID(id: any) {
-        return await this.destroy({ where: { id: id }, individualHooks: true })
-            .then(async affectedRows => {
-                if (affectedRows === 0) {
-                    throw new Error('No records found!');
-                } else {
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const affectedRecords = await this.destroy({ where: { id: id }, individualHooks: true });
+
+        if (affectedRecords === 0) {
+            throw new Error('No records found!');
+        } else {
+            return true;
+        }
     }
 
     //////////////////////////////

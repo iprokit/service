@@ -74,17 +74,13 @@ export default class NoSQLModel {
      * @alias `model.findOne()`
      */
     public static async getOneByID(id: any) {
-        return await this.findOne({ _id: id })
-            .then(async data => {
-                if (data) {
-                    return data
-                } else {
-                    throw new Error('No records found!');
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const record = await this.findOne({ _id: id });
+
+        if (record) {
+            return record;
+        } else {
+            throw new Error('No records found!');
+        }
     }
 
     /**
@@ -100,17 +96,13 @@ export default class NoSQLModel {
      * @alias `model.updateOne()`
      */
     public static async updateOneByID(id: any, values: any) {
-        return await this.updateOne({ _id: id }, values)
-            .then(async affectedRows => {
-                if (affectedRows.n === 0 && affectedRows.nModified === 0) {
-                    throw new Error('No records found!');
-                } else {
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const affectedRecords = await this.updateOne({ _id: id }, values);
+
+        if (affectedRecords.n === 0 && affectedRecords.nModified === 0) {
+            throw new Error('No records found!');
+        } else {
+            return true;
+        }
     }
 
     /**
@@ -125,17 +117,13 @@ export default class NoSQLModel {
      * @alias `model.deleteOne()`
      */
     public static async deleteOneByID(id: any) {
-        return await this.deleteOne({ _id: id })
-            .then(async affectedRows => {
-                if (affectedRows.n === 0 && affectedRows.deletedCount === 0) {
-                    throw new Error('No records found!');
-                } else {
-                    return true;
-                }
-            })
-            .catch(error => {
-                throw error;
-            });
+        const affectedRecords = await this.deleteOne({ _id: id });
+
+        if (affectedRecords.n === 0 && affectedRecords.deletedCount === 0) {
+            throw new Error('No records found!');
+        } else {
+            return true;
+        }
     }
 
     //////////////////////////////
@@ -152,7 +140,7 @@ export default class NoSQLModel {
      * 
      * @alias `$model.findOne()`
      */
-    public static findOne(conditions?: any, projection?: any, options?: any) {
+    public static async findOne(conditions?: any, projection?: any, options?: any) {
         return this._model.findOne(conditions, projection, options);
     }
 
