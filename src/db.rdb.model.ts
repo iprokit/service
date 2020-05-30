@@ -2,7 +2,7 @@
 import { Model, ModelAttributes, DataTypes, Op, Order } from 'sequelize';
 
 //Local Imports
-import { FindOptions } from './db.model';
+import model, { FindOptions } from './db.model';
 
 //Export Libs
 export { ModelAttributes as RDBModelAttributes, DataTypes as RDBDataTypes, Op as RDBOp }
@@ -26,13 +26,17 @@ export default class RDBModel extends Model {
     public static async getAll(options: FindOptions) {
         let order: Order;
 
-        if (options.order === 'new') {
+        //Order properties.
+        if (options.order === 'new' || !options.order) {
             order = [['createdAt', 'DESC']];
         } else if (options.order === 'old') {
             order = [['createdAt', 'ASC']];
         }
 
-        return await this.findAll({ order: order });
+        //Pagination properties.
+        const page = model.pagination(options.pagination.page, options.pagination.size);
+
+        return await this.findAll({ order: order, offset: page.offset, limit: page.limit });
     }
 
     /**

@@ -2,7 +2,7 @@
 import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document, Types, ModelUpdateOptions } from 'mongoose';
 
 //Local Imports
-import { FindOptions } from './db.model';
+import model, { FindOptions } from './db.model';
 
 //Export Libs
 export { SchemaDefinition as NoSQLModelAttributes, Types as NoSQLDataTypes }
@@ -49,13 +49,17 @@ export default class NoSQLModel {
     public static async getAll(options: FindOptions) {
         let order;
 
-        if (options.order === 'new') {
+        //Order properties.
+        if (options.order === 'new' || !options.order) {
             order = { createdAt: -1 };
         } else if (options.order === 'old') {
             order = { createdAt: 1 };
         }
 
-        return await this.find().sort(order);
+        //Pagination properties.
+        const page = model.pagination(options.pagination.page, options.pagination.size);
+
+        return await this.find().sort(order).skip(page.offset).limit(page.limit);
     }
 
     /**
