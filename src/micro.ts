@@ -79,22 +79,16 @@ function micro(options?: Options) {
         const serviceOptions: ServiceOptions = options;
         serviceOptions.mesh = mesh;
 
-        //Override as gateway if this is a gateway service.
-        if (options.gateway) {
-            serviceOptions.name = serviceOptions.name || 'gateway';
-            // serviceOptions.baseUrl = serviceOptions.baseUrl || '/api';
-        }
-
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Add Pre Hook.
+        //Add Hook: PreStart.
         service.hooks.preStart.push(() => {
+            // service.get('/doc', getDoc);
+
             //Inject Files.
             injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
         });
-
-        // service.get('/doc', getDoc);
     }
 
     //Return the singleton service.
@@ -594,11 +588,6 @@ export type Options = {
          */
         paperTrail?: boolean;
     }
-
-    /**
-     * Set to true if this is a `gateway` service, false otherwise.
-     */
-    gateway?: boolean;
 
     /**
      * Auto wire `Model` options.

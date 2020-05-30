@@ -313,8 +313,9 @@ export default class Service extends EventEmitter {
             next();
         });
 
-        //Middleware: Error handler for 404.
+        //Add Hook: PreStart.
         this.hooks.preStart.push(() => {
+            //Middleware: Error handler for 404.
             this.express.use((request: Request, response: Response, next: NextFunction) => {
                 response.status(HttpCodes.NOT_FOUND).send('Not Found');
             });
@@ -371,26 +372,29 @@ export default class Service extends EventEmitter {
      * Adds the default service routes.
      */
     private addServiceRoutes() {
-        //Initialize serviceRoutes.
-        const serviceRoutes = new ServiceRoutes(this);
+        //Add Hook: PreStart.
+        this.hooks.preStart.push(() => {
+            //Initialize serviceRoutes.
+            const serviceRoutes = new ServiceRoutes(this);
 
-        //Bind functions with the `ServiceRoutes` context.
-        serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
-        serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
-        serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
-        serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
+            //Bind functions with the `ServiceRoutes` context.
+            serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
+            serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
+            serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
+            serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
 
-        //Service routes.
-        const defaultRouter = this.router('/');
-        defaultRouter.get('/health', serviceRoutes.getHealth);
-        defaultRouter.get('/report', serviceRoutes.getReport);
-        defaultRouter.get('/shutdown', serviceRoutes.shutdown);
+            //Service routes.
+            const defaultRouter = this.router('/');
+            defaultRouter.get('/health', serviceRoutes.getHealth);
+            defaultRouter.get('/report', serviceRoutes.getReport);
+            defaultRouter.get('/shutdown', serviceRoutes.shutdown);
 
-        //Database routes.
-        if (this.connection) {
-            const databaseRouter = this.router('/db');
-            databaseRouter.get('/sync', serviceRoutes.syncDatabase);
-        }
+            //Database routes.
+            if (this.connection) {
+                const databaseRouter = this.router('/db');
+                databaseRouter.get('/sync', serviceRoutes.syncDatabase);
+            }
+        });
     }
 
     //////////////////////////////
