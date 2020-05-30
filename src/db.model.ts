@@ -11,17 +11,11 @@ export namespace model {
      * @param page the page number.
      * @param size the size of the page, i.e number of records per page.
      */
-    export function pagination(page: number, size?: number) {
-        let offset: number;
-        let limit: number;
+    export function pagination(page?: number, size?: number) {
+        page = (!page || isNaN(page)) ? 0 : page;
+        size = (!size || isNaN(size)) ? 20 : size;
 
-        if (!isNaN(page)) {
-            size = (!size || isNaN(size)) ? 100 : size;
-            offset = page * size;
-            limit = size;
-        }
-
-        return { offset: offset, limit: limit }
+        return { offset: page * size, limit: size }
     }
 }
 
@@ -64,13 +58,15 @@ export type FindOrder = 'new' | 'old';
 export type Pagination = {
     /**
      * The page number.
+     * 
+     * @default 0
      */
-    page: number;
+    page?: number;
 
     /**
      * The size of the page, i.e number of records per page.
      * 
-     * @default 100
+     * @default 20
      */
     size?: number;
 }
