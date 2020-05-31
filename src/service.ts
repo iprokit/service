@@ -136,7 +136,7 @@ export default class Service extends EventEmitter {
      * 
      * @param options the optional constructor options.
      */
-    public constructor(options?: Options) {
+    constructor(options?: Options) {
         //Call super for EventEmitter.
         super();
 
@@ -777,7 +777,7 @@ export class Hooks {
     /**
      * Creates an instance of `Hooks`.
      */
-    public constructor() {
+    constructor() {
         this.preStart = new Hook();
         this.postStart = new Hook();
         this.preStop = new Hook();

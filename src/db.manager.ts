@@ -77,7 +77,7 @@ export default class DBManager extends EventEmitter {
      * 
      * @param logger the logger instance.
      */
-    public constructor(logger: Logger) {
+    constructor(logger: Logger) {
         //Call super for EventEmitter.
         super();
 
