@@ -1,26 +1,20 @@
-//////////////////////////////
-//////Top-level
-//////////////////////////////
 /**
- * Helper functions for generic `Model`.
+ * Helper functions for generic `Model`'s.
  */
-export namespace model {
+export default class Model {
     /**
      * Pagination calculation helper.
      * 
      * @param page the page number.
      * @param size the size of the page, i.e number of records per page.
      */
-    export function pagination(page?: number, size?: number) {
+    public static pagination(page?: number, size?: number) {
         page = (!page || isNaN(page)) ? 0 : page;
         size = (!size || isNaN(size)) ? 20 : size;
 
         return { offset: page * size, limit: size }
     }
 }
-
-//Overload Export.
-export default model;
 
 //////////////////////////////
 //////Types
