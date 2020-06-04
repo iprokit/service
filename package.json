@@ -20,7 +20,7 @@
     "name": "Rutvik Katuri",
     "email": "rutvik.katuri@iprotechs.com"
   },
-  "license": "ISC",
+  "license": "UNLICENSED",
   "homepage": "https://bitbucket.org/iprotechs/micro#readme",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
