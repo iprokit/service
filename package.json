@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@iprotechs/scp": "../scp",
+    "@iprotechs/discovery": "../discovery",
     "express": "4.17.1",
     "http-status-codes": "1.4.0",
     "cookie-parser": "1.4.4",
