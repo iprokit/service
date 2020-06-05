@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import HttpCodes from 'http-status-codes';
 
 //Local Imports
-import Service from "./service";
+import Service, { Pod } from "./service";
 
 /**
  * The `ServiceRoutes` contains the service default endpoints.
@@ -68,8 +68,10 @@ export default class ServiceRoutes {
                     name: this.service.name,
                     version: this.service.version,
                     ip: this.service.ip,
+                    multicast: this.service.multicast,
                     httpPort: this.service.httpPort,
                     scpPort: this.service.scpPort,
+                    discoveryPort: this.service.discoveryPort,
                     environment: this.service.environment,
                     logPath: this.service.logPath
                 },
@@ -77,7 +79,8 @@ export default class ServiceRoutes {
                 db: this.service.dbManager.connection && this.dbReport,
                 endpoints: this.endpointsReport,
                 actions: this.actionsReport,
-                mesh: this.meshReport
+                mesh: this.meshReport,
+                discovered: this.discoveredReport
             }
 
             response.status(HttpCodes.OK).send(report);
@@ -233,6 +236,21 @@ export default class ServiceRoutes {
                     identifier: client.node.identifier,
                     broadcasts: client.node.broadcasts,
                     replies: client.node.replies
+                }
+            }
+        });
+    }
+
+    /**
+     * The `Pod`'s discovered.
+     */
+    private get discoveredReport() {
+        return (this.service.discovery.pods as Array<Pod>).map(pod => {
+            return {
+                [pod.id]: {
+                    url: `${pod.address}:${pod.port}`,
+                    params: pod.params,
+                    available: pod.available
                 }
             }
         });

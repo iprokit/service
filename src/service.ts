@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import Discovery, { Pod } from '@iprotechs/discovery';
+import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
 import scp, { Body, StatusType, Server as ScpServer, ClientManager, NodeClient, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
@@ -349,7 +349,7 @@ export default class Service extends EventEmitter {
      * Configures SCP by setting up `ScpServer`.
      */
     private configSCP() {
-        //Setup SCP server and bind events.
+        //Bind Events.
         this.scpServer.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
@@ -359,29 +359,33 @@ export default class Service extends EventEmitter {
      * Configures Mesh by setting up `ScpClientManager` and `Discovery`.
      */
     private configMesh() {
-        //Setup Discovery and bind events.
+        //Bind Events.
         this.discovery.on('discovered', (pod: Pod) => {
             //Log Event.
-            this.logger.info(`Discovered ${pod.id}(${pod.address}:${(pod.params as PodParams).scpPort})`);
+            this.logger.info(`Discovered ${pod.id}(${pod.address}:${pod.params.scpPort})`);
 
-            //Create a new `ScpClient` and establish connection.
-            const scpClient = this.scpClientManager.createClient(pod.id);
-            scpClient.on('error', (error: Error) => {
-                this.logger.error(error.stack);
-            });
+            //Try getting the client created with `service.discoverNodeAs()`.
+            let client = this.scpClientManager.clients.find(client => (client as PodClient).podId === pod.id);
 
+            //No client found create a new one.
+            if (!client) {
+                client = this.createNodeClient(pod.id);
+            }
+
+            //Bind Events.
             pod.on('available', () => {
-                scpClient.url = new URL(`scp://${pod.address}:${(pod.params as PodParams).scpPort || Default.SCP_PORT}`);
-                scpClient.connect(scpClient.url.hostname, Number(scpClient.url.port), () => {
+                pod.params.scpPort = pod.params.scpPort || Default.SCP_PORT;
+                client.url = new URL(`scp://${pod.address}:${pod.params.scpPort}`);
+                client.connect(client.url.hostname, Number(client.url.port), () => {
                     //Log Event.
-                    this.logger.info(`Mesh connected to ${pod.id}(${scpClient.url})`);
+                    this.logger.info(`Mesh connected to ${pod.id}(${client.url})`);
                 });
             });
 
             pod.on('unavailable', () => {
-                scpClient.disconnect(() => {
+                client.disconnect(() => {
                     //Log Event.
-                    this.logger.info(`Mesh disconnected from ${pod.id}(${scpClient.url})`);
+                    this.logger.info(`Mesh disconnected from ${pod.id}(${client.url})`);
                 });
             });
         });
@@ -440,6 +444,26 @@ export default class Service extends EventEmitter {
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
         });
+    }
+
+    /**
+     * Create a new `NodeClient`.
+     * 
+     * @param nodeName the name of the node.
+     * 
+     * @returns the created client.
+     */
+    private createNodeClient(nodeName: string) {
+        //Create a new client.
+        const client = this.scpClientManager.createClient(nodeName);
+
+        //Bind Events.
+        client.on('error', (error: Error) => {
+            this.logger.error(error.stack);
+        });
+
+        //Return client.
+        return client;
     }
 
     //////////////////////////////
@@ -702,14 +726,15 @@ export default class Service extends EventEmitter {
     //////Discovery
     //////////////////////////////
     /**
+     * Creates a new `ScpClient` and maps it to the `PodClient` found during discovery.
      * Retrieve the Node instance by importing `Mesh` from the module.
+     * 
+     * @param serviceName the name of the service.
+     * @param nodeName the name of the node.
      */
-    public discoverNodeAs() {
-        /**
-         * TODO: Work from here.
-         * Need a way to notify when `Mesh` is ready.
-         * Possibly need to add events to Mesh in SCP Client Manager.
-         */
+    public discoverNodeAs(serviceName: string, nodeName: string) {
+        const client = this.createNodeClient(nodeName) as PodClient;
+        client.podId = serviceName;
     }
 
     //////////////////////////////
@@ -787,13 +812,36 @@ export type Options = {
 }
 
 //////////////////////////////
-//////Types
+//////Interfaces
 //////////////////////////////
 /**
- * `PodParams` definition for `Service`.
+ * Wrapper for `DiscoveryPod`.
  */
-export type PodParams = {
-    scpPort: number
+export interface Pod extends DiscoveryPod {
+    /**
+     * The parameters of the service.
+     */
+    params: PodParams;
+}
+
+/**
+ * Wrapper for `DiscoveryParams`.
+ */
+export interface PodParams extends DiscoveryParams {
+    /**
+     * The SCP Port.
+     */
+    scpPort: number;
+}
+
+/**
+ * Wrapper for `NodeClient`.
+ */
+export interface PodClient extends NodeClient {
+    /**
+     * The unique identifier of the pod.
+     */
+    podId: string;
 }
 
 //////////////////////////////

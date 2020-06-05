@@ -1,6 +1,6 @@
 # Micro
 
-Micro is blazing fast, modern and powerful lightweight microservices framework. It helps you build efficient, reliable & scalable services that can talk to each other; quickly out of the box with very few lines of code. Micro provides many other features for building and managing your microservices.
+Micro is blazing fast, modern and powerful lightweight microservices framework. It helps you build efficient, reliable and scalable services that can discover and talk to each other quickly out of the box with very few lines of code. Micro provides many other features for building and managing your microservices.
 
 The underyling API is built on `Express` and the database managment is done by `Sequelize`(RDB) and `Mongoose`(NoSQL). The service to service communication is fulfilled by SCP.
 
@@ -20,7 +20,6 @@ The underyling API is built on `Express` and the database managment is done by `
 * Dynamic Route Mapping
 * Endpoints for Health Monitoring and Reporting
 * Native Middlewear Support
-* Dynamic Service Discovery
 * Service to service communication Support
     * Asynchronous message/reply
     * Event Broadcasts
@@ -114,30 +113,30 @@ npm start
 
 By default the service is assigned the following service and environment variables.
 
-| name               | version               | baseURL  | NODE_ENV     | HTTP_PORT | SCP_PORT | LOG_PATH |
-|--------------------|-----------------------|----------|--------------|-----------|----------|----------|
-| `npm_package_name` | `npm_package_version` | `/$name` | `production` | `3000`    | `6000`   | `/logs`  |
+| name               | version               | NODE_ENV     | HTTP_PORT | SCP_PORT | DISCOVERY_PORT | LOG_PATH |
+|--------------------|-----------------------|--------------|-----------|----------|----------------|----------|
+| `npm_package_name` | `npm_package_version` | `production` | `3000`    | `6000`   | `5000`         | `/logs`  |
 
 `Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
 `Health` Endpoint: 
 ```sh
-GET: http://localhost:${httpPort}/${name}/health
+GET: http://localhost:${httpPort}/health
 ```
 
 `Report` Endpoint: 
 ```sh
-GET: http://localhost:${httpPort}/${name}/report
+GET: http://localhost:${httpPort}/report
 ```
 
 `Shutdown` Endpoint: 
 ```sh
-POST: http://localhost:${httpPort}/${name}/shutdown
+POST: http://localhost:${httpPort}/shutdown
 ```
 
-You can override the service variables by assigning options to service constructor like so.
+You can override the service variables by assigning options like so.
 ```javascript
-const helloMicroService = Micro({ baseUrl: '/hello', name: 'Hello Service', version: '1.0.0' });
+const helloMicroService = Micro({ name: 'Hello-Service', version: '1.0.0' });
 ```
 
 You can also override the environment variables by adding the following optional environment variables to .env file to the root folder of the project.
@@ -145,6 +144,7 @@ You can also override the environment variables by adding the following optional
 NODE_ENV='development'
 HTTP_PORT=3001
 SCP_PORT=6001
+DISCOVERY_PORT=5001
 LOG_PATH='/user/logs'
 ```
 
@@ -168,7 +168,7 @@ DB_PASSWORD=
 import Micro from '@iprotechs/micro';
 
 //Declare microservice.
-const heroMicroService = Micro({ baseUrl: '/heroApi', db: { type: 'mysql', paperTrail: true } });
+const heroMicroService = Micro({ db: { type: 'mysql', paperTrail: true } });
 
 //Start the microservice.
 heroMicroService.start(() => {
@@ -248,7 +248,7 @@ export default class HeroController extends Controller {
         await super.getAll(request, response);
     }
 
-    @Put('/')
+    @Put('/:id')
     async updateOneByID(request, response) {
         await super.updateOneByID(request, response);
     }
@@ -261,11 +261,6 @@ export default class HeroController extends Controller {
     @Get('/id/:id')
     async getOneByID(request, response) {
         await super.getOneByID(request, response);
-    }
-
-    @Get('/orderBy/:orderType')
-    async getAllOrderByCreatedAt(request, response) {
-        await super.getAllOrderByCreatedAt(request, response);
     }
 
     //Define additional endpoints to handle business logic.
@@ -299,11 +294,10 @@ import Micro from '@iprotechs/micro';
 const heroMicroService = Micro();
 
 /**
- * Define the `Node` object.
- * localhost:6002: is the host address of the `Node`.
- * sidekickSvc: is the name of that `Node`.
+ * Discover `sidekickSvc` as `sidekick`.
+ * sidekick: is the name of the `Node`.
  */
-heroMicroService.defineNode('localhost:6002', 'sidekickSvc');
+heroMicroService.discoverNodeAs('sidekickSvc', 'sidekick');
 
 /**
  * Define broadcast names.
@@ -324,13 +318,13 @@ heroMicroService.start(() => {
 });
 ```
 
-* hero.messenger.js
+* introduction.messenger.js
 ```javascript
 import { Messenger, Reply } from '@iprotechs/micro';
 
-export default class HeroMessenger extends Messenger {
+export default class IntroductionMessenger extends Messenger {
     @Reply()
-    async introduction(message, reply) {
+    async hello(message, reply) {
         try {
             reply.send({ intro: 'I am Hero Service.' });
         } catch (error) {
@@ -349,8 +343,8 @@ export default class HeroController extends Controller {
     async callSidekick(request, response) {
         try {
             //Call: Mesh.NodeName.MessengerName.functionName();
-            const data = await Mesh.sidekickSvc.Sidekick.introduction({});
-            response.status(HttpCodes.OK).send({ status: true, data: data });
+            const hello = await Mesh.sidekick.Introduction.hello({});
+            response.status(HttpCodes.OK).send({ status: true, data: hello });
         } catch (error) {
             //When node is unavailable.
             if (error instanceof SocketError) {
@@ -377,15 +371,13 @@ import Micro, { Mesh } from '@iprotechs/micro';
 const sidekickMicroService = Micro();
 
 /**
- * Define the `Node` object.
- * localhost:6001: is the host address of the `Node`.
- * heroSvc: is the name of that `Node`.
- * 
+ * Discover `heroSvc` as `hero`.
+ * hero: is the name of the `Node`.
  */
-sidekickMicroService.defineNode('localhost:6001', 'heroSvc');
+sidekickMicroService.discoverNodeAs('heroSvc', 'hero');
 
 //Listen to broadcast from heroSvc.
-Mesh.heroSvc.on('hero.poke', (body) => {
+Mesh.hero.on('hero.poke', (body) => {
     console.log(`HeroSvc has poked me: ${body}`);
 });
 
@@ -395,13 +387,13 @@ sidekickMicroService.start(() => {
 });
 ```
 
-* sidekick.messenger.js
+* introduction.messenger.js
 ```javascript
 import { Messenger, Reply } from '@iprotechs/micro';
 
-export default class SidekickMessenger extends Messenger {
+export default class IntroductionMessenger extends Messenger {
     @Reply()
-    async introduction(message, reply) {
+    async hello(message, reply) {
         try {
             reply.send({ intro: 'I am Sidekick Service.' });
         } catch (error) {
@@ -420,8 +412,8 @@ export default class SidekickController extends Controller {
     async callHero(request, response) {
         try {
             //Call: Mesh.NodeName.MessengerName.functionName();
-            const data = await Mesh.heroSvc.Hero.introduction({});
-            response.status(HttpCodes.OK).send({ status: true, data: data });
+            const hello = await Mesh.hero.Introduction.hello({});
+            response.status(HttpCodes.OK).send({ status: true, data: hello });
         } catch (error) {
             //When node is unavailable.
             if (error instanceof SocketError) {
