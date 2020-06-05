@@ -175,7 +175,7 @@ export default class Service extends EventEmitter {
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = ip.address();
-        this.multicast = '224.0.0.1'; //TODO: Make this dynamic.
+        this.multicast = '224.0.0.1'; //TODO: https://iprotechs.atlassian.net/browse/PMICRO-116
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.discoveryPort = Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT;
@@ -210,7 +210,7 @@ export default class Service extends EventEmitter {
             }
         }
         this.scpClientManager = scp.createClientManager({ name: this.name, mesh: options.mesh, logging: meshLoggerWrite });
-        this.discovery = new Discovery(this.name, { scpPort: this.scpPort } as PodParams);
+        this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
         this.configMesh();
 
         //Initialize DB Manager
@@ -829,7 +829,12 @@ export interface Pod extends DiscoveryPod {
  */
 export interface PodParams extends DiscoveryParams {
     /**
-     * The SCP Port.
+     * The HTTP port.
+     */
+    httpPort: number;
+
+    /**
+     * The SCP port.
      */
     scpPort: number;
 }

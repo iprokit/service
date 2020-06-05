@@ -39,6 +39,7 @@ export default class Gateway {
      * @param redirect the optional, path of the enpoint in that target service.
      */
     public proxy(url: string, redirect?: string) {
+        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-117
         //Define URL.
         const _url = new URL(`http://${url}`);
         _url.port = _url.port === '' ? Default.HTTP_PORT.toString() : _url.port;
