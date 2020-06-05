@@ -182,7 +182,7 @@ export default class DBManager extends EventEmitter {
      * True if the database is `SQL` type.
      */
     public get rdb() {
-        return !this.noSQL;
+        return this._type === 'mysql' || this._type === 'postgres' || this._type === 'sqlite' || this._type === 'mariadb' || this._type === 'mssql';
     }
 
     //////////////////////////////
@@ -305,15 +305,33 @@ export default class DBManager extends EventEmitter {
      * 
      * @param callback optional callback. Will be called when the database is connected.
      */
-    public connect(callback?: (error?: Error) => void) {
+    public connect(callback?: (connection: boolean, error?: Error) => void) {
         //NoSQL Connection
         if (this.noSQL) {
-            this.connectNoSQL(callback);
+            this.connectNoSQL((error) => {
+                //Callback.
+                if (callback) {
+                    callback(true, error);
+                }
+            });
         }
 
         //RDB Connection.
         if (this.rdb) {
-            this.connectRDB(callback);
+            this.connectRDB((error) => {
+                //Callback.
+                if (callback) {
+                    callback(true, error);
+                }
+            });
+        }
+
+        //No Connection.
+        if (!this.noSQL && !this.rdb) {
+            //Callback.
+            if (callback) {
+                callback(false);
+            }
         }
     }
 
@@ -417,24 +435,31 @@ export default class DBManager extends EventEmitter {
      * @param callback optional callback. Will be called when the database is disconnected.
      */
     public disconnect(callback?: (error?: Error) => void) {
-        this._connection.close()
-            .then(() => {
-                //Set connected Flag 
-                this._connected = false;
+        if (this.rdb || this.noSQL) {
+            this._connection.close()
+                .then(() => {
+                    //Set connected Flag 
+                    this._connected = false;
 
-                //Emit Global: disconnected.
-                this.emit('disconnected');
+                    //Emit Global: disconnected.
+                    this.emit('disconnected');
 
-                //Callback.
-                if (callback) {
-                    callback();
-                }
-            }).catch((error: Error) => {
-                //Callback with error.
-                if (callback) {
-                    callback(error);
-                }
-            });
+                    //Callback.
+                    if (callback) {
+                        callback();
+                    }
+                }).catch((error: Error) => {
+                    //Callback with error.
+                    if (callback) {
+                        callback(error);
+                    }
+                });
+        } else {
+            //Callback.
+            if (callback) {
+                callback();
+            }
+        }
     }
 
     //////////////////////////////

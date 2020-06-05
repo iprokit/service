@@ -1,5 +1,4 @@
 //Import modules
-import ip from 'ip';
 import fs from 'fs';
 import path from 'path';
 import { Request } from 'express';
@@ -9,25 +8,6 @@ import { RequestOptions } from 'https';
  * The static helper class.
  */
 export default class Helper {
-
-    //////////////////////////////
-    //////Network
-    //////////////////////////////
-    /**
-     * @returns the docker container address.
-     */
-    public static getContainerIP() {
-        return ip.address();
-    }
-
-    /**
-     * @returns the docker host address.
-     */
-    public static getHostIP() {
-        //TODO: https://iprotechs.atlassian.net/browse/PMICRO-6
-        return '';
-    }
-
     //////////////////////////////
     //////File
     //////////////////////////////

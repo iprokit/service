@@ -1,4 +1,5 @@
 //Import @iprotechs Modules
+import Discovery, { Pod } from '@iprotechs/discovery';
 import scp, { Body, StatusType, Server as ScpServer, ClientManager, NodeClient, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
@@ -14,6 +15,7 @@ import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
 import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
+import ip from 'ip';
 import { URL } from 'url';
 
 //Local Imports
@@ -59,9 +61,14 @@ export default class Service extends EventEmitter {
     public readonly environment: string;
 
     /**
-     * The ip of the service.
+     * The IP address of this service.
      */
     public readonly ip: string;
+
+    /**
+     * The IP address of multicast.
+     */
+    public readonly multicast: string;
 
     /**
      * The HTTP Server port of the service, retrieved from `process.env.HTTP_PORT`.
@@ -76,6 +83,13 @@ export default class Service extends EventEmitter {
      * @default `Default.SCP_PORT`
      */
     public readonly scpPort: number;
+
+    /**
+     * The discovery port of the service., retrieved from `process.env.DISCOVERY_PORT`.
+     * 
+     * @default `Default.DISCOVERY_PORT`
+     */
+    public readonly discoveryPort: number;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
@@ -127,6 +141,11 @@ export default class Service extends EventEmitter {
     public readonly scpClientManager: ClientManager;
 
     /**
+     * Instance of `Discovery`.
+     */
+    public readonly discovery: Discovery;
+
+    /**
      * Instance of `DBManager`.
      */
     public readonly dbManager: DBManager;
@@ -155,9 +174,11 @@ export default class Service extends EventEmitter {
         this.version = options.version || process.env.npm_package_version;
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
-        this.ip = Helper.getContainerIP();
+        this.ip = ip.address();
+        this.multicast = '224.0.0.1'; //TODO: Make this dynamic.
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
+        this.discoveryPort = Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT;
         this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
 
         //Initialize Hooks.
@@ -171,24 +192,26 @@ export default class Service extends EventEmitter {
         this.express = express();
         this.configExpress();
 
-        //Initialize SCP
+        //Initialize SCP.
         const scpLogger = this.logger.child({ component: 'SCP' });
         const scpLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
                 scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
+        this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
+        this.configSCP();
 
+        //Initialize Mesh.
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
                 meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
-
-        this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
         this.scpClientManager = scp.createClientManager({ name: this.name, mesh: options.mesh, logging: meshLoggerWrite });
-        this.configSCP();
+        this.discovery = new Discovery(this.name, { scpPort: this.scpPort } as PodParams);
+        this.configMesh();
 
         //Initialize DB Manager
         const dbLogger = this.logger.child({ component: 'DB' });
@@ -323,26 +346,48 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures SCP by setting up `ScpServer` and `ScpClientManager`.
+     * Configures SCP by setting up `ScpServer`.
      */
     private configSCP() {
         //Setup SCP server and bind events.
         this.scpServer.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
+    }
 
-        //Setup SCP client manager and bind events.
-        this.scpClientManager.on('clientConnected', (client: NodeClient) => {
+    /**
+     * Configures Mesh by setting up `ScpClientManager` and `Discovery`.
+     */
+    private configMesh() {
+        //Setup Discovery and bind events.
+        this.discovery.on('discovered', (pod: Pod) => {
             //Log Event.
-            this.logger.info(`Node connected to ${client.url}`);
+            this.logger.info(`Discovered ${pod.id}(${pod.address}:${(pod.params as PodParams).scpPort})`);
+
+            //Create a new `ScpClient` and establish connection.
+            const scpClient = this.scpClientManager.createClient(pod.id);
+            scpClient.on('error', (error: Error) => {
+                this.logger.error(error.stack);
+            });
+
+            pod.on('available', () => {
+                scpClient.url = new URL(`scp://${pod.address}:${(pod.params as PodParams).scpPort || Default.SCP_PORT}`);
+                scpClient.connect(scpClient.url.hostname, Number(scpClient.url.port), () => {
+                    //Log Event.
+                    this.logger.info(`Mesh connected to ${pod.id}(${scpClient.url})`);
+                });
+            });
+
+            pod.on('unavailable', () => {
+                scpClient.disconnect(() => {
+                    //Log Event.
+                    this.logger.info(`Mesh disconnected from ${pod.id}(${scpClient.url})`);
+                });
+            });
         });
-        this.scpClientManager.on('clientDisconnected', (client: NodeClient) => {
-            //Log Event.
-            this.logger.info(`Node disconnected from ${client.url}`);
-        });
-        this.scpClientManager.on('clientReconnecting', (client: NodeClient) => {
-            //Log Event.
-            this.logger.silly(`Node reconnecting to ${client.url}`);
+
+        this.discovery.on('error', (error: Error) => {
+            this.logger.error(error.stack);
         });
     }
 
@@ -425,39 +470,44 @@ export default class Service extends EventEmitter {
                 //Log Event.
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
-                //Start SCP Client Manager
-                (this.scpClientManager.clients.length) && this.scpClientManager.connect(() => {
-                    //Log Event.
-                    this.logger.info(`SCP client manager connected.`);
-                });
-
-                //Start DB Manager
-                (this.connection) && this.dbManager.connect((error) => {
+                //Start Discovery
+                this.discovery.bind(this.discoveryPort, this.multicast, (error: Error) => {
                     if (!error) {
                         //Log Event.
-                        this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
+                        this.logger.info(`Discovery running on ${this.multicast}:${this.discoveryPort}`);
                     } else {
-                        if (error instanceof ConnectionOptionsError) {
-                            this.logger.error(error.message);
-                        } else {
-                            this.logger.error(error.stack);
-                        }
+                        this.logger.error(error.stack);
                     }
+
+                    //Start DB Manager
+                    this.dbManager.connect((connection, error) => {
+                        if (connection) {
+                            //Log Event.
+                            this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
+                        }
+                        if (error) {
+                            if (error instanceof ConnectionOptionsError) {
+                                this.logger.error(error.message);
+                            } else {
+                                this.logger.error(error.stack);
+                            }
+                        }
+
+                        //Run Hook: Post Start.
+                        this.hooks.postStart.execute();
+
+                        //Log Event.
+                        this.logger.info(`${this.name} ready.`);
+
+                        //Emit Global: ready.
+                        this.emit('ready');
+
+                        //Callback.
+                        if (callback) {
+                            callback();
+                        }
+                    });
                 });
-
-                //Run Hook: Post Start.
-                this.hooks.postStart.execute();
-
-                //Log Event.
-                this.logger.info(`${this.name} ready.`);
-
-                //Emit Global: ready.
-                this.emit('ready');
-
-                //Callback.
-                if (callback) {
-                    callback();
-                }
             });
         });
     }
@@ -500,31 +550,33 @@ export default class Service extends EventEmitter {
                     this.logger.info(`Stopped SCP Server.`);
                 }
 
-                //Stop SCP Client Manager
-                (this.scpClientManager.clients.length) && this.scpClientManager.disconnect(() => {
-                    //Log Event.
-                    this.logger.info(`SCP client manager disconnected.`);
-                });
-
-                //Stop DB Manager
-                (this.connection) && this.dbManager.disconnect((error) => {
+                //Stop Discovery
+                this.discovery.close((error) => {
                     if (!error) {
                         //Log Event.
-                        this.logger.info(`DB Disconnected.`);
+                        this.logger.info(`Stopped Discovery.`);
                     }
+
+                    //Stop DB Manager
+                    this.dbManager.disconnect((error) => {
+                        if (!error) {
+                            //Log Event.
+                            this.logger.info(`DB Disconnected.`);
+                        }
+
+                        //Run Hook: Post Stop.
+                        this.hooks.postStop.execute();
+
+                        //Log Event.
+                        this.logger.info(`${this.name} stopped.`);
+
+                        //Emit Global: stopped.
+                        this.emit('stopped');
+
+                        //Callback.
+                        callback(0);
+                    });
                 });
-
-                //Run Hook: Post Stop.
-                this.hooks.postStop.execute();
-
-                //Log Event.
-                this.logger.info(`${this.name} stopped.`);
-
-                //Emit Global: stopped.
-                this.emit('stopped');
-
-                //Callback.
-                callback(0);
             });
         });
     }
@@ -647,30 +699,17 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////SCP Client Manager
+    //////Discovery
     //////////////////////////////
     /**
-     * Creates a new `ScpClient` and `Node` on `ScpClientManager`.
      * Retrieve the Node instance by importing `Mesh` from the module.
-     *
-     * @param url The remote server address.
-     * @param nodeName The callable name of the node.
      */
-    public defineNode(url: string, nodeName: string) {
-        const _url = new URL(`scp://${url}`);
-        _url.port = _url.port || Default.SCP_PORT.toString();
-
-        const client = this.scpClientManager.createClient(nodeName, _url.toString());
-        client.on('error', (error: Error) => {
-            const _error: any = error;
-
-            //Ignore hostname not found.
-            if (_error.code === 'ENOTFOUND') {
-                return;
-            }
-
-            this.logger.error(error.stack);
-        });
+    public discoverNodeAs() {
+        /**
+         * TODO: Work from here.
+         * Need a way to notify when `Mesh` is ready.
+         * Possibly need to add events to Mesh in SCP Client Manager.
+         */
     }
 
     //////////////////////////////
@@ -745,6 +784,16 @@ export type Options = {
          */
         paperTrail?: boolean;
     }
+}
+
+//////////////////////////////
+//////Types
+//////////////////////////////
+/**
+ * `PodParams` definition for `Service`.
+ */
+export type PodParams = {
+    scpPort: number
 }
 
 //////////////////////////////
