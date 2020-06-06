@@ -175,7 +175,7 @@ export default class Service extends EventEmitter {
         this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
         this.ip = ip.address();
-        this.multicast = '224.0.0.1'; //TODO: https://iprotechs.atlassian.net/browse/PMICRO-116
+        this.multicast = process.env.MULTICAST || '224.0.0.1'; //TODO: https://iprotechs.atlassian.net/browse/PMICRO-116
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.discoveryPort = Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT;
