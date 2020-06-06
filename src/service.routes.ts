@@ -70,12 +70,12 @@ export default class ServiceRoutes {
                 service: {
                     name: this.service.name,
                     version: this.service.version,
-                    ip: this.service.ip,
-                    multicast: this.service.multicast,
+                    environment: this.service.environment,
                     httpPort: this.service.httpPort,
                     scpPort: this.service.scpPort,
                     discoveryPort: this.service.discoveryPort,
-                    environment: this.service.environment,
+                    discoveryIp: this.service.discoveryIp,
+                    ip: this.service.ip,
                     logPath: this.service.logPath
                 },
                 system: this.systemReport,

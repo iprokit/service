@@ -61,16 +61,6 @@ export default class Service extends EventEmitter {
     public readonly environment: string;
 
     /**
-     * The IP address of this service.
-     */
-    public readonly ip: string;
-
-    /**
-     * The IP address of multicast.
-     */
-    public readonly multicast: string;
-
-    /**
      * The HTTP Server port of the service, retrieved from `process.env.HTTP_PORT`.
      * 
      * @default `Default.HTTP_PORT`
@@ -92,6 +82,13 @@ export default class Service extends EventEmitter {
     public readonly discoveryPort: number;
 
     /**
+     * The IP address of discovery, i.e the multicast address.
+     * 
+     * @default `Default.DISCOVERY_IP`
+     */
+    public readonly discoveryIp: string;
+
+    /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      * 
      * @default `Default.FORCE_STOP_TIME`
@@ -99,16 +96,21 @@ export default class Service extends EventEmitter {
     public readonly forceStopTime: number;
 
     /**
-     * The root project path of the service.
-     */
-    public readonly projectPath: string;
-
-    /**
      * The path to log files of the service, retrieved from `process.env.LOG_PATH`.
      * 
      * @default `Default.LOG_PATH`
      */
     public readonly logPath: string;
+
+    /**
+     * The root project path of the service.
+     */
+    public readonly projectPath: string;
+
+    /**
+     * The IP address of this service.
+     */
+    public readonly ip: string;
 
     /**
      * The functions called before and after each part of the service execution.
@@ -172,14 +174,14 @@ export default class Service extends EventEmitter {
         //Initialize service variables.
         this.name = options.name || process.env.npm_package_name;
         this.version = options.version || process.env.npm_package_version;
-        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
-        this.ip = ip.address();
-        this.multicast = process.env.MULTICAST || '224.0.0.1'; //TODO: https://iprotechs.atlassian.net/browse/PMICRO-116
         this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
         this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
         this.discoveryPort = Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT;
+        this.discoveryIp = process.env.DISCOVERY_IP || Default.DISCOVERY_IP;
+        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
+        this.ip = ip.address();
 
         //Initialize Hooks.
         this.hooks = new Hooks();
@@ -495,10 +497,10 @@ export default class Service extends EventEmitter {
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
                 //Start Discovery
-                this.discovery.bind(this.discoveryPort, this.multicast, (error: Error) => {
+                this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
                     if (!error) {
                         //Log Event.
-                        this.logger.info(`Discovery running on ${this.multicast}:${this.discoveryPort}`);
+                        this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
                     } else {
                         this.logger.error(error.stack);
                     }

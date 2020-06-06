@@ -113,9 +113,17 @@ npm start
 
 By default the service is assigned the following service and environment variables.
 
-| name               | version               | NODE_ENV     | HTTP_PORT | SCP_PORT | DISCOVERY_PORT | LOG_PATH |
-|--------------------|-----------------------|--------------|-----------|----------|----------------|----------|
-| `npm_package_name` | `npm_package_version` | `production` | `3000`    | `6000`   | `5000`         | `/logs`  |
+## Service Variables
+
+| name               | version               |
+|--------------------|-----------------------|
+| `npm_package_name` | `npm_package_version` |
+
+## Environment Variables
+
+| NODE_ENV     | HTTP_PORT | SCP_PORT | DISCOVERY_PORT | DISCOVERY_IP | LOG_PATH |
+|--------------|-----------|----------|----------------|--------------|----------|
+| `production` | `3000`    | `6000`   | `5000`         | `224.0.0.1`  | `/logs`  |
 
 `Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
@@ -145,6 +153,7 @@ NODE_ENV='development'
 HTTP_PORT=3001
 SCP_PORT=6001
 DISCOVERY_PORT=5001
+DISCOVERY_IP='224.0.0.2'
 LOG_PATH='/user/logs'
 ```
 

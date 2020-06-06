@@ -31,6 +31,13 @@ export default class Default {
     public static readonly DISCOVERY_PORT: number = 5000;
 
     /**
+     * The default IP address of discovery, i.e the multicast address.
+     * 
+     * @default `224.0.0.1`
+     */
+    public static readonly DISCOVERY_IP: string = '224.0.0.1';
+
+    /**
      * The default time to wait before the service is forcefully stopped when `service.stop()`is called.
      * 
      * @default 1000 * 5
