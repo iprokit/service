@@ -33,20 +33,22 @@ export default class ServiceRoutes {
     /**
      * Endpoint to return the health status of the service. The health status includes the following:
      * - The Service configuration.
+     * - The status of the `DBManager`.
      * - The status of the `HttpServer`.
      * - The status of the `ScpServer`.
      * - The status of the `Mesh`.
-     * - The status of the `DBManager`.
+     * - The status of the `Discovery`.
      */
     public getHealth(request: Request, response: Response) {
         const health = {
             name: this.service.name,
             version: this.service.version,
             environment: this.service.environment,
+            db: this.service.dbManager.connection && this.service.dbManager.connected,
             http: this.service.httpServer.listening,
             scp: this.service.scpServer.listening,
             mesh: this.service.scpClientManager.connected,
-            db: this.service.dbManager.connected,
+            discovered: this.service.discovery.available,
             healthy: (this.service.httpServer.listening && this.service.scpServer.listening)
         }
         response.status(HttpCodes.OK).send(health);
@@ -60,6 +62,7 @@ export default class ServiceRoutes {
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
      * - Mesh: The `Mesh` object which includes `Node`'s. Each `Node` contains its configuration and the `Action`'s that can be called.
+     * - Discovered: The `Pod`'s discovered.
      */
     public getReport(request: Request, response: Response) {
         try {
