@@ -362,35 +362,39 @@ export default class Service extends EventEmitter {
      */
     private configMesh() {
         //Bind Events.
-        this.discovery.on('discovered', (pod: Pod) => {
+        this.discovery.on('available', (pod: Pod) => {
             //Log Event.
-            this.logger.info(`Discovered ${pod.id}(${pod.address}:${pod.params.scpPort})`);
-
-            //Try getting the client created with `service.discoverNodeAs()`.
-            let client = this.scpClientManager.clients.find(client => (client as PodClient).podId === pod.id);
-
-            //No client found create a new one.
-            if (!client) {
-                client = this.createNodeClient(pod.id);
-            }
-
-            //Bind Events.
-            pod.on('available', () => {
-                pod.params.scpPort = pod.params.scpPort || Default.SCP_PORT;
-                client.url = new URL(`scp://${pod.address}:${pod.params.scpPort}`);
-                client.connect(client.url.hostname, Number(client.url.port), () => {
-                    //Log Event.
-                    this.logger.info(`Mesh connected to ${pod.id}(${client.url})`);
-                });
-            });
-
-            pod.on('unavailable', () => {
-                client.disconnect(() => {
-                    //Log Event.
-                    this.logger.info(`Mesh disconnected from ${pod.id}(${client.url})`);
-                });
-            });
+            this.logger.info(`${pod.id}(${pod.name}) available on ${pod.address}:${pod.params.scpPort}`);
         });
+        this.discovery.on('unavailable', (pod: Pod) => {
+            //Log Event.
+            this.logger.info(`${pod.id}(${pod.name}) unavailable.`);
+        });
+
+        // //Try getting the client created with `service.discoverNodeAs()`.
+        // let client = this.scpClientManager.clients.find(client => (client as PodClient).podId === pod.id);
+
+        // //No client found create a new one.
+        // if (!client) {
+        //     client = this.createNodeClient(pod.id);
+        // }
+
+        // //Bind Events.
+        // pod.on('available', () => {
+        //     pod.params.scpPort = pod.params.scpPort || Default.SCP_PORT;
+        //     client.url = new URL(`scp://${pod.address}:${pod.params.scpPort}`);
+        //     client.connect(client.url.hostname, Number(client.url.port), () => {
+        //         //Log Event.
+        //         this.logger.info(`Mesh connected to ${pod.id}(${client.url})`);
+        //     });
+        // });
+
+        // pod.on('unavailable', () => {
+        //     client.disconnect(() => {
+        //         //Log Event.
+        //         this.logger.info(`Mesh disconnected from ${pod.id}(${client.url})`);
+        //     });
+        // });
 
         this.discovery.on('error', (error: Error) => {
             this.logger.error(error.stack);

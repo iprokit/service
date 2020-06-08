@@ -1,9 +1,9 @@
 //Import modules
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 import HttpCodes from 'http-status-codes';
 
 //Local Imports
-import Service, { Pod } from "./service";
+import Service, { Pod, PodParams } from './service';
 
 /**
  * The `ServiceRoutes` contains the service default endpoints.
@@ -62,7 +62,7 @@ export default class ServiceRoutes {
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
      * - Mesh: The `Mesh` object which includes `Node`'s. Each `Node` contains its configuration and the `Action`'s that can be called.
-     * - Discovered: The `Pod`'s discovered.
+     * - Discovered: The `Pod`'s discovered, grouped by name.
      */
     public getReport(request: Request, response: Response) {
         try {
@@ -245,18 +245,24 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The `Pod`'s discovered.
+     * The `Pod`'s discovered, grouped by name.
      */
     private get discoveredReport() {
-        return (this.service.discovery.pods as Array<Pod>).map(pod => {
-            return {
-                [pod.id]: {
-                    url: `${pod.address}:${pod.port}`,
-                    params: pod.params,
-                    available: pod.available
-                }
+        const podGroup: { [name: string]: Array<{ id: string, url: string, params: PodParams }> } = {};
+
+        (this.service.discovery.pods as Array<Pod>).forEach(pod => {
+            if (!podGroup[pod.name]) {
+                podGroup[pod.name] = new Array();
             }
+
+            podGroup[pod.name].push({
+                id: pod.id,
+                url: `${pod.address}:${pod.port}`,
+                params: pod.params
+            });
         });
+
+        return podGroup;
     }
 
     //////////////////////////////
