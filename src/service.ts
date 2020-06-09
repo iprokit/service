@@ -1,6 +1,6 @@
 //Import @iprotechs Modules
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Body, StatusType, Server as ScpServer, ClientManager, NodeClient, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
+import scp, { Body, StatusType, Server as ScpServer, Client as ScpClient, ClientManager, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -211,7 +211,7 @@ export default class Service extends EventEmitter {
                 meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
             }
         }
-        this.scpClientManager = scp.createClientManager({ name: this.name, mesh: options.mesh, logging: meshLoggerWrite });
+        this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
         this.configMesh();
 
@@ -365,36 +365,35 @@ export default class Service extends EventEmitter {
         this.discovery.on('available', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) available on ${pod.address}:${pod.params.scpPort}`);
+
+            //Try getting the client created with `service.discoverNodeAs()`.
+            let client = this.scpClientManager.clients.find(client => (client as PodClient).podName === pod.name);
+
+            //No client found create a new one.
+            if (!client) {
+                client = this.createNodeClient(pod.name);
+            }
+
+            client.connect(pod.address, pod.params.scpPort, () => {
+                //Log Event.
+                this.logger.info(`Mesh connected to ${pod.id}(${client.hostname}:${client.port})`);
+            });
         });
+
         this.discovery.on('unavailable', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) unavailable.`);
+
+            //Get the client.
+            let client = this.scpClientManager.clients.find(client => (client as PodClient).podName === pod.name);
+
+            client.disconnect(() => {
+                //Log Event.
+                this.logger.info(`Mesh disconnected from ${pod.id}(${client.hostname}:${client.port})`);
+            });
+
+            this.scpClientManager.removeClient(client);
         });
-
-        // //Try getting the client created with `service.discoverNodeAs()`.
-        // let client = this.scpClientManager.clients.find(client => (client as PodClient).podId === pod.id);
-
-        // //No client found create a new one.
-        // if (!client) {
-        //     client = this.createNodeClient(pod.id);
-        // }
-
-        // //Bind Events.
-        // pod.on('available', () => {
-        //     pod.params.scpPort = pod.params.scpPort || Default.SCP_PORT;
-        //     client.url = new URL(`scp://${pod.address}:${pod.params.scpPort}`);
-        //     client.connect(client.url.hostname, Number(client.url.port), () => {
-        //         //Log Event.
-        //         this.logger.info(`Mesh connected to ${pod.id}(${client.url})`);
-        //     });
-        // });
-
-        // pod.on('unavailable', () => {
-        //     client.disconnect(() => {
-        //         //Log Event.
-        //         this.logger.info(`Mesh disconnected from ${pod.id}(${client.url})`);
-        //     });
-        // });
 
         this.discovery.on('error', (error: Error) => {
             this.logger.error(error.stack);
@@ -455,13 +454,13 @@ export default class Service extends EventEmitter {
     /**
      * Create a new `NodeClient`.
      * 
-     * @param nodeName the name of the node.
+     * @param name the name of the node.
      * 
      * @returns the created client.
      */
-    private createNodeClient(nodeName: string) {
+    private createNodeClient(name: string) {
         //Create a new client.
-        const client = this.scpClientManager.createClient(nodeName);
+        const client = this.scpClientManager.createClient({ name: name });
 
         //Bind Events.
         client.on('error', (error: Error) => {
@@ -540,6 +539,9 @@ export default class Service extends EventEmitter {
                 });
             });
         });
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -609,6 +611,9 @@ export default class Service extends EventEmitter {
                 });
             });
         });
+
+        //Return this for chaining.
+        return this;
     }
 
     //////////////////////////////
@@ -642,7 +647,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public use(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.use(path, ...handlers);
+        this.express.use(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -652,7 +660,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.all(path, ...handlers);
+        this.express.all(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -662,7 +673,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.get(path, ...handlers);
+        this.express.get(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -672,7 +686,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.post(path, ...handlers);
+        this.express.post(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -682,7 +699,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.put(path, ...handlers);
+        this.express.put(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -692,7 +712,10 @@ export default class Service extends EventEmitter {
      * @param handlers the handlers to be called. The handlers will take request and response as parameters.
      */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
-        return this.express.delete(path, ...handlers);
+        this.express.delete(path, ...handlers);
+
+        //Return this for chaining.
+        return this;
     }
 
     //////////////////////////////
@@ -706,6 +729,9 @@ export default class Service extends EventEmitter {
      */
     public reply(action: string, handler: MessageReplyHandler) {
         this.scpServer.reply(action, handler);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -715,6 +741,9 @@ export default class Service extends EventEmitter {
      */
     public defineBroadcast(action: string) {
         this.scpServer.defineBroadcast(action);
+
+        //Return this for chaining.
+        return this;
     }
 
     /**
@@ -726,6 +755,9 @@ export default class Service extends EventEmitter {
      */
     public broadcast(action: string, body: Body) {
         this.scpServer.broadcast(action, body);
+
+        //Return this for chaining.
+        return this;
     }
 
     //////////////////////////////
@@ -733,14 +765,16 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Creates a new `ScpClient` and maps it to the `PodClient` found during discovery.
-     * Retrieve the Node instance by importing `Mesh` from the module.
      * 
      * @param serviceName the name of the service.
      * @param nodeName the name of the node.
      */
     public discoverNodeAs(serviceName: string, nodeName: string) {
         const client = this.createNodeClient(nodeName) as PodClient;
-        client.podId = serviceName;
+        client.podName = serviceName;
+
+        //Return this for chaining.
+        return this;
     }
 
     //////////////////////////////
@@ -846,13 +880,13 @@ export interface PodParams extends DiscoveryParams {
 }
 
 /**
- * Wrapper for `NodeClient`.
+ * Wrapper for `ScpClient`.
  */
-export interface PodClient extends NodeClient {
+export interface PodClient extends ScpClient {
     /**
-     * The unique identifier of the pod.
+     * The name of the pod.
      */
-    podId: string;
+    podName: string;
 }
 
 //////////////////////////////

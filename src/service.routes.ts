@@ -78,6 +78,10 @@ export default class ServiceRoutes {
                     ip: this.service.ip,
                     logPath: this.service.logPath
                 },
+                id: {
+                    scp: this.service.scpServer.identifier,
+                    discovery: this.service.discovery.id
+                },
                 system: this.systemReport,
                 db: this.service.dbManager.connection && this.dbReport,
                 endpoints: this.endpointsReport,
@@ -229,9 +233,9 @@ export default class ServiceRoutes {
     private get meshReport() {
         return this.service.scpClientManager.clients.map(client => {
             return {
-                name: client.nodeName,
                 identifier: client.identifier,
-                host: client.url,
+                hostname: client.hostname,
+                port: client.port,
                 connected: client.connected,
                 reconnecting: client.reconnecting,
                 disconnected: client.disconnected,
