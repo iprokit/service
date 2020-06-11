@@ -1,13 +1,13 @@
 //Import @iprotechs Modules
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Body, StatusType, Server as ScpServer, Client as ScpClient, ClientManager, Mesh, MessageReplyHandler, Logging } from '@iprotechs/scp';
+import scp, { Server as ScpServer, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import express, { Express, Request, Response, NextFunction } from 'express';
+import express, { Express, Request, Response, NextFunction, RouterOptions } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
@@ -16,7 +16,6 @@ import winston, { Logger } from 'winston';
 import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 import ip from 'ip';
-import { URL } from 'url';
 
 //Local Imports
 import Default from './default';
@@ -140,7 +139,7 @@ export default class Service extends EventEmitter {
     /**
      * Instance of `ScpClientManager`.
      */
-    public readonly scpClientManager: ClientManager;
+    public readonly scpClientManager: ScpClientManager;
 
     /**
      * Instance of `Discovery`.
@@ -366,33 +365,47 @@ export default class Service extends EventEmitter {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) available on ${pod.address}:${pod.params.scpPort}`);
 
-            //Try getting the client created with `service.discoverNodeAs()`.
-            let client = this.scpClientManager.clients.find(client => (client as PodClient).podName === pod.name);
-
-            //No client found create a new one.
-            if (!client) {
-                client = this.createNodeClient(pod.name);
-            }
-
+            const client = this.scpClientManager.createClient({ name: pod.id });
             client.connect(pod.address, pod.params.scpPort, () => {
                 //Log Event.
                 this.logger.info(`Mesh connected to ${pod.id}(${client.hostname}:${client.port})`);
             });
+            client.on('error', (error: Error) => {
+                this.logger.error(error.stack);
+            });
+
+            let found: boolean = false;
+
+            //Try getting the Trace -> Cluster.
+            this.scpClientManager.tracer.forEach(trace => {
+                if (trace.cluster.name === pod.name) {
+                    //CASE: Cluster found.
+                    trace.cluster.mount(client);
+                    found = true;
+                }
+            });
+
+            //CASE: New Cluster.
+            if (!found) {
+                const cluster = this.scpClientManager.createCluster({ name: pod.name });
+                cluster.mount(client);
+                this.scpClientManager.mount(pod.name, cluster);
+            }
         });
 
         this.discovery.on('unavailable', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) unavailable.`);
 
-            //Get the client.
-            let client = this.scpClientManager.clients.find(client => (client as PodClient).podName === pod.name);
-
-            client.disconnect(() => {
-                //Log Event.
-                this.logger.info(`Mesh disconnected from ${pod.id}(${client.hostname}:${client.port})`);
+            //Try getting the Trace -> Cluster -> Client.
+            this.scpClientManager.tracer.forEach(trace => {
+                const client = trace.cluster.clients.find(client => client.name === pod.id);
+                client.disconnect(() => {
+                    //Log Event.
+                    this.logger.info(`Mesh disconnected from ${pod.id}(${client.hostname}:${client.port})`);
+                });
+                trace.cluster.unmount(client);
             });
-
-            this.scpClientManager.removeClient(client);
         });
 
         this.discovery.on('error', (error: Error) => {
@@ -449,26 +462,6 @@ export default class Service extends EventEmitter {
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
         });
-    }
-
-    /**
-     * Create a new `NodeClient`.
-     * 
-     * @param name the name of the node.
-     * 
-     * @returns the created client.
-     */
-    private createNodeClient(name: string) {
-        //Create a new client.
-        const client = this.scpClientManager.createClient({ name: name });
-
-        //Bind Events.
-        client.on('error', (error: Error) => {
-            this.logger.error(error.stack);
-        });
-
-        //Return client.
-        return client;
     }
 
     //////////////////////////////
@@ -623,12 +616,13 @@ export default class Service extends EventEmitter {
      * Creates a new `ExpressRouter`.
      * 
      * @param mountPath the path this router should be mounted on.
+     * @param options the optional, router options.
      * 
      * @returns the created router.
      */
-    public router(mountPath: PathParams) {
+    public router(mountPath: PathParams, options?: RouterOptions) {
         //Create a new router.
-        const router = express.Router();
+        const router = express.Router(options);
 
         //Add mountPath to the router.
         (router as any).mountPath = mountPath;
@@ -764,14 +758,14 @@ export default class Service extends EventEmitter {
     //////Discovery
     //////////////////////////////
     /**
-     * Creates a new `ScpClient` and maps it to the `PodClient` found during discovery.
+     * Discovers the cluster as the `traceName`.
      * 
      * @param serviceName the name of the service.
-     * @param nodeName the name of the node.
+     * @param traceName the name of the trace.
      */
-    public discoverNodeAs(serviceName: string, nodeName: string) {
-        const client = this.createNodeClient(nodeName) as PodClient;
-        client.podName = serviceName;
+    public discoverClusterAs(serviceName: string, traceName: string) {
+        const cluster = this.scpClientManager.createCluster({ name: serviceName });
+        this.scpClientManager.mount(traceName, cluster);
 
         //Return this for chaining.
         return this;
@@ -852,44 +846,6 @@ export type Options = {
 }
 
 //////////////////////////////
-//////Interfaces
-//////////////////////////////
-/**
- * Wrapper for `DiscoveryPod`.
- */
-export interface Pod extends DiscoveryPod {
-    /**
-     * The parameters of the service.
-     */
-    params: PodParams;
-}
-
-/**
- * Wrapper for `DiscoveryParams`.
- */
-export interface PodParams extends DiscoveryParams {
-    /**
-     * The HTTP port.
-     */
-    httpPort: number;
-
-    /**
-     * The SCP port.
-     */
-    scpPort: number;
-}
-
-/**
- * Wrapper for `ScpClient`.
- */
-export interface PodClient extends ScpClient {
-    /**
-     * The name of the pod.
-     */
-    podName: string;
-}
-
-//////////////////////////////
 //////Hooks
 //////////////////////////////
 /**
@@ -938,4 +894,32 @@ export class Hook extends Array<() => void> {
         const reversedFunctions = this.reverse();
         reversedFunctions.forEach(fn => fn());
     }
+}
+
+//////////////////////////////
+//////Interfaces
+//////////////////////////////
+/**
+ * Wrapper for `DiscoveryPod`.
+ */
+export interface Pod extends DiscoveryPod {
+    /**
+     * The parameters of the service.
+     */
+    params: PodParams;
+}
+
+/**
+ * Wrapper for `DiscoveryParams`.
+ */
+export interface PodParams extends DiscoveryParams {
+    /**
+     * The HTTP port.
+     */
+    httpPort: number;
+
+    /**
+     * The SCP port.
+     */
+    scpPort: number;
 }

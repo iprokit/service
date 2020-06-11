@@ -231,21 +231,39 @@ export default class ServiceRoutes {
      * Each `Node` contains its configuration and the `Action`'s that can be called.
      */
     private get meshReport() {
-        return this.service.scpClientManager.clients.map(client => {
-            return {
-                identifier: client.identifier,
-                hostname: client.hostname,
-                port: client.port,
-                connected: client.connected,
-                reconnecting: client.reconnecting,
-                disconnected: client.disconnected,
+        const tracer: {
+            [name: string]: {
+                cluster: Array<{ identifier: string, url: string, connected: boolean, reconnecting: boolean, disconnected: boolean }>,
                 node: {
-                    identifier: client.node.identifier,
-                    broadcasts: client.node.broadcasts,
-                    replies: client.node.replies
+                    broadcasts: Array<string>,
+                    replies: Array<string>
+                }
+            }
+        } = {};
+
+        //Get Tracer.
+        this.service.scpClientManager.tracer.forEach(trace => {
+            const node = trace.cluster.node;//TODO: Error here.
+            const cluster = trace.cluster.clients.map(client => {
+                return {
+                    identifier: client.identifier,
+                    url: `scp://${client.hostname}:${client.port}`,
+                    connected: client.connected,
+                    reconnecting: client.reconnecting,
+                    disconnected: client.disconnected
+                }
+            });
+
+            tracer[trace.name] = {
+                cluster: cluster,
+                node: {
+                    broadcasts: node.broadcasts,
+                    replies: node.replies
                 }
             }
         });
+
+        return tracer;
     }
 
     /**
