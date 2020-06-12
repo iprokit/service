@@ -32,56 +32,36 @@ export default class ServiceRoutes {
     //////////////////////////////
     /**
      * Endpoint to return the health status of the service. The health status includes the following:
-     * - The Service configuration.
-     * - The status of the `DBManager`.
-     * - The status of the `HttpServer`.
-     * - The status of the `ScpServer`.
-     * - The status of the `Mesh`.
-     * - The status of the `Discovery`.
+     * - The basic service configuration.
+     * - The status of the `HttpServer` + `ScpServer`.
      */
     public getHealth(request: Request, response: Response) {
-        const health = {
-            name: this.service.name,
-            version: this.service.version,
-            environment: this.service.environment,
-            db: this.service.dbManager.connection && this.service.dbManager.connected,
-            http: this.service.httpServer.listening,
-            scp: this.service.scpServer.listening,
-            mesh: this.service.scpClientManager.connected,
-            discovered: this.service.discovery.available,
-            healthy: (this.service.httpServer.listening && this.service.scpServer.listening)
+        try {
+            const health = {
+                name: this.service.name,
+                version: this.service.version,
+                healthy: (this.service.httpServer.listening && this.service.scpServer.listening)
+            }
+            response.status(HttpCodes.OK).send(health);
+        } catch (error) {
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
-        response.status(HttpCodes.OK).send(health);
     }
 
     /**
      * Endpoint to return the report of the service. The report includes the following:
-     * - Service: The Service configuration.
+     * - Service: The service configuration.
      * - System: The CPU and Memory usage of the service.
      * - DB: The `DBManager` connection configuration and `Model`'s loaded.
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
-     * - Mesh: The `Mesh` object which includes `Node`'s. Each `Node` contains its configuration and the `Action`'s that can be called.
-     * - Discovered: The `Pod`'s discovered, grouped by name.
+     * - Mesh: The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
+     * - Discovered: The `Pod`'s discovered.
      */
     public getReport(request: Request, response: Response) {
         try {
             const report = {
-                service: {
-                    name: this.service.name,
-                    version: this.service.version,
-                    environment: this.service.environment,
-                    httpPort: this.service.httpPort,
-                    scpPort: this.service.scpPort,
-                    discoveryPort: this.service.discoveryPort,
-                    discoveryIp: this.service.discoveryIp,
-                    ip: this.service.ip,
-                    logPath: this.service.logPath
-                },
-                id: {
-                    scp: this.service.scpServer.identifier,
-                    discovery: this.service.discovery.id
-                },
+                service: this.serviceReport,
                 system: this.systemReport,
                 db: this.service.dbManager.connection && this.dbReport,
                 endpoints: this.endpointsReport,
@@ -92,7 +72,7 @@ export default class ServiceRoutes {
 
             response.status(HttpCodes.OK).send(report);
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 
@@ -100,7 +80,8 @@ export default class ServiceRoutes {
      * Endpoint to safely shutdown the service. Shutdown will be initiated after 2 seconds.
      */
     public shutdown(request: Request, response: Response) {
-        response.status(HttpCodes.OK).send({ status: true, message: 'Will shutdown in 2 seconds...' });
+        response.status(HttpCodes.OK).send({ message: 'Will shutdown in 2 seconds...' });
+
         setTimeout(() => {
             this.service.logger.info(`Received shutdown from ${request.url}`);
             process.kill(process.pid, 'SIGTERM');
@@ -115,13 +96,34 @@ export default class ServiceRoutes {
             const sync = await this.service.dbManager.sync(request.body.force);
             response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 
     //////////////////////////////
     //////Reports
     //////////////////////////////
+    /**
+     * The Service configuration.
+     */
+    public get serviceReport() {
+        return {
+            name: this.service.name,
+            version: this.service.version,
+            environment: this.service.environment,
+            httpPort: this.service.httpPort,
+            scpPort: this.service.scpPort,
+            discoveryPort: this.service.discoveryPort,
+            discoveryIp: this.service.discoveryIp,
+            ip: this.service.ip,
+            logPath: this.service.logPath,
+            identifiers: {
+                scp: this.service.scpServer.identifier,
+                discovery: this.service.discovery.id
+            }
+        }
+    }
+
     /**
      * The CPU and Memory usage of the service.
      */
@@ -227,64 +229,58 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The `Mesh` object which includes `Node`'s.
-     * Each `Node` contains its configuration and the `Action`'s that can be called.
+     * The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
      */
     private get meshReport() {
-        const tracer: {
+        const mesh: {
             [name: string]: {
-                cluster: Array<{ identifier: string, url: string, connected: boolean, reconnecting: boolean, disconnected: boolean }>,
+                identifier: string,
+                hostname: string,
+                port: number,
+                connected: boolean,
+                reconnecting: boolean,
                 node: {
+                    identifier: string,
                     broadcasts: Array<string>,
                     replies: Array<string>
                 }
             }
         } = {};
 
-        //Get Tracer.
-        this.service.scpClientManager.tracer.forEach(trace => {
-            const node = trace.cluster.node;//TODO: Error here.
-            const cluster = trace.cluster.clients.map(client => {
-                return {
-                    identifier: client.identifier,
-                    url: `scp://${client.hostname}:${client.port}`,
-                    connected: client.connected,
-                    reconnecting: client.reconnecting,
-                    disconnected: client.disconnected
-                }
-            });
-
-            tracer[trace.name] = {
-                cluster: cluster,
+        this.service.scpClientManager.traces.forEach(trace => {
+            mesh[trace.name] = {
+                identifier: trace.client.identifier,
+                hostname: trace.client.hostname,
+                port: trace.client.port,
+                connected: trace.client.connected,
+                reconnecting: trace.client.reconnecting,
                 node: {
-                    broadcasts: node.broadcasts,
-                    replies: node.replies
+                    identifier: trace.client.node.identifier,
+                    broadcasts: trace.client.node.broadcasts,
+                    replies: trace.client.node.replies
                 }
             }
         });
 
-        return tracer;
+        return mesh;
     }
 
     /**
-     * The `Pod`'s discovered, grouped by name.
+     * The `Pod`'s discovered.
      */
     private get discoveredReport() {
-        const podGroup: { [name: string]: Array<{ id: string, url: string, params: PodParams }> } = {};
+        const pods: { [name: string]: { id: string, hostname: string, port: number, params: PodParams } } = {};
 
         (this.service.discovery.pods as Array<Pod>).forEach(pod => {
-            if (!podGroup[pod.name]) {
-                podGroup[pod.name] = new Array();
-            }
-
-            podGroup[pod.name].push({
+            pods[pod.name] = {
                 id: pod.id,
-                url: `${pod.address}:${pod.port}`,
+                hostname: pod.address,
+                port: pod.port,
                 params: pod.params
-            });
+            }
         });
 
-        return podGroup;
+        return pods;
     }
 
     //////////////////////////////

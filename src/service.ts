@@ -1,6 +1,6 @@
 //Import @iprotechs Modules
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Server as ScpServer, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, Logging } from '@iprotechs/scp';
+import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, ClientOptions, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -365,47 +365,37 @@ export default class Service extends EventEmitter {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) available on ${pod.address}:${pod.params.scpPort}`);
 
-            const client = this.scpClientManager.createClient({ name: pod.id });
+            //Try finding the trace.
+            const trace = this.scpClientManager.traces.find(trace => trace.client.name === pod.name);
+
+            let client: ScpClient;
+            if (trace) {
+                //CASE: Trace found.
+                client = trace.client;
+            } else {
+                //CASE: No trace found.
+                client = this.createScpClient(pod.name, { name: pod.name });
+            }
+
             client.connect(pod.address, pod.params.scpPort, () => {
                 //Log Event.
-                this.logger.info(`Mesh connected to ${pod.id}(${client.hostname}:${client.port})`);
+                this.logger.info(`Mesh connected to ${pod.name}(${client.hostname}:${client.port})`);
             });
-            client.on('error', (error: Error) => {
-                this.logger.error(error.stack);
-            });
-
-            let found: boolean = false;
-
-            //Try getting the Trace -> Cluster.
-            this.scpClientManager.tracer.forEach(trace => {
-                if (trace.cluster.name === pod.name) {
-                    //CASE: Cluster found.
-                    trace.cluster.mount(client);
-                    found = true;
-                }
-            });
-
-            //CASE: New Cluster.
-            if (!found) {
-                const cluster = this.scpClientManager.createCluster({ name: pod.name });
-                cluster.mount(client);
-                this.scpClientManager.mount(pod.name, cluster);
-            }
         });
 
         this.discovery.on('unavailable', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.id}(${pod.name}) unavailable.`);
 
-            //Try getting the Trace -> Cluster -> Client.
-            this.scpClientManager.tracer.forEach(trace => {
-                const client = trace.cluster.clients.find(client => client.name === pod.id);
-                client.disconnect(() => {
+            //Try finding the trace.
+            const trace = this.scpClientManager.traces.find(trace => trace.client.name === pod.name);
+
+            if(trace) {
+                trace.client.disconnect(() => {
                     //Log Event.
-                    this.logger.info(`Mesh disconnected from ${pod.id}(${client.hostname}:${client.port})`);
+                    this.logger.info(`Mesh disconnected from ${pod.name}(${trace.client.hostname}:${trace.client.port})`);
                 });
-                trace.cluster.unmount(client);
-            });
+            }
         });
 
         this.discovery.on('error', (error: Error) => {
@@ -755,17 +745,38 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Discovery
+    //////SCP Client Manager
     //////////////////////////////
     /**
-     * Discovers the cluster as the `traceName`.
+     * Creates a SCP `Client` and mounts it on the SCP `ClientManager`.
      * 
-     * @param serviceName the name of the service.
-     * @param traceName the name of the trace.
+     * @param traceName the trace name to mount the client on.
+     * @param options the optional, creation options.
      */
-    public discoverClusterAs(serviceName: string, traceName: string) {
-        const cluster = this.scpClientManager.createCluster({ name: serviceName });
-        this.scpClientManager.mount(traceName, cluster);
+    public createScpClient(traceName: string, options?: ClientOptions) {
+        const client = this.scpClientManager.createClient(options);
+
+        //Bind Events.
+        client.on('error', (error: Error) => {
+            this.logger.error(error.stack);
+        });
+
+        this.scpClientManager.mount(traceName, client);
+
+        return client;
+    }
+
+    //////////////////////////////
+    //////Discovery + SCP
+    //////////////////////////////
+    /**
+     * Discovers the node, `source` name as the `target` name.
+     * 
+     * @param source the source name of the node.
+     * @param target the target name of the node.
+     */
+    public discoverNodeAs(source: string, target: string) {
+        this.createScpClient(target, { name: source });
 
         //Return this for chaining.
         return this;
@@ -876,6 +887,7 @@ export class Hooks {
      * Creates an instance of `Hooks`.
      */
     constructor() {
+        //Initialize variables.
         this.preStart = new Hook();
         this.postStart = new Hook();
         this.preStop = new Hook();
