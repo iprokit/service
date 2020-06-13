@@ -1,6 +1,6 @@
 //Import @iprotechs Modules
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, ClientOptions, Logging } from '@iprotechs/scp';
+import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import EventEmitter from 'events';
@@ -117,6 +117,11 @@ export default class Service extends EventEmitter {
     public readonly hooks: Hooks;
 
     /**
+     * The remote services discovered.
+     */
+    public readonly remoteServices: Array<RemoteService>;
+
+    /**
      * The logger instance.
      */
     public readonly logger: Logger;
@@ -184,6 +189,9 @@ export default class Service extends EventEmitter {
 
         //Initialize Hooks.
         this.hooks = new Hooks();
+
+        //Initialize RemoteServices.
+        this.remoteServices = new Array();
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -363,39 +371,29 @@ export default class Service extends EventEmitter {
         //Bind Events.
         this.discovery.on('available', (pod: Pod) => {
             //Log Event.
-            this.logger.info(`${pod.id}(${pod.name}) available on ${pod.address}:${pod.params.scpPort}`);
+            this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
-            //Try finding the trace.
-            const trace = this.scpClientManager.traces.find(trace => trace.client.name === pod.name);
+            //Try finding the remoteService or create a new one.
+            const remoteService = this.getRemoteService(pod.name) || this.register(pod.name);
+            remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
-            let client: ScpClient;
-            if (trace) {
-                //CASE: Trace found.
-                client = trace.client;
-            } else {
-                //CASE: No trace found.
-                client = this.createScpClient(pod.name, { name: pod.name });
-            }
-
-            client.connect(pod.address, pod.params.scpPort, () => {
+            remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
                 //Log Event.
-                this.logger.info(`Mesh connected to ${pod.name}(${client.hostname}:${client.port})`);
+                this.logger.info(`Mesh connected to ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
             });
         });
 
         this.discovery.on('unavailable', (pod: Pod) => {
             //Log Event.
-            this.logger.info(`${pod.id}(${pod.name}) unavailable.`);
+            this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
-            //Try finding the trace.
-            const trace = this.scpClientManager.traces.find(trace => trace.client.name === pod.name);
+            //Try finding the remoteService.
+            const remoteService = this.getRemoteService(pod.name);
 
-            if(trace) {
-                trace.client.disconnect(() => {
-                    //Log Event.
-                    this.logger.info(`Mesh disconnected from ${pod.name}(${trace.client.hostname}:${trace.client.port})`);
-                });
-            }
+            remoteService && remoteService.scpClient.disconnect(() => {
+                //Log Event.
+                this.logger.info(`Mesh disconnected from ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
+            });
         });
 
         this.discovery.on('error', (error: Error) => {
@@ -452,6 +450,44 @@ export default class Service extends EventEmitter {
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
         });
+    }
+
+    /**
+     * Returns the remote service.
+     * 
+     * @param name the name of the service.
+     */
+    private getRemoteService(name: string) {
+        return this.remoteServices.find(serviceInstance => serviceInstance.name === name);
+    }
+
+    /**
+     * Registeres a new remote service.
+     * 
+     * @param name the name of the service.
+     * @param alias the optional, alias name of the service.
+     * @param defined set to true if the service is defined by the user, false if auto discovered.
+     */
+    private register(name: string, alias?: string, defined?: boolean) {
+        //Initialize Defaults.
+        defined = defined === undefined ? false : defined;
+
+        //Create a new `ScpClient`.
+        const client = this.scpClientManager.createClient({ name: this.name });
+
+        //Bind Events.
+        client.on('error', (error: Error) => {
+            this.logger.error(error.stack);
+        });
+
+        //Mount the client.
+        this.scpClientManager.mount(alias || name, client);
+
+        //Create a new `RemoteService` and push to `remoteServices`.
+        const serviceInstance = new RemoteService(name, alias, defined, client);
+        this.remoteServices.push(serviceInstance);
+
+        return serviceInstance;
     }
 
     //////////////////////////////
@@ -745,38 +781,16 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////SCP Client Manager
+    //////Discovery + SCP Client
     //////////////////////////////
     /**
-     * Creates a SCP `Client` and mounts it on the SCP `ClientManager`.
+     * Discovers the service.
      * 
-     * @param traceName the trace name to mount the client on.
-     * @param options the optional, creation options.
+     * @param name the name of the service.
+     * @param alias the optional, alias name of the service.
      */
-    public createScpClient(traceName: string, options?: ClientOptions) {
-        const client = this.scpClientManager.createClient(options);
-
-        //Bind Events.
-        client.on('error', (error: Error) => {
-            this.logger.error(error.stack);
-        });
-
-        this.scpClientManager.mount(traceName, client);
-
-        return client;
-    }
-
-    //////////////////////////////
-    //////Discovery + SCP
-    //////////////////////////////
-    /**
-     * Discovers the node, `source` name as the `target` name.
-     * 
-     * @param source the source name of the node.
-     * @param target the target name of the node.
-     */
-    public discoverNodeAs(source: string, target: string) {
-        this.createScpClient(target, { name: source });
+    public discover(name: string, alias?: string) {
+        this.register(name, alias, true);
 
         //Return this for chaining.
         return this;
@@ -905,6 +919,105 @@ export class Hook extends Array<() => void> {
     public execute() {
         const reversedFunctions = this.reverse();
         reversedFunctions.forEach(fn => fn());
+    }
+}
+
+//////////////////////////////
+//////RemoteService
+//////////////////////////////
+/**
+ * `RemoteService` is the metadata for the service discovered.
+ */
+export class RemoteService {
+    /**
+     * The name of the service.
+     */
+    public readonly name: string;
+
+    /**
+     * The alias name of the service.
+     */
+    public readonly alias: string;
+
+    /**
+     * True if the service is defined by the user, false if auto discovered.
+     */
+    public readonly defined: boolean;
+
+    /**
+     * The instance of `ScpClient`.
+     */
+    public readonly scpClient: ScpClient;
+
+    /**
+     * The remote address.
+     */
+    private _address: string;
+
+    /**
+     * The remote HTTP port.
+     */
+    private _httpPort: number;
+
+    /**
+     * The remote SCP port.
+     */
+    private _scpPort: number;
+
+    /**
+     * Creates an instance of `RemoteService`.
+     * 
+     * @param name the name of the service.
+     * @param alias the optional, alias name of the service.
+     * @param defined set to true if the service is defined by the user, false if auto discovered.
+     * @param scpClient the instance of `ScpClient`.
+     */
+    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient) {
+        //Initialize variables.
+        this.name = name;
+        this.alias = alias;
+        this.defined = defined;
+        this.scpClient = scpClient;
+    }
+
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    /**
+     * The remote address.
+     */
+    public get address() {
+        return this._address;
+    }
+
+    /**
+     * The remote HTTP port.
+     */
+    public get httpPort() {
+        return this._httpPort;
+    }
+
+    /**
+     * The remote SCP port.
+     */
+    public get scpPort() {
+        return this._scpPort;
+    }
+
+    //////////////////////////////
+    //////Helpers
+    //////////////////////////////
+    /**
+     * Update the remote details.
+     * 
+     * @param address the remote address.
+     * @param httpPort the remote HTTP port.
+     * @param scpPort the remte SCP port.
+     */
+    public update(address: string, httpPort: number, scpPort: number) {
+        this._address = address;
+        this._httpPort = httpPort;
+        this._scpPort = scpPort;
     }
 }
 

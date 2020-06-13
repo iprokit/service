@@ -306,7 +306,7 @@ const heroMicroService = Micro();
  * Discover `sidekickSvc` as `sidekick`.
  * sidekick: is the name of the `Node`.
  */
-heroMicroService.discoverNodeAs('sidekickSvc', 'sidekick');
+heroMicroService.discover('sidekickSvc', 'sidekick');
 
 /**
  * Define broadcast names.
@@ -383,7 +383,7 @@ const sidekickMicroService = Micro();
  * Discover `heroSvc` as `hero`.
  * hero: is the name of the `Node`.
  */
-sidekickMicroService.discoverNodeAs('heroSvc', 'hero');
+sidekickMicroService.discover('heroSvc', 'hero');
 
 //Listen to broadcast from heroSvc.
 Mesh.hero.on('hero.poke', (body) => {

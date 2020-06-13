@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import HttpCodes from 'http-status-codes';
 
 //Local Imports
-import Service, { Pod, PodParams } from './service';
+import Service from './service';
 
 /**
  * The `ServiceRoutes` contains the service default endpoints.
@@ -56,7 +56,7 @@ export default class ServiceRoutes {
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
      * - Mesh: The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
-     * - Discovered: The `Pod`'s discovered.
+     * - RemoteServices: The remote services discovered.
      */
     public getReport(request: Request, response: Response) {
         try {
@@ -67,7 +67,7 @@ export default class ServiceRoutes {
                 endpoints: this.endpointsReport,
                 actions: this.actionsReport,
                 mesh: this.meshReport,
-                discovered: this.discoveredReport
+                remoteServices: this.remoteServicesReport
             }
 
             response.status(HttpCodes.OK).send(report);
@@ -232,33 +232,12 @@ export default class ServiceRoutes {
      * The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
      */
     private get meshReport() {
-        const mesh: {
-            [name: string]: {
-                identifier: string,
-                hostname: string,
-                port: number,
-                connected: boolean,
-                reconnecting: boolean,
-                node: {
-                    identifier: string,
-                    broadcasts: Array<string>,
-                    replies: Array<string>
-                }
-            }
-        } = {};
+        const mesh: { [traceName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
 
-        this.service.scpClientManager.traces.forEach(trace => {
-            mesh[trace.name] = {
-                identifier: trace.client.identifier,
-                hostname: trace.client.hostname,
-                port: trace.client.port,
-                connected: trace.client.connected,
-                reconnecting: trace.client.reconnecting,
-                node: {
-                    identifier: trace.client.node.identifier,
-                    broadcasts: trace.client.node.broadcasts,
-                    replies: trace.client.node.replies
-                }
+        Object.entries(this.service.mesh).find(([traceName, node]) => {
+            mesh[traceName] = {
+                broadcasts: node.broadcasts,
+                replies: node.replies
             }
         });
 
@@ -266,21 +245,24 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The `Pod`'s discovered.
+     * The remote services discovered.
      */
-    private get discoveredReport() {
-        const pods: { [name: string]: { id: string, hostname: string, port: number, params: PodParams } } = {};
-
-        (this.service.discovery.pods as Array<Pod>).forEach(pod => {
-            pods[pod.name] = {
-                id: pod.id,
-                hostname: pod.address,
-                port: pod.port,
-                params: pod.params
+    private get remoteServicesReport() {
+        return this.service.remoteServices.map(remoteService => {
+            return {
+                name: remoteService.name,
+                alias: remoteService.alias,
+                address: remoteService.address,
+                httpPort: remoteService.httpPort,
+                scpPort: remoteService.scpPort,
+                scpClient: {
+                    client: remoteService.scpClient.identifier,
+                    remote: remoteService.scpClient.node.identifier,
+                    connected: remoteService.scpClient.connected,
+                    reconnecting: remoteService.scpClient.reconnecting,
+                }
             }
         });
-
-        return pods;
     }
 
     //////////////////////////////
