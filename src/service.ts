@@ -345,12 +345,14 @@ export default class Service extends EventEmitter {
             next();
         });
 
-        //Add Hook: PreStart.
-        this.hooks.preStart.push(() => {
+        //Mount Hook[0]: PreStart.
+        this.hooks.preStart.mount((done) => {
             //Middleware: Error handler for 404.
             this.express.use((request: Request, response: Response, next: NextFunction) => {
                 response.status(HttpCodes.NOT_FOUND).send('Not Found');
             });
+
+            done();
         });
     }
 
@@ -427,8 +429,8 @@ export default class Service extends EventEmitter {
      * Adds the default service routes.
      */
     private addServiceRoutes() {
-        //Add Hook: PreStart.
-        this.hooks.preStart.push(() => {
+        //Mount Hook[1]: PreStart.
+        this.hooks.preStart.mount((done) => {
             //Initialize serviceRoutes.
             const serviceRoutes = new ServiceRoutes(this);
 
@@ -449,6 +451,8 @@ export default class Service extends EventEmitter {
                 const databaseRouter = this.router('/db');
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
+
+            done();
         });
     }
 
@@ -506,54 +510,55 @@ export default class Service extends EventEmitter {
         this.emit('starting');
 
         //Run Hook: Pre Start.
-        this.hooks.preStart.execute();
+        this.hooks.preStart.execute(() => {
 
-        //Start HTTP Server
-        this._httpServer = this.express.listen(this.httpPort, () => {
-            //Log Event.
-            this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
-
-            //Start SCP Server
-            this.scpServer.listen(this.scpPort, () => {
+            //Start HTTP Server
+            this._httpServer = this.express.listen(this.httpPort, () => {
                 //Log Event.
-                this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
+                this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
 
-                //Start Discovery
-                this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
-                    if (!error) {
-                        //Log Event.
-                        this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
-                    } else {
-                        this.logger.error(error.stack);
-                    }
+                //Start SCP Server
+                this.scpServer.listen(this.scpPort, () => {
+                    //Log Event.
+                    this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
-                    //Start DB Manager
-                    this.dbManager.connect((connection, error) => {
-                        if (connection) {
+                    //Start Discovery
+                    this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
+                        if (!error) {
                             //Log Event.
-                            this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
+                            this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
+                        } else {
+                            this.logger.error(error.stack);
                         }
-                        if (error) {
-                            if (error instanceof ConnectionOptionsError) {
-                                this.logger.error(error.message);
-                            } else {
-                                this.logger.error(error.stack);
+
+                        //Start DB Manager
+                        this.dbManager.connect((connection, error) => {
+                            if (connection) {
+                                //Log Event.
+                                this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
                             }
-                        }
+                            if (error) {
+                                if (error instanceof ConnectionOptionsError) {
+                                    this.logger.error(error.message);
+                                } else {
+                                    this.logger.error(error.stack);
+                                }
+                            }
 
-                        //Run Hook: Post Start.
-                        this.hooks.postStart.execute();
+                            //Run Hook: Post Start.
+                            this.hooks.postStart.execute(() => {
+                                //Log Event.
+                                this.logger.info(`${this.name} ready.`);
 
-                        //Log Event.
-                        this.logger.info(`${this.name} ready.`);
+                                //Emit Global: ready.
+                                this.emit('ready');
 
-                        //Emit Global: ready.
-                        this.emit('ready');
-
-                        //Callback.
-                        if (callback) {
-                            callback();
-                        }
+                                //Callback.
+                                if (callback) {
+                                    callback();
+                                }
+                            });
+                        });
                     });
                 });
             });
@@ -579,53 +584,54 @@ export default class Service extends EventEmitter {
         //Emit Global: stopping.
         this.emit('stopping');
 
-        //Run Hook: Pre Stop.
-        this.hooks.preStop.execute();
-
         setTimeout(() => {
             callback(1);
             this.logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
-        //Stop HTTP Servers
-        this._httpServer.close((error) => {
-            if (!error) {
-                //Log Event.
-                this.logger.info(`Stopped HTTP server.`);
-            }
+        //Run Hook: Pre Stop.
+        this.hooks.preStop.execute(() => {
 
-            //Stop SCP Servers
-            this.scpServer.close((error) => {
+            //Stop HTTP Servers
+            this._httpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    this.logger.info(`Stopped SCP Server.`);
+                    this.logger.info(`Stopped HTTP server.`);
                 }
 
-                //Stop Discovery
-                this.discovery.close((error) => {
+                //Stop SCP Servers
+                this.scpServer.close((error) => {
                     if (!error) {
                         //Log Event.
-                        this.logger.info(`Stopped Discovery.`);
+                        this.logger.info(`Stopped SCP Server.`);
                     }
 
-                    //Stop DB Manager
-                    this.dbManager.disconnect((error) => {
+                    //Stop Discovery
+                    this.discovery.close((error) => {
                         if (!error) {
                             //Log Event.
-                            this.logger.info(`DB Disconnected.`);
+                            this.logger.info(`Stopped Discovery.`);
                         }
 
-                        //Run Hook: Post Stop.
-                        this.hooks.postStop.execute();
+                        //Stop DB Manager
+                        this.dbManager.disconnect((error) => {
+                            if (!error) {
+                                //Log Event.
+                                this.logger.info(`DB Disconnected.`);
+                            }
 
-                        //Log Event.
-                        this.logger.info(`${this.name} stopped.`);
+                            //Run Hook: Post Stop.
+                            this.hooks.postStop.execute(() => {
+                                //Log Event.
+                                this.logger.info(`${this.name} stopped.`);
 
-                        //Emit Global: stopped.
-                        this.emit('stopped');
+                                //Emit Global: stopped.
+                                this.emit('stopped');
 
-                        //Callback.
-                        callback(0);
+                                //Callback.
+                                callback(0);
+                            });
+                        });
                     });
                 });
             });
@@ -912,14 +918,73 @@ export class Hooks {
 /**
  * A Hook is an array of functions that will be executed in reverse order.
  */
-export class Hook extends Array<() => void> {
+export class Hook extends Array<HookHandler>{
+    /**
+     * Mount a hook handler.
+     * 
+     * @param handler the handler to mount.
+     */
+    public mount(handler: HookHandler) {
+        this.push(handler);
+    }
+
+    //////////////////////////////
+    //////Execute
+    //////////////////////////////
     /**
      * Execute all the functions in reverse order.
+     * 
+     * @param callback optional callback, called when the function executions are complete.
      */
-    public execute() {
-        const reversedFunctions = this.reverse();
-        reversedFunctions.forEach(fn => fn());
+    public execute(callback?: () => void) {
+        if (this.length > 0) {
+            //Reverse the handlers.
+            const reverseHandlers = this.reverse();
+
+            //Initialize the iterator.
+            let iterator = 0;
+
+            /**
+             * The done handler.
+             */
+            const done: DoneHandler = () => {
+                iterator++;
+
+                if (iterator < reverseHandlers.length - 1) {
+                    reverseHandlers[iterator](done);
+                } else {
+                    reverseHandlers[iterator](() => {
+                        //Callback.
+                        if (callback) {
+                            callback();
+                        }
+                    });
+                }
+            }
+
+            //Start the handler call.
+            reverseHandlers[iterator](done);
+        } else {
+            //Callback.
+            if (callback) {
+                callback();
+            }
+        }
     }
+}
+
+/**
+ * `HookHandler` definition.
+ */
+export interface HookHandler {
+    (done: DoneHandler): void;
+}
+
+/**
+ * `DoneHandler` definition.
+ */
+export interface DoneHandler {
+    (): void;
 }
 
 //////////////////////////////

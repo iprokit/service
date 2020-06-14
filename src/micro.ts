@@ -82,13 +82,15 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Add Hook: PreStart.
-        service.hooks.preStart.push(() => {
-            // service.get('/doc', getDoc);
-
+        //Mount Hook[2]: PreStart.
+        service.hooks.preStart.mount((done) => {
             //Inject Files.
             injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+
+            done();
         });
+
+        // service.get('/doc', getDoc);
     }
 
     //Return the singleton service.
