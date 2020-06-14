@@ -119,7 +119,7 @@ export default class Service extends EventEmitter {
     /**
      * The remote services discovered.
      */
-    public readonly remoteServices: Array<RemoteService>;
+    public readonly remoteServices: { [name: string]: RemoteService };
 
     /**
      * The logger instance.
@@ -191,7 +191,7 @@ export default class Service extends EventEmitter {
         this.hooks = new Hooks();
 
         //Initialize RemoteServices.
-        this.remoteServices = new Array();
+        this.remoteServices = {};
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -249,20 +249,6 @@ export default class Service extends EventEmitter {
      */
     public get connection() {
         return this.dbManager.connection;
-    }
-
-    /**
-     * The RDB `Connection`.
-     */
-    public get rdbConnection() {
-        return this.dbManager.rdbConnection;
-    }
-
-    /**
-     * The NoSQL `Connection`.
-     */
-    public get noSQLConnection() {
-        return this.dbManager.noSQLConnection;
     }
 
     /**
@@ -376,7 +362,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one.
-            const remoteService = this.getRemoteService(pod.name) || this.register(pod.name);
+            const remoteService = this.remoteServices[pod.name] || this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
             remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
@@ -390,7 +376,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
             //Try finding the remoteService.
-            const remoteService = this.getRemoteService(pod.name);
+            const remoteService = this.remoteServices[pod.name];
 
             remoteService && remoteService.scpClient.disconnect(() => {
                 //Log Event.
@@ -457,15 +443,6 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Returns the remote service.
-     * 
-     * @param name the name of the service.
-     */
-    private getRemoteService(name: string) {
-        return this.remoteServices.find(serviceInstance => serviceInstance.name === name);
-    }
-
-    /**
      * Registeres a new remote service.
      * 
      * @param name the name of the service.
@@ -489,7 +466,7 @@ export default class Service extends EventEmitter {
 
         //Create a new `RemoteService` and push to `remoteServices`.
         const serviceInstance = new RemoteService(name, alias, defined, client);
-        this.remoteServices.push(serviceInstance);
+        this.remoteServices[name] = serviceInstance;
 
         return serviceInstance;
     }

@@ -234,7 +234,7 @@ export default class ServiceRoutes {
     private get meshReport() {
         const mesh: { [traceName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
 
-        Object.entries(this.service.mesh).find(([traceName, node]) => {
+        Object.entries(this.service.mesh).forEach(([traceName, node]) => {
             mesh[traceName] = {
                 broadcasts: node.broadcasts,
                 replies: node.replies
@@ -248,7 +248,7 @@ export default class ServiceRoutes {
      * The remote services discovered.
      */
     private get remoteServicesReport() {
-        return this.service.remoteServices.map(remoteService => {
+        return Object.entries(this.service.remoteServices).map(([name, remoteService]) => {
             return {
                 name: remoteService.name,
                 alias: remoteService.alias,

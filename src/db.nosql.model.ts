@@ -275,6 +275,10 @@ export default class NoSQLModel {
 
         this.mongoose = options.mongoose;
         this._model = this.mongoose.model(options.modelName, schema, options.collectionName);
+
+        //Set Names.
+        Object.defineProperty(this, 'name', { value: options.modelName });
+        Object.defineProperty(this._model, 'name', { value: options.modelName });
     }
 }
 

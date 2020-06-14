@@ -140,24 +140,6 @@ export default class DBManager extends EventEmitter {
     }
 
     /**
-     * The RDB `Connection`.
-     */
-    public get rdbConnection(): RDB {
-        if (this.rdb) {
-            return this._connection as RDB;
-        }
-    }
-
-    /**
-     * The NoSQL `Connection`.
-     */
-    public get noSQLConnection(): NoSQL {
-        if (this.noSQL) {
-            return this._connection as NoSQL;
-        }
-    }
-
-    /**
      * The models under the database `Connection`.
      */
     public get models() {
@@ -386,7 +368,9 @@ export default class DBManager extends EventEmitter {
     private connectRDB(callback?: (error?: Error) => void) {
         //Associate models.
         try {
-            this.models.map(model => (model as typeof RDBModel).associate());
+            this.models.forEach(model => {
+                (model as typeof RDBModel).associate();
+            });
         } catch (error) {
             this.logger.error(error.stack);
         }

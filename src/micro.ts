@@ -28,17 +28,17 @@ let gatewayService: GatewayService;
 /**
  * The auto wired `Model`'s under this service.
  */
-export const models: Array<Model> = new Array();
+export const models: { [name: string]: Model } = {};
 
 /**
  * The auto injected `Messenger`'s under this service.
  */
-export const messengers: Array<Messenger> = new Array();
+export const messengers: { [name: string]: Messenger } = {};
 
 /**
  * The auto injected `Controller`'s under this service.
  */
-export const controllers: Array<Controller> = new Array();
+export const controllers: { [name: string]: Controller } = {};
 
 /**
  * An array of `MessengerMeta`.
@@ -127,20 +127,6 @@ namespace micro {
     }
 
     /**
-     * The RDB `Connection`.
-     */
-    export function rdbConnection() {
-        return service.rdbConnection;
-    }
-
-    /**
-     * The NoSQL `Connection`.
-     */
-    export function noSQLConnection() {
-        return service.noSQLConnection;
-    }
-
-    /**
      * The logger instance.
      */
     export function logger() {
@@ -206,8 +192,8 @@ function loadModel(file: string) {
     //Load, the model from the file location.
     const ModelInstance: Model = require(file).default;
 
-    //Push to array.
-    models.push(ModelInstance);
+    //Add to models.
+    models[ModelInstance.name] = ModelInstance;
 
     //Log Event.
     service.logger.debug(`Wiring model: ${ModelInstance.name}`);
@@ -232,17 +218,23 @@ function loadMessenger(file: string) {
     //Get messengerMeta.
     const messengerMeta = getMessengerMeta(messenger.name);
 
+    //Get messenger name.
+    const name = messenger.name.replace('Messenger', '');
+
     //Get each meta, bind the function and add action to the scpServer.
     messengerMeta.forEach(meta => {
+        //Setup a new Action.
+        const action = name + Action.MAP_BREAK + meta.handlerName;
+
         //Bind Function.
         messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
 
         //Add Action.
-        service[meta.type](meta.action, messenger[meta.handlerName]);
+        service[meta.type](action, messenger[meta.handlerName]);
     });
 
-    //Push to array.
-    messengers.push(messenger);
+    //Add to messengers.
+    messengers[name] = messenger;
 
     //Log Event.
     service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
@@ -268,8 +260,8 @@ function loadController(file: string) {
     const controllerMeta = getControllerMeta(controller.name);
 
     //Setup a new Router.
-    const name = controller.name.replace('Controller', '').toLowerCase();
-    const router = service.router(`/${name}`);
+    const name = controller.name.replace('Controller', '');
+    const router = service.router(`/${name.toLowerCase()}`);
 
     //Get each meta, bind the function and add route to the router.
     controllerMeta.forEach(meta => {
@@ -280,8 +272,8 @@ function loadController(file: string) {
         router[meta.method](meta.relativePath, controller[meta.handlerName]);
     });
 
-    //Push to array.
-    controllers.push(controller);
+    //Add to controllers.
+    controllers[name] = controller;
 
     //Log Event.
     service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
@@ -479,23 +471,6 @@ export class MessengerMeta {
         this.messengerName = className;
         this.handlerName = handlerName;
         this.type = type;
-    }
-
-    //////////////////////////////
-    //////Gets/Sets
-    //////////////////////////////
-    /**
-     * The name of the messenger.
-     */
-    public get name() {
-        return this.messengerName.replace('Messenger', '');
-    }
-
-    /**
-     * The SCP `Action`.
-     */
-    public get action() {
-        return this.name + Action.MAP_BREAK + this.handlerName;
     }
 }
 
