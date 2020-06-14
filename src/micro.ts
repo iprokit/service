@@ -2,19 +2,28 @@
 import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
 
 //Import Modules
+import path from 'path';
+import dotenv from 'dotenv';
+import fs from 'fs';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 
 //Local Imports
+import Default from './default';
+import Helper, { FileOptions } from './helper';
 import Service, { Options as ServiceOptions } from "./service";
-import GatewayService from './gateway';
 import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
 import Controller from "./controller";
 import Messenger from './messenger';
-import Helper, { FileOptions } from './helper';
+import GatewayService from './gateway';
 
 //////////////////////////////
 //////Global Variables
 //////////////////////////////
+/**
+ * The root project path of the service.
+ */
+let projectPath: string;
+
 /**
  * Singleton instance of the `Service`.
  */
@@ -72,12 +81,37 @@ export const mesh: Mesh = new Mesh();
  */
 function micro(options?: Options) {
     if (!service) {
+        //Load Environment variables from .env file.
+        projectPath = path.dirname(require.main.filename);
+        const envPath = path.join(projectPath, '.env');
+        if (fs.existsSync(envPath)) {
+            dotenv.config({ path: envPath });
+        }
+
         //Initialize Options.
         options = options || {};
 
         //Initialize serviceOptions.
-        const serviceOptions: ServiceOptions = options;
-        serviceOptions.mesh = mesh;
+        const serviceOptions: ServiceOptions = {
+            name: options.name || process.env.npm_package_name,
+            version: options.version || process.env.npm_package_version,
+            environment: process.env.NODE_ENV || Default.ENVIRONMENT,
+            httpPort: Number(process.env.HTTP_PORT) || Default.HTTP_PORT,
+            scpPort: Number(process.env.SCP_PORT) || Default.SCP_PORT,
+            discoveryPort: Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT,
+            discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
+            forceStopTime: options.forceStopTime || Default.FORCE_STOP_TIME,
+            logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
+            db: options.db &&  {
+                type: options.db.type,
+                host: process.env.DB_HOST,
+                name: process.env.DB_NAME,
+                username: process.env.DB_USERNAME,
+                password: process.env.DB_PASSWORD,
+                paperTrail: options.db.paperTrail
+            },
+            mesh: mesh
+        };
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
@@ -123,7 +157,7 @@ namespace micro {
      * The underlying database `Connection`.
      */
     export function connection() {
-        return service.connection;
+        return service.dbManager.connection;
     }
 
     /**
@@ -157,7 +191,7 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     /**
      * All the files in this project.
      */
-    const files = Helper.findFilePaths(service.projectPath, { include: { extension: ['.js'] } });
+    const files = Helper.findFilePaths(projectPath, { include: { extension: ['.js'] } });
 
     //Wiring Models.
     files.forEach(file => {
@@ -261,7 +295,7 @@ function loadController(file: string) {
 
     //Setup a new Router.
     const name = controller.name.replace('Controller', '');
-    const router = service.router(`/${name.toLowerCase()}`);
+    const router = service.createRouter(`/${name.toLowerCase()}`);
 
     //Get each meta, bind the function and add route to the router.
     controllerMeta.forEach(meta => {

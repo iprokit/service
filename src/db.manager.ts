@@ -22,9 +22,34 @@ export { NoSQL }
  */
 export default class DBManager extends EventEmitter {
     /**
-     * Set to true if the paper trail operation should be performed, false otherwise.
+     * The name of the database.
      */
-    private _paperTrail: boolean;
+    public readonly name: string;
+
+    /**
+     * The type of the database.
+     */
+    public readonly type: Type;
+
+    /**
+     * The remote database address.
+     */
+    public readonly host: string;
+
+    /**
+     * The username of the database.
+     */
+    public readonly username: string;
+
+    /**
+     * The password of the database.
+     */
+    public readonly password: string;
+
+    /**
+     * True if the paper trail operation should be performed, false otherwise.
+     */
+    public readonly paperTrail: boolean;
 
     /**
      * Set to true if the database is connected, false otherwise.
@@ -32,40 +57,9 @@ export default class DBManager extends EventEmitter {
     private _connected: boolean;
 
     /**
-     * The type of the database.
-     */
-    private _type: Type;
-
-    /**
-     * The remote database address, retrieved from `process.env.DB_HOST`.
-     */
-    private _host: string;
-
-    /**
-     * The name of the database, retrieved from `process.env.DB_NAME`.
-     * 
-     * @default process.env.DB_NAME
-     */
-    private _name: string;
-
-    /**
-     * The username of the database, retrieved from `process.env.DB_USERNAME`.
-     * 
-     * @default process.env.DB_USERNAME
-     */
-    private _username: string;
-
-    /**
-     * The password of the database, retrieved from `process.env.DB_PASSWORD`.
-     * 
-     * @default process.env.DB_PASSWORD
-     */
-    private _password: string;
-
-    /**
      * The underlying database `Connection` object.
      */
-    private _connection: Connection;
+    public readonly connection: Connection;
 
     /**
      * The logger instance.
@@ -76,74 +70,99 @@ export default class DBManager extends EventEmitter {
      * Creates an instance of a `DBManager`.
      * 
      * @param logger the logger instance.
+     * @param options the optional, constructor options.
+     * 
+     * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
-    constructor(logger: Logger) {
+    constructor(logger: Logger, options?: Options) {
         //Call super for EventEmitter.
         super();
 
+        //Initialize variables.
+        this.logger = logger;
+
+        //Initialize options if any.
+        if(options) {
+            //Validate type
+            this.type = options.type;
+            if (!this.type) {
+                throw new ConnectionOptionsError('Invalid database type provided.');
+            }
+    
+            //Validate host
+            this.host = options.host;
+            if (!this.host) {
+                throw new ConnectionOptionsError('Invalid database host provided.');
+            }
+    
+            //Validate name
+            this.name = options.name;
+            if (!this.name) {
+                throw new ConnectionOptionsError('Invalid database name provided.');
+            }
+    
+            //Validate username
+            this.username = options.username;
+            if (!this.username) {
+                throw new ConnectionOptionsError('Invalid database username provided.');
+            }
+    
+            //Validate password
+            this.password = options.password;
+            if (!this.password) {
+                throw new ConnectionOptionsError('Invalid database password provided.');
+            }
+
+            this.paperTrail = (options.paperTrail === undefined) ? true : options.paperTrail;
+    
+            //Initialize NoSQL connection object.
+            if (this.noSQL) {
+                //Mongoose connection.
+                this.connection = mongoose.createConnection(`mongodb://${this.host}`, {
+                    dbName: this.name,
+                    user: this.username,
+                    pass: this.password,
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true
+                });
+                mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
+                    this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
+                });
+                //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
+            }
+    
+            //Initialize RDB connection object.
+            if (this.rdb) {
+                //Sequelize constructor.
+                this.connection = new RDB(this.name, this.username, this.password, {
+                    host: this.host,
+                    dialect: (this.type as Dialect),
+                    logging: (sql: string) => {
+                        this.logger.info(sql);
+                    }
+                });
+            }
+        }
+
         //Set default connected.
         this._connected = false;
-
-        //Initialize Logger.
-        this.logger = logger;
     }
 
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
     /**
-     * The type of the database.
+     * True if the database is `noSQL` type.
      */
-    public get type() {
-        return this._type;
+    public get noSQL() {
+        return this.type === 'mongo';
     }
 
     /**
-     * The remote database address, retrieved from `process.env.DB_HOST`.
+     * True if the database is `SQL` type.
      */
-    public get host() {
-        return this._host;
-    }
-
-    /**
-     * The name of the database, retrieved from `process.env.DB_NAME`.
-     * 
-     * @default process.env.DB_NAME
-     */
-    public get name() {
-        return this._name;
-    }
-
-    /**
-     * The username of the database, retrieved from `process.env.DB_USERNAME`.
-     * 
-     * @default process.env.DB_USERNAME
-     */
-    public get username() {
-        return this._username;
-    }
-
-    /**
-     * The password of the database, retrieved from `process.env.DB_PASSWORD`.
-     * 
-     * @default process.env.DB_PASSWORD
-     */
-    public get password() {
-        return this._password;
-    }
-
-    /**
-     * The underlying database `Connection`.
-     */
-    public get connection(): Connection {
-        return this._connection;
-    }
-
-    /**
-     * The models under the database `Connection`.
-     */
-    public get models() {
-        return Object.values(this._connection.models);
+    public get rdb() {
+        return this.type === 'mysql' || this.type === 'postgres' || this.type === 'sqlite' || this.type === 'mariadb' || this.type === 'mssql';
     }
 
     /**
@@ -154,93 +173,15 @@ export default class DBManager extends EventEmitter {
     }
 
     /**
-     * True if the database is `noSQL` type.
+     * The models under the database `Connection`.
      */
-    public get noSQL() {
-        return this._type === 'mongo';
-    }
-
-    /**
-     * True if the database is `SQL` type.
-     */
-    public get rdb() {
-        return this._type === 'mysql' || this._type === 'postgres' || this._type === 'sqlite' || this._type === 'mariadb' || this._type === 'mssql';
+    public get models() {
+        return Object.values(this.connection.models);
     }
 
     //////////////////////////////
     //////Init
     //////////////////////////////
-    /**
-     * Retrieve database related environment variables and initializes the database `Connection` object.
-     * 
-     * @param type the type of the database.
-     * @param paperTrail the optional, paper trail operation should be performed? true by default.
-     * 
-     * @throws `ConnectionOptionsError` when a database connection option is invalid.
-     */
-    public init(type: Type, paperTrail?: boolean) {
-        //Validate type
-        this._type = type;
-        if (!this._type) {
-            throw new ConnectionOptionsError('Invalid Database type provided.');
-        }
-
-        //Validate host
-        this._host = process.env.DB_HOST;
-        if (!this._host) {
-            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
-        }
-
-        //Validate name
-        this._name = process.env.DB_NAME;
-        if (!this._name) {
-            throw new ConnectionOptionsError('Invalid DB_NAME provided in .env.');
-        }
-
-        //Validate username
-        this._username = process.env.DB_USERNAME;
-        if (!this._username) {
-            throw new ConnectionOptionsError('Invalid DB_USERNAME provided in .env.');
-        }
-
-        //Validate password
-        this._password = process.env.DB_PASSWORD;
-        if (!this._password) {
-            throw new ConnectionOptionsError('Invalid DB_PASSWORD provided in .env.');
-        }
-
-        //Initialize variables.
-        this._paperTrail = (paperTrail === undefined) ? true : paperTrail;
-
-        //Initialize NoSQL connection object.
-        if (this.noSQL) {
-            //Mongoose connection.
-            this._connection = mongoose.createConnection(`mongodb://${this._host}`, {
-                dbName: this._name,
-                user: this._username,
-                pass: this._password,
-                useNewUrlParser: true,
-                useUnifiedTopology: true
-            });
-            mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
-                this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
-            });
-            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
-        }
-
-        //Initialize RDB connection object.
-        if (this.rdb) {
-            //Sequelize constructor.
-            this._connection = new RDB(this._name, this._username, this._password, {
-                host: this._host,
-                dialect: (this._type as Dialect),
-                logging: (sql: string) => {
-                    this.logger.info(sql);
-                }
-            });
-        }
-    }
-
     /**
      * Initialize the `Model` instance.
      * 
@@ -257,8 +198,8 @@ export default class DBManager extends EventEmitter {
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
                 collectionName: entityName,
                 modelName: modelName,
-                mongoose: (this._connection as NoSQL),
-                timestamps: this._paperTrail
+                mongoose: (this.connection as NoSQL),
+                timestamps: this.paperTrail
             });
 
             //Call Hooks.
@@ -268,8 +209,8 @@ export default class DBManager extends EventEmitter {
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
                 modelName: modelName,
-                sequelize: (this._connection as RDB),
-                timestamps: this._paperTrail
+                sequelize: (this.connection as RDB),
+                timestamps: this.paperTrail
             });
 
             //Call Hooks.
@@ -324,7 +265,7 @@ export default class DBManager extends EventEmitter {
      */
     private connectNoSQL(callback?: (error?: Error) => void) {
         //Start Connection.
-        (this._connection as NoSQL).once('connected', () => {
+        (this.connection as NoSQL).once('connected', () => {
             //Set connected Flag 
             this._connected = true;
 
@@ -336,7 +277,7 @@ export default class DBManager extends EventEmitter {
                 callback();
             }
         });
-        (this._connection as NoSQL).on('error', (error: Error) => {
+        (this.connection as NoSQL).on('error', (error: Error) => {
             //Set connected Flag 
             this._connected = false;
 
@@ -376,7 +317,7 @@ export default class DBManager extends EventEmitter {
         }
 
         //Start Connection.
-        (this._connection as RDB).authenticate()
+        (this.connection as RDB).authenticate()
             .then(() => {
                 //Set connected Flag 
                 this._connected = true;
@@ -420,7 +361,7 @@ export default class DBManager extends EventEmitter {
      */
     public disconnect(callback?: (error?: Error) => void) {
         if (this.rdb || this.noSQL) {
-            this._connection.close()
+            this.connection.close()
                 .then(() => {
                     //Set connected Flag 
                     this._connected = false;
@@ -467,7 +408,7 @@ export default class DBManager extends EventEmitter {
                 try {
                     if (force) {
                         this.logger.info(`EXECUTING: DROP COLLECTION IF EXISTS ${name}`);
-                        await (this._connection as NoSQL).db.dropCollection(name);
+                        await (this.connection as NoSQL).db.dropCollection(name);
                     }
                     this.logger.info(`EXECUTING: CREATE COLLECTION IF NOT EXISTS ${name}`);
                     await model.createCollection();
@@ -487,7 +428,7 @@ export default class DBManager extends EventEmitter {
          * @function
          */
         const _rdbSync = async () => {
-            await (this._connection as RDB).sync({ force: force });
+            await (this.connection as RDB).sync({ force: force });
         }
 
         //Setting default.
@@ -509,6 +450,46 @@ export default class DBManager extends EventEmitter {
             throw error;
         }
     }
+}
+
+//////////////////////////////
+//////Constructor: Options
+//////////////////////////////
+/**
+ * The constructor options for the db manager.
+ */
+export type Options = {
+    /**
+     * The name of the database.
+     */
+    name: string;
+
+    /**
+     * The type of the database.
+     */
+    type: Type;
+
+    /**
+     * The remote database address.
+     */
+    host: string;
+
+    /**
+     * The username of the database.
+     */
+    username: string;
+
+    /**
+     * The password of the database.
+     */
+    password: string;
+
+    /**
+     * Set to true if the paper trail operation should be performed, false otherwise.
+     * 
+     * @default true
+     */
+    paperTrail?: boolean;
 }
 
 //////////////////////////////

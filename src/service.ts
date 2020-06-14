@@ -4,8 +4,6 @@ import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClie
 
 //Import Modules
 import EventEmitter from 'events';
-import path from 'path';
-import dotenv from 'dotenv';
 import fs from 'fs';
 import express, { Express, Request, Response, NextFunction, RouterOptions } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
@@ -18,9 +16,8 @@ import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 import ip from 'ip';
 
 //Local Imports
-import Default from './default';
 import Helper from './helper';
-import DBManager, { Type as DBType, ConnectionOptionsError } from './db.manager';
+import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
 import ServiceRoutes from './service.routes';
 
 /**
@@ -43,68 +40,49 @@ import ServiceRoutes from './service.routes';
  */
 export default class Service extends EventEmitter {
     /**
-     * The name of the service, retrieved from `process.env.npm_package_name`.
+     * The name of the service.
      */
     public readonly name: string;
 
     /**
-     * The version of the service, retrieved from `process.env.npm_package_version`.
+     * The version of the service.
      */
     public readonly version: string;
 
     /**
-     * The environment of the service, retrieved from `process.env.NODE_ENV`.
-     * 
-     * @default `Default.ENVIRONMENT`
+     * The environment of the service.
      */
     public readonly environment: string;
 
     /**
-     * The HTTP Server port of the service, retrieved from `process.env.HTTP_PORT`.
-     * 
-     * @default `Default.HTTP_PORT`
+     * The HTTP Server port of the service.
      */
     public readonly httpPort: number;
 
     /**
-     * The SCP Server port of the service, retrieved from `process.env.SCP_PORT`.
-     * 
-     * @default `Default.SCP_PORT`
+     * The SCP Server port of the service.
      */
     public readonly scpPort: number;
 
     /**
-     * The discovery port of the service., retrieved from `process.env.DISCOVERY_PORT`.
-     * 
-     * @default `Default.DISCOVERY_PORT`
+     * The discovery port of the service.
      */
     public readonly discoveryPort: number;
 
     /**
      * The IP address of discovery, i.e the multicast address.
-     * 
-     * @default `Default.DISCOVERY_IP`
      */
     public readonly discoveryIp: string;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
-     * 
-     * @default `Default.FORCE_STOP_TIME`
      */
     public readonly forceStopTime: number;
 
     /**
-     * The path to log files of the service, retrieved from `process.env.LOG_PATH`.
-     * 
-     * @default `Default.LOG_PATH`
+     * The path to log files of the service.
      */
     public readonly logPath: string;
-
-    /**
-     * The root project path of the service.
-     */
-    public readonly projectPath: string;
 
     /**
      * The IP address of this service.
@@ -159,32 +137,22 @@ export default class Service extends EventEmitter {
     /**
      * Creates an instance of a `Service`.
      * 
-     * @param options the optional constructor options.
+     * @param options the constructor options.
      */
-    constructor(options?: Options) {
+    constructor(options: Options) {
         //Call super for EventEmitter.
         super();
 
-        //Load Environment variables from .env file.
-        this.projectPath = path.dirname(require.main.filename);
-        const envPath = path.join(this.projectPath, '.env');
-        if (fs.existsSync(envPath)) {
-            dotenv.config({ path: envPath });
-        }
-
-        //Initialize Options.
-        options = options || {};
-
-        //Initialize service variables.
-        this.name = options.name || process.env.npm_package_name;
-        this.version = options.version || process.env.npm_package_version;
-        this.environment = process.env.NODE_ENV || Default.ENVIRONMENT;
-        this.httpPort = Number(process.env.HTTP_PORT) || Default.HTTP_PORT;
-        this.scpPort = Number(process.env.SCP_PORT) || Default.SCP_PORT;
-        this.discoveryPort = Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT;
-        this.discoveryIp = process.env.DISCOVERY_IP || Default.DISCOVERY_IP;
-        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
-        this.logPath = process.env.LOG_PATH || path.join(this.projectPath, Default.LOG_PATH);
+        //Initialize variables.
+        this.name = options.name;
+        this.version = options.version;
+        this.environment = options.environment;
+        this.httpPort = options.httpPort;
+        this.scpPort = options.scpPort;
+        this.discoveryPort = options.discoveryPort;
+        this.discoveryIp = options.discoveryIp;
+        this.forceStopTime = options.forceStopTime;
+        this.logPath = options.logPath;
         this.ip = ip.address();
 
         //Initialize Hooks.
@@ -224,8 +192,7 @@ export default class Service extends EventEmitter {
 
         //Initialize DB Manager
         const dbLogger = this.logger.child({ component: 'DB' });
-        this.dbManager = new DBManager(dbLogger);
-        options.db && this.configDatabase(options.db.type, options.db.paperTrail);
+        this.dbManager = new DBManager(dbLogger, options.db);
 
         //Add service routes.
         this.addServiceRoutes();
@@ -242,13 +209,6 @@ export default class Service extends EventEmitter {
      */
     public get httpServer() {
         return this._httpServer;
-    }
-
-    /**
-     * The underlying database `Connection`.
-     */
-    public get connection() {
-        return this.dbManager.connection;
     }
 
     /**
@@ -389,25 +349,6 @@ export default class Service extends EventEmitter {
         });
     }
 
-    /**
-     * Configures the database by setting up `DBManager`.
-     * 
-     * @param type the type of the database.
-     * @param paperTrail set to true if the paper trail operation should be performed, false otherwise.
-     */
-    private configDatabase(type: DBType, paperTrail?: boolean) {
-        try {
-            //Initialize the database connection.
-            this.dbManager.init(type, paperTrail);
-        } catch (error) {
-            if (error instanceof ConnectionOptionsError) {
-                this.logger.error(error.message);
-            } else {
-                this.logger.error(error.stack);
-            }
-        }
-    }
-
     //////////////////////////////
     //////Helpers
     //////////////////////////////
@@ -427,14 +368,14 @@ export default class Service extends EventEmitter {
             serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
 
             //Service routes.
-            const defaultRouter = this.router('/');
+            const defaultRouter = this.createRouter('/');
             defaultRouter.get('/health', serviceRoutes.getHealth);
             defaultRouter.get('/report', serviceRoutes.getReport);
             defaultRouter.get('/shutdown', serviceRoutes.shutdown);
 
             //Database routes.
-            if (this.connection) {
-                const databaseRouter = this.router('/db');
+            if (this.dbManager.connection) {
+                const databaseRouter = this.createRouter('/db');
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
 
@@ -629,7 +570,7 @@ export default class Service extends EventEmitter {
      * 
      * @returns the created router.
      */
-    public router(mountPath: PathParams, options?: RouterOptions) {
+    public createRouter(mountPath: PathParams, options?: RouterOptions) {
         //Create a new router.
         const router = express.Router(options);
 
@@ -812,23 +753,53 @@ export default class Service extends EventEmitter {
 //////Constructor: Options
 //////////////////////////////
 /**
- * The optional constructor options for the service.
+ * The constructor options for the service.
  */
 export type Options = {
     /**
      * The name of the service.
      */
-    name?: string;
+    name: string;
 
     /**
      * The version of the service.
      */
-    version?: string;
+    version: string;
+
+    /**
+     * The environment of the service.
+     */
+    environment: string;
+
+    /**
+     * The HTTP Server port of the service.
+     */
+    httpPort: number;
+
+    /**
+     * The SCP Server port of the service.
+     */
+    scpPort: number;
+
+    /**
+     * The discovery port of the service.
+     */
+    discoveryPort: number;
+
+    /**
+     * The IP address of discovery, i.e the multicast address.
+     */
+    discoveryIp: string;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      */
-    forceStopTime?: number;
+    forceStopTime: number;
+
+    /**
+     * The path to log files of the service.
+     */
+    logPath: string;
 
     /**
      * `Node`'s are populated into this `Mesh` during runtime.
@@ -838,19 +809,7 @@ export type Options = {
     /**
      * The database configuration options.
      */
-    db?: {
-        /**
-         * The type of the database.
-         * 
-         * Supports NoSQL/RDB types, i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
-         */
-        type: DBType;
-
-        /**
-         * Set to true if the paper trail operation should be performed, false otherwise.
-         */
-        paperTrail?: boolean;
-    }
+    db?: DbManagerOptions;
 }
 
 //////////////////////////////
