@@ -63,7 +63,7 @@ export default class ServiceRoutes {
             const report = {
                 service: this.serviceReport,
                 system: this.systemReport,
-                db: this.service.dbManager.connection && this.dbReport,
+                db: this.service.dbManager && this.dbReport,
                 endpoints: this.endpointsReport,
                 actions: this.actionsReport,
                 mesh: this.meshReport,
@@ -157,7 +157,8 @@ export default class ServiceRoutes {
             (this.service.dbManager.models).forEach(model => {
                 models[model.name] = model.collection.name;
             });
-        } else {
+        }
+        if (this.service.dbManager.rdb) {
             this.service.dbManager.models.forEach(model => {
                 models[model.name] = model.tableName;
             });

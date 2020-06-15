@@ -2,7 +2,6 @@
 import { Sequelize as RDB, Dialect, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
 import mongoose, { Connection as NoSQL } from 'mongoose';
 import { Logger } from 'winston';
-import { EventEmitter } from 'events';
 
 //Local Imports
 import RDBModel, { RDBModelAttributes } from './db.rdb.model';
@@ -16,11 +15,8 @@ export { NoSQL }
  * This class is a wrapper around the database `connection`.
  * The underlying connection object is built on `Sequelize` and `Mongoose`.
  * It also manages the database `Model`'s.
- * 
- * @emits `connected` when the database is connected.
- * @emits `disconnected` when the database is disconnected.
  */
-export default class DBManager extends EventEmitter {
+export default class DBManager {
     /**
      * The name of the database.
      */
@@ -70,78 +66,72 @@ export default class DBManager extends EventEmitter {
      * Creates an instance of a `DBManager`.
      * 
      * @param logger the logger instance.
-     * @param options the optional, constructor options.
+     * @param options the constructor options.
      * 
      * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
-    constructor(logger: Logger, options?: Options) {
-        //Call super for EventEmitter.
-        super();
-
+    constructor(logger: Logger, options: Options) {
         //Initialize variables.
         this.logger = logger;
 
-        //Initialize options if any.
-        if(options) {
-            //Validate type
-            this.type = options.type;
-            if (!this.type) {
-                throw new ConnectionOptionsError('Invalid database type provided.');
-            }
-    
-            //Validate host
-            this.host = options.host;
-            if (!this.host) {
-                throw new ConnectionOptionsError('Invalid database host provided.');
-            }
-    
-            //Validate name
-            this.name = options.name;
-            if (!this.name) {
-                throw new ConnectionOptionsError('Invalid database name provided.');
-            }
-    
-            //Validate username
-            this.username = options.username;
-            if (!this.username) {
-                throw new ConnectionOptionsError('Invalid database username provided.');
-            }
-    
-            //Validate password
-            this.password = options.password;
-            if (!this.password) {
-                throw new ConnectionOptionsError('Invalid database password provided.');
-            }
+        //Validate type
+        this.type = options.type;
+        if (!this.type) {
+            throw new ConnectionOptionsError('Invalid database type provided.');
+        }
 
-            this.paperTrail = (options.paperTrail === undefined) ? true : options.paperTrail;
-    
-            //Initialize NoSQL connection object.
-            if (this.noSQL) {
-                //Mongoose connection.
-                this.connection = mongoose.createConnection(`mongodb://${this.host}`, {
-                    dbName: this.name,
-                    user: this.username,
-                    pass: this.password,
-                    useNewUrlParser: true,
-                    useUnifiedTopology: true
-                });
-                mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
-                    this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
-                });
-                //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
-            }
-    
-            //Initialize RDB connection object.
-            if (this.rdb) {
-                //Sequelize constructor.
-                this.connection = new RDB(this.name, this.username, this.password, {
-                    host: this.host,
-                    dialect: (this.type as Dialect),
-                    logging: (sql: string) => {
-                        this.logger.info(sql);
-                    }
-                });
-            }
+        //Validate host
+        this.host = options.host;
+        if (!this.host) {
+            throw new ConnectionOptionsError('Invalid database host provided.');
+        }
+
+        //Validate name
+        this.name = options.name;
+        if (!this.name) {
+            throw new ConnectionOptionsError('Invalid database name provided.');
+        }
+
+        //Validate username
+        this.username = options.username;
+        if (!this.username) {
+            throw new ConnectionOptionsError('Invalid database username provided.');
+        }
+
+        //Validate password
+        this.password = options.password;
+        if (!this.password) {
+            throw new ConnectionOptionsError('Invalid database password provided.');
+        }
+
+        this.paperTrail = (options.paperTrail === undefined) ? true : options.paperTrail;
+
+        //Initialize NoSQL connection object.
+        if (this.noSQL) {
+            //Mongoose connection.
+            this.connection = mongoose.createConnection(`mongodb://${this.host}`, {
+                dbName: this.name,
+                user: this.username,
+                pass: this.password,
+                useNewUrlParser: true,
+                useUnifiedTopology: true
+            });
+            mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
+                this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
+            });
+            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
+        }
+
+        //Initialize RDB connection object.
+        if (this.rdb) {
+            //Sequelize constructor.
+            this.connection = new RDB(this.name, this.username, this.password, {
+                host: this.host,
+                dialect: (this.type as Dialect),
+                logging: (sql: string) => {
+                    this.logger.info(sql);
+                }
+            });
         }
 
         //Set default connected.
@@ -228,13 +218,13 @@ export default class DBManager extends EventEmitter {
      * 
      * @param callback optional callback. Will be called when the database is connected.
      */
-    public connect(callback?: (connection: boolean, error?: Error) => void) {
+    public connect(callback?: (error?: Error) => void) {
         //NoSQL Connection
         if (this.noSQL) {
             this.connectNoSQL((error) => {
                 //Callback.
                 if (callback) {
-                    callback(true, error);
+                    callback(error);
                 }
             });
         }
@@ -244,17 +234,9 @@ export default class DBManager extends EventEmitter {
             this.connectRDB((error) => {
                 //Callback.
                 if (callback) {
-                    callback(true, error);
+                    callback(error);
                 }
             });
-        }
-
-        //No Connection.
-        if (!this.noSQL && !this.rdb) {
-            //Callback.
-            if (callback) {
-                callback(false);
-            }
         }
     }
 
@@ -268,9 +250,6 @@ export default class DBManager extends EventEmitter {
         (this.connection as NoSQL).once('connected', () => {
             //Set connected Flag 
             this._connected = true;
-
-            //Emit Global: connected.
-            this.emit('connected');
 
             //Callback.
             if (callback) {
@@ -306,52 +285,46 @@ export default class DBManager extends EventEmitter {
      * 
      * @param callback optional callback. Will be called when the database is connected.
      */
-    private connectRDB(callback?: (error?: Error) => void) {
-        //Associate models.
+    private async connectRDB(callback?: (error?: Error) => void) {
         try {
+            //Associate models.
             this.models.forEach(model => {
                 (model as typeof RDBModel).associate();
             });
+
+            //Start Connection.
+            await (this.connection as RDB).authenticate();
+
+            //Set connected Flag 
+            this._connected = true;
+
+            //Callback.
+            if (callback) {
+                callback();
+            }
         } catch (error) {
-            this.logger.error(error.stack);
+            //Set connected Flag 
+            this._connected = false;
+
+            //SQL Errors.
+            if (error instanceof AccessDeniedError) {
+                error = new ConnectionOptionsError('Access denied to the database.');
+            }
+            if (error instanceof ConnectionRefusedError) {
+                error = new ConnectionOptionsError('Connection refused to the database.');
+            }
+            if (error instanceof HostNotFoundError) {
+                error = new ConnectionOptionsError('Invalid database host.');
+            }
+            if (error instanceof ConnectionError) {
+                error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+            }
+
+            //Callback with error.
+            if (callback) {
+                callback(error);
+            }
         }
-
-        //Start Connection.
-        (this.connection as RDB).authenticate()
-            .then(() => {
-                //Set connected Flag 
-                this._connected = true;
-
-                //Emit Global: connected.
-                this.emit('connected');
-
-                //Callback.
-                if (callback) {
-                    callback();
-                }
-            }).catch((error: Error) => {
-                //Set connected Flag 
-                this._connected = false;
-
-                //SQL Errors.
-                if (error instanceof AccessDeniedError) {
-                    error = new ConnectionOptionsError('Access denied to the database.');
-                }
-                if (error instanceof ConnectionRefusedError) {
-                    error = new ConnectionOptionsError('Connection refused to the database.');
-                }
-                if (error instanceof HostNotFoundError) {
-                    error = new ConnectionOptionsError('Invalid database host.');
-                }
-                if (error instanceof ConnectionError) {
-                    error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
-                }
-
-                //Callback with error.
-                if (callback) {
-                    callback(error);
-                }
-            });
     }
 
     /**
@@ -359,30 +332,22 @@ export default class DBManager extends EventEmitter {
      * 
      * @param callback optional callback. Will be called when the database is disconnected.
      */
-    public disconnect(callback?: (error?: Error) => void) {
-        if (this.rdb || this.noSQL) {
-            this.connection.close()
-                .then(() => {
-                    //Set connected Flag 
-                    this._connected = false;
+    public async disconnect(callback?: (error?: Error) => void) {
+        try {
+            //Close the connection.
+            await this.connection.close();
 
-                    //Emit Global: disconnected.
-                    this.emit('disconnected');
+            //Set connected Flag 
+            this._connected = false;
 
-                    //Callback.
-                    if (callback) {
-                        callback();
-                    }
-                }).catch((error: Error) => {
-                    //Callback with error.
-                    if (callback) {
-                        callback(error);
-                    }
-                });
-        } else {
             //Callback.
             if (callback) {
                 callback();
+            }
+        } catch (error) {
+            //Callback with error.
+            if (callback) {
+                callback(error);
             }
         }
     }

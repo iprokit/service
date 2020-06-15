@@ -102,7 +102,7 @@ function micro(options?: Options) {
             discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
             forceStopTime: options.forceStopTime || Default.FORCE_STOP_TIME,
             logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
-            db: options.db &&  {
+            db: options.db && {
                 type: options.db.type,
                 host: process.env.DB_HOST,
                 name: process.env.DB_NAME,
@@ -116,13 +116,12 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Mount Hook[2]: PreStart.
+        //Mount PreStart Hook[2]: Inject Files.
         service.hooks.preStart.mount((done) => {
-            //Inject Files.
             injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
 
             done();
-        });
+        }, 'injectFiles');
 
         // service.get('/doc', getDoc);
     }
@@ -157,7 +156,7 @@ namespace micro {
      * The underlying database `Connection`.
      */
     export function connection() {
-        return service.dbManager.connection;
+        return service.dbManager && service.dbManager.connection;
     }
 
     /**
@@ -363,7 +362,7 @@ export interface EntityOptions {
  */
 export function Entity(options: EntityOptions): ModelClass {
     return (model) => {
-        if (service.dbManager.connection) {
+        if (service.dbManager) {
             const modelName = model.name.replace('Model', '');
 
             //Validate if the database type and model type match.
@@ -567,11 +566,6 @@ export type Options = {
      * The name of the service.
      */
     name?: string;
-
-    /**
-     * The base URL of the service.
-     */
-    baseUrl?: string;
 
     /**
      * The version of the service.

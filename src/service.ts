@@ -105,14 +105,9 @@ export default class Service extends EventEmitter {
     public readonly logger: Logger;
 
     /**
-     * Instance of `Express` application.
+     * Instance of `DBManager`.
      */
-    public readonly express: Express;
-
-    /**
-     * Instance of `HttpServer`.
-     */
-    private _httpServer: HttpServer;
+    public readonly dbManager: DBManager;
 
     /**
      * Instance of `ScpServer`.
@@ -130,9 +125,14 @@ export default class Service extends EventEmitter {
     public readonly discovery: Discovery;
 
     /**
-     * Instance of `DBManager`.
+     * Instance of `Express` application.
      */
-    public readonly dbManager: DBManager;
+    public readonly express: Express;
+
+    /**
+     * Instance of `HttpServer`.
+     */
+    private _httpServer: HttpServer;
 
     /**
      * Creates an instance of a `Service`.
@@ -165,11 +165,22 @@ export default class Service extends EventEmitter {
         this.logger = winston.createLogger();
         this.configLogger();
 
-        //Initialize Express.
-        this.express = express();
-        this.configExpress();
+        //Initialize DB Manager
+        if (options.db) {
+            const dbLogger = this.logger.child({ component: 'DB' });
+            try {
+                this.dbManager = new DBManager(dbLogger, options.db);
+                this.configDatabase();
+            } catch (error) {
+                if (error instanceof ConnectionOptionsError) {
+                    this.logger.error(error.message);
+                } else {
+                    this.logger.error(error.stack);
+                }
+            }
+        }
 
-        //Initialize SCP.
+        //Initialize SCP Server.
         const scpLogger = this.logger.child({ component: 'SCP' });
         const scpLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
@@ -179,7 +190,7 @@ export default class Service extends EventEmitter {
         this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
         this.configSCP();
 
-        //Initialize Mesh.
+        //Initialize Mesh: SCP Client Manager + Discovery.
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
@@ -190,9 +201,9 @@ export default class Service extends EventEmitter {
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
         this.configMesh();
 
-        //Initialize DB Manager
-        const dbLogger = this.logger.child({ component: 'DB' });
-        this.dbManager = new DBManager(dbLogger, options.db);
+        //Initialize Express: Http Server.
+        this.express = express();
+        this.configExpress();
 
         //Add service routes.
         this.addServiceRoutes();
@@ -205,17 +216,17 @@ export default class Service extends EventEmitter {
     //////Gets/Sets
     //////////////////////////////
     /**
-     * Instance of `HttpServer`.
-     */
-    public get httpServer() {
-        return this._httpServer;
-    }
-
-    /**
      * `Node`'s are populated into this `Mesh` instance during runtime.
      */
     public get mesh() {
         return this.scpClientManager.mesh;
+    }
+
+    /**
+     * Instance of `HttpServer`.
+     */
+    public get httpServer() {
+        return this._httpServer;
     }
 
     //////////////////////////////
@@ -263,57 +274,86 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures HTTP Server by setting up `Express`.
+     * Configures the database by setting up `DBManager`.
+     * 
+     * Hooks:
+     * - Mounts a start hook at index 0.
+     * - Mounts a stop hook at index 0.
      */
-    private configExpress() {
-        //Middleware: Setup Basic.
-        this.express.use(cors());
-        this.express.options('*', cors());
-        this.express.use(express.json({ limit: '50mb' }));
-        this.express.use(express.urlencoded({ extended: false }));
-
-        //Setup child logger for HTTP.
-        const httpLogger = this.logger.child({ component: 'HTTP' });
-
-        //Middleware: Morgan, bind it with Winston.
-        this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
-            stream: {
-                write: (log: string) => {
-                    httpLogger.info(`${log.trim()}`);
+    private configDatabase() {
+        //Mount Start Hook[0]: Connect to DB.
+        this.hooks.start.mount((done) => {
+            this.dbManager.connect((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
+                } else {
+                    if (error instanceof ConnectionOptionsError) {
+                        this.logger.error(error.message);
+                    } else {
+                        this.logger.error(error.stack);
+                    }
                 }
-            }
-        }));
 
-        //Middleware: Proxy pass.
-        this.express.use((request: Request, response: Response, next: NextFunction) => {
-            //Generate Proxy object from headers.
-            Helper.generateProxyObjects(request);
-            next();
-        });
-
-        //Mount Hook[0]: PreStart.
-        this.hooks.preStart.mount((done) => {
-            //Middleware: Error handler for 404.
-            this.express.use((request: Request, response: Response, next: NextFunction) => {
-                response.status(HttpCodes.NOT_FOUND).send('Not Found');
+                done();
             });
+        }, 'dbManagerConnect');
 
-            done();
-        });
+        //Mount Stop Hook[0]: Disconnect from DB.
+        this.hooks.stop.mount((done) => {
+            this.dbManager.disconnect((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`DB Disconnected.`);
+                }
+
+                done();
+            });
+        }, 'dbManagerDisconnect');
     }
 
     /**
      * Configures SCP by setting up `ScpServer`.
+     * 
+     * Hooks:
+     * - Mounts a start hook at index 1.
+     * - Mounts a stop hook at index 1.
      */
     private configSCP() {
         //Bind Events.
         this.scpServer.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
+
+        //Mount Start Hook[1]: Listen SCP Server.
+        this.hooks.start.mount((done) => {
+            this.scpServer.listen(this.scpPort, () => {
+                //Log Event.
+                this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
+
+                done();
+            });
+        }, 'scpServerListen');
+
+        //Mount Stop Hook[1]: Close SCP Server.
+        this.hooks.stop.mount((done) => {
+            this.scpServer.close((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`Stopped SCP Server.`);
+                }
+
+                done();
+            });
+        }, 'scpServerClose');
     }
 
     /**
      * Configures Mesh by setting up `ScpClientManager` and `Discovery`.
+     * 
+     * Hooks:
+     * - Mounts a start hook at index 2.
+     * - Mounts a stop hook at index 2.
      */
     private configMesh() {
         //Bind Events.
@@ -347,6 +387,98 @@ export default class Service extends EventEmitter {
         this.discovery.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
+
+        //Mount Start Hook[2]: Bind Discovery.
+        this.hooks.start.mount((done) => {
+            this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
+                } else {
+                    this.logger.error(error.stack);
+                }
+
+                done();
+            });
+        }, 'discoveryBind');
+
+        //Mount Stop Hook[2]: Close Discovery.
+        this.hooks.stop.mount((done) => {
+            this.discovery.close((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`Stopped Discovery.`);
+                }
+
+                done();
+            });
+        }, 'discoveryClose');
+    }
+
+    /**
+     * Configures HTTP Server by setting up `Express`.
+     * 
+     * Hooks:
+     * - Mounts a preStart hook at index 0.
+     * - Mounts a start hook at index 3.
+     * - Mounts a stop hook at index 3.
+     */
+    private configExpress() {
+        //Middleware: Setup Basic.
+        this.express.use(cors());
+        this.express.options('*', cors());
+        this.express.use(express.json({ limit: '50mb' }));
+        this.express.use(express.urlencoded({ extended: false }));
+
+        //Setup child logger for HTTP.
+        const httpLogger = this.logger.child({ component: 'HTTP' });
+
+        //Middleware: Morgan, bind it with Winston.
+        this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
+            stream: {
+                write: (log: string) => {
+                    httpLogger.info(`${log.trim()}`);
+                }
+            }
+        }));
+
+        //Middleware: Proxy pass.
+        this.express.use((request: Request, response: Response, next: NextFunction) => {
+            //Generate Proxy object from headers.
+            Helper.generateProxyObjects(request);
+            next();
+        });
+
+        //Mount PreStart Hook[0]: Middleware: Error handler for 404.
+        this.hooks.preStart.mount((done) => {
+            this.express.use((request: Request, response: Response, next: NextFunction) => {
+                response.status(HttpCodes.NOT_FOUND).send('Not Found');
+            });
+
+            done();
+        }, 'middlewareNotFound');
+
+        //Mount Start Hook[3]: Listen HTTP Server.
+        this.hooks.start.mount((done) => {
+            this._httpServer = this.express.listen(this.httpPort, () => {
+                //Log Event.
+                this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
+
+                done();
+            });
+        }, 'httpServerListen');
+
+        //Mount Stop Hook[3]: Close HTTP Server.
+        this.hooks.stop.mount((done) => {
+            this._httpServer.close((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`Stopped HTTP server.`);
+                }
+
+                done();
+            });
+        }, 'httpServerClose');
     }
 
     //////////////////////////////
@@ -354,11 +486,13 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Adds the default service routes.
+     * 
+     * Hooks:
+     * - Mounts a preStart hook at index 1.
      */
     private addServiceRoutes() {
-        //Mount Hook[1]: PreStart.
+        //Mount PreStart Hook[1]: Initialize serviceRoutes.
         this.hooks.preStart.mount((done) => {
-            //Initialize serviceRoutes.
             const serviceRoutes = new ServiceRoutes(this);
 
             //Bind functions with the `ServiceRoutes` context.
@@ -374,12 +508,37 @@ export default class Service extends EventEmitter {
             defaultRouter.get('/shutdown', serviceRoutes.shutdown);
 
             //Database routes.
-            if (this.dbManager.connection) {
+            if (this.dbManager) {
                 const databaseRouter = this.createRouter('/db');
                 databaseRouter.get('/sync', serviceRoutes.syncDatabase);
             }
 
             done();
+        }, 'serviceRoutes');
+    }
+
+    /**
+     * Binds process events on `SIGTERM` and `SIGINT`.
+     */
+    private bindProcessEvents() {
+        //Exit
+        process.once('SIGTERM', () => {
+            this.logger.info('Received SIGTERM.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        //Ctrl + C
+        process.on('SIGINT', () => {
+            this.logger.info('Received SIGINT.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
     }
 
@@ -427,57 +586,20 @@ export default class Service extends EventEmitter {
         //Emit Global: starting.
         this.emit('starting');
 
-        //Run Hook: Pre Start.
-        this.hooks.preStart.execute(() => {
-
-            //Start HTTP Server
-            this._httpServer = this.express.listen(this.httpPort, () => {
-                //Log Event.
-                this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
-
-                //Start SCP Server
-                this.scpServer.listen(this.scpPort, () => {
+        //Run Hooks.
+        this.hooks.preStart.execute(true, () => {
+            this.hooks.start.execute(false, () => {
+                this.hooks.postStart.execute(true, () => {
                     //Log Event.
-                    this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
+                    this.logger.info(`${this.name} ready.`);
 
-                    //Start Discovery
-                    this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
-                        if (!error) {
-                            //Log Event.
-                            this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
-                        } else {
-                            this.logger.error(error.stack);
-                        }
+                    //Emit Global: ready.
+                    this.emit('ready');
 
-                        //Start DB Manager
-                        this.dbManager.connect((connection, error) => {
-                            if (connection) {
-                                //Log Event.
-                                this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
-                            }
-                            if (error) {
-                                if (error instanceof ConnectionOptionsError) {
-                                    this.logger.error(error.message);
-                                } else {
-                                    this.logger.error(error.stack);
-                                }
-                            }
-
-                            //Run Hook: Post Start.
-                            this.hooks.postStart.execute(() => {
-                                //Log Event.
-                                this.logger.info(`${this.name} ready.`);
-
-                                //Emit Global: ready.
-                                this.emit('ready');
-
-                                //Callback.
-                                if (callback) {
-                                    callback();
-                                }
-                            });
-                        });
-                    });
+                    //Callback.
+                    if (callback) {
+                        callback();
+                    }
                 });
             });
         });
@@ -507,50 +629,18 @@ export default class Service extends EventEmitter {
             this.logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
 
-        //Run Hook: Pre Stop.
-        this.hooks.preStop.execute(() => {
-
-            //Stop HTTP Servers
-            this._httpServer.close((error) => {
-                if (!error) {
+        //Run Hooks.
+        this.hooks.preStop.execute(true, () => {
+            this.hooks.stop.execute(false, () => {
+                this.hooks.postStop.execute(true, () => {
                     //Log Event.
-                    this.logger.info(`Stopped HTTP server.`);
-                }
+                    this.logger.info(`${this.name} stopped.`);
 
-                //Stop SCP Servers
-                this.scpServer.close((error) => {
-                    if (!error) {
-                        //Log Event.
-                        this.logger.info(`Stopped SCP Server.`);
-                    }
+                    //Emit Global: stopped.
+                    this.emit('stopped');
 
-                    //Stop Discovery
-                    this.discovery.close((error) => {
-                        if (!error) {
-                            //Log Event.
-                            this.logger.info(`Stopped Discovery.`);
-                        }
-
-                        //Stop DB Manager
-                        this.dbManager.disconnect((error) => {
-                            if (!error) {
-                                //Log Event.
-                                this.logger.info(`DB Disconnected.`);
-                            }
-
-                            //Run Hook: Post Stop.
-                            this.hooks.postStop.execute(() => {
-                                //Log Event.
-                                this.logger.info(`${this.name} stopped.`);
-
-                                //Emit Global: stopped.
-                                this.emit('stopped');
-
-                                //Callback.
-                                callback(0);
-                            });
-                        });
-                    });
+                    //Callback.
+                    callback(0);
                 });
             });
         });
@@ -719,34 +809,6 @@ export default class Service extends EventEmitter {
         //Return this for chaining.
         return this;
     }
-
-    //////////////////////////////
-    //////Listeners
-    //////////////////////////////
-    /**
-     * Binds process events on `SIGTERM` and `SIGINT`.
-     */
-    private bindProcessEvents() {
-        //Exit
-        process.once('SIGTERM', () => {
-            this.logger.info('Received SIGTERM.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        //Ctrl + C
-        process.on('SIGINT', () => {
-            this.logger.info('Received SIGINT.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
-        });
-    }
 }
 
 //////////////////////////////
@@ -825,6 +887,11 @@ export class Hooks {
     public readonly preStart: Hook;
 
     /**
+     * The functions called to start the service.
+     */
+    public readonly start: Hook;
+
+    /**
      * The functions called after the service has started.
      */
     public readonly postStart: Hook;
@@ -833,6 +900,11 @@ export class Hooks {
      * The functions called before the service stops.
      */
     public readonly preStop: Hook;
+
+    /**
+     * The functions called to stop the service.
+     */
+    public readonly stop: Hook;
 
     /**
      * The functions called after the service has stopped.
@@ -845,22 +917,26 @@ export class Hooks {
     constructor() {
         //Initialize variables.
         this.preStart = new Hook();
+        this.start = new Hook();
         this.postStart = new Hook();
         this.preStop = new Hook();
+        this.stop = new Hook();
         this.postStop = new Hook();
     }
 }
 
 /**
- * A Hook is an array of functions that will be executed in reverse order.
+ * A Hook is an array of functions that will be executed.
  */
 export class Hook extends Array<HookHandler>{
     /**
      * Mount a hook handler.
      * 
      * @param handler the handler to mount.
+     * @param name the name of the handler.
      */
-    public mount(handler: HookHandler) {
+    public mount(handler: HookHandler, name: string) {
+        Object.defineProperty(handler, 'name', { value: name });
         this.push(handler);
     }
 
@@ -868,14 +944,15 @@ export class Hook extends Array<HookHandler>{
     //////Execute
     //////////////////////////////
     /**
-     * Execute all the functions in reverse order.
+     * Execute all the functions.
      * 
+     * @param reverse set to true if the functions should be executed in reverse order, false otherwise.
      * @param callback optional callback, called when the function executions are complete.
      */
-    public execute(callback?: () => void) {
+    public execute(reverse: boolean, callback?: () => void) {
         if (this.length > 0) {
-            //Reverse the handlers.
-            const reverseHandlers = this.reverse();
+            //The handlers to execute.
+            const handlers = (reverse === true) ? this.reverse() : this;
 
             //Initialize the iterator.
             let iterator = 0;
@@ -886,10 +963,10 @@ export class Hook extends Array<HookHandler>{
             const done: DoneHandler = () => {
                 iterator++;
 
-                if (iterator < reverseHandlers.length - 1) {
-                    reverseHandlers[iterator](done);
+                if (iterator < handlers.length - 1) {
+                    handlers[iterator](done);
                 } else {
-                    reverseHandlers[iterator](() => {
+                    handlers[iterator](() => {
                         //Callback.
                         if (callback) {
                             callback();
@@ -899,7 +976,7 @@ export class Hook extends Array<HookHandler>{
             }
 
             //Start the handler call.
-            reverseHandlers[iterator](done);
+            handlers[iterator](done);
         } else {
             //Callback.
             if (callback) {
