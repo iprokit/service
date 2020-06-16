@@ -42,7 +42,7 @@ export default class Gateway {
         //TODO: https://iprotechs.atlassian.net/browse/PMICRO-117
         //Define URL.
         const _url = new URL(`http://${url}`);
-        _url.port = _url.port === '' ? Default.HTTP_PORT.toString() : _url.port;
+        _url.port = (_url.port === '') ? Default.HTTP_PORT.toString() : _url.port;
 
         /**
          * Internal function to massage the request object.

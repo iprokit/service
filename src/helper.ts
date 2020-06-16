@@ -1,7 +1,7 @@
 //Import modules
 import fs from 'fs';
 import path from 'path';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { RequestOptions } from 'https';
 
 /**
@@ -119,9 +119,6 @@ export default class Helper {
     /**
      * Generate proxy headers from proxy objects.
      * This is used to pass proxy headers from gateway service to a service during proxy redirect.
-     * 
-     * @param sourceRequest the source service request.
-     * @param targetRequest the target service request.
      */
     public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions) {
         const proxyObject = Object.getPrototypeOf(sourceRequest).proxy;
@@ -136,16 +133,13 @@ export default class Helper {
     /**
      * Generate proxy objects from proxy headers.
      * This is used to unpack proxy objects into the service.
-     * 
-     * @param request the request object to unpack the proxy objects.
      */
-    public static generateProxyObjects(request: Request) {
+    public static generateProxyObjects(request: Request, response: Response, next: NextFunction) {
         //Create Empty Proxy object.
         Object.getPrototypeOf(request).proxy = {};
 
-        let proxyHeaders = request.headers;
         //Convert Proxy headers to array and get each proxy.
-        Object.entries(proxyHeaders).find(([name, proxy]) => {
+        Object.entries(request.headers).find(([name, proxy]) => {
             if (name.startsWith('proxy-')) {
                 const objectKey = name.split('-')[1];
                 const objectValue = proxy;
@@ -155,6 +149,8 @@ export default class Helper {
                 delete request.headers[name];
             }
         });
+
+        next();
     }
 }
 
