@@ -371,28 +371,29 @@ export default class Service extends EventEmitter {
 
     /**
      * Configures default service routes.
+     * 
+     * Hooks:
+     * - Mounts a preStart hook at index 1.
      */
     private configServiceRoutes() {
-        //Initialize serviceRoutes.
-        const serviceRoutes = new ServiceRoutes(this);
+        //Mount PreStart Hook[1]: Initialize serviceRoutes.
+        this.hooks.preStart.mount((done) => {
+            const serviceRoutes = new ServiceRoutes(this);
 
-        //Bind functions with the `ServiceRoutes` context.
-        serviceRoutes.getHealth = serviceRoutes.getHealth.bind(serviceRoutes);
-        serviceRoutes.getReport = serviceRoutes.getReport.bind(serviceRoutes);
-        serviceRoutes.shutdown = serviceRoutes.shutdown.bind(serviceRoutes);
-        serviceRoutes.syncDatabase = serviceRoutes.syncDatabase.bind(serviceRoutes);
+            //Service routes.
+            const defaultRouter = this.createRouter('/');
+            defaultRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
+            defaultRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
+            defaultRouter.get('/shutdown', Helper.bind(serviceRoutes.shutdown, serviceRoutes));
 
-        //Service routes.
-        const defaultRouter = this.createRouter('/');
-        defaultRouter.get('/health', serviceRoutes.getHealth);
-        defaultRouter.get('/report', serviceRoutes.getReport);
-        defaultRouter.get('/shutdown', serviceRoutes.shutdown);
+            //Database routes.
+            if (this.dbManager) {
+                const databaseRouter = this.createRouter('/db');
+                databaseRouter.get('/sync', Helper.bind(serviceRoutes.syncDatabase, serviceRoutes));
+            }
 
-        //Database routes.
-        if (this.dbManager) {
-            const databaseRouter = this.createRouter('/db');
-            databaseRouter.get('/sync', serviceRoutes.syncDatabase);
-        }
+            done();
+        });
     }
 
     //////////////////////////////

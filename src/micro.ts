@@ -116,8 +116,12 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Inject Files.
-        injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+        //Mount PreStart Hook[2]: Inject Files.
+        service.hooks.preStart.mount((done) => {
+            injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+
+            done();
+        });
 
         // service.get('/doc', getDoc);
     }
@@ -255,11 +259,8 @@ function loadMessenger(file: string) {
         //Setup a new Action.
         const action = name + Action.MAP_BREAK + meta.handlerName;
 
-        //Bind Function.
-        messenger[meta.handlerName] = messenger[meta.handlerName].bind(messenger);
-
         //Add Action.
-        service[meta.type](action, messenger[meta.handlerName]);
+        service[meta.type](action, Helper.bind(messenger[meta.handlerName], messenger));
     });
 
     //Add to messengers.
@@ -294,11 +295,8 @@ function loadController(file: string) {
 
     //Get each meta, bind the function and add route to the router.
     controllerMeta.forEach(meta => {
-        //Bind Function.
-        controller[meta.handlerName] = controller[meta.handlerName].bind(controller);
-
         //Add Route.
-        router[meta.method](meta.relativePath, controller[meta.handlerName]);
+        router[meta.method](meta.relativePath, Helper.bind(controller[meta.handlerName], controller));
     });
 
     //Add to controllers.

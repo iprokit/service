@@ -9,6 +9,24 @@ import { RequestOptions } from 'https';
  */
 export default class Helper {
     //////////////////////////////
+    //////Bind
+    //////////////////////////////
+    /**
+     * Binds the function to `thisArg`.
+     * 
+     * @param fn the function to bind.
+     * @param thisArg the argument to bind the function.
+     */
+    public static bind(fn: Function, thisArg: any) {
+        //Bind the function.
+        thisArg[fn.name] = thisArg[fn.name].bind(thisArg);
+
+        //Set function name.
+        Object.defineProperty(thisArg[fn.name], 'name', { value: fn.name });
+
+        return thisArg[fn.name];
+    }
+    //////////////////////////////
     //////File
     //////////////////////////////
     /**

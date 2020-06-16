@@ -287,7 +287,7 @@ export default class ServiceRoutes {
         const stack = handler.route.stack[0];
 
         return {
-            fn: (stack.name === '') ? '<anonymous>' : stack.name.replace('bound ', ''),
+            fn: (stack.name === '') ? '<anonymous>' : stack.name,
             method: (stack.method === undefined) ? 'all' : stack.method.toUpperCase(),
             path: handler.route.path
         }
