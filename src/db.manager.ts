@@ -48,9 +48,9 @@ export default class DBManager {
     public readonly paperTrail: boolean;
 
     /**
-     * Set to true if the database is connected, false otherwise.
+     * Set to true if RDB is connected, false otherwise.
      */
-    private _connected: boolean;
+    private _rdbConnected: boolean;
 
     /**
      * The underlying database `Connection` object.
@@ -128,14 +128,26 @@ export default class DBManager {
             this.connection = new RDB(this.name, this.username, this.password, {
                 host: this.host,
                 dialect: (this.type as Dialect),
+                pool: {
+                    min: 1,
+                },
+                hooks: {
+                    afterConnect: () => {
+                        this._rdbConnected = true;
+
+                        console.log('Connected');
+                    },
+                    afterDisconnect: () => {
+                        this._rdbConnected = false;
+
+                        console.log('Disconnected');
+                    }
+                },
                 logging: (sql: string) => {
                     this.logger.info(sql);
-                }
+                },
             });
         }
-
-        //Set default connected.
-        this._connected = false;
     }
 
     //////////////////////////////
@@ -159,7 +171,12 @@ export default class DBManager {
      * True if the database is connected, false otherwise.
      */
     public get connected() {
-        return this._connected;
+        if (this.noSQL) {
+            return ((this.connection as NoSQL).readyState === 1) ? true : false;
+        }
+        if (this.rdb) {
+            return (this._rdbConnected === undefined) ? false : this._rdbConnected;
+        }
     }
 
     /**
@@ -248,18 +265,12 @@ export default class DBManager {
     private connectNoSQL(callback?: (error?: Error) => void) {
         //Start Connection.
         (this.connection as NoSQL).once('connected', () => {
-            //Set connected Flag 
-            this._connected = true;
-
             //Callback.
             if (callback) {
                 callback();
             }
         });
         (this.connection as NoSQL).on('error', (error: Error) => {
-            //Set connected Flag 
-            this._connected = false;
-
             //NoSQL Errors.
             if (error.message.includes('Authentication failed')) {
                 error = new ConnectionOptionsError('Connection refused to the database.');
@@ -295,17 +306,11 @@ export default class DBManager {
             //Start Connection.
             await (this.connection as RDB).authenticate();
 
-            //Set connected Flag 
-            this._connected = true;
-
             //Callback.
             if (callback) {
                 callback();
             }
         } catch (error) {
-            //Set connected Flag 
-            this._connected = false;
-
             //SQL Errors.
             if (error instanceof AccessDeniedError) {
                 error = new ConnectionOptionsError('Access denied to the database.');
@@ -336,9 +341,6 @@ export default class DBManager {
         try {
             //Close the connection.
             await this.connection.close();
-
-            //Set connected Flag 
-            this._connected = false;
 
             //Callback.
             if (callback) {

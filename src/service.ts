@@ -18,7 +18,6 @@ import ip from 'ip';
 //Local Imports
 import Helper from './helper';
 import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
-import ServiceRoutes from './service.routes';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -206,9 +205,6 @@ export default class Service extends EventEmitter {
         this.express = express();
         this.configExpress();
 
-        //Initialize Service Routes.
-        this.configServiceRoutes();
-
         //Mount Hooks.
         this.mountStartHooks();
         this.mountStopHooks();
@@ -378,33 +374,6 @@ export default class Service extends EventEmitter {
         });
     }
 
-    /**
-     * Configures default service routes.
-     * 
-     * Hooks:
-     * - Mounts a preStart hook at index 1.
-     */
-    private configServiceRoutes() {
-        //Mount PreStart Hook[1]: Initialize serviceRoutes.
-        this.hooks.preStart.mount((done) => {
-            const serviceRoutes = new ServiceRoutes(this);
-
-            //Service routes.
-            const defaultRouter = this.createRouter('/');
-            defaultRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
-            defaultRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
-            defaultRouter.get('/shutdown', Helper.bind(serviceRoutes.shutdown, serviceRoutes));
-
-            //Database routes.
-            if (this.dbManager) {
-                const databaseRouter = this.createRouter('/db');
-                databaseRouter.get('/sync', Helper.bind(serviceRoutes.syncDatabase, serviceRoutes));
-            }
-
-            done();
-        });
-    }
-
     //////////////////////////////
     //////Hooks
     //////////////////////////////
@@ -569,7 +538,7 @@ export default class Service extends EventEmitter {
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
         const remoteService = new RemoteService(name, alias, defined, scpClient);
-        this.serviceRegistry.push(remoteService);
+        this.serviceRegistry.register(remoteService);
 
         return remoteService;
     }
@@ -1024,6 +993,18 @@ export class ServiceRegistry extends Array<RemoteService> {
         const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected);
 
         return (remoteService === undefined) ? true : false;
+    }
+
+    //////////////////////////////
+    //////Array
+    //////////////////////////////
+    /**
+     * Registeres the `RemoteService`.
+     * 
+     * @param remoteService the remote service.
+     */
+    public register(remoteService: RemoteService) {
+        this.push(remoteService);
     }
 
     /**
