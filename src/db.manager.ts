@@ -156,7 +156,7 @@ export default class DBManager {
     }
 
     /**
-     * Set to true if the database is connected, false otherwise.
+     * True if the database is connected, false otherwise.
      */
     public get connected() {
         return this._connected;

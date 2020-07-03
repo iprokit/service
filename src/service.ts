@@ -97,9 +97,9 @@ export default class Service extends EventEmitter {
     public readonly hooks: Hooks;
 
     /**
-     * The remote services discovered.
+     * A registry of remote services.
      */
-    public readonly remoteServices: { [name: string]: RemoteService };
+    public readonly serviceRegistry: ServiceRegistry;
 
     /**
      * The logger instance.
@@ -160,8 +160,8 @@ export default class Service extends EventEmitter {
         //Initialize Hooks.
         this.hooks = new Hooks();
 
-        //Initialize RemoteServices.
-        this.remoteServices = {};
+        //Initialize ServiceRegistry.
+        this.serviceRegistry = new ServiceRegistry();
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -298,7 +298,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one.
-            const remoteService = this.remoteServices[pod.name] || this.register(pod.name);
+            const remoteService = this.serviceRegistry.get(pod.name) || this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
             remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
@@ -315,7 +315,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
             //Try finding the remoteService.
-            const remoteService = this.remoteServices[pod.name];
+            const remoteService = this.serviceRegistry.get(pod.name);
 
             remoteService.scpClient.disconnect(() => {
                 //Log Event.
@@ -355,6 +355,15 @@ export default class Service extends EventEmitter {
                 }
             }
         }));
+
+        //Middleware: Service Unavailable.
+        this.express.use((request: Request, response: Response, next: NextFunction) => {
+            response.setTimeout(1000 * 60 * 2, () => {
+                response.status(HttpCodes.SERVICE_UNAVAILABLE).send('Service Unavailable');
+            });
+
+            next();
+        });
 
         //Middleware: Proxy pass.
         this.express.use(Helper.generateProxyObjects);
@@ -403,10 +412,8 @@ export default class Service extends EventEmitter {
      * Mount start hooks.
      */
     private mountStartHooks() {
-        /**
-         * Connect to DB.
-         */
-        const dbManagerConnect: HookHandler = (done) => {
+        //Connect to DB.
+        this.dbManager && this.hooks.start.mount((done) => {
             this.dbManager.connect((error) => {
                 if (!error) {
                     //Log Event.
@@ -421,24 +428,20 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Listen on SCP Server.
-         */
-        const scpServerListen: HookHandler = (done) => {
+        //Listen on SCP Server.
+        this.hooks.start.mount((done) => {
             this.scpServer.listen(this.scpPort, () => {
                 //Log Event.
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Bind Discovery.
-         */
-        const discoveryBind: HookHandler = (done) => {
+        //Bind Discovery.
+        this.hooks.start.mount((done) => {
             this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
                 if (!error) {
                     //Log Event.
@@ -449,35 +452,25 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Listen on HTTP Server.
-         */
-        const httpServerListen: HookHandler = (done) => {
+        //Listen on HTTP Server.
+        this.hooks.start.mount((done) => {
             this._httpServer = this.express.listen(this.httpPort, () => {
                 //Log Event.
                 this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
 
                 done();
             });
-        }
-
-        //Mount hooks.
-        this.dbManager && this.hooks.start.mount(dbManagerConnect);
-        this.hooks.start.mount(scpServerListen);
-        this.hooks.start.mount(discoveryBind);
-        this.hooks.start.mount(httpServerListen);
+        });
     }
 
     /**
      * Mount stop hooks.
      */
     private mountStopHooks() {
-        /**
-         * Disconnect from DB.
-         */
-        const dbManagerDisconnect: HookHandler = (done) => {
+        //Disconnect from DB.
+        this.dbManager && this.hooks.stop.mount((done) => {
             this.dbManager.disconnect((error) => {
                 if (!error) {
                     //Log Event.
@@ -486,12 +479,10 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Close SCP Server.
-         */
-        const scpServerClose: HookHandler = (done) => {
+        //Close SCP Server.
+        this.hooks.stop.mount((done) => {
             this.scpServer.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -500,12 +491,10 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Close Discovery.
-         */
-        const discoveryClose: HookHandler = (done) => {
+        //Close Discovery.
+        this.hooks.stop.mount((done) => {
             this.discovery.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -514,12 +503,10 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
+        });
 
-        /**
-         * Close HTTP Server.
-         */
-        const httpServerClose: HookHandler = (done) => {
+        //Close HTTP Server.
+        this.hooks.stop.mount((done) => {
             this._httpServer.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -528,13 +515,7 @@ export default class Service extends EventEmitter {
 
                 done();
             });
-        }
-
-        //Mount hooks.
-        this.dbManager && this.hooks.stop.mount(dbManagerDisconnect);
-        this.hooks.stop.mount(scpServerClose);
-        this.hooks.stop.mount(discoveryClose);
-        this.hooks.stop.mount(httpServerClose);
+        });
     }
 
     //////////////////////////////
@@ -570,28 +551,27 @@ export default class Service extends EventEmitter {
      * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
-     * @param defined set to true if the service is defined by the user, false if auto discovered.
      */
-    private register(name: string, alias?: string, defined?: boolean) {
-        //Initialize Defaults.
-        defined = (defined === undefined) ? false : defined;
-
+    private register(name: string, alias?: string) {
         //Create a new `ScpClient`.
-        const client = this.scpClientManager.createClient({ name: this.name });
+        const scpClient = this.scpClientManager.createClient({ name: this.name });
 
         //Bind Events.
-        client.on('error', (error: Error) => {
+        scpClient.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
 
         //Mount the client.
-        this.scpClientManager.mount(alias || name, client);
+        this.scpClientManager.mount(alias || name, scpClient);
 
-        //Create a new `RemoteService` and push to `remoteServices`.
-        const serviceInstance = new RemoteService(name, alias, defined, client);
-        this.remoteServices[name] = serviceInstance;
+        //Initialize defined.
+        const defined = (alias === undefined) ? false : true;
 
-        return serviceInstance;
+        //Create a new `RemoteService` and push to `ServiceRegistry`.
+        const remoteService = new RemoteService(name, alias, defined, scpClient);
+        this.serviceRegistry.push(remoteService);
+
+        return remoteService;
     }
 
     //////////////////////////////
@@ -827,7 +807,7 @@ export default class Service extends EventEmitter {
      * @param alias the optional, alias name of the service.
      */
     public discover(name: string, alias?: string) {
-        this.register(name, alias, true);
+        this.register(name, alias);
 
         //Return this for chaining.
         return this;
@@ -1022,10 +1002,34 @@ export interface DoneHandler {
 }
 
 //////////////////////////////
-//////RemoteService
+//////ServiceRegistry
 //////////////////////////////
 /**
- * `RemoteService` is the metadata for the service discovered.
+ * `ServiceRegistry` is a registry of `RemoteService`'s.
+ */
+export class ServiceRegistry extends Array<RemoteService> {
+    /**
+     * True if the all the `RemoteService`'s are connected, false otherwise.
+     */
+    public get connected() {
+        //Try getting remoteService that is defined by the consumer and is disconnected.
+        const remoteService = this.find(remoteService => remoteService.defined && !remoteService.scpClient.connected);
+        
+        return (remoteService === undefined) ? true : false;
+    }
+
+    /**
+     * Returns the `RemoteService` found.
+     * 
+     * @param name the name of the remote service.
+     */
+    public get(name: string){
+        return this.find(remoteService => remoteService.name === name);
+    }
+}
+
+/**
+ * `RemoteService` is a representation of a service that is remote; in the form of an object.
  */
 export class RemoteService {
     /**
@@ -1039,7 +1043,7 @@ export class RemoteService {
     public readonly alias: string;
 
     /**
-     * True if the service is defined by the user, false if auto discovered.
+     * True if the service is defined by the consumer, false if auto discovered.
      */
     public readonly defined: boolean;
 
@@ -1068,7 +1072,7 @@ export class RemoteService {
      * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
-     * @param defined set to true if the service is defined by the user, false if auto discovered.
+     * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      * @param scpClient the instance of `ScpClient`.
      */
     constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient) {

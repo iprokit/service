@@ -33,14 +33,38 @@ export default class ServiceRoutes {
     /**
      * Endpoint to return the health status of the service. The health status includes the following:
      * - The basic service configuration.
-     * - The status of the `HttpServer` + `ScpServer`.
+     * - The status of all the components.
      */
     public getHealth(request: Request, response: Response) {
         try {
+            let healthy: boolean = true;
+
+            //TODO: Complete this.
+
+            if (healthy && this.service.dbManager && !this.service.dbManager.connected) {
+                healthy = this.service.dbManager.connected;
+            }
+
+            if (healthy && !this.service.scpServer.listening) {
+                healthy = this.service.scpServer.listening;
+            }
+
+            if (healthy && !this.service.discovery.listening) {
+                healthy = this.service.discovery.listening;
+            }
+
+            if(healthy && this.service.serviceRegistry.length > 0 && !this.service.serviceRegistry.connected) {
+                healthy = this.service.serviceRegistry.connected;
+            }
+
+            if (healthy && !this.service.httpServer.listening) {
+                healthy = this.service.httpServer.listening;
+            }
+
             const health = {
                 name: this.service.name,
                 version: this.service.version,
-                healthy: (this.service.httpServer.listening && this.service.scpServer.listening)
+                healthy: healthy
             }
             response.status(HttpCodes.OK).send(health);
         } catch (error) {
@@ -56,7 +80,7 @@ export default class ServiceRoutes {
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
      * - Mesh: The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
-     * - RemoteServices: The remote services discovered.
+     * - ServiceRegistry: The `RemoteService`'s registed.
      */
     public getReport(request: Request, response: Response) {
         try {
@@ -67,7 +91,7 @@ export default class ServiceRoutes {
                 endpoints: this.endpointsReport,
                 actions: this.actionsReport,
                 mesh: this.meshReport,
-                remoteServices: this.remoteServicesReport
+                serviceRegistry: this.serviceRegistryReport
             }
 
             response.status(HttpCodes.OK).send(report);
@@ -246,13 +270,14 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The remote services discovered.
+     * The `RemoteService`'s registed.
      */
-    private get remoteServicesReport() {
-        return Object.entries(this.service.remoteServices).map(([name, remoteService]) => {
+    private get serviceRegistryReport() {
+        return this.service.serviceRegistry.map(remoteService => {
             return {
                 name: remoteService.name,
                 alias: remoteService.alias,
+                defined: remoteService.defined,
                 address: remoteService.address,
                 httpPort: remoteService.httpPort,
                 scpPort: remoteService.scpPort,
