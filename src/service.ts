@@ -1010,11 +1010,19 @@ export interface DoneHandler {
 export class ServiceRegistry extends Array<RemoteService> {
     /**
      * True if the all the `RemoteService`'s are connected, false otherwise.
+     * `undefined` if no connections.
      */
     public get connected() {
-        //Try getting remoteService that is defined by the consumer and is disconnected.
-        const remoteService = this.find(remoteService => remoteService.defined && !remoteService.scpClient.connected);
-        
+        //Try getting all the remoteService that is defined by the consumer.
+        const remoteServices = this.filter(remoteService => remoteService.defined);
+
+        if (remoteServices.length === 0) {
+            return undefined;
+        }
+
+        //Try getting remoteService that disconnected.
+        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected);
+
         return (remoteService === undefined) ? true : false;
     }
 
@@ -1023,7 +1031,7 @@ export class ServiceRegistry extends Array<RemoteService> {
      * 
      * @param name the name of the remote service.
      */
-    public get(name: string){
+    public get(name: string) {
         return this.find(remoteService => remoteService.name === name);
     }
 }

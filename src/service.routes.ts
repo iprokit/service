@@ -38,35 +38,50 @@ export default class ServiceRoutes {
     public getHealth(request: Request, response: Response) {
         try {
             let healthy: boolean = true;
+            let httpServer: boolean;
+            let scpServer: boolean;
+            let discovery: boolean;
+            let serviceRegistry: boolean;
+            let dbManager: boolean;
 
-            //TODO: Complete this.
-
-            if (healthy && this.service.dbManager && !this.service.dbManager.connected) {
-                healthy = this.service.dbManager.connected;
+            if (this.service.httpServer) {
+                httpServer = this.service.httpServer.listening;
+                healthy = healthy && httpServer;
             }
 
-            if (healthy && !this.service.scpServer.listening) {
-                healthy = this.service.scpServer.listening;
+            if (this.service.scpServer) {
+                scpServer = this.service.scpServer.listening;
+                healthy = healthy && scpServer;
             }
 
-            if (healthy && !this.service.discovery.listening) {
-                healthy = this.service.discovery.listening;
+            if (this.service.discovery) {
+                discovery = this.service.discovery.listening;
+                healthy = healthy && discovery;
             }
 
-            if(healthy && this.service.serviceRegistry.length > 0 && !this.service.serviceRegistry.connected) {
-                healthy = this.service.serviceRegistry.connected;
+            if (this.service.serviceRegistry.connected !== undefined) {
+                serviceRegistry = this.service.serviceRegistry.connected;
+                healthy = healthy && serviceRegistry;
             }
 
-            if (healthy && !this.service.httpServer.listening) {
-                healthy = this.service.httpServer.listening;
+            if (this.service.dbManager) {
+                dbManager = this.service.dbManager.connected;
+                healthy = healthy && dbManager;
             }
 
+            const code = (healthy === true) ? HttpCodes.OK : HttpCodes.INTERNAL_SERVER_ERROR;
             const health = {
                 name: this.service.name,
                 version: this.service.version,
+                httpServer: httpServer,
+                scpServer: scpServer,
+                discovery: discovery,
+                serviceRegistry: serviceRegistry,
+                db: dbManager,
                 healthy: healthy
             }
-            response.status(HttpCodes.OK).send(health);
+
+            response.status(code).send(health);
         } catch (error) {
             response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
