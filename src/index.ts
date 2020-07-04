@@ -16,7 +16,7 @@ export { default as RDBModel, RDBDataTypes, RDBOp } from './db.rdb.model';
 export { default as NoSQLModel, NoSQLDataTypes } from './db.nosql.model';
 
 //Export Micro Components
-export { mesh as Mesh, controllers as Controllers, models as Models, messengers as Messengers, Entity, Get, Post, Put, Delete, Reply } from './micro';
+export { mesh as Mesh, proxy as Proxy, controllers as Controllers, models as Models, messengers as Messengers, Entity, Get, Post, Put, Delete, Reply } from './micro';
 
 //Export Entrypoint
 export default micro;

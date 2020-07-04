@@ -274,7 +274,7 @@ export default class MicroRoutes {
     private get meshReport() {
         const mesh: { [traceName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
 
-        Object.entries(this.service.mesh).forEach(([traceName, node]) => {
+        Object.entries(this.service.scpClientManager.mesh).forEach(([traceName, node]) => {
             mesh[traceName] = {
                 broadcasts: node.broadcasts,
                 replies: node.replies
@@ -315,7 +315,7 @@ export default class MicroRoutes {
      * @param method the name of the HTTP verbose.
      */
     private isApiRoute(method: string) {
-        return method === 'GET' || method === 'POST' || method === 'PUT' || method === 'DELETE' || method === undefined;
+        return method === 'GET' || method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'ALL';
     }
 
     /**
@@ -324,11 +324,12 @@ export default class MicroRoutes {
      * @param handler the router/application handler.
      */
     private getHandlerInfo(handler: any) {
-        const stack = handler.route.stack[0];
+        const method = Object.keys(handler.route.methods)[0];
+        const name = (handler.route.stack.length > 1) ? '<multiple>' : handler.route.stack[0].name;
 
         return {
-            fn: (stack.name === '') ? '<anonymous>' : stack.name,
-            method: (stack.method === undefined) ? 'all' : stack.method.toUpperCase(),
+            fn: (name === '') ? '<anonymous>' : name,
+            method: (method === '_all') ? 'ALL' : method.toUpperCase(),
             path: handler.route.path
         }
     }

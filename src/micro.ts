@@ -10,11 +10,10 @@ import { PathParams, RequestHandler } from 'express-serve-static-core';
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
-import Service, { Options as ServiceOptions } from "./service";
+import Service, { Options as ServiceOptions, Proxy } from "./service";
 import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
 import Controller from "./controller";
 import Messenger from './messenger';
-import GatewayService from './gateway';
 import MicroRoutes from './micro.routes';
 
 //////////////////////////////
@@ -29,11 +28,6 @@ let projectPath: string;
  * Singleton instance of the `Service`.
  */
 let service: Service;
-
-/**
- * Singleton instance of the `Gateway`.
- */
-let gatewayService: GatewayService;
 
 /**
  * The auto wired `Model`'s under this service.
@@ -64,11 +58,17 @@ const controllerMetas: Array<ControllerMeta> = new Array();
  * `Mesh` is a representation of unique services's in the form of Object's.
  *
  * During runtime:
- * `Node` objects are populated into `Mesh` with its name as a get accessor.
- * All the `Node` objects are populated in this with its node name,
- * which can be declared with `micro.defineNode()`.
+ * `Node` objects are populated into `Mesh` with its traceName as a get accessor.
  */
 export const mesh: Mesh = new Mesh();
+
+/**
+ * `Proxy` is an implementation of reverse proxie.
+ * 
+ * During runtime:
+ * `ProxyHandler` functions are populated into `Proxy` with its name as a get accessor.
+ */
+export const proxy: Proxy = new Proxy();
 
 //////////////////////////////
 //////Top-level
@@ -103,6 +103,8 @@ function micro(options?: Options) {
             discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
             forceStopTime: options.forceStopTime || Default.FORCE_STOP_TIME,
             logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
+            proxy: proxy,
+            mesh: mesh,
             db: options.db && {
                 type: options.db.type,
                 host: process.env.DB_HOST,
@@ -110,8 +112,7 @@ function micro(options?: Options) {
                 username: process.env.DB_USERNAME,
                 password: process.env.DB_PASSWORD,
                 paperTrail: options.db.paperTrail
-            },
-            mesh: mesh
+            }
         };
 
         //Create or retrieve the singleton service.
@@ -151,16 +152,6 @@ function micro(options?: Options) {
 }
 
 namespace micro {
-    /**
-     * Creates an instance of a `Gateway`.
-     * 
-     * @returns the gateway.
-     */
-    export function Gateway() {
-        //Return the singleton gateway.
-        return gatewayService = gatewayService || new GatewayService(service.logger);
-    }
-
     /**
      * Triggers the broadcast action on all the connected services.
      * A broadcast has to be defined `micro.defineBroadcast()` before broadcast action can be triggered.

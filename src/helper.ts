@@ -2,7 +2,6 @@
 import fs from 'fs';
 import path from 'path';
 import { Request, Response, NextFunction } from 'express';
-import { RequestOptions } from 'https';
 
 /**
  * The static helper class.
@@ -132,13 +131,13 @@ export default class Helper {
     }
 
     //////////////////////////////
-    //////Proxy
+    //////Middlewear: Proxy
     //////////////////////////////
     /**
      * Generate proxy headers from proxy objects.
      * This is used to pass proxy headers from gateway service to a service during proxy redirect.
      */
-    public static generateProxyHeaders(sourceRequest: Request, targetRequest: RequestOptions) {
+    public static generateProxyHeaders(sourceRequest: Request, targetRequest: Request) {
         const proxyObject = Object.getPrototypeOf(sourceRequest).proxy;
         if (proxyObject) {
             //Convert Proxy dict to array and get each proxy.

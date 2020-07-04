@@ -134,13 +134,9 @@ export default class DBManager {
                 hooks: {
                     afterConnect: () => {
                         this._rdbConnected = true;
-
-                        console.log('Connected');
                     },
                     afterDisconnect: () => {
                         this._rdbConnected = false;
-
-                        console.log('Disconnected');
                     }
                 },
                 logging: (sql: string) => {
