@@ -7,7 +7,7 @@ import EventEmitter from 'events';
 import fs from 'fs';
 import express, { Express, Request, Response, NextFunction, RouterOptions } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
-import http, { Server as HttpServer, RequestOptions } from 'http';
+import { Server as HttpServer } from 'http';
 import cors from 'cors';
 import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
@@ -18,6 +18,8 @@ import ip from 'ip';
 //Local Imports
 import Helper from './helper';
 import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
+import ProxyClientManager, { Proxy } from './proxy.client.manager';
+import ProxyClient from './proxy.client';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -96,16 +98,6 @@ export default class Service extends EventEmitter {
     public readonly hooks: Hooks;
 
     /**
-     * A registry of remote services.
-     */
-    public readonly serviceRegistry: ServiceRegistry;
-
-    /**
-     * `ProxyHandler`'s are populated into this `Proxy` during runtime.
-     */
-    public readonly proxy: Proxy;
-
-    /**
      * The logger instance.
      */
     public readonly logger: Logger;
@@ -126,9 +118,19 @@ export default class Service extends EventEmitter {
     public readonly scpClientManager: ScpClientManager;
 
     /**
+     * Instance of `ProxyClientManager`.
+     */
+    public readonly proxyClientManager: ProxyClientManager;
+
+    /**
      * Instance of `Discovery`.
      */
     public readonly discovery: Discovery;
+
+    /**
+     * A registry of remote services.
+     */
+    public readonly serviceRegistry: ServiceRegistry;
 
     /**
      * Instance of `Express` application.
@@ -159,16 +161,12 @@ export default class Service extends EventEmitter {
         this.discoveryIp = options.discoveryIp;
         this.forceStopTime = options.forceStopTime;
         this.logPath = options.logPath;
+
+        //Initialize IP.
         this.ip = ip.address();
 
         //Initialize Hooks.
         this.hooks = new Hooks();
-
-        //Initialize ServiceRegistry.
-        this.serviceRegistry = new ServiceRegistry();
-
-        //Initialize Proxy.
-        this.proxy = options.proxy || new Proxy();
 
         //Initialize Logger.
         this.logger = winston.createLogger();
@@ -198,7 +196,7 @@ export default class Service extends EventEmitter {
         this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
         this.configSCP();
 
-        //Initialize Mesh: SCP Client Manager + Discovery.
+        //Initialize SCP Client Manager.
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
@@ -206,8 +204,17 @@ export default class Service extends EventEmitter {
             }
         }
         this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });
+
+        //Initialize Proxy Client Manager.
+        const proxyLogger = this.logger.child({ component: 'Proxy' });
+        this.proxyClientManager = new ProxyClientManager({ proxy: options.proxy, logger: proxyLogger });
+
+        //Initialize Discovery.
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
-        this.configMesh();
+
+        //Initialize ServiceRegistry.
+        this.serviceRegistry = new ServiceRegistry();
+        this.configServiceRegistry();
 
         //Initialize Express: Http Server.
         this.express = express();
@@ -286,9 +293,9 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures Mesh by setting up `ScpClientManager` and `Discovery`.
+     * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyClientManager`.
      */
-    private configMesh() {
+    private configServiceRegistry() {
         //Bind Events.
         this.discovery.on('available', (pod: Pod) => {
             //Log Event.
@@ -301,6 +308,11 @@ export default class Service extends EventEmitter {
             remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
                 //Log Event.
                 this.logger.info(`Mesh connected to ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
+            });
+
+            remoteService.proxyClient.link(remoteService.address, remoteService.httpPort, () => {
+                //Log Event.
+                this.logger.info(`Proxy linked to ${remoteService.name}(${remoteService.address}:${remoteService.httpPort})`);
             });
 
             //Emit Global: available.
@@ -317,6 +329,11 @@ export default class Service extends EventEmitter {
             remoteService.scpClient.disconnect(() => {
                 //Log Event.
                 this.logger.info(`Mesh disconnected from ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
+            });
+
+            remoteService.proxyClient.unlink(() => {
+                //Log Event.
+                this.logger.info(`Proxy unlinked from ${remoteService.name}(${remoteService.address}:${remoteService.httpPort})`);
             });
 
             //Emit Global: unavailable.
@@ -372,6 +389,34 @@ export default class Service extends EventEmitter {
             });
 
             done();
+        });
+    }
+
+    //////////////////////////////
+    //////Bind
+    //////////////////////////////
+    /**
+     * Binds process events on `SIGTERM` and `SIGINT`.
+     */
+    private bindProcessEvents() {
+        //Exit
+        process.once('SIGTERM', () => {
+            this.logger.info('Received SIGTERM.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        //Ctrl + C
+        process.on('SIGINT', () => {
+            this.logger.info('Received SIGINT.');
+            this.stop((exitCode: number) => {
+                process.exit(exitCode);
+            });
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
     }
 
@@ -489,34 +534,6 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Bind
-    //////////////////////////////
-    /**
-     * Binds process events on `SIGTERM` and `SIGINT`.
-     */
-    private bindProcessEvents() {
-        //Exit
-        process.once('SIGTERM', () => {
-            this.logger.info('Received SIGTERM.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        //Ctrl + C
-        process.on('SIGINT', () => {
-            this.logger.info('Received SIGINT.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
-        });
-    }
-
-    //////////////////////////////
     //////Start/Stop
     //////////////////////////////
     /**
@@ -610,7 +627,6 @@ export default class Service extends EventEmitter {
         const router = express.Router(options);
 
         //Add mountPath to the router.
-        //TODO: Move this to Micro.
         (router as any).mountPath = mountPath;
 
         //Mount the router to express.
@@ -777,27 +793,18 @@ export default class Service extends EventEmitter {
 
         //Create a new `ScpClient`.
         const scpClient = this.scpClientManager.createClient({ name: this.name });
-
-        //Bind Events.
         scpClient.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
-
-        //Mount the client.
         this.scpClientManager.mount(alias || name, scpClient);
 
-        //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient, this.logger);
-        this.serviceRegistry.register(remoteService);
+        //Create a new `ProxyClient`.
+        const proxyClient = this.proxyClientManager.createClient();
+        this.proxyClientManager.add(alias || name, proxyClient);
 
-        //Add proxyHandler into proxy as a dynamic get accessor.
-        Object.defineProperty(this.proxy, alias || name, {
-            get: () => {
-                return remoteService.proxyHandler;
-            },
-            enumerable: true,
-            configurable: true
-        });
+        //Create a new `RemoteService` and push to `ServiceRegistry`.
+        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
+        this.serviceRegistry.register(remoteService);
 
         return remoteService;
     }
@@ -856,9 +863,9 @@ export type Options = {
     logPath: string;
 
     /**
-     * `ProxyHandler`'s are populated into this `Proxy` during runtime.
+     * The database configuration options.
      */
-    proxy?: Proxy;
+    db?: DbManagerOptions;
 
     /**
      * `Node`'s are populated into this `Mesh` during runtime.
@@ -866,9 +873,9 @@ export type Options = {
     mesh?: Mesh;
 
     /**
-     * The database configuration options.
+     * `ProxyHandler`'s are populated into this `Proxy` during runtime.
      */
-    db?: DbManagerOptions;
+    proxy?: Proxy;
 }
 
 //////////////////////////////
@@ -1067,6 +1074,11 @@ export class RemoteService {
     public readonly scpClient: ScpClient;
 
     /**
+     * The instance of `ProxyClient`.
+     */
+    public readonly proxyClient: ProxyClient;
+
+    /**
      * The remote address.
      */
     private _address: string;
@@ -1082,29 +1094,21 @@ export class RemoteService {
     private _scpPort: number;
 
     /**
-     * The logger instance.
-     */
-    public readonly logger: Logger;
-
-    /**
      * Creates an instance of `RemoteService`.
      * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      * @param scpClient the instance of `ScpClient`.
-     * @param logger the logger instance.
+     * @param proxyClient the instance of `ProxyClient`.
      */
-    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, logger: Logger) {
+    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, proxyClient: ProxyClient) {
         //Initialize variables.
         this.name = name;
         this.alias = alias;
         this.defined = defined;
         this.scpClient = scpClient;
-        this.logger = logger;
-
-        //Bind Proxy.
-        Helper.bind(this.proxyHandler, this);
+        this.proxyClient = proxyClient;
     }
 
     //////////////////////////////
@@ -1132,58 +1136,6 @@ export class RemoteService {
     }
 
     //////////////////////////////
-    //////Proxy
-    //////////////////////////////
-    /**
-     * A middlewear function to proxy request and response.
-     * 
-     * @param redirectPath the redirect path.
-     */
-    public proxyHandler(redirectPath?: string): RequestHandler {
-        return (request: Request, response: Response, next: NextFunction) => {
-            //Generate proxy headers.
-            Helper.generateProxyHeaders(request, request);
-
-            //Initialize request options.
-            const requestOptions: RequestOptions = {
-                hostname: this._address,
-                port: this._httpPort,
-                path: redirectPath || request.path,
-                method: request.method,
-                headers: request.headers
-            }
-
-            //Initialize variables.
-            const sourceUrl = `${request.originalUrl}`;
-            const targetUrl = `http://${requestOptions.hostname}:${requestOptions.port}${requestOptions.path}`;
-
-            //Log Event.
-            this.logger.info(`${sourceUrl} -> ${targetUrl}`, { component: 'PROXY' });
-
-            const proxyRequest = http.request(requestOptions, (proxyResponse) => {
-                response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
-
-                //Pass the proxy response to response.
-                proxyResponse.pipe(response, { end: true });
-            });
-
-            proxyRequest.on('error', (error) => {
-                const _error: any = error;
-
-                //Handle System Errors.
-                if (_error.code === 'ECONNREFUSED') {
-                    _error.message = 'Proxy Service Unavailable';
-                }
-
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send(_error.message);
-            });
-
-            //Pass the request to proxy request.
-            request.pipe(proxyRequest, { end: true });
-        }
-    }
-
-    //////////////////////////////
     //////Helpers
     //////////////////////////////
     /**
@@ -1198,29 +1150,6 @@ export class RemoteService {
         this._httpPort = httpPort;
         this._scpPort = scpPort;
     }
-}
-
-//////////////////////////////
-//////Proxy
-//////////////////////////////
-/**
- * `Proxy` is an implementation of reverse proxie.
- * 
- * During runtime:
- * `ProxyHandler` functions are populated into `Proxy` with its name as a get accessor.
- */
-export class Proxy {
-    /**
-     * Index signature for `ProxyHandler`.
-     */
-    [name: string]: ProxyHandler;
-}
-
-/**
- * `ProxyHandler` is a `express` based middleware function.
- */
-export interface ProxyHandler {
-    (redirectPath?: string): RequestHandler;
 }
 
 //////////////////////////////

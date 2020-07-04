@@ -443,22 +443,28 @@ export default class SidekickController extends Controller {
 Ok, that was a fun little project.
 
 # Gateway Service
-In this example we will implement a gateway service that will proxy requests to User and Hero services from the client.
+In this example we will implement a gateway service that will proxy requests to Sidekick and Hero services from the client.
 
 * index.js
 ```javascript
-import Micro from '@iprotechs/micro';
+import Micro, { Proxy } from '@iprotechs/micro';
 
 //Declare gateway.
-const gatewayService = Micro({ gateway: true });
-const gateway = Micro.Gateway();
+const gatewayService = Micro();
 
-//Forward the request directly.
-gatewayService.all('/user/*', gateway.proxy('localhost:3001'));
-gatewayService.all('/hero/*', gateway.proxy('localhost:3002'));
+//Discover.
+gatewayService.discover('sidekickSvc', 'sidekick');
+gatewayService.discover('heroSvc', 'hero');
 
-//Rewrite the reqest url to '/user/report'.
-gatewayService.get('/user/help', gateway.proxy('localhost:3001', '/user/report'));
+//Proxy to sidekick.
+const sidekickRouter = gatewayService.createRouter('/sidekick');
+sidekickRouter.all('/help', Proxy.sidekick('/report')); //Forward /sidekick/help -> /report
+sidekickRouter.all('/*', Proxy.sidekick()); //Forward all
+
+//Proxy to hero.
+const heroRouter = gatewayService.createRouter('/hero');
+heroRouter.all('/help', Proxy.hero('/report')); //Forward /hero/help -> /report
+heroRouter.all('/*', Proxy.hero()); //Forward all
 
 //Start the gateway service.
 gatewayService.start(() => {

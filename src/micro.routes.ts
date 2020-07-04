@@ -301,6 +301,9 @@ export default class MicroRoutes {
                     remote: remoteService.scpClient.node.identifier,
                     connected: remoteService.scpClient.connected,
                     reconnecting: remoteService.scpClient.reconnecting,
+                },
+                proxyClient: {
+                    linked: remoteService.proxyClient.linked
                 }
             }
         });

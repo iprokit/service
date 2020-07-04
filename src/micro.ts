@@ -10,9 +10,10 @@ import { PathParams, RequestHandler } from 'express-serve-static-core';
 //Local Imports
 import Default from './default';
 import Helper, { FileOptions } from './helper';
-import Service, { Options as ServiceOptions, Proxy } from "./service";
+import Service, { Options as ServiceOptions } from './service';
 import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
-import Controller from "./controller";
+import { Proxy } from './proxy.client.manager';
+import Controller from './controller';
 import Messenger from './messenger';
 import MicroRoutes from './micro.routes';
 
@@ -66,7 +67,7 @@ export const mesh: Mesh = new Mesh();
  * `Proxy` is an implementation of reverse proxie.
  * 
  * During runtime:
- * `ProxyHandler` functions are populated into `Proxy` with its name as a get accessor.
+ * `ProxyHandler` functions are populated into `Proxy` with its cellName.
  */
 export const proxy: Proxy = new Proxy();
 
@@ -103,8 +104,6 @@ function micro(options?: Options) {
             discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
             forceStopTime: options.forceStopTime || Default.FORCE_STOP_TIME,
             logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
-            proxy: proxy,
-            mesh: mesh,
             db: options.db && {
                 type: options.db.type,
                 host: process.env.DB_HOST,
@@ -112,7 +111,9 @@ function micro(options?: Options) {
                 username: process.env.DB_USERNAME,
                 password: process.env.DB_PASSWORD,
                 paperTrail: options.db.paperTrail
-            }
+            },
+            mesh: mesh,
+            proxy: proxy
         };
 
         //Create or retrieve the singleton service.
