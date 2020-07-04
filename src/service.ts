@@ -787,7 +787,7 @@ export default class Service extends EventEmitter {
         this.scpClientManager.mount(alias || name, scpClient);
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient);
+        const remoteService = new RemoteService(name, alias, defined, scpClient, this.logger);
         this.serviceRegistry.register(remoteService);
 
         //Add proxyHandler into proxy as a dynamic get accessor.
@@ -795,7 +795,8 @@ export default class Service extends EventEmitter {
             get: () => {
                 return remoteService.proxyHandler;
             },
-            enumerable: true, configurable: true
+            enumerable: true,
+            configurable: true
         });
 
         return remoteService;
@@ -1081,19 +1082,26 @@ export class RemoteService {
     private _scpPort: number;
 
     /**
+     * The logger instance.
+     */
+    public readonly logger: Logger;
+
+    /**
      * Creates an instance of `RemoteService`.
      * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      * @param scpClient the instance of `ScpClient`.
+     * @param logger the logger instance.
      */
-    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient) {
+    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, logger: Logger) {
         //Initialize variables.
         this.name = name;
         this.alias = alias;
         this.defined = defined;
         this.scpClient = scpClient;
+        this.logger = logger;
 
         //Bind Proxy.
         Helper.bind(this.proxyHandler, this);
@@ -1128,21 +1136,29 @@ export class RemoteService {
     //////////////////////////////
     /**
      * A middlewear function to proxy request and response.
+     * 
+     * @param redirectPath the redirect path.
      */
-    public proxyHandler(options?: ProxyHandlerOptions): RequestHandler {
+    public proxyHandler(redirectPath?: string): RequestHandler {
         return (request: Request, response: Response, next: NextFunction) => {
             //Generate proxy headers.
             Helper.generateProxyHeaders(request, request);
 
+            //Initialize request options.
             const requestOptions: RequestOptions = {
                 hostname: this._address,
                 port: this._httpPort,
-                path: request.path,
+                path: redirectPath || request.path,
                 method: request.method,
                 headers: request.headers
             }
 
-            // this.logger.info(`${sourceRequest.originalUrl} -> ${_url.origin}${redirect || targetRequest.path}`, { component: 'PROXY' });
+            //Initialize variables.
+            const sourceUrl = `${request.originalUrl}`;
+            const targetUrl = `http://${requestOptions.hostname}:${requestOptions.port}${requestOptions.path}`;
+
+            //Log Event.
+            this.logger.info(`${sourceUrl} -> ${targetUrl}`, { component: 'PROXY' });
 
             const proxyRequest = http.request(requestOptions, (proxyResponse) => {
                 response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
@@ -1204,15 +1220,7 @@ export class Proxy {
  * `ProxyHandler` is a `express` based middleware function.
  */
 export interface ProxyHandler {
-    (options?: ProxyHandlerOptions): RequestHandler;
-}
-
-/**
- * The optional, proxy handler options.
- */
-export type ProxyHandlerOptions = {
-    request: any;
-    response: any;
+    (redirectPath?: string): RequestHandler;
 }
 
 //////////////////////////////
