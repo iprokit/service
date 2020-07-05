@@ -5,7 +5,7 @@ import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClie
 //Import Modules
 import EventEmitter from 'events';
 import fs from 'fs';
-import express, { Express, Request, Response, NextFunction, RouterOptions } from 'express';
+import express, { Express, Router, Request, Response, NextFunction, RouterOptions } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
@@ -143,6 +143,11 @@ export default class Service extends EventEmitter {
     private _httpServer: HttpServer;
 
     /**
+     * The routes mounted on `Express`.
+     */
+    public readonly routes: Array<Route>;
+
+    /**
      * Creates an instance of a `Service`.
      * 
      * @param options the constructor options.
@@ -216,8 +221,9 @@ export default class Service extends EventEmitter {
         this.serviceRegistry = new ServiceRegistry();
         this.configServiceRegistry();
 
-        //Initialize Express: Http Server.
+        //Initialize Express.
         this.express = express();
+        this.routes = new Array();
         this.configExpress();
 
         //Mount Hooks.
@@ -626,8 +632,8 @@ export default class Service extends EventEmitter {
         //Create a new router.
         const router = express.Router(options);
 
-        //Add mountPath to the router.
-        (router as any).mountPath = mountPath;
+        //Push to routes.
+        this.routes.push(new Route(mountPath, router));
 
         //Mount the router to express.
         this.express.use(mountPath, router);
@@ -1022,7 +1028,7 @@ export class ServiceRegistry extends Array<RemoteService> {
         }
 
         //Try getting remoteService that disconnected.
-        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected);
+        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected && !remoteService.proxyClient.linked);
 
         return (remoteService === undefined) ? true : false;
     }
@@ -1149,6 +1155,36 @@ export class RemoteService {
         this._address = address;
         this._httpPort = httpPort;
         this._scpPort = scpPort;
+    }
+}
+
+//////////////////////////////
+//////Route
+//////////////////////////////
+/**
+ * `Route` represents a pointer to the `Router` mounted on `Express`.
+ */
+export class Route {
+    /**
+     * The routing path.
+     */
+    public readonly path: PathParams;
+
+    /**
+     * Instance of `Router`.
+     */
+    public readonly router: Router;
+
+    /**
+     * Creates an instance of `Route`.
+     * 
+     * @param path the routing path.
+     * @param router the `Router` instance.
+     */
+    constructor(path: PathParams, router: Router) {
+        //Initialize variables.
+        this.path = path;
+        this.router = router;
     }
 }
 

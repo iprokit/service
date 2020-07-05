@@ -216,32 +216,31 @@ export default class MicroRoutes {
      * The `HTTP` `Endpoint`'s exposed.
      */
     private get endpointsReport() {
-        const httpRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
         const appRoutes: Array<{ fn: string, [method: string]: string }> = new Array();
+        const httpRoutes: { [route: string]: Array<{ fn: string, [method: string]: string }> } = {};
 
-        /**
-         * Get array of middlewares from express.
-         * - Push app middlewares to `appRoutes`.
-         * - Push router middlewares to `httpRoutes`.
-         */
-        this.service.express._router.stack.forEach((middleware: any) => {
-            if (middleware.route) {
-                const route = this.getHandlerInfo(middleware);
+        //Push app middlewares to `appRoutes`.
+        this.service.express._router.stack.forEach((stack: any) => {
+            if (stack.route) {
+                const route = this.getHandlerInfo(stack);
                 this.isApiRoute(route.method) && appRoutes.push({ fn: route.fn, [route.method]: route.path });
-            } else if (middleware.name === 'router') {
-                const routes = new Array();
-                const mountPath = (middleware.handle.mountPath === '/') ? '' : middleware.handle.mountPath;
-
-                //Get router handlers.
-                middleware.handle.stack.forEach((handler: any) => {
-                    if (handler.route) {
-                        const route = this.getHandlerInfo(handler);
-                        this.isApiRoute(route.method) && routes.push({ fn: route.fn, [route.method]: `${mountPath}${route.path}` });
-                    }
-                });
-
-                httpRoutes[middleware.handle.mountPath] = routes;
             }
+        });
+
+        //Push router middlewares to `httpRoutes`.
+        this.service.routes.forEach(route => {
+            const routes = new Array();
+            const mountPath = (route.path === '/') ? '' : route.path;
+
+            //Get router handlers.
+            route.router.stack.forEach(stack => {
+                if (stack.route) {
+                    const route = this.getHandlerInfo(stack);
+                    this.isApiRoute(route.method) && routes.push({ fn: route.fn, [route.method]: `${mountPath}${route.path}` });
+                }
+            });
+
+            httpRoutes[route.path.toString()] = routes;
         });
 
         //Merge Routes.
