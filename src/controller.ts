@@ -1,10 +1,10 @@
 //Import Modules
 import { Request, Response } from 'express';
-import HttpCodes from 'http-status-codes';
 
 //Local Imports
 import { Model } from './db.manager';
 import { FindOrder } from './db.model';
+import HttpStatusCodes from './http.statusCodes';
 
 /**
  * This generic `Controller` is responsible for handling incoming `Requests` and returning `Responses`.
@@ -52,9 +52,9 @@ export default class Controller {
     public async create(request: Request, response: Response) {
         try {
             await (this.model as any).create(request.body);
-            response.status(HttpCodes.CREATED).send({ status: true, message: 'Created!' });
+            response.status(HttpStatusCodes.CREATED).send({ status: true, message: 'Created!' });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 
@@ -73,9 +73,9 @@ export default class Controller {
                     size: Number(request.query.pageSize)
                 }
             });
-            response.status(HttpCodes.OK).send({ status: true, data: data });
+            response.status(HttpStatusCodes.OK).send({ status: true, data: data });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 
@@ -88,9 +88,9 @@ export default class Controller {
     public async getOneByID(request: Request, response: Response) {
         try {
             const data = await this.model.getOneByID(request.params.id);
-            response.status(HttpCodes.OK).send({ status: true, data: data });
+            response.status(HttpStatusCodes.OK).send({ status: true, data: data });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 
@@ -103,9 +103,9 @@ export default class Controller {
     public async updateOneByID(request: Request, response: Response) {
         try {
             await this.model.updateOneByID(request.params.id, request.body);
-            response.status(HttpCodes.OK).send({ status: true, message: 'Updated!' });
+            response.status(HttpStatusCodes.OK).send({ status: true, message: 'Updated!' });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 
@@ -118,9 +118,9 @@ export default class Controller {
     public async deleteOneByID(request: Request, response: Response) {
         try {
             await this.model.deleteOneByID(request.params.id);
-            response.status(HttpCodes.OK).send({ status: true, message: 'Deleted!' });
+            response.status(HttpStatusCodes.OK).send({ status: true, message: 'Deleted!' });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 }

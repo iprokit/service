@@ -2,9 +2,8 @@
 import micro from './micro';
 
 //Export HTTP
-import HttpStatusCodes from 'http-status-codes';
-export const HttpCodes = HttpStatusCodes;
 export { default as Controller } from './controller';
+export { default as HttpStatusCodes } from './http.statusCodes';
 
 //Export SCP
 export { default as Messenger } from './messenger';

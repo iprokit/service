@@ -1,11 +1,11 @@
 //Import Modules
 import http, { RequestOptions } from 'http';
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import HttpCodes from 'http-status-codes';
 import { Logger } from 'winston';
 
 //Local Imports
 import Helper from './helper';
+import HttpStatusCodes from './http.statusCodes';
 
 /**
  * `ProxyClient` is an implementation of reverse proxie.
@@ -84,7 +84,7 @@ export default class ProxyClient {
         return (request: Request, response: Response, next: NextFunction) => {
             //Validate Link.
             if (!this._linked) {
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send('Proxy Service Unavailable');
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send('Proxy Service Unavailable');
                 return;
             }
 
@@ -115,7 +115,7 @@ export default class ProxyClient {
             });
 
             proxyRequest.on('error', (error) => {
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send(error.message);
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send(error.message);
             });
 
             //Pass the request to proxy request.

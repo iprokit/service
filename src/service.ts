@@ -9,7 +9,6 @@ import express, { Express, Router, Request, Response, NextFunction, RouterOption
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 import { Server as HttpServer } from 'http';
 import cors from 'cors';
-import HttpCodes from 'http-status-codes';
 import winston, { Logger } from 'winston';
 import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
@@ -17,6 +16,7 @@ import ip from 'ip';
 
 //Local Imports
 import Helper from './helper';
+import HttpStatusCodes from './http.statusCodes';
 import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
 import ProxyClientManager, { Proxy } from './proxy.client.manager';
 import ProxyClient from './proxy.client';
@@ -358,11 +358,12 @@ export default class Service extends EventEmitter {
      * - Mounts a preStart hook at index 0.
      */
     private configExpress() {
-        //Middleware: Setup Basic.
+        //Middleware: CORS.
         this.express.use(cors());
         this.express.options('*', cors());
-        this.express.use(express.json({ limit: '50mb' }));
-        this.express.use(express.urlencoded({ extended: false }));
+
+        //Middleware: JSON.
+        this.express.use(express.json());
 
         //Setup child logger for HTTP.
         const httpLogger = this.logger.child({ component: 'HTTP' });
@@ -376,22 +377,22 @@ export default class Service extends EventEmitter {
             }
         }));
 
+        //Middleware: Generate proxy objects.
+        this.express.use(Helper.generateProxyObjects);
+
         //Middleware: Service Unavailable.
         this.express.use((request: Request, response: Response, next: NextFunction) => {
             response.setTimeout(1000 * 60 * 2, () => {
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send('Service Unavailable');
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send('Service Unavailable');
             });
 
             next();
         });
 
-        //Middleware: Generate proxy objects.
-        this.express.use(Helper.generateProxyObjects);
-
         //Mount PreStart Hook[0]: Middleware: Error handler for 404.
         this.hooks.preStart.mount((done) => {
             this.express.use((request: Request, response: Response, next: NextFunction) => {
-                response.status(HttpCodes.NOT_FOUND).send('Not Found');
+                response.status(HttpStatusCodes.NOT_FOUND).send('Not Found');
             });
 
             done();

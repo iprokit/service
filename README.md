@@ -211,7 +211,7 @@ import { Entity, RDBModel, RDBDataTypes } from '@iprotechs/micro';
     }
 })
 export default class HeroModel extends RDBModel {
-    //This model extends all the RDB properties. The model should only extend the database type declared with `service.useDB()` at the index.js;
+    //This model extends all the RDB properties. The model should only extend the database type declared in index.js;
 
     /**
      * Define pre/post hooks. 
@@ -345,7 +345,7 @@ export default class IntroductionMessenger extends Messenger {
 
 * hero.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
+import { Controller, HttpStatusCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
 
 export default class HeroController extends Controller {
     @Get('/')
@@ -353,19 +353,19 @@ export default class HeroController extends Controller {
         try {
             //Call: Mesh.NodeName.MessengerName.functionName();
             const hello = await Mesh.sidekick.Introduction.hello({});
-            response.status(HttpCodes.OK).send({ status: true, data: hello });
+            response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
         } catch (error) {
             //When node is unavailable.
             if (error instanceof SocketError) {
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
             if (error instanceof ErrorReply) {
-                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 return;
             }
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 }
@@ -414,7 +414,7 @@ export default class IntroductionMessenger extends Messenger {
 
 * sidekick.controller.js
 ```javascript
-import { Controller, HttpCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
+import { Controller, HttpStatusCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
 
 export default class SidekickController extends Controller {
     @Get('/')
@@ -422,19 +422,19 @@ export default class SidekickController extends Controller {
         try {
             //Call: Mesh.NodeName.MessengerName.functionName();
             const hello = await Mesh.hero.Introduction.hello({});
-            response.status(HttpCodes.OK).send({ status: true, data: hello });
+            response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
         } catch (error) {
             //When node is unavailable.
             if (error instanceof SocketError) {
-                response.status(HttpCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
                 return;
             }
             //When error reply is received.
             if (error instanceof ErrorReply) {
-                response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+                response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
                 return;
             }
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
         }
     }
 }

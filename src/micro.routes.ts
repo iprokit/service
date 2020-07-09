@@ -1,9 +1,9 @@
 //Import modules
 import { Request, Response } from 'express';
-import HttpCodes from 'http-status-codes';
 
 //Local Imports
 import Service from './service';
+import HttpStatusCodes from './http.statusCodes';
 
 /**
  * The `MicroRoutes` contains the default endpoints.
@@ -69,7 +69,7 @@ export default class MicroRoutes {
                 healthy = healthy && dbManager;
             }
 
-            const code = (healthy === true) ? HttpCodes.OK : HttpCodes.INTERNAL_SERVER_ERROR;
+            const code = (healthy === true) ? HttpStatusCodes.OK : HttpStatusCodes.INTERNAL_SERVER_ERROR;
             const health = {
                 name: this.service.name,
                 version: this.service.version,
@@ -83,7 +83,7 @@ export default class MicroRoutes {
 
             response.status(code).send(health);
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 
@@ -109,9 +109,9 @@ export default class MicroRoutes {
                 serviceRegistry: this.serviceRegistryReport
             }
 
-            response.status(HttpCodes.OK).send(report);
+            response.status(HttpStatusCodes.OK).send(report);
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 
@@ -119,7 +119,7 @@ export default class MicroRoutes {
      * Endpoint to safely shutdown the service. Shutdown will be initiated after 2 seconds.
      */
     public shutdown(request: Request, response: Response) {
-        response.status(HttpCodes.OK).send({ message: 'Will shutdown in 2 seconds...' });
+        response.status(HttpStatusCodes.OK).send({ message: 'Will shutdown in 2 seconds...' });
 
         setTimeout(() => {
             this.service.logger.info(`Received shutdown from ${request.url}`);
@@ -133,9 +133,9 @@ export default class MicroRoutes {
     public async syncDatabase(request: Request, response: Response) {
         try {
             const sync = await this.service.dbManager.sync(request.body.force);
-            response.status(HttpCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
+            response.status(HttpStatusCodes.OK).send({ sync: sync, message: 'Database & tables synced!' });
         } catch (error) {
-            response.status(HttpCodes.INTERNAL_SERVER_ERROR).send(error.message);
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 
@@ -336,148 +336,3 @@ export default class MicroRoutes {
         }
     }
 }
-
-//////////////////////////////
-//////Doc
-//////////////////////////////
-// function getDoc(request: Request, response: Response) {
-//     let endpoints: any = {};
-//     let schemas: any = {};
-
-//     //Get the endpoints.
-//     controllers.forEach(controller => {
-//         //Get the model.
-//         const model = controller.model;
-
-//         //Get the meta.
-//         getControllerMeta(controller.name).forEach(meta => {
-//             const parameters = new Array();
-
-//             //Get the route.
-//             const route = getRoute(meta.path);
-//             route.keys.forEach((key: { name: string, optional: boolean }) => {
-//                 parameters.push({
-//                     name: key.name,
-//                     in: "path",
-//                     required: !key.optional,
-//                     schema: {
-//                         type: 'string'
-//                     }
-//                 })
-//             });
-
-//             //Validate if a path exists and retrieve it.
-//             endpoints[meta.path] = endpoints[meta.path] || {};
-
-//             //Add the path object.
-//             endpoints[meta.path][meta.method] = {
-//                 tags: [meta.name],
-//                 operationId: `${meta.name}.${meta.handlerName}`,
-//                 parameters: parameters,
-//                 responses: {
-//                     200: {
-//                         content: {
-//                             "application/json": {
-//                                 schema: {
-//                                     type: 'array',
-//                                     items: {
-//                                         $ref: `#/components/schemas/${model.name}`,
-//                                     }
-//                                 }
-//                             }
-//                         },
-//                         description: `${meta.name}.${meta.handlerName}`
-//                     }
-//                 }
-//             }
-//         });
-//     });
-
-//     //Get the RDB models.
-//     if (service.dbManager.rdb) {
-//         service.dbManager.models.forEach(model => {
-//             let required = new Array();
-//             let properties: any = {};
-
-//             //Get the attributes.
-//             Object.entries(model.rawAttributes).forEach(([key, value]: any) => {
-//                 //Add required.
-//                 if(!value._autoGenerated){
-//                     value.allowNull || required.push(key);
-//                 }
-
-//                 //Add properties.
-//                 properties[key] = {
-//                     type: getModelAttributeType(value.type.toString()),
-//                     $ref: value.references && `#/definitions/${getModel(value.references.model).name}`
-//                 }
-
-//                 console.log(key, value._autoGenerated, value.allowNull);
-//             });
-
-//             schemas[model.name] = {
-//                 type: "object",
-//                 required: required,
-//                 properties: properties
-//             }
-//         });
-//     }
-//     // if(service.dbManager.noSQL){
-//     //     // console.log(ModelInstance._model.schema);
-//     // }
-
-//     const doc = {
-//         openapi: "3.0.0",
-//         info: {
-//             title: service.name,
-//             description: process.env.npm_package_description,
-//             version: service.version
-//         },
-//         contact: {
-//             name: process.env.npm_package_author_name,
-//             email: process.env.npm_package_author_email
-//         },
-//         basePath: service.httpBaseUrl,
-//         paths: endpoints,
-//         components: {
-//             schemas: schemas
-//         }
-//     }
-
-//     response.status(HttpCodes.OK).send(doc);
-// }
-
-// function getModelAttributeType(attribute: string) {
-//     attribute = attribute.toLowerCase();
-//     if(attribute.includes('varchar')){
-//         attribute = 'string';
-//     }
-//     if(attribute.includes('datetime')){
-//         attribute = 'string';
-//     }
-//     if(attribute.includes('time')){
-//         attribute = 'string';
-//     }
-//     if(attribute.includes('date')){
-//         attribute = 'string';
-//     }
-//     return attribute;
-// }
-
-// /**
-//  * Returns the route found.
-//  * 
-//  * @param path the route/endpoint path.
-//  */
-// function getRoute(path: string) {
-//     return service.expressRouter.stack.find(item => item.route && item.route.path === path);
-// }
-
-// /**
-//  * Returns the model found.
-//  * 
-//  * @param name the name of the model.
-//  */
-// function getModel(name: string) {
-//     return models.find(model => model.name.toLowerCase() === name.toLowerCase());
-// }
