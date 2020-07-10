@@ -6,19 +6,19 @@ import Service from './service';
 import HttpStatusCodes from './http.statusCodes';
 
 /**
- * The `MicroRoutes` contains the default endpoints.
+ * The `ServiceRoutes` contains the default endpoints.
  * - Health: Endpoint to return the health status of the service.
  * - Report: Endpoint to return the report of the service.
  * - Shutdown: Endpoint to safely shutdown the service.
  */
-export default class MicroRoutes {
+export default class ServiceRoutes {
     /**
      * The service instance.
      */
     public readonly service: Service;
 
     /**
-     * Creates an instance of a `MicroRoutes`.
+     * Creates an instance of a `ServiceRoutes`.
      * 
      * @param service the service instance.
      */

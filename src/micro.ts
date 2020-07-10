@@ -15,7 +15,6 @@ import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager
 import { Proxy } from './proxy.client.manager';
 import Controller from './controller';
 import Messenger from './messenger';
-import MicroRoutes from './micro.routes';
 
 //////////////////////////////
 //////Global Variables
@@ -115,25 +114,6 @@ function micro(options?: Options) {
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
-
-        //Mount PreStart Hook[1]: Add Default Routes.
-        service.hooks.preStart.mount((done) => {
-            const microRoutes = new MicroRoutes(service);
-
-            //Default routes.
-            const defaultRouter = service.createRouter('/');
-            defaultRouter.get('/health', Helper.bind(microRoutes.getHealth, microRoutes));
-            defaultRouter.get('/report', Helper.bind(microRoutes.getReport, microRoutes));
-            defaultRouter.get('/shutdown', Helper.bind(microRoutes.shutdown, microRoutes));
-
-            //Database routes.
-            if (service.dbManager) {
-                const databaseRouter = service.createRouter('/db');
-                databaseRouter.get('/sync', Helper.bind(microRoutes.syncDatabase, microRoutes));
-            }
-
-            done();
-        });
 
         //Mount PreStart Hook[2]: Inject Files.
         service.hooks.preStart.mount((done) => {

@@ -17,6 +17,7 @@ import ip from 'ip';
 //Local Imports
 import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
+import ServiceRoutes from './service.routes';
 import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
 import ProxyClientManager, { Proxy } from './proxy.client.manager';
 import ProxyClient from './proxy.client';
@@ -394,6 +395,25 @@ export default class Service extends EventEmitter {
             this.express.use((request: Request, response: Response, next: NextFunction) => {
                 response.status(HttpStatusCodes.NOT_FOUND).send('Not Found');
             });
+
+            done();
+        });
+
+        //Mount PreStart Hook[1]: Add Service Routes.
+        this.hooks.preStart.mount((done) => {
+            const serviceRoutes = new ServiceRoutes(this);
+
+            //Service routes.
+            const serviceRouter = this.createRouter('/');
+            serviceRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
+            serviceRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
+            serviceRouter.get('/shutdown', Helper.bind(serviceRoutes.shutdown, serviceRoutes));
+
+            //Database routes.
+            if (this.dbManager) {
+                const databaseRouter = this.createRouter('/db');
+                databaseRouter.get('/sync', Helper.bind(serviceRoutes.syncDatabase, serviceRoutes));
+            }
 
             done();
         });
@@ -939,7 +959,7 @@ export class Hooks {
 /**
  * A Hook is an array of functions that will be executed.
  */
-export class Hook extends Array<HookHandler>{
+export class Hook extends Array<HookHandler> {
     /**
      * Mount a hook handler.
      * 
