@@ -142,7 +142,9 @@ export default class ProxyClient {
         this._linked = true;
 
         //Callback.
-        callback && callback();
+        if (callback) {
+            callback();
+        }
 
         //Return this for chaining.
         return this;
@@ -158,7 +160,9 @@ export default class ProxyClient {
         this._linked = false;
 
         //Callback.
-        callback && callback();
+        if (callback) {
+            callback();
+        }
 
         //Return this for chaining.
         return this;

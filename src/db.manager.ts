@@ -104,7 +104,7 @@ export default class DBManager {
             throw new ConnectionOptionsError('Invalid database password provided.');
         }
 
-        this.paperTrail = (options.paperTrail === undefined) ? true : options.paperTrail;
+        this.paperTrail = options.paperTrail ?? true;
 
         //Initialize NoSQL connection object.
         if (this.noSQL) {
@@ -171,7 +171,7 @@ export default class DBManager {
             return ((this.connection as NoSQL).readyState === 1) ? true : false;
         }
         if (this.rdb) {
-            return (this._rdbConnected === undefined) ? false : this._rdbConnected;
+            return this._rdbConnected ?? false;
         }
     }
 
@@ -395,7 +395,7 @@ export default class DBManager {
         }
 
         //Setting default.
-        force = (force === undefined) ? false : force;
+        force = force ?? false;
 
         //Call DB Sync
         try {
@@ -503,6 +503,11 @@ export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
  * Thrown when a database connection option is invalid.
  */
 export class ConnectionOptionsError extends Error {
+    /**
+     * Creates an instance of `ConnectionOptionsError`.
+     * 
+     * @param message the error message.
+     */
     constructor(message: string) {
         super(message);
 
@@ -522,6 +527,11 @@ export class ConnectionOptionsError extends Error {
  * Thrown when database `Connection` type and `Model` type do not match.
  */
 export class ModelError extends Error {
+    /**
+     * Creates an instance of `ModelError`.
+     * 
+     * @param message the error message.
+     */
     constructor(message: string) {
         super(message);
 

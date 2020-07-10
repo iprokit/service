@@ -99,7 +99,8 @@ export default class Helper {
         if (options.include) {
             //If the pattern is found; true is returned, false otherwise.
             return this.matchFilePattern(file, options.include) ? true : false;
-        } else if (options.exclude) {
+        }
+        if (options.exclude) {
             //If the pattern is found; false is returned, true otherwise.
             return this.matchFilePattern(file, options.exclude) ? false : true;
         }

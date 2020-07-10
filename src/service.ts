@@ -3,7 +3,7 @@ import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@ipro
 import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
-import EventEmitter from 'events';
+import { EventEmitter } from 'events';
 import fs from 'fs';
 import express, { Express, Router, Request, Response, NextFunction, RouterOptions } from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
@@ -796,7 +796,7 @@ export default class Service extends EventEmitter {
         }
 
         //Initialize Defaults.
-        defined = (defined === undefined) ? false : defined;
+        defined = defined ?? false;
 
         //Create a new `ScpClient`.
         const scpClient = this.scpClientManager.createClient({ name: this.name });

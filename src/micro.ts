@@ -90,27 +90,24 @@ function micro(options?: Options) {
             dotenv.config({ path: envPath });
         }
 
-        //Initialize Options.
-        options = options || {};
-
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = {
-            name: options.name || process.env.npm_package_name,
-            version: options.version || process.env.npm_package_version,
+            name: options?.name || process.env.npm_package_name,
+            version: options?.version || process.env.npm_package_version,
             environment: process.env.NODE_ENV || Default.ENVIRONMENT,
             httpPort: Number(process.env.HTTP_PORT) || Default.HTTP_PORT,
             scpPort: Number(process.env.SCP_PORT) || Default.SCP_PORT,
             discoveryPort: Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT,
             discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
-            forceStopTime: options.forceStopTime || Default.FORCE_STOP_TIME,
+            forceStopTime: options?.forceStopTime || Default.FORCE_STOP_TIME,
             logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
-            db: options.db && {
-                type: options.db.type,
+            db: options?.db && {
+                type: options.db?.type,
                 host: process.env.DB_HOST,
                 name: process.env.DB_NAME,
                 username: process.env.DB_USERNAME,
                 password: process.env.DB_PASSWORD,
-                paperTrail: options.db.paperTrail
+                paperTrail: options.db?.paperTrail
             },
             mesh: mesh,
             proxy: proxy
@@ -127,7 +124,6 @@ function micro(options?: Options) {
             const defaultRouter = service.createRouter('/');
             defaultRouter.get('/health', Helper.bind(microRoutes.getHealth, microRoutes));
             defaultRouter.get('/report', Helper.bind(microRoutes.getReport, microRoutes));
-            // defaultRouter.get('/doc', getDoc);
             defaultRouter.get('/shutdown', Helper.bind(microRoutes.shutdown, microRoutes));
 
             //Database routes.
@@ -168,7 +164,7 @@ namespace micro {
      * The underlying database `Connection`.
      */
     export function connection() {
-        return service.dbManager && service.dbManager.connection;
+        return service.dbManager?.connection;
     }
 
     /**
@@ -195,9 +191,9 @@ export default micro;
  */
 function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
     //Initialize Options.
-    modelOptions = (modelOptions === undefined) ? { include: { endsWith: ['.model'] } } : modelOptions;
-    messengerOptions = (messengerOptions === undefined) ? { include: { endsWith: ['.messenger'] } } : messengerOptions;
-    controllerOptions = (controllerOptions === undefined) ? { include: { endsWith: ['.controller'] } } : controllerOptions;
+    modelOptions = modelOptions ?? { include: { endsWith: ['.model'] } };
+    messengerOptions = messengerOptions ?? { include: { endsWith: ['.messenger'] } };
+    controllerOptions = controllerOptions ?? { include: { endsWith: ['.controller'] } };
 
     /**
      * All the files in this project.

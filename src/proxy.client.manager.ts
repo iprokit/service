@@ -33,12 +33,9 @@ export default class ProxyClientManager {
      * @param options the optional constructor options.
      */
     constructor(options: Options) {
-        //Initialize Options.
-        options = options || {};
-
         //Initialize variables.
-        this.proxy = options.proxy || new Proxy();
-        this.logger = options.logger;
+        this.proxy = options?.proxy || new Proxy();
+        this.logger = options?.logger;
 
         //Initialize cells.
         this.cells = new Array();
