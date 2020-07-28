@@ -196,7 +196,7 @@ export default class Service extends EventEmitter {
         const scpLogger = this.logger.child({ component: 'SCP' });
         const scpLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${status} - ${ms} ms`);
             }
         }
         this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
@@ -206,7 +206,7 @@ export default class Service extends EventEmitter {
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${StatusType.getMessage(status)}(${status}) - ${ms} ms`);
+                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${status} - ${ms} ms`);
             }
         }
         this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });

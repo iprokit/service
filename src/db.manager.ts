@@ -71,39 +71,38 @@ export default class DBManager {
      * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
     constructor(logger: Logger, options: Options) {
-        //Initialize variables.
-        this.logger = logger;
-
         //Validate type
-        this.type = options.type;
-        if (!this.type) {
+        if (!options.type) {
             throw new ConnectionOptionsError('Invalid database type provided.');
         }
 
         //Validate host
-        this.host = options.host;
-        if (!this.host) {
+        if (!options.host) {
             throw new ConnectionOptionsError('Invalid database host provided.');
         }
 
         //Validate name
-        this.name = options.name;
-        if (!this.name) {
+        if (!options.name) {
             throw new ConnectionOptionsError('Invalid database name provided.');
         }
 
         //Validate username
-        this.username = options.username;
-        if (!this.username) {
+        if (!options.username) {
             throw new ConnectionOptionsError('Invalid database username provided.');
         }
 
         //Validate password
-        this.password = options.password;
-        if (!this.password) {
+        if (!options.password) {
             throw new ConnectionOptionsError('Invalid database password provided.');
         }
 
+        //Initialize variables.
+        this.logger = logger;
+        this.name = options.name;
+        this.type = options.type;
+        this.host = options.host;
+        this.username = options.username;
+        this.password = options.password;
         this.paperTrail = options.paperTrail ?? true;
 
         //Initialize NoSQL connection object.
@@ -139,8 +138,8 @@ export default class DBManager {
                         this._rdbConnected = false;
                     }
                 },
-                logging: (sql: string) => {
-                    this.logger.info(sql);
+                logging: (query: string) => {
+                    this.logger.info(query);
                 },
             });
         }
@@ -157,7 +156,7 @@ export default class DBManager {
     }
 
     /**
-     * True if the database is `SQL` type.
+     * True if the database is `RDB` type.
      */
     public get rdb() {
         return this.type === 'mysql' || this.type === 'postgres' || this.type === 'sqlite' || this.type === 'mariadb' || this.type === 'mssql';
@@ -307,7 +306,7 @@ export default class DBManager {
                 callback();
             }
         } catch (error) {
-            //SQL Errors.
+            //RDB Errors.
             if (error instanceof AccessDeniedError) {
                 error = new ConnectionOptionsError('Access denied to the database.');
             }
