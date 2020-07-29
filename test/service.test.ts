@@ -4,12 +4,16 @@ import { Mesh } from '@iprotechs/scp';
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
+import http, { RequestOptions, IncomingMessage } from 'http';
 
 //Import Local.
 import Default from '../lib/default';
 import Service, { Options } from '../lib/service';
 import { Proxy } from '../lib/proxy.client.manager';
+import HttpStatusCodes from '../lib/http.statusCodes';
 
+const hostname = 'localhost';
+const port = 3000;
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 mocha.describe('Service Test', () => {
@@ -120,6 +124,7 @@ mocha.describe('Service Test', () => {
                 assert.deepEqual(starting, true);
                 done();
             });
+
             service.start(() => {
                 assert.deepEqual(service.scpServer.listening, true);
                 assert.deepEqual(service.scpClientManager.connected, {});
@@ -149,6 +154,7 @@ mocha.describe('Service Test', () => {
                 assert.deepEqual(stopping, true);
                 done();
             });
+
             service.stop((exitCode) => {
                 assert.deepEqual(exitCode, 0);
 
@@ -162,13 +168,88 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Default Routes Test', () => {
-        //TODO: Work from here.
+    mocha.describe('Create Route Test', () => {
+        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath, });
+        silentLog(service);
 
-        //Cors test.
-        //JSON test.
-        //404 test.
-        //Service Unavailable Test.
+        mocha.before((done) => {
+            service.start(done);
+        });
+
+        mocha.after((done) => {
+            service.stop((exitCode) => {
+                assert.deepEqual(exitCode, 0);
+
+                done();
+            });
+        });
+
+        mocha.it('should create route', () => {
+            const route = service.createRouter('/hero');
+
+            assert.notDeepEqual(route, undefined);
+            assert.deepEqual(service.routes.length, 2);
+        });
+    });
+
+    mocha.describe('Default Routes Test', () => {
+        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath, });
+        silentLog(service);
+
+        mocha.before((done) => {
+            service.start(done);
+        });
+
+        mocha.after((done) => {
+            service.stop((exitCode) => {
+                assert.deepEqual(exitCode, 0);
+
+                done();
+            });
+        });
+
+        //Server
+        service.get('/hero', (request, respose) => {
+            respose.status(HttpStatusCodes.OK).send(request.body);
+        });
+
+        service.get('/hero/timeout', (request, respose) => {
+            respose.setTimeout(100);
+            setTimeout(() => {
+                try {
+                    respose.status(HttpStatusCodes.OK).send(request.body);
+                } catch (error) {
+                    assert.deepEqual(error.code, 'ERR_HTTP_HEADERS_SENT');
+                }
+            }, 200);
+        });
+
+        //Client
+        it('should execute GET(/hero) and receive body(JSON) with CORS support', (done) => {
+            const body = { hero: 'Wonder Women' };
+            httpRequest('get', '/hero', body, true, (response, error) => {
+                assert.deepEqual(response.headers['access-control-allow-origin'], '*');
+                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.deepEqual(response.body, body);
+                done(error);
+            });
+        });
+
+        it('should execute POST(/hero) and receive Error(Not Found)', (done) => {
+            httpRequest('post', '/hero', '', false, (response, error) => {
+                assert.deepEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
+                assert.deepEqual(response.body, 'Not Found');
+                done(error);
+            });
+        });
+
+        it('should execute POST(/hero) and receive Error(Service Unavailable)', (done) => {
+            httpRequest('get', '/hero/timeout', '', false, (response, error) => {
+                assert.deepEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
+                assert.deepEqual(response.body, 'Service Unavailable');
+                done(error);
+            });
+        });
     });
 
     mocha.describe('Service Routes Test', () => {
@@ -178,10 +259,6 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Proxy Test', () => {
-
-    });
-
-    mocha.describe('Create Route Test', () => {
 
     });
 
@@ -196,4 +273,45 @@ mocha.describe('Service Test', () => {
 //////////////////////////////
 function silentLog(service: Service) {
     service.logger.transports.forEach((transport) => (transport.silent = true));
+}
+
+//////////////////////////////
+//////HTTP Client
+//////////////////////////////
+//TODO: Move this into src as http.client.ts
+function httpRequest(method: string, path: string, body: any, json: boolean, callback: (response: HttpResponse, error?: Error) => void) {
+    body = (json === true) ? JSON.stringify(body) : body;
+    const requestOptions: RequestOptions = {
+        hostname: hostname,
+        port: port,
+        path: path,
+        method: method,
+        headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(body)
+        }
+    }
+
+    const request = http.request(requestOptions, (incomingMessage: HttpResponse) => {
+        let chunks: string = '';
+        incomingMessage.on('error', (error) => {
+            callback(undefined, error);
+        });
+        incomingMessage.on('data', (chunk) => {
+            chunks += chunk;
+        });
+        incomingMessage.on('end', () => {
+            incomingMessage.body = (json === true) ? JSON.parse(chunks.toString()) : chunks.toString();
+            callback(incomingMessage);
+        });
+    });
+    request.on('error', (error) => {
+        callback(undefined, error);
+    });
+    request.write(body);
+    request.end();
+}
+
+interface HttpResponse extends IncomingMessage {
+    body?: any;
 }
