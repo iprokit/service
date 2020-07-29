@@ -614,7 +614,10 @@ export default class Service extends EventEmitter {
         //Emit Global: stopping.
         this.emit('stopping');
 
-        setTimeout(() => {
+        /**
+         * Timeout handler. To force stop the service.
+         */
+        const timeout = setTimeout(() => {
             callback(1);
             this.logger.error('Forcefully shutting down.');
         }, this.forceStopTime);
@@ -623,6 +626,9 @@ export default class Service extends EventEmitter {
         this.hooks.preStop.execute(true, () => {
             this.hooks.stop.execute(false, () => {
                 this.hooks.postStop.execute(true, () => {
+                    //Remove timeout handler.
+                    clearTimeout(timeout);
+
                     //Log Event.
                     this.logger.info(`${this.name} stopped.`);
 
