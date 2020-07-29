@@ -15,6 +15,7 @@ import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 import ip from 'ip';
 
 //Local Imports
+import Default from './default';
 import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
 import ServiceRoutes from './service.routes';
@@ -160,12 +161,12 @@ export default class Service extends EventEmitter {
         //Initialize variables.
         this.name = options.name;
         this.version = options.version;
-        this.environment = options.environment;
-        this.httpPort = options.httpPort;
-        this.scpPort = options.scpPort;
-        this.discoveryPort = options.discoveryPort;
-        this.discoveryIp = options.discoveryIp;
-        this.forceStopTime = options.forceStopTime;
+        this.environment = options.environment || Default.ENVIRONMENT;
+        this.httpPort = options.httpPort || Default.HTTP_PORT;
+        this.scpPort = options.scpPort || Default.SCP_PORT;
+        this.discoveryPort = options.discoveryPort || Default.DISCOVERY_PORT;
+        this.discoveryIp = options.discoveryIp || Default.DISCOVERY_IP;
+        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
         this.logPath = options.logPath;
 
         //Initialize IP.
@@ -823,11 +824,11 @@ export default class Service extends EventEmitter {
         scpClient.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
-        this.scpClientManager.mount(alias || name, scpClient);
+        this.scpClientManager.mount(alias ?? name, scpClient);
 
         //Create a new `ProxyClient`.
         const proxyClient = this.proxyClientManager.createClient();
-        this.proxyClientManager.add(alias || name, proxyClient);
+        this.proxyClientManager.add(alias ?? name, proxyClient);
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
@@ -857,32 +858,32 @@ export type Options = {
     /**
      * The environment of the service.
      */
-    environment: string;
+    environment?: string;
 
     /**
      * The HTTP Server port of the service.
      */
-    httpPort: number;
+    httpPort?: number;
 
     /**
      * The SCP Server port of the service.
      */
-    scpPort: number;
+    scpPort?: number;
 
     /**
      * The discovery port of the service.
      */
-    discoveryPort: number;
+    discoveryPort?: number;
 
     /**
      * The IP address of discovery, i.e the multicast address.
      */
-    discoveryIp: string;
+    discoveryIp?: string;
 
     /**
      * The time to wait before the service is forcefully stopped when `service.stop()`is called.
      */
-    forceStopTime: number;
+    forceStopTime?: number;
 
     /**
      * The path to log files of the service.

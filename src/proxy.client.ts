@@ -95,7 +95,7 @@ export default class ProxyClient {
             const requestOptions: RequestOptions = {
                 hostname: this._hostname,
                 port: this._port,
-                path: requestPath || request.path,
+                path: requestPath ?? request.path,
                 method: request.method,
                 headers: request.headers
             }

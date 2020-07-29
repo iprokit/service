@@ -91,15 +91,15 @@ function micro(options?: Options) {
 
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = {
-            name: options?.name || process.env.npm_package_name,
-            version: options?.version || process.env.npm_package_version,
-            environment: process.env.NODE_ENV || Default.ENVIRONMENT,
-            httpPort: Number(process.env.HTTP_PORT) || Default.HTTP_PORT,
-            scpPort: Number(process.env.SCP_PORT) || Default.SCP_PORT,
-            discoveryPort: Number(process.env.DISCOVERY_PORT) || Default.DISCOVERY_PORT,
-            discoveryIp: process.env.DISCOVERY_IP || Default.DISCOVERY_IP,
-            forceStopTime: options?.forceStopTime || Default.FORCE_STOP_TIME,
-            logPath: process.env.LOG_PATH || path.join(projectPath, Default.LOG_PATH),
+            name: options?.name ?? process.env.npm_package_name,
+            version: options?.version ?? process.env.npm_package_version,
+            environment: process.env.NODE_ENV,
+            httpPort: Number(process.env.HTTP_PORT),
+            scpPort: Number(process.env.SCP_PORT),
+            discoveryPort: Number(process.env.DISCOVERY_PORT),
+            discoveryIp: process.env.DISCOVERY_IP,
+            forceStopTime: options?.forceStopTime,
+            logPath: process.env.LOG_PATH ?? path.join(projectPath, Default.LOG_PATH),
             db: options?.db && {
                 type: options.db?.type,
                 host: process.env.DB_HOST,
