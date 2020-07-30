@@ -98,7 +98,7 @@ function micro(options?: Options) {
             scpPort: Number(process.env.SCP_PORT),
             discoveryPort: Number(process.env.DISCOVERY_PORT),
             discoveryIp: process.env.DISCOVERY_IP,
-            forceStopTime: options?.forceStopTime,
+            // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
             logPath: process.env.LOG_PATH ?? path.join(projectPath, Default.LOG_PATH),
             db: options?.db && {
                 type: options.db?.type,
@@ -157,6 +157,73 @@ namespace micro {
 
 //Overload Export.
 export default micro;
+
+//////////////////////////////
+//////Bind
+//////////////////////////////
+// /**
+//  * Binds process events on `SIGTERM` and `SIGINT`.
+//  */
+// function bindProcessEvents() {
+//     //Exit
+//     process.once('SIGTERM', () => {
+//         this.logger.info('Received SIGTERM.');
+
+//         //TODO: Add start flag to validate if the service is running.
+//         this.stop((exitCode: number) => {
+//             process.exit(exitCode);
+//         });
+//     });
+
+//     //Ctrl + C
+//     process.on('SIGINT', () => {
+//         this.logger.info('Received SIGINT.');
+
+//         //TODO: Add start flag to validate if the service is running.
+//         this.stop((exitCode: number) => {
+//             process.exit(exitCode);
+//         });
+//     });
+
+//     process.on('unhandledRejection', (reason, promise) => {
+//         this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
+//     });
+// }
+
+// /**
+//  * The CPU and Memory usage of the service.
+//  */
+// private get systemReport() {
+//     let memoryUsage: { [key: string]: string } = {};
+
+//     Object.entries(process.memoryUsage()).forEach(([key, value]) => {
+//         memoryUsage[key] = `${Math.round(value / 1024 / 1024 * 100) / 100}MB`;
+//     });
+
+//     const cpuUsage = process.cpuUsage();
+
+//     return {
+//         pid: process.pid,
+//         cpu: {
+//             system: cpuUsage.system,
+//             user: cpuUsage.user
+//         },
+//         memory: memoryUsage
+//     }
+// }
+
+// /**
+//  * Timeout handler. To force stop the service.
+//  */
+// const timeout = setTimeout(() => {
+//     //Log Event.
+//     this.logger.error('Forcefully shutting down.');
+
+//     //Callback.
+//     if (callback) {
+//         callback(1);
+//     }
+// }, this.forceStopTime);
 
 //////////////////////////////
 //////Injections

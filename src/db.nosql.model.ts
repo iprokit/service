@@ -255,7 +255,7 @@ export default class NoSQLModel {
     /**
      * Initializes the model by creating a new `Schema` and assigning the given `InitOptions`.
      * 
-     * Note: Should not be called by the user.
+     * Note: Should not be called by the consumer.
      * 
      * @param attributes the attributes/fields of the model.
      * @param options the `InitOptions` 

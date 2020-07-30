@@ -8,7 +8,7 @@ import http, { RequestOptions, IncomingMessage } from 'http';
 
 //Import Local.
 import Default from '../lib/default';
-import Service, { Options } from '../lib/service';
+import Service, { Options, RemoteService } from '../lib/service';
 import { Proxy } from '../lib/proxy.client.manager';
 import HttpStatusCodes from '../lib/http.statusCodes';
 
@@ -35,7 +35,6 @@ mocha.describe('Service Test', () => {
             assert.deepEqual(service.scpPort, Default.SCP_PORT);
             assert.deepEqual(service.discoveryPort, Default.DISCOVERY_PORT);
             assert.deepEqual(service.discoveryIp, Default.DISCOVERY_IP);
-            assert.deepEqual(service.forceStopTime, Default.FORCE_STOP_TIME);
             assert.deepEqual(service.logPath, logPath);
             assert.notDeepEqual(service.scpClientManager.mesh, undefined);
             assert.notDeepEqual(service.proxyClientManager.proxy, undefined);
@@ -66,7 +65,6 @@ mocha.describe('Service Test', () => {
                 scpPort: 2000,
                 discoveryPort: 3000,
                 discoveryIp: '224.0.0.2',
-                forceStopTime: 1000,
                 logPath: logPath,
                 mesh: mesh,
                 proxy: proxy
@@ -82,7 +80,6 @@ mocha.describe('Service Test', () => {
             assert.deepEqual(service.scpPort, 2000);
             assert.deepEqual(service.discoveryPort, 3000);
             assert.deepEqual(service.discoveryIp, '224.0.0.2');
-            assert.deepEqual(service.forceStopTime, 1000);
             assert.deepEqual(service.logPath, logPath);
             assert.deepEqual(service.scpClientManager.mesh, mesh);
             assert.deepEqual(service.proxyClientManager.proxy, proxy);
@@ -102,25 +99,23 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('#start() & starting/ready Event Test', () => {
+    mocha.describe('#start() & starting/started Event Test', () => {
         const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
         silentLog(service);
 
         mocha.after((done) => {
-            service.stop((exitCode) => {
-                assert.deepEqual(exitCode, 0);
-
+            service.stop(() => {
                 done();
             });
         });
 
-        mocha.it('should emit starting/ready event', (done) => {
+        mocha.it('should emit starting/started event', (done) => {
             let starting = false;
 
             service.on('starting', () => {
                 starting = true;
             });
-            service.on('ready', () => {
+            service.on('started', () => {
                 assert.deepEqual(starting, true);
                 done();
             });
@@ -155,9 +150,7 @@ mocha.describe('Service Test', () => {
                 done();
             });
 
-            service.stop((exitCode) => {
-                assert.deepEqual(exitCode, 0);
-
+            service.stop(() => {
                 assert.deepEqual(service.scpServer.listening, false);
                 assert.deepEqual(service.scpClientManager.connected, {});
                 assert.deepEqual(service.proxyClientManager.linked, {});
@@ -170,29 +163,16 @@ mocha.describe('Service Test', () => {
 
     mocha.describe('Create Route Test', () => {
         const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
-        silentLog(service);
-
-        mocha.before((done) => {
-            service.start(done);
-        });
-
-        mocha.after((done) => {
-            service.stop((exitCode) => {
-                assert.deepEqual(exitCode, 0);
-
-                done();
-            });
-        });
 
         mocha.it('should create route', () => {
             const route = service.createRouter('/hero');
 
             assert.notDeepEqual(route, undefined);
-            assert.deepEqual(service.routes.length, 2);
+            assert.deepEqual(service.routes.length, 1);
         });
     });
 
-    mocha.describe('Default Routes Test', () => {
+    mocha.describe('Service Routes Test', () => {
         const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
         silentLog(service);
 
@@ -201,9 +181,47 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.after((done) => {
-            service.stop((exitCode) => {
-                assert.deepEqual(exitCode, 0);
+            service.stop(() => {
+                done();
+            });
+        });
 
+        it('should execute GET(/health) and receive body(JSON)', (done) => {
+            httpRequest('get', '/health', {}, true, (response, error) => {
+                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.deepEqual(response.body.name, 'HeroSVC');
+                assert.deepEqual(response.body.version, '1.0.0');
+                assert.deepEqual(response.body.httpServer, true);
+                assert.deepEqual(response.body.scpServer, true);
+                assert.deepEqual(response.body.discovery, true);
+                assert.deepEqual(response.body.healthy, true);
+                done(error);
+            });
+        });
+
+        it('should execute GET(/report) and receive body(JSON)', (done) => {
+            httpRequest('get', '/report', {}, true, (response, error) => {
+                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.notDeepEqual(response.body.service, undefined);
+                assert.notDeepEqual(response.body.endpoints, undefined);
+                assert.notDeepEqual(response.body.actions, undefined);
+                assert.notDeepEqual(response.body.mesh, undefined);
+                assert.notDeepEqual(response.body.serviceRegistry, undefined);
+                done(error);
+            });
+        });
+    });
+
+    mocha.describe('Default Middleware Test', () => {
+        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
+        silentLog(service);
+
+        mocha.before((done) => {
+            service.start(done);
+        });
+
+        mocha.after((done) => {
+            service.stop(() => {
                 done();
             });
         });
@@ -226,10 +244,10 @@ mocha.describe('Service Test', () => {
 
         //Client
         it('should execute GET(/hero) and receive body(JSON) with CORS support', (done) => {
-            httpRequest('get', '/hero', { hero: 'Wonder Women' }, true, (response, error) => {
+            httpRequest('get', '/hero', { hero: 'Iron Man' }, true, (response, error) => {
                 assert.deepEqual(response.headers['access-control-allow-origin'], '*');
                 assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.deepEqual(response.body, { hero: 'Wonder Women' });
+                assert.deepEqual(response.body, { hero: 'Iron Man' });
                 done(error);
             });
         });
@@ -251,58 +269,81 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Service Routes Test', () => {
-        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
-        silentLog(service);
-
-        mocha.before((done) => {
-            service.start(done);
-        });
-
-        it('should execute GET(/health) and receive body(JSON)', (done) => {
-            httpRequest('get', '/health', {}, true, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.deepEqual(response.body.name, 'HeroSVC');
-                assert.deepEqual(response.body.version, '1.0.0');
-                assert.deepEqual(response.body.httpServer, true);
-                assert.deepEqual(response.body.scpServer, true);
-                assert.deepEqual(response.body.discovery, true);
-                assert.deepEqual(response.body.healthy, true);
-                done(error);
-            });
-        });
-
-        it('should execute GET(/report) and receive body(JSON)', (done) => {
-            httpRequest('get', '/report', {}, true, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.notDeepEqual(response.body.service, undefined);
-                assert.notDeepEqual(response.body.system, undefined);
-                assert.notDeepEqual(response.body.endpoints, undefined);
-                assert.notDeepEqual(response.body.actions, undefined);
-                assert.notDeepEqual(response.body.mesh, undefined);
-                assert.notDeepEqual(response.body.serviceRegistry, undefined);
-                done(error);
-            });
-        });
-
-        it('should execute GET(/shutdown) and receive body(JSON)', (done) => {
-            httpRequest('get', '/shutdown', {}, true, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.deepEqual(response.body.message, 'Will shutdown in 2 seconds...');
-                done(error);
-            });
-        });
-    });
-
     mocha.describe('Service Registry Test', () => {
-        //TODO: Work from here.
-        //available event test
-        //unavailable event test
+        /**
+         * Test case not closing after this.
+         * Issue. During `service.stop()` the scpClients are still trying to reconnect this is why the test takes additional 40-50 seconds.
+         */
+
+        mocha.describe('Availability Test', () => {
+            const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
+            silentLog(shield);
+
+            const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+            silentLog(hydra);
+
+            mocha.after((done) => {
+                shield.stop(() => {
+                    hydra.stop(() => {
+                        done();
+                    });
+                });
+            });
+
+            mocha.it('Service(hydra) should be available to Service(shield)', (done) => {
+                shield.on('available', (remoteService: RemoteService) => {
+                    assert.deepEqual(remoteService.name, 'Hydra');
+                    assert.deepEqual(remoteService.alias, undefined);
+                    assert.deepEqual(remoteService.defined, false);
+                    assert.deepEqual(remoteService.scpClient.connected, true);
+                    assert.deepEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepEqual(remoteService.proxyClient.linked, true);
+                    done();
+                });
+
+                hydra.start(() => {
+                    shield.start();
+                });
+            });
+        });
+
+        mocha.describe('Unavailability Test', () => {
+            const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
+            silentLog(shield);
+
+            const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+            silentLog(hydra);
+
+            mocha.before((done) => {
+                shield.start(() => {
+                    hydra.start(() => {
+                        done();
+                    });
+                });
+            });
+
+            mocha.it('Service(hydra) should be unavailable to Service(shield)', (done) => {
+                shield.on('unavailable', (remoteService: RemoteService) => {
+                    assert.deepEqual(remoteService.name, 'Hydra');
+                    assert.deepEqual(remoteService.defined, false);
+                    assert.deepEqual(remoteService.alias, undefined);
+                    assert.deepEqual(remoteService.defined, false);
+                    assert.deepEqual(remoteService.scpClient.connected, false);
+                    assert.deepEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepEqual(remoteService.proxyClient.linked, false);
+                    done();
+                });
+
+                hydra.stop(() => {
+                    shield.stop();
+                });
+            });
+        });
     });
 
-    mocha.describe('Proxy Test', () => {
-
-    });
+    // mocha.describe('Proxy Test', () => {
+    //     //TODO: Implement this.
+    // });
 });
 
 //////////////////////////////

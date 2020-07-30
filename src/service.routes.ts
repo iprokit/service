@@ -9,7 +9,6 @@ import HttpStatusCodes from './http.statusCodes';
  * The `ServiceRoutes` contains the default endpoints.
  * - Health: Endpoint to return the health status of the service.
  * - Report: Endpoint to return the report of the service.
- * - Shutdown: Endpoint to safely shutdown the service.
  */
 export default class ServiceRoutes {
     /**
@@ -90,7 +89,6 @@ export default class ServiceRoutes {
     /**
      * Endpoint to return the report of the service. The report includes the following:
      * - Service: The service configuration.
-     * - System: The CPU and Memory usage of the service.
      * - DB: The `DBManager` connection configuration and `Model`'s loaded.
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
      * - Actions: The `SCP` `Action`'s exposed.
@@ -101,7 +99,6 @@ export default class ServiceRoutes {
         try {
             const report = {
                 service: this.serviceReport,
-                system: this.systemReport,
                 db: this.service.dbManager && this.dbReport,
                 endpoints: this.endpointsReport,
                 actions: this.actionsReport,
@@ -113,18 +110,6 @@ export default class ServiceRoutes {
         } catch (error) {
             response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
-    }
-
-    /**
-     * Endpoint to safely shutdown the service. Shutdown will be initiated after 2 seconds.
-     */
-    public shutdown(request: Request, response: Response) {
-        response.status(HttpStatusCodes.OK).send({ message: 'Will shutdown in 2 seconds...' });
-
-        setTimeout(() => {
-            this.service.logger.info(`Received shutdown from ${request.url}`);
-            this.service.stop();
-        }, 2000);
     }
 
     /**
@@ -160,28 +145,6 @@ export default class ServiceRoutes {
                 scp: this.service.scpServer.identifier,
                 discovery: this.service.discovery.id
             }
-        }
-    }
-
-    /**
-     * The CPU and Memory usage of the service.
-     */
-    private get systemReport() {
-        let memoryUsage: { [key: string]: string } = {};
-
-        Object.entries(process.memoryUsage()).forEach(([key, value]) => {
-            memoryUsage[key] = `${Math.round(value / 1024 / 1024 * 100) / 100}MB`;
-        });
-
-        const cpuUsage = process.cpuUsage();
-
-        return {
-            pid: process.pid,
-            cpu: {
-                system: cpuUsage.system,
-                user: cpuUsage.user
-            },
-            memory: memoryUsage
         }
     }
 

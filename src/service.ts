@@ -34,10 +34,9 @@ import ProxyClient from './proxy.client';
  * Default HTTP Endpoints.
  * - /health - To validate if the service is healthy.
  * - /report - To get all the service reports.
- * - /shutdown - To shutdown the service safely.
  * 
- * @emits `starting` when the service is starting.
- * @emits `ready` when the service is ready to be used to make HTTP calls.
+ * @emits `starting` when the service is in the process of starting.
+ * @emits `started` when the service is started.
  * @emits `available` when a remote service is available.
  * @emits `unavailable` when a remote service is unavailable.
  * @emits `stopping` when the service is in the process of stopping.
@@ -78,11 +77,6 @@ export default class Service extends EventEmitter {
      * The IP address of discovery, i.e the multicast address.
      */
     public readonly discoveryIp: string;
-
-    /**
-     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
-     */
-    public readonly forceStopTime: number;
 
     /**
      * The path to log files of the service.
@@ -166,7 +160,6 @@ export default class Service extends EventEmitter {
         this.scpPort = options.scpPort ?? Default.SCP_PORT;
         this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
         this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
-        this.forceStopTime = options.forceStopTime ?? Default.FORCE_STOP_TIME;
         this.logPath = options.logPath;
 
         //Initialize IP.
@@ -231,9 +224,6 @@ export default class Service extends EventEmitter {
         //Mount Hooks.
         this.mountStartHooks();
         this.mountStopHooks();
-
-        //Bind Process Events.
-        this.bindProcessEvents();
     }
 
     //////////////////////////////
@@ -313,18 +303,13 @@ export default class Service extends EventEmitter {
             const remoteService = this.serviceRegistry.get(pod.name) || this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
-            remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
+            remoteService.connect(() => {
                 //Log Event.
-                this.logger.info(`Mesh connected to ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
-            });
+                this.logger.info(`Connected to remote service ${remoteService.name}`);
 
-            remoteService.proxyClient.link(remoteService.address, remoteService.httpPort, () => {
-                //Log Event.
-                this.logger.info(`Proxy linked to ${remoteService.name}(${remoteService.address}:${remoteService.httpPort})`);
+                //Emit Global: available.
+                this.emit('available', remoteService);
             });
-
-            //Emit Global: available.
-            this.emit('available', remoteService);
         });
 
         this.discovery.on('unavailable', (pod: Pod) => {
@@ -334,18 +319,13 @@ export default class Service extends EventEmitter {
             //Try finding the remoteService.
             const remoteService = this.serviceRegistry.get(pod.name);
 
-            remoteService.scpClient.disconnect(() => {
+            remoteService.disconnect(() => {
                 //Log Event.
-                this.logger.info(`Mesh disconnected from ${remoteService.name}(${remoteService.address}:${remoteService.scpPort})`);
-            });
+                this.logger.info(`Disconnected from remote service ${remoteService.name}`);
 
-            remoteService.proxyClient.unlink(() => {
-                //Log Event.
-                this.logger.info(`Proxy unlinked from ${remoteService.name}(${remoteService.address}:${remoteService.httpPort})`);
+                //Emit Global: unavailable.
+                this.emit('unavailable', remoteService);
             });
-
-            //Emit Global: unavailable.
-            this.emit('unavailable', remoteService);
         });
 
         this.discovery.on('error', (error: Error) => {
@@ -408,7 +388,6 @@ export default class Service extends EventEmitter {
             const serviceRouter = this.createRouter('/');
             serviceRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
             serviceRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
-            serviceRouter.get('/shutdown', Helper.bind(serviceRoutes.shutdown, serviceRoutes));
 
             //Database routes.
             if (this.dbManager) {
@@ -417,34 +396,6 @@ export default class Service extends EventEmitter {
             }
 
             done();
-        });
-    }
-
-    //////////////////////////////
-    //////Bind
-    //////////////////////////////
-    /**
-     * Binds process events on `SIGTERM` and `SIGINT`.
-     */
-    private bindProcessEvents() {
-        //Exit
-        process.once('SIGTERM', () => {
-            this.logger.info('Received SIGTERM.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        //Ctrl + C
-        process.on('SIGINT', () => {
-            this.logger.info('Received SIGINT.');
-            this.stop((exitCode: number) => {
-                process.exit(exitCode);
-            });
-        });
-
-        process.on('unhandledRejection', (reason, promise) => {
-            this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
         });
     }
 
@@ -581,10 +532,10 @@ export default class Service extends EventEmitter {
             this.hooks.start.execute(false, () => {
                 this.hooks.postStart.execute(true, () => {
                     //Log Event.
-                    this.logger.info(`${this.name} ready.`);
+                    this.logger.info(`${this.name} started.`);
 
-                    //Emit Global: ready.
-                    this.emit('ready');
+                    //Emit Global: started.
+                    this.emit('started');
 
                     //Callback.
                     if (callback) {
@@ -600,40 +551,20 @@ export default class Service extends EventEmitter {
 
     /**
      * Stops the service.
-     * If the service is not stopped in `service.forceStopTime` it will be forcefully stopped.
-     * 
-     * - exitCode is 0 on stop.
-     * - exitCode is 1 on error.
      * 
      * @param callback optional callback, called when the service is stopped.
      */
-    public stop(callback?: (exitCode: 0 | 1) => void) {
+    public stop(callback?: () => void) {
         //Log Event.
         this.logger.info(`Stopping ${this.name}...`);
 
         //Emit Global: stopping.
         this.emit('stopping');
 
-        /**
-         * Timeout handler. To force stop the service.
-         */
-        const timeout = setTimeout(() => {
-            //Log Event.
-            this.logger.error('Forcefully shutting down.');
-
-            //Callback.
-            if (callback) {
-                callback(1);
-            }
-        }, this.forceStopTime);
-
         //Run Hooks.
         this.hooks.preStop.execute(true, () => {
             this.hooks.stop.execute(false, () => {
                 this.hooks.postStop.execute(true, () => {
-                    //Remove timeout handler.
-                    clearTimeout(timeout);
-
                     //Log Event.
                     this.logger.info(`${this.name} stopped.`);
 
@@ -642,7 +573,7 @@ export default class Service extends EventEmitter {
 
                     //Callback.
                     if (callback) {
-                        callback(0);
+                        callback();
                     }
                 });
             });
@@ -818,7 +749,7 @@ export default class Service extends EventEmitter {
      * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
-     * @param defined set to true if the service is defined by the user, false if auto discovered.
+     * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      */
     private register(name: string, alias?: string, defined?: boolean) {
         //Try finding the remoteService.
@@ -846,6 +777,13 @@ export default class Service extends EventEmitter {
         //Create a new `RemoteService` and push to `ServiceRegistry`.
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
         this.serviceRegistry.register(remoteService);
+
+        //Mount preStop Hook[*]: Disconnect Remote Service.
+        this.hooks.preStop.mount((done) => {
+            remoteService.disconnect(() => {
+                done();
+            });
+        });
 
         return remoteService;
     }
@@ -892,11 +830,6 @@ export type Options = {
      * The IP address of discovery, i.e the multicast address.
      */
     discoveryIp?: string;
-
-    /**
-     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
-     */
-    forceStopTime?: number;
 
     /**
      * The path to log files of the service.
@@ -1190,6 +1123,37 @@ export class RemoteService {
         this._address = address;
         this._httpPort = httpPort;
         this._scpPort = scpPort;
+    }
+
+    //////////////////////////////
+    //////Connection Management
+    //////////////////////////////
+    /**
+     * Connect to the remote service.
+     */
+    public connect(callback?: () => void) {
+        this.proxyClient.link(this._address, this._httpPort, () => {
+            this.scpClient.connect(this._address, this._scpPort, () => {
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            });
+        });
+    }
+
+    /**
+     * Disconnect from the remote service.
+     */
+    public disconnect(callback?: () => void) {
+        this.proxyClient.unlink(() => {
+            this.scpClient.disconnect(() => {
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            });
+        });
     }
 }
 

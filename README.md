@@ -125,7 +125,7 @@ By default the service is assigned the following service and environment variabl
 |--------------|-----------|----------|----------------|--------------|----------|
 | `production` | `3000`    | `6000`   | `5000`         | `224.0.0.1`  | `/logs`  |
 
-`Health`, `Report` and `Shutdown` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
+`Health` and `Report` endpoints are also created. Let's take a look, Open up *postman* or any other http client and call the below endpoints.
 
 `Health` Endpoint: 
 ```sh
@@ -135,11 +135,6 @@ GET: http://localhost:${httpPort}/health
 `Report` Endpoint: 
 ```sh
 GET: http://localhost:${httpPort}/report
-```
-
-`Shutdown` Endpoint: 
-```sh
-POST: http://localhost:${httpPort}/shutdown
 ```
 
 You can override the service variables by assigning options like so.
