@@ -607,7 +607,7 @@ export default class Service extends EventEmitter {
      * 
      * @param callback optional callback, called when the service is stopped.
      */
-    public stop(callback: (exitCode: number) => void) {
+    public stop(callback?: (exitCode: 0 | 1) => void) {
         //Log Event.
         this.logger.info(`Stopping ${this.name}...`);
 
@@ -618,8 +618,13 @@ export default class Service extends EventEmitter {
          * Timeout handler. To force stop the service.
          */
         const timeout = setTimeout(() => {
-            callback(1);
+            //Log Event.
             this.logger.error('Forcefully shutting down.');
+
+            //Callback.
+            if (callback) {
+                callback(1);
+            }
         }, this.forceStopTime);
 
         //Run Hooks.
@@ -636,7 +641,9 @@ export default class Service extends EventEmitter {
                     this.emit('stopped');
 
                     //Callback.
-                    callback(0);
+                    if (callback) {
+                        callback(0);
+                    }
                 });
             });
         });

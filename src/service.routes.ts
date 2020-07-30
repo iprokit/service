@@ -123,7 +123,7 @@ export default class ServiceRoutes {
 
         setTimeout(() => {
             this.service.logger.info(`Received shutdown from ${request.url}`);
-            process.kill(process.pid, 'SIGTERM');
+            this.service.stop();
         }, 2000);
     }
 
