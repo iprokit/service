@@ -3,6 +3,13 @@
  */
 export default class Default {
     /**
+     * The default version of the service.
+     * 
+     * @default `1.0.0`
+     */
+    public static readonly VERSION: string = '1.0.0';
+
+    /**
      * The default environment of the service.
      * 
      * @default `production`

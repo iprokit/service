@@ -21,15 +21,14 @@ mocha.describe('Service Test', () => {
         mocha.it('should construct Service with default variables.', () => {
             const options: Options = {
                 name: 'HeroSVC',
-                version: '1.0.0',
-                logPath: logPath,
+                logPath: logPath
             }
 
             const service = new Service(options);
 
             //Options Variables.
             assert.deepEqual(service.name, 'HeroSVC');
-            assert.deepEqual(service.version, '1.0.0');
+            assert.deepEqual(service.version, Default.VERSION);
             assert.deepEqual(service.environment, Default.ENVIRONMENT);
             assert.deepEqual(service.httpPort, Default.HTTP_PORT);
             assert.deepEqual(service.scpPort, Default.SCP_PORT);
@@ -59,7 +58,7 @@ mocha.describe('Service Test', () => {
 
             const options: Options = {
                 name: 'HeroSVC',
-                version: '1.0.0',
+                version: '2.0.0',
                 environment: 'dev',
                 httpPort: 1000,
                 scpPort: 2000,
@@ -74,8 +73,8 @@ mocha.describe('Service Test', () => {
 
             //Options Variables.
             assert.deepEqual(service.name, 'HeroSVC');
-            assert.deepEqual(service.version, '1.0.0');
-            assert.deepEqual(service.environment, 'dev');
+            assert.deepEqual(service.version, '2.0.0');
+            assert.deepEqual(service.environment, 'development');
             assert.deepEqual(service.httpPort, 1000);
             assert.deepEqual(service.scpPort, 2000);
             assert.deepEqual(service.discoveryPort, 3000);
@@ -270,11 +269,6 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Service Registry Test', () => {
-        /**
-         * Test case not closing after this.
-         * Issue. During `service.stop()` the scpClients are still trying to reconnect this is why the test takes additional 40-50 seconds.
-         */
-
         mocha.describe('Availability Test', () => {
             const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
             silentLog(shield);

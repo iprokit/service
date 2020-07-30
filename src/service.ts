@@ -154,7 +154,7 @@ export default class Service extends EventEmitter {
 
         //Initialize variables.
         this.name = options.name;
-        this.version = options.version;
+        this.version = options.version ?? Default.VERSION;
         this.environment = options.environment ?? Default.ENVIRONMENT;
         this.httpPort = options.httpPort ?? Default.HTTP_PORT;
         this.scpPort = options.scpPort ?? Default.SCP_PORT;
@@ -804,7 +804,7 @@ export type Options = {
     /**
      * The version of the service.
      */
-    version: string;
+    version?: string;
 
     /**
      * The environment of the service.
