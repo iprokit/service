@@ -161,12 +161,12 @@ export default class Service extends EventEmitter {
         //Initialize variables.
         this.name = options.name;
         this.version = options.version;
-        this.environment = options.environment || Default.ENVIRONMENT;
-        this.httpPort = options.httpPort || Default.HTTP_PORT;
-        this.scpPort = options.scpPort || Default.SCP_PORT;
-        this.discoveryPort = options.discoveryPort || Default.DISCOVERY_PORT;
-        this.discoveryIp = options.discoveryIp || Default.DISCOVERY_IP;
-        this.forceStopTime = options.forceStopTime || Default.FORCE_STOP_TIME;
+        this.environment = options.environment ?? Default.ENVIRONMENT;
+        this.httpPort = options.httpPort ?? Default.HTTP_PORT;
+        this.scpPort = options.scpPort ?? Default.SCP_PORT;
+        this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
+        this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
+        this.forceStopTime = options.forceStopTime ?? Default.FORCE_STOP_TIME;
         this.logPath = options.logPath;
 
         //Initialize IP.
