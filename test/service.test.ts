@@ -27,42 +27,42 @@ mocha.describe('Service Test', () => {
             const service = new Service(options);
 
             //Options Variables.
-            assert.deepEqual(service.name, 'HeroSVC');
-            assert.deepEqual(service.version, Default.VERSION);
-            assert.deepEqual(service.environment, Default.ENVIRONMENT);
-            assert.deepEqual(service.httpPort, Default.HTTP_PORT);
-            assert.deepEqual(service.scpPort, Default.SCP_PORT);
-            assert.deepEqual(service.discoveryPort, Default.DISCOVERY_PORT);
-            assert.deepEqual(service.discoveryIp, Default.DISCOVERY_IP);
-            assert.deepEqual(service.logPath, logPath);
-            assert.notDeepEqual(service.scpClientManager.mesh, undefined);
-            assert.notDeepEqual(service.proxyClientManager.proxy, undefined);
+            assert.deepStrictEqual(service.name, 'HeroSVC');
+            assert.deepStrictEqual(service.version, Default.VERSION);
+            assert.deepStrictEqual(service.environment, Default.ENVIRONMENT);
+            assert.deepStrictEqual(service.httpPort, Default.HTTP_PORT);
+            assert.deepStrictEqual(service.scpPort, Default.SCP_PORT);
+            assert.deepStrictEqual(service.discoveryPort, Default.DISCOVERY_PORT);
+            assert.deepStrictEqual(service.discoveryIp, Default.DISCOVERY_IP);
+            assert.deepStrictEqual(service.logPath, logPath);
+            assert.notDeepStrictEqual(service.scpClientManager.mesh, undefined);
+            assert.notDeepStrictEqual(service.proxyClientManager.proxy, undefined);
 
             //Class Variables.
-            assert.notDeepEqual(service.ip, undefined);
-            assert.notDeepEqual(service.hooks, undefined);
-            assert.notDeepEqual(service.logger, undefined);
-            assert.deepEqual(service.dbManager, undefined);
-            assert.notDeepEqual(service.scpServer, undefined);
-            assert.notDeepEqual(service.scpClientManager, undefined);
-            assert.notDeepEqual(service.proxyClientManager, undefined);
-            assert.notDeepEqual(service.discovery, undefined);
-            assert.notDeepEqual(service.serviceRegistry, undefined);
-            assert.notDeepEqual(service.express, undefined);
-            assert.notDeepEqual(service.routes, undefined);
+            assert.notDeepStrictEqual(service.ip, undefined);
+            assert.notDeepStrictEqual(service.hooks, undefined);
+            assert.notDeepStrictEqual(service.logger, undefined);
+            assert.deepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.scpServer, undefined);
+            assert.notDeepStrictEqual(service.scpClientManager, undefined);
+            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
+            assert.notDeepStrictEqual(service.discovery, undefined);
+            assert.notDeepStrictEqual(service.serviceRegistry, undefined);
+            assert.notDeepStrictEqual(service.express, undefined);
+            assert.notDeepStrictEqual(service.routes, undefined);
         });
 
-        mocha.it('should construct Service with custom variables.', () => {
+        mocha.it('should construct Service with custom(Truthy) variables.', () => {
             const mesh = new Mesh();
             const proxy = new Proxy();
 
             const options: Options = {
                 name: 'HeroSVC',
                 version: '2.0.0',
-                environment: 'dev',
-                httpPort: 1000,
-                scpPort: 2000,
-                discoveryPort: 3000,
+                environment: 'development',
+                httpPort: 3001,
+                scpPort: 6001,
+                discoveryPort: 5001,
                 discoveryIp: '224.0.0.2',
                 logPath: logPath,
                 mesh: mesh,
@@ -72,29 +72,74 @@ mocha.describe('Service Test', () => {
             const service = new Service(options);
 
             //Options Variables.
-            assert.deepEqual(service.name, 'HeroSVC');
-            assert.deepEqual(service.version, '2.0.0');
-            assert.deepEqual(service.environment, 'development');
-            assert.deepEqual(service.httpPort, 1000);
-            assert.deepEqual(service.scpPort, 2000);
-            assert.deepEqual(service.discoveryPort, 3000);
-            assert.deepEqual(service.discoveryIp, '224.0.0.2');
-            assert.deepEqual(service.logPath, logPath);
-            assert.deepEqual(service.scpClientManager.mesh, mesh);
-            assert.deepEqual(service.proxyClientManager.proxy, proxy);
+            assert.deepStrictEqual(service.name, 'HeroSVC');
+            assert.deepStrictEqual(service.version, '2.0.0');
+            assert.deepStrictEqual(service.environment, 'development');
+            assert.deepStrictEqual(service.httpPort, 3001);
+            assert.deepStrictEqual(service.scpPort, 6001);
+            assert.deepStrictEqual(service.discoveryPort, 5001);
+            assert.deepStrictEqual(service.discoveryIp, '224.0.0.2');
+            assert.deepStrictEqual(service.logPath, logPath);
+            assert.deepStrictEqual(service.scpClientManager.mesh, mesh);
+            assert.deepStrictEqual(service.proxyClientManager.proxy, proxy);
 
             //Class Variables.
-            assert.notDeepEqual(service.ip, undefined);
-            assert.notDeepEqual(service.hooks, undefined);
-            assert.notDeepEqual(service.logger, undefined);
-            assert.deepEqual(service.dbManager, undefined);
-            assert.notDeepEqual(service.scpServer, undefined);
-            assert.notDeepEqual(service.scpClientManager, undefined);
-            assert.notDeepEqual(service.proxyClientManager, undefined);
-            assert.notDeepEqual(service.discovery, undefined);
-            assert.notDeepEqual(service.serviceRegistry, undefined);
-            assert.notDeepEqual(service.express, undefined);
-            assert.notDeepEqual(service.routes, undefined);
+            assert.notDeepStrictEqual(service.ip, undefined);
+            assert.notDeepStrictEqual(service.hooks, undefined);
+            assert.notDeepStrictEqual(service.logger, undefined);
+            assert.deepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.scpServer, undefined);
+            assert.notDeepStrictEqual(service.scpClientManager, undefined);
+            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
+            assert.notDeepStrictEqual(service.discovery, undefined);
+            assert.notDeepStrictEqual(service.serviceRegistry, undefined);
+            assert.notDeepStrictEqual(service.express, undefined);
+            assert.notDeepStrictEqual(service.routes, undefined);
+        });
+
+        mocha.it('should construct Service with custom(Falsy) variables.', () => {
+            const mesh = new Mesh();
+            const proxy = new Proxy();
+
+            const options: Options = {
+                name: '',
+                version: '',
+                environment: '',
+                httpPort: 0,
+                scpPort: 0,
+                discoveryPort: 0,
+                discoveryIp: '',
+                logPath: logPath,
+                mesh: mesh,
+                proxy: proxy
+            }
+
+            const service = new Service(options);
+
+            //Options Variables.
+            assert.deepStrictEqual(service.name, '');
+            assert.deepStrictEqual(service.version, '');
+            assert.deepStrictEqual(service.environment, '');
+            assert.deepStrictEqual(service.httpPort, 0);
+            assert.deepStrictEqual(service.scpPort, 0);
+            assert.deepStrictEqual(service.discoveryPort, 0);
+            assert.deepStrictEqual(service.discoveryIp, '');
+            assert.deepStrictEqual(service.logPath, logPath);
+            assert.deepStrictEqual(service.scpClientManager.mesh, mesh);
+            assert.deepStrictEqual(service.proxyClientManager.proxy, proxy);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.ip, undefined);
+            assert.notDeepStrictEqual(service.hooks, undefined);
+            assert.notDeepStrictEqual(service.logger, undefined);
+            assert.deepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.scpServer, undefined);
+            assert.notDeepStrictEqual(service.scpClientManager, undefined);
+            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
+            assert.notDeepStrictEqual(service.discovery, undefined);
+            assert.notDeepStrictEqual(service.serviceRegistry, undefined);
+            assert.notDeepStrictEqual(service.express, undefined);
+            assert.notDeepStrictEqual(service.routes, undefined);
         });
     });
 
@@ -115,17 +160,17 @@ mocha.describe('Service Test', () => {
                 starting = true;
             });
             service.on('started', () => {
-                assert.deepEqual(starting, true);
+                assert.deepStrictEqual(starting, true);
                 done();
             });
 
             service.start(() => {
-                assert.deepEqual(service.scpServer.listening, true);
-                assert.deepEqual(service.scpClientManager.connected, {});
-                assert.deepEqual(service.proxyClientManager.linked, {});
-                assert.deepEqual(service.discovery.listening, true);
-                assert.deepEqual(service.serviceRegistry.connected, undefined);
-                assert.deepEqual(service.httpServer.listening, true);
+                assert.deepStrictEqual(service.scpServer.listening, true);
+                assert.deepStrictEqual(service.scpClientManager.connected, {});
+                assert.deepStrictEqual(service.proxyClientManager.linked, {});
+                assert.deepStrictEqual(service.discovery.listening, true);
+                assert.deepStrictEqual(service.serviceRegistry.connected, undefined);
+                assert.deepStrictEqual(service.httpServer.listening, true);
             });
         });
     });
@@ -145,29 +190,18 @@ mocha.describe('Service Test', () => {
                 stopping = true;
             });
             service.on('stopped', () => {
-                assert.deepEqual(stopping, true);
+                assert.deepStrictEqual(stopping, true);
                 done();
             });
 
             service.stop(() => {
-                assert.deepEqual(service.scpServer.listening, false);
-                assert.deepEqual(service.scpClientManager.connected, {});
-                assert.deepEqual(service.proxyClientManager.linked, {});
-                assert.deepEqual(service.discovery.listening, false);
-                assert.deepEqual(service.serviceRegistry.connected, undefined);
-                assert.deepEqual(service.httpServer.listening, false);
+                assert.deepStrictEqual(service.scpServer.listening, false);
+                assert.deepStrictEqual(service.scpClientManager.connected, {});
+                assert.deepStrictEqual(service.proxyClientManager.linked, {});
+                assert.deepStrictEqual(service.discovery.listening, false);
+                assert.deepStrictEqual(service.serviceRegistry.connected, undefined);
+                assert.deepStrictEqual(service.httpServer.listening, false);
             });
-        });
-    });
-
-    mocha.describe('Create Route Test', () => {
-        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
-
-        mocha.it('should create route', () => {
-            const route = service.createRouter('/hero');
-
-            assert.notDeepEqual(route, undefined);
-            assert.deepEqual(service.routes.length, 1);
         });
     });
 
@@ -187,25 +221,25 @@ mocha.describe('Service Test', () => {
 
         it('should execute GET(/health) and receive body(JSON)', (done) => {
             httpRequest('get', '/health', {}, true, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.deepEqual(response.body.name, 'HeroSVC');
-                assert.deepEqual(response.body.version, '1.0.0');
-                assert.deepEqual(response.body.httpServer, true);
-                assert.deepEqual(response.body.scpServer, true);
-                assert.deepEqual(response.body.discovery, true);
-                assert.deepEqual(response.body.healthy, true);
+                assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.deepStrictEqual(response.body.name, 'HeroSVC');
+                assert.deepStrictEqual(response.body.version, '1.0.0');
+                assert.deepStrictEqual(response.body.httpServer, true);
+                assert.deepStrictEqual(response.body.scpServer, true);
+                assert.deepStrictEqual(response.body.discovery, true);
+                assert.deepStrictEqual(response.body.healthy, true);
                 done(error);
             });
         });
 
         it('should execute GET(/report) and receive body(JSON)', (done) => {
             httpRequest('get', '/report', {}, true, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.notDeepEqual(response.body.service, undefined);
-                assert.notDeepEqual(response.body.endpoints, undefined);
-                assert.notDeepEqual(response.body.actions, undefined);
-                assert.notDeepEqual(response.body.mesh, undefined);
-                assert.notDeepEqual(response.body.serviceRegistry, undefined);
+                assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.notDeepStrictEqual(response.body.service, undefined);
+                assert.notDeepStrictEqual(response.body.endpoints, undefined);
+                assert.notDeepStrictEqual(response.body.actions, undefined);
+                assert.notDeepStrictEqual(response.body.mesh, undefined);
+                assert.notDeepStrictEqual(response.body.serviceRegistry, undefined);
                 done(error);
             });
         });
@@ -236,7 +270,7 @@ mocha.describe('Service Test', () => {
                 try {
                     respose.status(HttpStatusCodes.OK).send(request.body);
                 } catch (error) {
-                    assert.deepEqual(error.code, 'ERR_HTTP_HEADERS_SENT');
+                    assert.deepStrictEqual(error.code, 'ERR_HTTP_HEADERS_SENT');
                 }
             }, 200);
         });
@@ -244,25 +278,25 @@ mocha.describe('Service Test', () => {
         //Client
         it('should execute GET(/hero) and receive body(JSON) with CORS support', (done) => {
             httpRequest('get', '/hero', { hero: 'Iron Man' }, true, (response, error) => {
-                assert.deepEqual(response.headers['access-control-allow-origin'], '*');
-                assert.deepEqual(response.statusCode, HttpStatusCodes.OK);
-                assert.deepEqual(response.body, { hero: 'Iron Man' });
+                assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                assert.deepStrictEqual(response.body, { hero: 'Iron Man' });
                 done(error);
             });
         });
 
         it('should execute POST(/hero) and receive Error(Not Found)', (done) => {
             httpRequest('post', '/hero', '', false, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
-                assert.deepEqual(response.body, 'Not Found');
+                assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
+                assert.deepStrictEqual(response.body, 'Not Found');
                 done(error);
             });
         });
 
         it('should execute POST(/hero) and receive Error(Service Unavailable)', (done) => {
             httpRequest('get', '/hero/timeout', '', false, (response, error) => {
-                assert.deepEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
-                assert.deepEqual(response.body, 'Service Unavailable');
+                assert.deepStrictEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
+                assert.deepStrictEqual(response.body, 'Service Unavailable');
                 done(error);
             });
         });
@@ -286,12 +320,12 @@ mocha.describe('Service Test', () => {
 
             mocha.it('Service(hydra) should be available to Service(shield)', (done) => {
                 shield.on('available', (remoteService: RemoteService) => {
-                    assert.deepEqual(remoteService.name, 'Hydra');
-                    assert.deepEqual(remoteService.alias, undefined);
-                    assert.deepEqual(remoteService.defined, false);
-                    assert.deepEqual(remoteService.scpClient.connected, true);
-                    assert.deepEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepEqual(remoteService.proxyClient.linked, true);
+                    assert.deepStrictEqual(remoteService.name, 'Hydra');
+                    assert.deepStrictEqual(remoteService.alias, undefined);
+                    assert.deepStrictEqual(remoteService.defined, false);
+                    assert.deepStrictEqual(remoteService.scpClient.connected, true);
+                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
                     done();
                 });
 
@@ -299,7 +333,7 @@ mocha.describe('Service Test', () => {
                     shield.start();
                 });
             });
-        });
+        }).timeout(1000 * 5);
 
         mocha.describe('Unavailability Test', () => {
             const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
@@ -318,13 +352,13 @@ mocha.describe('Service Test', () => {
 
             mocha.it('Service(hydra) should be unavailable to Service(shield)', (done) => {
                 shield.on('unavailable', (remoteService: RemoteService) => {
-                    assert.deepEqual(remoteService.name, 'Hydra');
-                    assert.deepEqual(remoteService.defined, false);
-                    assert.deepEqual(remoteService.alias, undefined);
-                    assert.deepEqual(remoteService.defined, false);
-                    assert.deepEqual(remoteService.scpClient.connected, false);
-                    assert.deepEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepEqual(remoteService.proxyClient.linked, false);
+                    assert.deepStrictEqual(remoteService.name, 'Hydra');
+                    assert.deepStrictEqual(remoteService.defined, false);
+                    assert.deepStrictEqual(remoteService.alias, undefined);
+                    assert.deepStrictEqual(remoteService.defined, false);
+                    assert.deepStrictEqual(remoteService.scpClient.connected, false);
+                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
                     done();
                 });
 
@@ -332,13 +366,27 @@ mocha.describe('Service Test', () => {
                     shield.stop();
                 });
             });
-        });
+        }).timeout(1000 * 5);
     });
 
-    // mocha.describe('Proxy Test', () => {
-    //     //TODO: Implement this.
-    // });
+    mocha.describe('Creation Test', () => {
+        mocha.it('should create route', () => {
+            const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
+            const route = service.createRouter('/hero');
+
+            assert.notDeepStrictEqual(route, undefined);
+            assert.deepStrictEqual(service.routes.length, 1);
+        });
+    });
 });
+
+/**
+ * TODO: 
+ * Use, all, get, post, put, delete - creation and call test. With use before and after test.
+ * Reply, define, broadcast - creation and call test.
+ * Discover - creation and call test.
+ * Proxy test
+ */
 
 //////////////////////////////
 //////Helpers

@@ -300,7 +300,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one.
-            const remoteService = this.serviceRegistry.get(pod.name) || this.register(pod.name);
+            const remoteService = this.serviceRegistry.get(pod.name) ?? this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
             remoteService.connect(() => {
@@ -762,17 +762,18 @@ export default class Service extends EventEmitter {
 
         //Initialize Defaults.
         defined = defined ?? false;
+        const traceName = alias ?? name;
 
         //Create a new `ScpClient`.
         const scpClient = this.scpClientManager.createClient({ name: this.name });
         scpClient.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
-        this.scpClientManager.mount(alias ?? name, scpClient);
+        this.scpClientManager.mount(traceName, scpClient);
 
         //Create a new `ProxyClient`.
         const proxyClient = this.proxyClientManager.createClient();
-        this.proxyClientManager.add(alias ?? name, proxyClient);
+        this.proxyClientManager.add(traceName, proxyClient);
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
