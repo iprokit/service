@@ -1,5 +1,5 @@
 //Import @iprotechs Modules
-import { Mesh } from '@iprotechs/scp';
+import { Mesh, Body } from '@iprotechs/scp';
 
 //Import Libs.
 import mocha from 'mocha';
@@ -356,8 +356,8 @@ mocha.describe('Service Test', () => {
                     done(error);
                 });
             });
-            
-            mocha.it('should execute DELETE(/hero) and receive Error(Not Found) with CORS support', (done) => {
+
+            mocha.it('should execute DELETE(/hero) and receive Error(No Hero Route Found) with CORS support', (done) => {
                 httpRequest('delete', '/hero', '', false, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
@@ -405,11 +405,66 @@ mocha.describe('Service Test', () => {
             });
         });
     });
+
+    mocha.describe('SCP Test', () => {
+        const IronMan = new Mesh();
+
+        const jarvis = new Service({ name: 'Jarvis', version: '10.0.1', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });
+        silentLog(jarvis);
+
+        const armor = new Service({ name: 'Armor', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        silentLog(armor);
+
+        mocha.before((done) => {
+            jarvis.on('available', (remoteService: RemoteService) => {
+                assert.deepStrictEqual(remoteService.name, 'Armor');
+                done();
+            });
+
+            jarvis.start(() => {
+                armor.start();
+            });
+        });
+
+        mocha.after((done) => {
+            jarvis.stop(() => {
+                armor.stop(done);
+            });
+        });
+
+        //Server
+        armor.reply('IronLegion.getAll', (message, reply) => {
+            const ironLegions = new Array();
+            for (let mark = 0; mark < 33; mark++) {
+                ironLegions.push(`Mark ${mark}`);
+            }
+
+            reply.send(ironLegions);
+        });
+
+        armor.defineBroadcast('IronLegion.housePartyProtocol');
+
+        //Client
+        mocha.it('should execute #Armor(IronLegion.getAll()) and receive reply', async () => {
+            const ironLegions: Body = await IronMan.Armor.IronLegion.getAll();
+            assert.deepStrictEqual(ironLegions.length, 33);
+        }).timeout(1000 * 5);
+
+        mocha.it('should receive broadcast on IronLegion.housePartyProtocol', (done) => {
+            IronMan.Armor.once('IronLegion.housePartyProtocol', (status: Body) => {
+                assert.deepStrictEqual(status, { send: true });
+
+                done();
+            });
+
+            //Trigger broadcast.
+            armor.broadcast('IronLegion.housePartyProtocol', { send: true });
+        });
+    });
 });
 
 /**
  * TODO: 
- * Reply, define, broadcast - creation and call test.
  * Discover - creation and call test.
  * Proxy test
  */
