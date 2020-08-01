@@ -784,23 +784,23 @@ export default class Service extends EventEmitter {
         });
         this.scpClientManager.mount(traceName, scpClient);
 
-        //Create a new `ProxyClient`.
-        const proxyClient = this.proxyClientManager.createClient();
-        this.proxyClientManager.add(traceName, proxyClient);
-
-        //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
-        this.serviceRegistry.register(remoteService);
-
         //Add preStop Hook[Bottom]: Disconnect `ScpClient`.
         this.hooks.preStop.addToBottom((done) => {
             (scpClient.connected) ? scpClient.disconnect(done) : done();
         });
 
+        //Create a new `ProxyClient`.
+        const proxyClient = this.proxyClientManager.createClient();
+        this.proxyClientManager.add(traceName, proxyClient);
+
         //Add preStop Hook[Bottom]: Unlink `ProxyClient`.
         this.hooks.preStop.addToBottom((done) => {
             (proxyClient.linked) ? proxyClient.unlink(done) : done();
         });
+
+        //Create a new `RemoteService` and push to `ServiceRegistry`.
+        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
+        this.serviceRegistry.register(remoteService);
 
         return remoteService;
     }
