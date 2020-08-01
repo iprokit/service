@@ -1,6 +1,6 @@
 //Import @iprotechs Modules
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, StatusType, MessageReplyHandler, Logging } from '@iprotechs/scp';
+import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
 //Import Modules
 import { EventEmitter } from 'events';
@@ -190,7 +190,7 @@ export default class Service extends EventEmitter {
         const scpLogger = this.logger.child({ component: 'SCP' });
         const scpLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${status} - ${ms} ms`);
+                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map}(${status}) - ${ms} ms`);
             }
         }
         this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
@@ -200,7 +200,7 @@ export default class Service extends EventEmitter {
         const meshLogger = this.logger.child({ component: 'Mesh' });
         const meshLoggerWrite: Logging = {
             action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map} ${status} - ${ms} ms`);
+                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map}(${status}) - ${ms} ms`);
             }
         }
         this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });

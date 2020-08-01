@@ -257,7 +257,7 @@ mocha.describe('Service Test', () => {
 
             //Client
             mocha.it('should execute GET(/hero) and receive body(JSON) with CORS support', (done) => {
-                httpRequest('get', '/hero', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/hero', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
                     assert.deepStrictEqual(response.body, { heros: ['Captain America', 'Iron Man', 'Black Widow'] });
@@ -266,7 +266,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute POST(/hero) and receive body(JSON) with CORS support', (done) => {
-                httpRequest('post', '/hero', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'post', '/hero', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.CREATED);
                     assert.deepStrictEqual(response.body, { hero: 'Vision' });
@@ -275,7 +275,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute PUT(/hero) and receive body(JSON) with CORS support', (done) => {
-                httpRequest('put', '/hero', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'put', '/hero', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
                     assert.deepStrictEqual(response.body, { hero: 'Thor' });
@@ -284,7 +284,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute GET(/hero/snap) and receive Error(Service Unavailable) with CORS support', (done) => {
-                httpRequest('get', '/hero/snap', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/hero/snap', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
                     assert.deepStrictEqual(response.body, { message: 'Service Unavailable' });
@@ -293,7 +293,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute DELETE(/hero) and receive Error(No Hero Route Found) with CORS support', (done) => {
-                httpRequest('delete', '/hero', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'delete', '/hero', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
                     assert.deepStrictEqual(response.body, { message: 'No Hero Route Found' });
@@ -302,7 +302,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute GET(/) and receive Error(Not Found) with CORS support', (done) => {
-                httpRequest('get', '/', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
                     assert.deepStrictEqual(response.body, { message: 'Not Found' });
@@ -313,7 +313,7 @@ mocha.describe('Service Test', () => {
 
         mocha.describe('Default Routes Test', () => {
             mocha.it('should execute GET(/health) and receive body(JSON)', (done) => {
-                httpRequest('get', '/health', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/health', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
                     assert.deepStrictEqual(response.body.name, 'HeroSVC');
@@ -327,7 +327,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute GET(/report) and receive body(JSON)', (done) => {
-                httpRequest('get', '/report', {}, true, (response, error) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/report', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
                     assert.notDeepStrictEqual(response.body.service, undefined);
@@ -637,67 +637,101 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('SCP Test', () => {
-        const IronMan = new Mesh();
+    mocha.describe('Remote Test', () => {
+        const jarvisMesh = new Mesh();
+        const jarvisProxy = new Proxy();
+        const jarvisSVC = new Service({ name: 'Jarvis', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: jarvisMesh, proxy: jarvisProxy });
+        jarvisSVC.discover('Armor');
+        silentLog(jarvisSVC);
 
-        const jarvis = new Service({ name: 'Jarvis', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });
-        silentLog(jarvis);
-
-        const armor = new Service({ name: 'Armor', logPath: logPath, httpPort: 3002, scpPort: 6002 });
-        silentLog(armor);
+        const armorSVC = new Service({ name: 'Armor', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        silentLog(armorSVC);
 
         mocha.before((done) => {
-            jarvis.on('available', (remoteService: RemoteService) => {
+            jarvisSVC.on('available', (remoteService: RemoteService) => {
                 assert.deepStrictEqual(remoteService.name, 'Armor');
                 done();
             });
 
-            jarvis.start(() => {
-                armor.start();
+            jarvisSVC.start(() => {
+                armorSVC.start();
             });
         });
 
         mocha.after((done) => {
-            jarvis.stop(() => {
-                armor.stop(done);
+            jarvisSVC.stop(() => {
+                armorSVC.stop(done);
             });
         });
 
-        //Server
-        armor.reply('IronLegion.getAll', (message, reply) => {
-            const ironLegions = new Array();
-            for (let mark = 0; mark < 33; mark++) {
-                ironLegions.push(`Mark ${mark}`);
-            }
-
-            reply.send(ironLegions);
-        });
-
-        armor.defineBroadcast('IronLegion.housePartyProtocol');
-
-        //Client
-        mocha.it('should execute #IronMan(Armor.IronLegion.getAll()) and receive reply', async () => {
-            const ironLegions: Body = await IronMan.Armor.IronLegion.getAll();
-            assert.deepStrictEqual(ironLegions.length, 33);
-        }).timeout(1000 * 5);
-
-        mocha.it('should receive broadcast on IronLegion.housePartyProtocol', (done) => {
-            IronMan.Armor.once('IronLegion.housePartyProtocol', (status: Body) => {
-                assert.deepStrictEqual(status, { send: true });
-
-                done();
+        mocha.describe('SCP Test', () => {
+            //Server
+            armorSVC.reply('IronLegion.getAll', (message, reply) => {
+                const ironLegions = new Array();
+                for (let mark = 0; mark < 33; mark++) {
+                    ironLegions.push(`Mark ${mark}`);
+                }
+                reply.send(ironLegions);
             });
 
-            //Trigger broadcast.
-            armor.broadcast('IronLegion.housePartyProtocol', { send: true });
+            armorSVC.defineBroadcast('IronLegion.housePartyProtocol');
+
+            //Client
+            mocha.it('should execute #Jarvis(Armor.IronLegion.getAll()) and receive reply', async () => {
+                const ironLegions: Body = await jarvisMesh.Armor.IronLegion.getAll();
+                assert.deepStrictEqual(ironLegions.length, 33);
+            }).timeout(1000 * 5);
+
+            mocha.it('should receive broadcast on IronLegion.housePartyProtocol', (done) => {
+                jarvisMesh.Armor.once('IronLegion.housePartyProtocol', (status: Body) => {
+                    assert.deepStrictEqual(status, { send: true });
+
+                    done();
+                });
+
+                //Trigger broadcast.
+                armorSVC.broadcast('IronLegion.housePartyProtocol', { send: true });
+            });
+        });
+
+        mocha.describe('Proxy Test', () => {
+            //Server Jarvis
+            const jarvisRouter = jarvisSVC.createRouter('/armor');
+            jarvisRouter.all('/powers', jarvisProxy.Armor('/features'));
+            jarvisRouter.all('/*', jarvisProxy.Armor());
+
+            //Server Armor
+            const armorRouter = armorSVC.createRouter('/');
+            armorRouter.get('/busters', (request, response) => {
+                response.status(HttpStatusCodes.OK).send({ armor: ['Thorbuster', 'Hulkbuster'] });
+            }).get('/features', (request, response) => {
+                response.status(HttpStatusCodes.OK).send({ features: ['Lightweight', 'Flight'] });
+            });
+
+            //Client
+            mocha.it('should proxy(Direct) to GET(/armor/busters) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3001, 'get', '/armor/busters', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { armor: ['Thorbuster', 'Hulkbuster'] });
+                    done(error);
+                });
+            });
+
+            mocha.it('should proxy(Re-Direct) to GET(/armor/powers) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3001, 'get', '/armor/powers', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { features: ['Lightweight', 'Flight'] });
+                    done(error);
+                });
+            });
         });
     });
 });
 
 /**
- * TODO:
- * -> Proxy test
- * -> Rename Proxy to forward in micro.
+ * TODO: Work from here.
  * -> DB Test
  */
 
@@ -712,16 +746,16 @@ function silentLog(service: Service) {
 //////HTTP Client
 //////////////////////////////
 //TODO: Move this into src as http.client.ts
-function httpRequest(method: string, path: string, body: any, json: boolean, callback: (response: HttpResponse, error?: Error) => void) {
+function httpRequest(host: string, port: number, method: string, path: string, body: any, json: boolean, callback: (response: HttpResponse, error?: Error) => void) {
     body = (json === true) ? JSON.stringify(body) : body;
     const requestOptions: RequestOptions = {
-        hostname: '127.0.0.1',
-        port: 3000,
+        host: host,
+        port: port,
         path: path,
         method: method,
         headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body)
+            'Accept': '*/*',
+            'Content-Length': Buffer.byteLength(body),
         }
     }
 
