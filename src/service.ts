@@ -302,12 +302,15 @@ export default class Service extends EventEmitter {
             const remoteService = this.serviceRegistry.get(pod.name) ?? this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
-            remoteService.connect(() => {
-                //Log Event.
-                this.logger.info(`Connected to remote service ${remoteService.name}`);
+            //Link & Connect.
+            remoteService.proxyClient.link(remoteService.address, remoteService.httpPort, () => {
+                remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
+                    //Log Event.
+                    this.logger.info(`Connected to remote service ${remoteService.name}`);
 
-                //Emit Global: available.
-                this.emit('available', remoteService);
+                    //Emit Global: available.
+                    this.emit('available', remoteService);
+                });
             });
         }
 
@@ -318,12 +321,15 @@ export default class Service extends EventEmitter {
             //Try finding the remoteService.
             const remoteService = this.serviceRegistry.get(pod.name);
 
-            remoteService.disconnect(() => {
-                //Log Event.
-                this.logger.info(`Disconnected from remote service ${remoteService.name}`);
+            //Unlink & Disconnect.
+            remoteService.proxyClient.unlink(() => {
+                remoteService.scpClient.disconnect(() => {
+                    //Log Event.
+                    this.logger.info(`Disconnected from remote service ${remoteService.name}`);
 
-                //Emit Global: unavailable.
-                this.emit('unavailable', remoteService);
+                    //Emit Global: unavailable.
+                    this.emit('unavailable', remoteService);
+                });
             });
         }
 
@@ -786,11 +792,14 @@ export default class Service extends EventEmitter {
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
         this.serviceRegistry.register(remoteService);
 
-        //Add preStop Hook[Bottom]: Disconnect Remote Service.
+        //Add preStop Hook[Bottom]: Disconnect `ScpClient`.
         this.hooks.preStop.addToBottom((done) => {
-            remoteService.disconnect(() => {
-                done();
-            });
+            (scpClient.connected) ? scpClient.disconnect(done) : done();
+        });
+
+        //Add preStop Hook[Bottom]: Unlink `ProxyClient`.
+        this.hooks.preStop.addToBottom((done) => {
+            (proxyClient.linked) ? proxyClient.unlink(done) : done();
         });
 
         return remoteService;
@@ -1011,14 +1020,27 @@ export interface DoneHandler {
 /**
  * `ServiceRegistry` is a registry of `RemoteService`'s.
  */
-export class ServiceRegistry extends Array<RemoteService> {
+export class ServiceRegistry {
+    /**
+     * The `RemoteService`'s registered.
+     */
+    public readonly remoteServices: Array<RemoteService>;
+
+    /**
+     * Creates an instance of `ServiceRegistry`.
+     */
+    constructor() {
+        //Initialize remoteServices.
+        this.remoteServices = new Array();
+    }
+
     /**
      * True if the all the `RemoteService`'s are connected, false otherwise.
      * `undefined` if no connections.
      */
     public get connected() {
         //Try getting all the remoteService that is defined by the consumer.
-        const remoteServices = this.filter(remoteService => remoteService.defined);
+        const remoteServices = this.remoteServices.filter(remoteService => remoteService.defined);
 
         if (remoteServices.length === 0) {
             return undefined;
@@ -1039,7 +1061,7 @@ export class ServiceRegistry extends Array<RemoteService> {
      * @param remoteService the remote service.
      */
     public register(remoteService: RemoteService) {
-        this.push(remoteService);
+        this.remoteServices.push(remoteService);
     }
 
     /**
@@ -1048,8 +1070,8 @@ export class ServiceRegistry extends Array<RemoteService> {
      * @param remoteService the remote service.
      */
     public deregister(remoteService: RemoteService) {
-        const index = this.findIndex(_remoteService => remoteService === remoteService);
-        this.splice(index, 1);
+        const index = this.remoteServices.findIndex(_remoteService => remoteService === remoteService);
+        this.remoteServices.splice(index, 1);
     }
 
     /**
@@ -1058,7 +1080,7 @@ export class ServiceRegistry extends Array<RemoteService> {
      * @param name the name of the remote service.
      */
     public get(name: string) {
-        return this.find(remoteService => remoteService.name === name);
+        return this.remoteServices.find(remoteService => remoteService.name === name);
     }
 }
 
@@ -1162,37 +1184,6 @@ export class RemoteService {
         this._address = address;
         this._httpPort = httpPort;
         this._scpPort = scpPort;
-    }
-
-    //////////////////////////////
-    //////Connection Management
-    //////////////////////////////
-    /**
-     * Connect to the service.
-     */
-    public connect(callback?: () => void) {
-        this.proxyClient.link(this._address, this._httpPort, () => {
-            this.scpClient.connect(this._address, this._scpPort, () => {
-                //Callback.
-                if (callback) {
-                    callback();
-                }
-            });
-        });
-    }
-
-    /**
-     * Disconnect from the service.
-     */
-    public disconnect(callback?: () => void) {
-        this.proxyClient.unlink(() => {
-            this.scpClient.disconnect(() => {
-                //Callback.
-                if (callback) {
-                    callback();
-                }
-            });
-        });
     }
 }
 

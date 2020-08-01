@@ -343,74 +343,51 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Service Registry Test', () => {
-        mocha.describe('Availability Test', () => {
-            const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
-            silentLog(shield);
+    mocha.describe('Available & Unavailable Event Test', () => {
+        const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
+        silentLog(shield);
 
-            const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
-            silentLog(hydra);
+        const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        silentLog(hydra);
 
-            mocha.before((done) => {
-                hydra.start(done);
-            });
-
-            mocha.after((done) => {
-                shield.stop(() => {
-                    hydra.stop(done);
-                });
-            });
-
-            mocha.it('shield should be available to hydra', (done) => {
-                hydra.on('available', (remoteService: RemoteService) => {
-                    assert.deepStrictEqual(remoteService.name, 'Shield');
-                    assert.deepStrictEqual(remoteService.alias, undefined);
-                    assert.deepStrictEqual(remoteService.defined, false);
-                    assert.deepStrictEqual(remoteService.scpClient.connected, true);
-                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
-                    done();
-                });
-
-                shield.start();
-            });
+        mocha.before((done) => {
+            hydra.start(done);
         });
 
-        mocha.describe.skip('Unavailability Test', () => {
-            const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
-            silentLog(shield);
+        mocha.after((done) => {
+            hydra.stop(done);
+        });
 
-            const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
-            silentLog(hydra);
-
-            mocha.before((done) => {
-                shield.start(() => {
-                    hydra.start(done);
-                });
+        mocha.it('shield should be available to hydra', (done) => {
+            hydra.on('available', (remoteService: RemoteService) => {
+                assert.deepStrictEqual(remoteService.name, 'Shield');
+                assert.deepStrictEqual(remoteService.alias, undefined);
+                assert.deepStrictEqual(remoteService.defined, false);
+                assert.deepStrictEqual(remoteService.scpClient.connected, true);
+                assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                assert.deepStrictEqual(remoteService.proxyClient.linked, true);
+                done();
             });
 
-            mocha.after((done) => {
-                hydra.stop(done);
+            shield.start();
+        });
+
+        mocha.it('shield should be unavailable to hydra', (done) => {
+            hydra.on('unavailable', (remoteService: RemoteService) => {
+                assert.deepStrictEqual(remoteService.name, 'Shield');
+                assert.deepStrictEqual(remoteService.alias, undefined);
+                assert.deepStrictEqual(remoteService.defined, false);
+                assert.deepStrictEqual(remoteService.scpClient.connected, false);
+                assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                assert.deepStrictEqual(remoteService.proxyClient.linked, false);
+                done();
             });
 
-            mocha.it('shield should be unavailable to hydra', (done) => {
-                hydra.on('unavailable', (remoteService: RemoteService) => {
-                    assert.deepStrictEqual(remoteService.name, 'Shield');
-                    assert.deepStrictEqual(remoteService.defined, false);
-                    assert.deepStrictEqual(remoteService.alias, undefined);
-                    assert.deepStrictEqual(remoteService.defined, false);
-                    assert.deepStrictEqual(remoteService.scpClient.connected, false);
-                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
-                    done();
-                });
-
-                shield.stop();
-            });
+            shield.stop();
         });
     });
 
-    mocha.describe.skip('Discovery Test', () => {
+    mocha.describe('Discovery Test', () => {
         mocha.it('should discover(name) shield & hydra', () => {
             const shieldMesh = new Mesh();
             const shieldProxy = new Proxy();
@@ -427,16 +404,16 @@ mocha.describe('Service Test', () => {
             //Shield
             assert.notDeepStrictEqual(shieldMesh.HydraSVC, undefined);
             assert.notDeepStrictEqual(shieldProxy.HydraSVC, undefined);
-            assert.deepStrictEqual(shieldSVC.serviceRegistry.length, 1);
-            assert.deepStrictEqual(shieldSVC.serviceRegistry[0].alias, undefined);
-            assert.deepStrictEqual(shieldSVC.serviceRegistry[0].name, 'HydraSVC');
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices.length, 1);
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices[0].alias, undefined);
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices[0].name, 'HydraSVC');
 
             //Hydra
             assert.notDeepStrictEqual(hydraMesh.ShieldSVC, undefined);
             assert.notDeepStrictEqual(hydraProxy.ShieldSVC, undefined);
-            assert.deepStrictEqual(hydraSVC.serviceRegistry.length, 1);
-            assert.deepStrictEqual(hydraSVC.serviceRegistry[0].alias, undefined);
-            assert.deepStrictEqual(hydraSVC.serviceRegistry[0].name, 'ShieldSVC');
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices[0].alias, undefined);
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices[0].name, 'ShieldSVC');
         });
 
         mocha.it('should discover(alias) shield & hydra', () => {
@@ -455,18 +432,20 @@ mocha.describe('Service Test', () => {
             //Shield
             assert.notDeepStrictEqual(shieldMesh.Hydra, undefined);
             assert.notDeepStrictEqual(shieldProxy.Hydra, undefined);
-            assert.deepStrictEqual(shieldSVC.serviceRegistry[0].alias, 'Hydra');
-            assert.deepStrictEqual(shieldSVC.serviceRegistry[0].name, 'HydraSVC');
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices.length, 1);
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices[0].alias, 'Hydra');
+            assert.deepStrictEqual(shieldSVC.serviceRegistry.remoteServices[0].name, 'HydraSVC');
 
             //Hydra
             assert.notDeepStrictEqual(hydraMesh.Shield, undefined);
             assert.notDeepStrictEqual(hydraProxy.Shield, undefined);
-            assert.deepStrictEqual(hydraSVC.serviceRegistry[0].alias, 'Shield');
-            assert.deepStrictEqual(hydraSVC.serviceRegistry[0].name, 'ShieldSVC');
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices[0].alias, 'Shield');
+            assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices[0].name, 'ShieldSVC');
         });
     });
 
-    mocha.describe.skip('SCP Test', () => {
+    mocha.describe('SCP Test', () => {
         const IronMan = new Mesh();
 
         const jarvis = new Service({ name: 'Jarvis', version: '10.0.1', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });

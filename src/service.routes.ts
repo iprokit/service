@@ -250,7 +250,7 @@ export default class ServiceRoutes {
      * The `RemoteService`'s registed.
      */
     private get serviceRegistryReport() {
-        return this.service.serviceRegistry.map(remoteService => {
+        return this.service.serviceRegistry.remoteServices.map(remoteService => {
             return {
                 name: remoteService.name,
                 alias: remoteService.alias,
