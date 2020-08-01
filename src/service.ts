@@ -467,24 +467,12 @@ export default class Service extends EventEmitter {
      * Add stop hooks.
      */
     private addStopHooks() {
-        //Disconnect from DB.
-        this.dbManager && this.hooks.stop.addToBottom((done) => {
-            this.dbManager.disconnect((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`DB Disconnected.`);
-                }
-
-                done();
-            });
-        });
-
-        //Close SCP Server.
+        //Close HTTP Server.
         this.hooks.stop.addToBottom((done) => {
-            this.scpServer.close((error) => {
+            this._httpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    this.logger.info(`Stopped SCP Server.`);
+                    this.logger.info(`Stopped HTTP server.`);
                 }
 
                 done();
@@ -503,12 +491,24 @@ export default class Service extends EventEmitter {
             });
         });
 
-        //Close HTTP Server.
+        //Close SCP Server.
         this.hooks.stop.addToBottom((done) => {
-            this._httpServer.close((error) => {
+            this.scpServer.close((error) => {
                 if (!error) {
                     //Log Event.
-                    this.logger.info(`Stopped HTTP server.`);
+                    this.logger.info(`Stopped SCP Server.`);
+                }
+
+                done();
+            });
+        });
+
+        //Disconnect from DB.
+        this.dbManager && this.hooks.stop.addToBottom((done) => {
+            this.dbManager.disconnect((error) => {
+                if (!error) {
+                    //Log Event.
+                    this.logger.info(`DB Disconnected.`);
                 }
 
                 done();

@@ -376,7 +376,7 @@ mocha.describe('Service Test', () => {
             });
         });
 
-        mocha.describe('Unavailability Test', () => {
+        mocha.describe.skip('Unavailability Test', () => {
             const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
             silentLog(shield);
 
@@ -410,7 +410,7 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Discovery Test', () => {
+    mocha.describe.skip('Discovery Test', () => {
         mocha.it('should discover(name) shield & hydra', () => {
             const shieldMesh = new Mesh();
             const shieldProxy = new Proxy();
@@ -466,7 +466,7 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('SCP Test', () => {
+    mocha.describe.skip('SCP Test', () => {
         const IronMan = new Mesh();
 
         const jarvis = new Service({ name: 'Jarvis', version: '10.0.1', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });
