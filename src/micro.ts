@@ -98,7 +98,6 @@ function micro(options?: Options) {
             scpPort: Number(process.env.SCP_PORT),
             discoveryPort: Number(process.env.DISCOVERY_PORT),
             discoveryIp: process.env.DISCOVERY_IP,
-            // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
             logPath: process.env.LOG_PATH ?? path.join(projectPath, Default.LOG_PATH),
             db: options?.db && {
                 type: options.db?.type,
@@ -111,6 +110,8 @@ function micro(options?: Options) {
             mesh: mesh,
             proxy: proxy
         };
+        
+        // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);

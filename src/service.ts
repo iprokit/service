@@ -299,7 +299,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one.
-            const remoteService = this.serviceRegistry.get(pod.name) ?? this.register(pod.name);
+            const remoteService = this.serviceRegistry.getByName(pod.name) ?? this.register(pod.name);
             remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
 
             //Link & Connect.
@@ -319,7 +319,7 @@ export default class Service extends EventEmitter {
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
             //Try finding the remoteService.
-            const remoteService = this.serviceRegistry.get(pod.name);
+            const remoteService = this.serviceRegistry.getByName(pod.name);
 
             //Unlink & Disconnect.
             remoteService.proxyClient.unlink(() => {
@@ -765,10 +765,14 @@ export default class Service extends EventEmitter {
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      */
     private register(name: string, alias?: string, defined?: boolean) {
-        //Try finding the remoteService.
-        const _remoteService = this.serviceRegistry.get(name);
+        //Try finding the remoteService by name.
+        let _remoteService = this.serviceRegistry.getByName(name);
+        if (_remoteService) {
+            return _remoteService;
+        }
 
-        //remoteService found. 
+        //Try finding the remoteService by alias.
+        _remoteService = this.serviceRegistry.getByAlias(alias);
         if (_remoteService) {
             return _remoteService;
         }
@@ -1085,8 +1089,17 @@ export class ServiceRegistry {
      * 
      * @param name the name of the remote service.
      */
-    public get(name: string) {
+    public getByName(name: string) {
         return this.remoteServices.find(remoteService => remoteService.name === name);
+    }
+
+    /**
+     * Returns the `RemoteService` found.
+     * 
+     * @param alias the alias of the remote service.
+     */
+    public getByAlias(alias: string) {
+        return this.remoteServices.find(remoteService => remoteService.alias === alias);
     }
 }
 
