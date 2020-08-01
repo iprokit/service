@@ -502,10 +502,10 @@ mocha.describe('Service Test', () => {
 
 /**
  * TODO: 
- * Proxy test
  * -> Duplicate test for discovery(name & alias)
- * -> Rename Proxy to forward in micro.
+ * -> Proxy test
  * -> DB Test
+ * -> Rename Proxy to forward in micro.
  */
 
 //////////////////////////////
