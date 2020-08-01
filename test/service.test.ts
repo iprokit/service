@@ -12,8 +12,6 @@ import Service, { Options, RemoteService } from '../lib/service';
 import { Proxy } from '../lib/proxy.client.manager';
 import HttpStatusCodes from '../lib/http.statusCodes';
 
-const hostname = '10.0.0.181';
-const port = 3000;
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 mocha.describe('Service Test', () => {
@@ -58,7 +56,7 @@ mocha.describe('Service Test', () => {
 
             const options: Options = {
                 name: 'HeroSVC',
-                version: '2.0.0',
+                version: '2.10.1',
                 environment: 'development',
                 httpPort: 3001,
                 scpPort: 6001,
@@ -73,7 +71,7 @@ mocha.describe('Service Test', () => {
 
             //Options Variables.
             assert.deepStrictEqual(service.name, 'HeroSVC');
-            assert.deepStrictEqual(service.version, '2.0.0');
+            assert.deepStrictEqual(service.version, '2.10.1');
             assert.deepStrictEqual(service.environment, 'development');
             assert.deepStrictEqual(service.httpPort, 3001);
             assert.deepStrictEqual(service.scpPort, 6001);
@@ -144,7 +142,7 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('#start() & starting/started Event Test', () => {
-        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
+        const service = new Service({ name: 'HeroSVC', logPath: logPath });
         silentLog(service);
 
         mocha.after((done) => {
@@ -174,7 +172,7 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('#stop() & stopping/stopped Event Test', () => {
-        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
+        const service = new Service({ name: 'HeroSVC', logPath: logPath });
         silentLog(service);
 
         mocha.before((done) => {
@@ -204,7 +202,7 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Express Test', () => {
-        const service = new Service({ name: 'HeroSVC', version: '1.0.0', logPath: logPath });
+        const service = new Service({ name: 'HeroSVC', logPath: logPath });
         silentLog(service);
 
         mocha.before((done) => {
@@ -344,10 +342,10 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Available & Unavailable Event Test', () => {
-        const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
+        const shield = new Service({ name: 'Shield', logPath: logPath, httpPort: 3001, scpPort: 6001 });
         silentLog(shield);
 
-        const hydra = new Service({ name: 'Hydra', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        const hydra = new Service({ name: 'Hydra', logPath: logPath, httpPort: 3002, scpPort: 6002 });
         silentLog(hydra);
 
         mocha.before((done) => {
@@ -391,13 +389,13 @@ mocha.describe('Service Test', () => {
         mocha.it('should discover(name) shield & hydra', () => {
             const shieldMesh = new Mesh();
             const shieldProxy = new Proxy();
-            const shieldSVC = new Service({ name: 'ShieldSVC', version: '1.0.0', logPath: logPath, mesh: shieldMesh, proxy: shieldProxy });
+            const shieldSVC = new Service({ name: 'ShieldSVC', logPath: logPath, mesh: shieldMesh, proxy: shieldProxy });
             shieldSVC.discover('HydraSVC');
             silentLog(shieldSVC);
 
             const hydraMesh = new Mesh();
             const hydraProxy = new Proxy();
-            const hydraSVC = new Service({ name: 'HydraSVC', version: '1.0.0', logPath: logPath, mesh: hydraMesh, proxy: hydraProxy });
+            const hydraSVC = new Service({ name: 'HydraSVC', logPath: logPath, mesh: hydraMesh, proxy: hydraProxy });
             hydraSVC.discover('ShieldSVC');
             silentLog(hydraSVC);
 
@@ -419,13 +417,13 @@ mocha.describe('Service Test', () => {
         mocha.it('should discover(alias) shield & hydra', () => {
             const shieldMesh = new Mesh();
             const shieldProxy = new Proxy();
-            const shieldSVC = new Service({ name: 'ShieldSVC', version: '1.0.0', logPath: logPath, mesh: shieldMesh, proxy: shieldProxy });
+            const shieldSVC = new Service({ name: 'ShieldSVC', logPath: logPath, mesh: shieldMesh, proxy: shieldProxy });
             shieldSVC.discover('HydraSVC', 'Hydra');
             silentLog(shieldSVC);
 
             const hydraMesh = new Mesh();
             const hydraProxy = new Proxy();
-            const hydraSVC = new Service({ name: 'HydraSVC', version: '1.0.0', logPath: logPath, mesh: hydraMesh, proxy: hydraProxy });
+            const hydraSVC = new Service({ name: 'HydraSVC', logPath: logPath, mesh: hydraMesh, proxy: hydraProxy });
             hydraSVC.discover('ShieldSVC', 'Shield');
             silentLog(hydraSVC);
 
@@ -448,10 +446,10 @@ mocha.describe('Service Test', () => {
     mocha.describe('SCP Test', () => {
         const IronMan = new Mesh();
 
-        const jarvis = new Service({ name: 'Jarvis', version: '10.0.1', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });
+        const jarvis = new Service({ name: 'Jarvis', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: IronMan });
         silentLog(jarvis);
 
-        const armor = new Service({ name: 'Armor', version: '1.0.0', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        const armor = new Service({ name: 'Armor', logPath: logPath, httpPort: 3002, scpPort: 6002 });
         silentLog(armor);
 
         mocha.before((done) => {
@@ -505,7 +503,9 @@ mocha.describe('Service Test', () => {
 /**
  * TODO: 
  * Proxy test
+ * -> Duplicate test for discovery(name & alias)
  * -> Rename Proxy to forward in micro.
+ * -> DB Test
  */
 
 //////////////////////////////
@@ -522,8 +522,8 @@ function silentLog(service: Service) {
 function httpRequest(method: string, path: string, body: any, json: boolean, callback: (response: HttpResponse, error?: Error) => void) {
     body = (json === true) ? JSON.stringify(body) : body;
     const requestOptions: RequestOptions = {
-        hostname: hostname,
-        port: port,
+        hostname: '127.0.0.1',
+        port: 3000,
         path: path,
         method: method,
         headers: {
