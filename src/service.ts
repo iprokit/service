@@ -294,8 +294,7 @@ export default class Service extends EventEmitter {
      * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyClientManager`.
      */
     private configServiceRegistry() {
-        //Bind Events.
-        this.discovery.on('available', (pod: Pod) => {
+        const onAvailable = (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
@@ -310,9 +309,9 @@ export default class Service extends EventEmitter {
                 //Emit Global: available.
                 this.emit('available', remoteService);
             });
-        });
+        }
 
-        this.discovery.on('unavailable', (pod: Pod) => {
+        const onUnavailable = (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
@@ -326,11 +325,16 @@ export default class Service extends EventEmitter {
                 //Emit Global: unavailable.
                 this.emit('unavailable', remoteService);
             });
-        });
+        }
 
-        this.discovery.on('error', (error: Error) => {
+        const onError = (error: Error) => {
             this.logger.error(error.stack);
-        });
+        }
+
+        //Bind Events.
+        this.discovery.on('available', onAvailable);
+        this.discovery.on('unavailable', onUnavailable);
+        this.discovery.on('error', onError);
     }
 
     /**
@@ -1015,6 +1019,16 @@ export class ServiceRegistry extends Array<RemoteService> {
     }
 
     /**
+     * Deregisters the `RemoteService`.
+     * 
+     * @param remoteService the remote service.
+     */
+    public deregister(remoteService: RemoteService) {
+        const index = this.findIndex(_remoteService => remoteService === remoteService);
+        this.splice(index, 1);
+    }
+
+    /**
      * Returns the `RemoteService` found.
      * 
      * @param name the name of the remote service.
@@ -1130,7 +1144,7 @@ export class RemoteService {
     //////Connection Management
     //////////////////////////////
     /**
-     * Connect to the remote service.
+     * Connect to the service.
      */
     public connect(callback?: () => void) {
         this.proxyClient.link(this._address, this._httpPort, () => {
@@ -1144,7 +1158,7 @@ export class RemoteService {
     }
 
     /**
-     * Disconnect from the remote service.
+     * Disconnect from the service.
      */
     public disconnect(callback?: () => void) {
         this.proxyClient.unlink(() => {
