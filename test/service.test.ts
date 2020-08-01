@@ -343,8 +343,7 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    //TODO: Work from here.
-    mocha.describe.skip('Service Registry Test', () => {
+    mocha.describe('Service Registry Test', () => {
         mocha.describe('Availability Test', () => {
             const shield = new Service({ name: 'Shield', version: '1.0.0', logPath: logPath, httpPort: 3001, scpPort: 6001 });
             silentLog(shield);
@@ -357,9 +356,7 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.after((done) => {
-                console.log('Calling shield Stop');
                 shield.stop(() => {
-                    console.log('Calling hydra Stop');
                     hydra.stop(done);
                 });
             });
@@ -369,9 +366,9 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.name, 'Shield');
                     assert.deepStrictEqual(remoteService.alias, undefined);
                     assert.deepStrictEqual(remoteService.defined, false);
-                    // assert.deepStrictEqual(remoteService.scpClient.connected, true);
-                    // assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    // assert.deepStrictEqual(remoteService.proxyClient.linked, true);
+                    assert.deepStrictEqual(remoteService.scpClient.connected, true);
+                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
                     done();
                 });
 
@@ -387,14 +384,12 @@ mocha.describe('Service Test', () => {
             silentLog(hydra);
 
             mocha.before((done) => {
-                console.log('--------');
                 shield.start(() => {
                     hydra.start(done);
                 });
             });
 
             mocha.after((done) => {
-                console.log('Calling hydra Stop');
                 hydra.stop(done);
             });
 
@@ -404,13 +399,12 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, false);
                     assert.deepStrictEqual(remoteService.alias, undefined);
                     assert.deepStrictEqual(remoteService.defined, false);
-                    // assert.deepStrictEqual(remoteService.scpClient.connected, false);
-                    // assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    // assert.deepStrictEqual(remoteService.proxyClient.linked, false);
+                    assert.deepStrictEqual(remoteService.scpClient.connected, false);
+                    assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
+                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
                     done();
                 });
 
-                console.log('Calling shield Stop');
                 shield.stop();
             });
         });

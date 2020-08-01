@@ -115,8 +115,8 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Mount PreStart Hook[2]: Inject Files.
-        service.hooks.preStart.mount((done) => {
+        //Add PreStart Hook[Top]: Inject Files.
+        service.hooks.preStart.addToTop((done) => {
             //Inject Files.
             injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
 

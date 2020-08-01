@@ -221,9 +221,9 @@ export default class Service extends EventEmitter {
         this.routes = new Array();
         this.configExpress();
 
-        //Mount Hooks.
-        this.mountStartHooks();
-        this.mountStopHooks();
+        //Add Hooks.
+        this.addStartHooks();
+        this.addStopHooks();
     }
 
     //////////////////////////////
@@ -341,7 +341,7 @@ export default class Service extends EventEmitter {
      * Configures HTTP Server by setting up `Express`.
      * 
      * Hooks:
-     * - Mounts a preStart hook at index 0.
+     * - Add preStart hooks for `Express`.
      */
     private configExpress() {
         //Middleware: CORS.
@@ -375,17 +375,8 @@ export default class Service extends EventEmitter {
             next();
         });
 
-        //Mount PreStart Hook[0]: Middleware: Error handler for 404.
-        this.hooks.preStart.mount((done) => {
-            this.express.use((request: Request, response: Response, next: NextFunction) => {
-                response.status(HttpStatusCodes.NOT_FOUND).send('Not Found');
-            });
-
-            done();
-        });
-
-        //Mount PreStart Hook[1]: Add Service Routes.
-        this.hooks.preStart.mount((done) => {
+        //Add PreStart Hook[Top]: Add Service Routes.
+        this.hooks.preStart.addToTop((done) => {
             const serviceRoutes = new ServiceRoutes(this);
 
             //Service routes.
@@ -401,17 +392,26 @@ export default class Service extends EventEmitter {
 
             done();
         });
+
+        //Add PreStart Hook[Bottom]: Middleware: Error handler for 404.
+        this.hooks.preStart.addToBottom((done) => {
+            this.express.use((request: Request, response: Response, next: NextFunction) => {
+                response.status(HttpStatusCodes.NOT_FOUND).send('Not Found');
+            });
+
+            done();
+        });
     }
 
     //////////////////////////////
     //////Hooks
     //////////////////////////////
     /**
-     * Mount start hooks.
+     * Add start hooks.
      */
-    private mountStartHooks() {
+    private addStartHooks() {
         //Connect to DB.
-        this.dbManager && this.hooks.start.mount((done) => {
+        this.dbManager && this.hooks.start.addToBottom((done) => {
             this.dbManager.connect((error) => {
                 if (!error) {
                     //Log Event.
@@ -429,7 +429,7 @@ export default class Service extends EventEmitter {
         });
 
         //Listen on SCP Server.
-        this.hooks.start.mount((done) => {
+        this.hooks.start.addToBottom((done) => {
             this.scpServer.listen(this.scpPort, () => {
                 //Log Event.
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
@@ -439,7 +439,7 @@ export default class Service extends EventEmitter {
         });
 
         //Bind Discovery.
-        this.hooks.start.mount((done) => {
+        this.hooks.start.addToBottom((done) => {
             this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
                 if (!error) {
                     //Log Event.
@@ -453,7 +453,7 @@ export default class Service extends EventEmitter {
         });
 
         //Listen on HTTP Server.
-        this.hooks.start.mount((done) => {
+        this.hooks.start.addToBottom((done) => {
             this._httpServer = this.express.listen(this.httpPort, () => {
                 //Log Event.
                 this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
@@ -464,11 +464,11 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Mount stop hooks.
+     * Add stop hooks.
      */
-    private mountStopHooks() {
+    private addStopHooks() {
         //Disconnect from DB.
-        this.dbManager && this.hooks.stop.mount((done) => {
+        this.dbManager && this.hooks.stop.addToBottom((done) => {
             this.dbManager.disconnect((error) => {
                 if (!error) {
                     //Log Event.
@@ -480,7 +480,7 @@ export default class Service extends EventEmitter {
         });
 
         //Close SCP Server.
-        this.hooks.stop.mount((done) => {
+        this.hooks.stop.addToBottom((done) => {
             this.scpServer.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -492,7 +492,7 @@ export default class Service extends EventEmitter {
         });
 
         //Close Discovery.
-        this.hooks.stop.mount((done) => {
+        this.hooks.stop.addToBottom((done) => {
             this.discovery.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -504,7 +504,7 @@ export default class Service extends EventEmitter {
         });
 
         //Close HTTP Server.
-        this.hooks.stop.mount((done) => {
+        this.hooks.stop.addToBottom((done) => {
             this._httpServer.close((error) => {
                 if (!error) {
                     //Log Event.
@@ -532,9 +532,9 @@ export default class Service extends EventEmitter {
         this.emit('starting');
 
         //Run Hooks.
-        this.hooks.preStart.execute(true, () => {
-            this.hooks.start.execute(false, () => {
-                this.hooks.postStart.execute(true, () => {
+        this.hooks.preStart.execute(() => {
+            this.hooks.start.execute(() => {
+                this.hooks.postStart.execute(() => {
                     //Log Event.
                     this.logger.info(`${this.name} started.`);
 
@@ -566,9 +566,9 @@ export default class Service extends EventEmitter {
         this.emit('stopping');
 
         //Run Hooks.
-        this.hooks.preStop.execute(true, () => {
-            this.hooks.stop.execute(false, () => {
-                this.hooks.postStop.execute(true, () => {
+        this.hooks.preStop.execute(() => {
+            this.hooks.stop.execute(() => {
+                this.hooks.postStop.execute(() => {
                     //Log Event.
                     this.logger.info(`${this.name} stopped.`);
 
@@ -751,6 +751,9 @@ export default class Service extends EventEmitter {
     /**
      * Registeres a new remote service.
      * 
+     * Hooks:
+     * - Add preStop hooks for `ServiceRegistry`.
+     * 
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
@@ -783,8 +786,8 @@ export default class Service extends EventEmitter {
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
         this.serviceRegistry.register(remoteService);
 
-        //Mount preStop Hook[*]: Disconnect Remote Service.
-        this.hooks.preStop.mount((done) => {
+        //Add preStop Hook[Bottom]: Disconnect Remote Service.
+        this.hooks.preStop.addToBottom((done) => {
             remoteService.disconnect(() => {
                 done();
             });
@@ -909,32 +912,53 @@ export class Hooks {
 }
 
 /**
- * A Hook is an array of functions that will be executed.
+ * A Hook is an array of handlers that will be executed in series.
  */
-export class Hook extends Array<HookHandler> {
+export class Hook {
     /**
-     * Mount a hook handler.
-     * 
-     * @param handler the handler to mount.
+     * The handler stack.
      */
-    public mount(handler: HookHandler) {
-        this.push(handler);
+    public readonly stack: Array<HookHandler>;
+
+    /**
+     * Creates an instance of `Hook`.
+     */
+    constructor() {
+        //Initialize stack.
+        this.stack = new Array();
+    }
+
+    //////////////////////////////
+    //////Add
+    //////////////////////////////
+    /**
+     * Add handlers at the start of Hook.
+     * 
+     * @param handlers the handlers to add.
+     */
+    public addToTop(...handlers: Array<HookHandler>) {
+        this.stack.unshift(...handlers);
+    }
+
+    /**
+     * Add handlers at the bottom of Hook.
+     * 
+     * @param handlers the handlers to add.
+     */
+    public addToBottom(...handlers: Array<HookHandler>) {
+        this.stack.push(...handlers);
     }
 
     //////////////////////////////
     //////Execute
     //////////////////////////////
     /**
-     * Execute all the functions.
+     * Execute all the handlers.
      * 
-     * @param reverse set to true if the functions should be executed in reverse order, false otherwise.
-     * @param callback optional callback, called when the function executions are complete.
+     * @param callback optional callback, called when the handler executions are complete.
      */
-    public execute(reverse: boolean, callback?: () => void) {
-        if (this.length > 0) {
-            //The handlers to execute.
-            const handlers = (reverse === true) ? this.reverse() : this;
-
+    public execute(callback?: () => void) {
+        if (this.stack.length > 0) {
             //Initialize the iterator.
             let iterator = 0;
 
@@ -944,9 +968,9 @@ export class Hook extends Array<HookHandler> {
             const done: DoneHandler = () => {
                 iterator++;
 
-                if (iterator < handlers.length) {
+                if (iterator < this.stack.length) {
                     //CASE: More handlers.
-                    handlers[iterator](done);
+                    this.stack[iterator](done);
                 } else {
                     //CASE: Last handler.
                     //Callback.
@@ -957,7 +981,7 @@ export class Hook extends Array<HookHandler> {
             }
 
             //Start the handler call.
-            handlers[iterator](done);
+            this.stack[iterator](done);
         } else {
             //Callback.
             if (callback) {
