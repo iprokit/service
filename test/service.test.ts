@@ -252,7 +252,7 @@ mocha.describe('Service Test', () => {
             heroRouter.use('/', (request, response) => {
                 assert.deepStrictEqual(request.body.hero, true);
 
-                response.status(HttpStatusCodes.NOT_FOUND).send('No Hero Route Found');
+                response.status(HttpStatusCodes.NOT_FOUND).send({ message: 'No Hero Route Found' });
             });
 
             //Client
@@ -284,28 +284,28 @@ mocha.describe('Service Test', () => {
             });
 
             mocha.it('should execute GET(/hero/snap) and receive Error(Service Unavailable) with CORS support', (done) => {
-                httpRequest('get', '/hero/snap', '', false, (response, error) => {
+                httpRequest('get', '/hero/snap', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
-                    assert.deepStrictEqual(response.body, 'Service Unavailable');
+                    assert.deepStrictEqual(response.body, { message: 'Service Unavailable' });
                     done(error);
                 });
             });
 
             mocha.it('should execute DELETE(/hero) and receive Error(No Hero Route Found) with CORS support', (done) => {
-                httpRequest('delete', '/hero', '', false, (response, error) => {
+                httpRequest('delete', '/hero', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
-                    assert.deepStrictEqual(response.body, 'No Hero Route Found');
+                    assert.deepStrictEqual(response.body, { message: 'No Hero Route Found' });
                     done(error);
                 });
             });
 
             mocha.it('should execute GET(/) and receive Error(Not Found) with CORS support', (done) => {
-                httpRequest('get', '/', '', false, (response, error) => {
+                httpRequest('get', '/', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
-                    assert.deepStrictEqual(response.body, 'Not Found');
+                    assert.deepStrictEqual(response.body, { message: 'Not Found' });
                     done(error);
                 });
             });

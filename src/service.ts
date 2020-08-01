@@ -375,7 +375,7 @@ export default class Service extends EventEmitter {
         //Middleware: Service Unavailable.
         this.express.use((request: Request, response: Response, next: NextFunction) => {
             response.setTimeout(1000 * 60 * 2, () => {
-                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send('Service Unavailable');
+                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ message: 'Service Unavailable' });
             });
 
             next();
@@ -402,7 +402,7 @@ export default class Service extends EventEmitter {
         //Add PreStart Hook[Bottom]: Middleware: Error handler for 404.
         this.hooks.preStart.addToBottom((done) => {
             this.express.use((request: Request, response: Response, next: NextFunction) => {
-                response.status(HttpStatusCodes.NOT_FOUND).send('Not Found');
+                response.status(HttpStatusCodes.NOT_FOUND).send({ message: 'Not Found' });
             });
 
             done();
