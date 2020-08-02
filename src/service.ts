@@ -299,19 +299,14 @@ export default class Service extends EventEmitter {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
-            //Try finding the remoteService or create a new one.
+            //Try finding the remoteService or create a new one and connect.
             const remoteService = this.serviceRegistry.getByName(pod.name) ?? this.register(pod.name);
-            remoteService.update(pod.address, pod.params.httpPort, pod.params.scpPort);
+            remoteService.connect(pod.address, pod.params.httpPort, pod.params.scpPort, () => {
+                //Log Event.
+                this.logger.info(`Connected to remote service ${remoteService.name}`);
 
-            //Link & Connect.
-            remoteService.proxyClient.link(remoteService.address, remoteService.httpPort, () => {
-                remoteService.scpClient.connect(remoteService.address, remoteService.scpPort, () => {
-                    //Log Event.
-                    this.logger.info(`Connected to remote service ${remoteService.name}`);
-
-                    //Emit Global: available.
-                    this.emit('available', remoteService);
-                });
+                //Emit Global: available.
+                this.emit('available', remoteService);
             });
         });
 
@@ -319,18 +314,14 @@ export default class Service extends EventEmitter {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
-            //Try finding the remoteService.
+            //Try finding the remoteService and disconnect.
             const remoteService = this.serviceRegistry.getByName(pod.name);
+            remoteService.disconnect(() => {
+                //Log Event.
+                this.logger.info(`Disconnected from remote service ${remoteService.name}`);
 
-            //Unlink & Disconnect.
-            remoteService.proxyClient.unlink(() => {
-                remoteService.scpClient.disconnect(() => {
-                    //Log Event.
-                    this.logger.info(`Disconnected from remote service ${remoteService.name}`);
-
-                    //Emit Global: unavailable.
-                    this.emit('unavailable', remoteService);
-                });
+                //Emit Global: unavailable.
+                this.emit('unavailable', remoteService);
             });
         });
 
@@ -788,25 +779,23 @@ export default class Service extends EventEmitter {
         const proxyClient = this.proxyClientManager.createClient();
         this.proxyClientManager.add(traceName, proxyClient);
 
-        //Add preStop Hook[Bottom]: Unlink & Disconnect.
-        this.hooks.preStop.addToBottom((done) => {
-            if (proxyClient.linked && scpClient.connected) {
-                proxyClient.unlink(() => {
-                    scpClient.disconnect(() => {
-                        //Log Event.
-                        this.logger.info(`Disconnected from remote service ${remoteService.name}`);
+        //Create a new `RemoteService` and push to `ServiceRegistry`.
+        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
+        this.serviceRegistry.register(remoteService);
 
-                        done();
-                    });
+        //Add preStop Hook[Bottom]: Disconnect.
+        this.hooks.preStop.addToBottom((done) => {
+            if (remoteService.connected) {
+                remoteService.disconnect(() => {
+                    //Log Event.
+                    this.logger.info(`Disconnected from remote service ${remoteService.name}`);
+
+                    done();
                 });
             } else {
                 done();
             }
         });
-
-        //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
-        this.serviceRegistry.register(remoteService);
 
         return remoteService;
     }
@@ -1185,20 +1174,54 @@ export class RemoteService {
         return this._scpPort;
     }
 
+    /**
+     * True if the remote service is connected, false if disconnected.
+     */
+    public get connected() {
+        return this.proxyClient.linked && this.scpClient.connected;
+    }
+
     //////////////////////////////
-    //////Helpers
+    //////Connection Management
     //////////////////////////////
     /**
-     * Update the remote details.
+     * Connect to the remote service.
      * 
      * @param address the remote address.
      * @param httpPort the remote HTTP port.
-     * @param scpPort the remte SCP port.
+     * @param scpPort the remote SCP port.
+     * @param callback optional callback. Will be called once connected.
      */
-    public update(address: string, httpPort: number, scpPort: number) {
+    public connect(address: string, httpPort: number, scpPort: number, callback?: () => void) {
+        //Initialize variables.
         this._address = address;
         this._httpPort = httpPort;
         this._scpPort = scpPort;
+
+        this.proxyClient.link(this._address, this._httpPort, () => {
+            this.scpClient.connect(this._address, this._scpPort, () => {
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            });
+        });
+    }
+
+    /**
+     * Disconnect from the remote service.
+     * 
+     * @param callback optional callback. Will be called once disconnected.
+     */
+    public disconnect(callback?: () => void) {
+        this.proxyClient.unlink(() => {
+            this.scpClient.disconnect(() => {
+                //Callback.
+                if (callback) {
+                    callback();
+                }
+            });
+        });
     }
 }
 

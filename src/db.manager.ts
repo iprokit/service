@@ -242,6 +242,8 @@ export default class DBManager {
                 callback();
             }
         } catch (error) {
+            // console.log({ name: error.name, code: error.code, reason: error.reason, message: error.message });
+
             //NoSQL Errors.
             if (error.message.includes('Authentication failed')) {
                 error = new InvalidConnectionOptions('Connection refused to the database.');
@@ -284,6 +286,8 @@ export default class DBManager {
                 callback();
             }
         } catch (error) {
+            // console.log({ name: error.name, code: error.original.code, errno: error.original.errno, sqlState: error.original.sqlState, message: error.message });
+
             //RDB Errors.
             if (error instanceof AccessDeniedError) {
                 error = new InvalidConnectionOptions('Access denied to the database.');
