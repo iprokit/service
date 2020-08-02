@@ -8,7 +8,7 @@ import http, { RequestOptions, IncomingMessage } from 'http';
 
 //Import Local.
 import Default from '../lib/default';
-import Service, { Options, RemoteService } from '../lib/service';
+import Service, { Options, RemoteService, InvalidOptionsError } from '../lib/service';
 import { Proxy } from '../lib/proxy.client.manager';
 import HttpStatusCodes from '../lib/http.statusCodes';
 
@@ -138,6 +138,21 @@ mocha.describe('Service Test', () => {
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
             assert.notDeepStrictEqual(service.routes, undefined);
+        });
+
+        mocha.it('should not construct Service with custom(Invalid) variables.', () => {
+            let service: Service;
+
+            try {
+                service = new Service({ name: 'HeroSVC', logPath: '' });
+            } catch (error) {
+                if (error instanceof InvalidOptionsError) {
+                    assert.deepStrictEqual(error.message, 'Invalid logPath provided.');
+                }
+            }
+
+            //Options Variables.
+            assert.deepStrictEqual(service, undefined);
         });
     });
 

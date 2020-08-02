@@ -266,7 +266,11 @@ export default class Service extends EventEmitter {
         if (this.environment !== 'development') {
             //Try creating path if it does not exist.
             if (!fs.existsSync(this.logPath)) {
-                fs.mkdirSync(this.logPath);
+                try {
+                    fs.mkdirSync(this.logPath);
+                } catch (error) {
+                    throw new InvalidOptionsError('Invalid logPath provided.');
+                }
             }
 
             //Add file transport.
@@ -1262,4 +1266,28 @@ export interface PodParams extends DiscoveryParams {
      * The SCP port.
      */
     scpPort: number;
+}
+
+//////////////////////////////
+//////InvalidOptionsError
+//////////////////////////////
+/**
+ * `InvalidOptionsError` is an instance of Error.
+ * Thrown when a service option is invalid.
+ */
+export class InvalidOptionsError extends Error {
+    /**
+     * Creates an instance of `InvalidOptionsError`.
+     * 
+     * @param message the error message.
+     */
+    constructor(message: string) {
+        super(message);
+
+        // Saving class name in the property of our custom error as a shortcut.
+        this.name = this.constructor.name;
+
+        // Capturing stack trace, excluding constructor call from it.
+        Error.captureStackTrace(this, this.constructor);
+    }
 }
