@@ -5,6 +5,7 @@ import { Mesh, Body } from '@iprotechs/scp';
 import mocha from 'mocha';
 import assert from 'assert';
 import http, { RequestOptions, IncomingMessage } from 'http';
+import { RequestHandler } from 'express';
 
 //Import Local.
 import Default from '../lib/default';
@@ -652,7 +653,7 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Remote Test', () => {
+    mocha.describe('Remote Service Test', () => {
         const jarvisMesh = new Mesh();
         const jarvisProxy = new Proxy();
         const jarvisSVC = new Service({ name: 'Jarvis', logPath: logPath, httpPort: 3001, scpPort: 6001, mesh: jarvisMesh, proxy: jarvisProxy });
@@ -710,16 +711,41 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Proxy Test', () => {
+            const armorMiddleware: RequestHandler = (request, response, next) => {
+                //Pass proxy variables to next.
+                (request as any).proxy.m1 = 1;
+                (request as any).proxy.m2 = 'Armor';
+                (request as any).proxy.m3 = true;
+                (request as any).proxy.m4 = ['Armor'];
+                (request as any).proxy.m5 = { armor: true };
+
+                next();
+            }
+
             //Server Jarvis
             const jarvisRouter = jarvisSVC.createRouter('/armor');
-            jarvisRouter.all('/powers', jarvisProxy.Armor('/features'));
-            jarvisRouter.all('/*', jarvisProxy.Armor());
+            jarvisRouter.all('/powers', armorMiddleware, jarvisProxy.Armor('/features'));
+            jarvisRouter.all('/*', armorMiddleware, jarvisProxy.Armor());
 
             //Server Armor
             const armorRouter = armorSVC.createRouter('/');
             armorRouter.get('/busters', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
                 response.status(HttpStatusCodes.OK).send({ armor: ['Thorbuster', 'Hulkbuster'] });
             }).get('/features', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
                 response.status(HttpStatusCodes.OK).send({ features: ['Lightweight', 'Flight'] });
             });
 
