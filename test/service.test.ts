@@ -229,7 +229,100 @@ mocha.describe('Service Test', () => {
             service.stop(done);
         });
 
-        mocha.describe('Creation + Middleware Test', () => {
+        mocha.describe('Router(Default) Creation Test', () => {
+            //Before Routes.
+            service.use('/sidekick', (request, response, next) => {
+                request.body.sidekick = true;
+                next();
+            });
+
+            //Routes.
+            service.get('/sidekick', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.OK).send({ sidekicks: ['War Machine', 'Bucky Barnes', 'Falcon'] });
+            }).post('/sidekick', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.CREATED).send({ sidekick: 'Groot' });
+            }).put('/sidekick', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.OK).send({ sidekick: 'Rick Jones' });
+            }).delete('/sidekick', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.OK).send({ sidekick: 'Old Lace' });
+            }).all('/sidekick/alias', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.OK).send({ alias: 'Rhodey' });
+            });
+
+            //After Routes.
+            service.use('/sidekick', (request, response) => {
+                assert.deepStrictEqual(request.body.sidekick, true);
+
+                response.status(HttpStatusCodes.NOT_FOUND).send({ message: 'No Sidekick Route Found' });
+            });
+
+            //Client
+            mocha.it('should execute GET(/sidekick) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/sidekick', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { sidekicks: ['War Machine', 'Bucky Barnes', 'Falcon'] });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute POST(/sidekick) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'post', '/sidekick', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.CREATED);
+                    assert.deepStrictEqual(response.body, { sidekick: 'Groot' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute PUT(/sidekick) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'put', '/sidekick', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { sidekick: 'Rick Jones' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute DELETE(/sidekick) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'delete', '/sidekick', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { sidekick: 'Old Lace' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute ALL:GET(/sidekick/alias) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/sidekick/alias', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { alias: 'Rhodey' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute GET(/sidekick/snap) and receive Error(No Sidekick Route Found) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/sidekick/snap', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
+                    assert.deepStrictEqual(response.body, { message: 'No Sidekick Route Found' });
+                    done(error);
+                });
+            });
+        });
+
+        mocha.describe('Router(Custom) Creation Test', () => {
             const heroRouter = service.createRouter('/hero');
 
             //Before Routes.
@@ -251,17 +344,14 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(request.body.hero, true);
 
                 response.status(HttpStatusCodes.OK).send({ hero: 'Thor' });
-            }).get('/snap', (request, response) => {
+            }).delete('/', (request, response) => {
                 assert.deepStrictEqual(request.body.hero, true);
 
-                response.setTimeout(100);
-                setTimeout(() => {
-                    try {
-                        response.status(HttpStatusCodes.OK).send(request.body);
-                    } catch (error) {
-                        assert.deepStrictEqual(error.code, 'ERR_HTTP_HEADERS_SENT');
-                    }
-                }, 200);
+                response.status(HttpStatusCodes.OK).send({ hero: 'Doctor Strange' });
+            }).all('/alias', (request, response) => {
+                assert.deepStrictEqual(request.body.hero, true);
+
+                response.status(HttpStatusCodes.OK).send({ alias: 'Tony Stark' });
             });
 
             //After Routes.
@@ -299,8 +389,50 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should execute GET(/hero/snap) and receive Error(Service Unavailable) with CORS support', (done) => {
+            mocha.it('should execute DELETE(/hero) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'delete', '/hero', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { hero: 'Doctor Strange' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute ALL:GET(/hero/alias) and receive body(JSON) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/hero/alias', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { alias: 'Tony Stark' });
+                    done(error);
+                });
+            });
+
+            mocha.it('should execute GET(/hero/snap) and receive Error(No Hero Route Found) with CORS support', (done) => {
                 httpRequest('127.0.0.1', 3000, 'get', '/hero/snap', {}, true, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
+                    assert.deepStrictEqual(response.body, { message: 'No Hero Route Found' });
+                    done(error);
+                });
+            });
+        });
+
+        mocha.describe('Default Middleware Test', () => {
+            //Routes.
+            service.get('/timetravel', (request, response) => {
+                response.setTimeout(100);
+                setTimeout(() => {
+                    try {
+                        response.status(HttpStatusCodes.OK).send(request.body);
+                    } catch (error) {
+                        assert.deepStrictEqual(error.code, 'ERR_HTTP_HEADERS_SENT');
+                    }
+                }, 200);
+            });
+
+            //Client
+            mocha.it('should execute GET(/timetravel) and receive Error(Service Unavailable) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/timetravel', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.SERVICE_UNAVAILABLE);
                     assert.deepStrictEqual(response.body, { message: 'Service Unavailable' });
@@ -308,17 +440,8 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should execute DELETE(/hero) and receive Error(No Hero Route Found) with CORS support', (done) => {
-                httpRequest('127.0.0.1', 3000, 'delete', '/hero', {}, true, (response, error) => {
-                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
-                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
-                    assert.deepStrictEqual(response.body, { message: 'No Hero Route Found' });
-                    done(error);
-                });
-            });
-
-            mocha.it('should execute GET(/) and receive Error(Not Found) with CORS support', (done) => {
-                httpRequest('127.0.0.1', 3000, 'get', '/', {}, true, (response, error) => {
+            mocha.it('should execute GET(/snap) and receive Error(Not Found) with CORS support', (done) => {
+                httpRequest('127.0.0.1', 3000, 'get', '/snap', {}, true, (response, error) => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.NOT_FOUND);
                     assert.deepStrictEqual(response.body, { message: 'Not Found' });
