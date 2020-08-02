@@ -19,7 +19,7 @@ import Default from './default';
 import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
 import ServiceRoutes from './service.routes';
-import DBManager, { Options as DbManagerOptions, ConnectionOptionsError } from './db.manager';
+import DBManager, { ConnectionOptions, InvalidConnectionOptions } from './db.manager';
 import ProxyClientManager, { Proxy } from './proxy.client.manager';
 import ProxyClient from './proxy.client';
 
@@ -147,6 +147,8 @@ export default class Service extends EventEmitter {
      * Creates an instance of a `Service`.
      * 
      * @param options the constructor options.
+     * 
+     * @throws `InvalidServiceOptions` when a service option is invalid.
      */
     constructor(options: Options) {
         //Call super for EventEmitter.
@@ -176,9 +178,9 @@ export default class Service extends EventEmitter {
         if (options.db) {
             const dbLogger = this.logger.child({ component: 'DB' });
             try {
-                this.dbManager = new DBManager(dbLogger, options.db);
+                this.dbManager = new DBManager({ connection: options.db, logger: dbLogger });
             } catch (error) {
-                if (error instanceof ConnectionOptionsError) {
+                if (error instanceof InvalidConnectionOptions) {
                     this.logger.error(error.message);
                 } else {
                     this.logger.error(error.stack);
@@ -241,6 +243,8 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     /**
      * Configures logger by setting up winston.
+     * 
+     * @throws `InvalidServiceOptions` when a service option is invalid.
      */
     private configLogger() {
         //Define _logger format.
@@ -269,7 +273,7 @@ export default class Service extends EventEmitter {
                 try {
                     fs.mkdirSync(this.logPath);
                 } catch (error) {
-                    throw new InvalidOptionsError('Invalid logPath provided.');
+                    throw new InvalidServiceOptions('Invalid logPath provided.');
                 }
             }
 
@@ -423,7 +427,7 @@ export default class Service extends EventEmitter {
                     //Log Event.
                     this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
                 } else {
-                    if (error instanceof ConnectionOptionsError) {
+                    if (error instanceof InvalidConnectionOptions) {
                         this.logger.error(error.message);
                     } else {
                         this.logger.error(error.stack);
@@ -866,7 +870,7 @@ export type Options = {
     /**
      * The database configuration options.
      */
-    db?: DbManagerOptions;
+    db?: ConnectionOptions;
 
     /**
      * `Node`'s are populated into this `Mesh` during runtime.
@@ -1265,15 +1269,15 @@ export interface PodParams extends DiscoveryParams {
 }
 
 //////////////////////////////
-//////InvalidOptionsError
+//////InvalidServiceOptions
 //////////////////////////////
 /**
- * `InvalidOptionsError` is an instance of Error.
+ * `InvalidServiceOptions` is an instance of Error.
  * Thrown when a service option is invalid.
  */
-export class InvalidOptionsError extends Error {
+export class InvalidServiceOptions extends Error {
     /**
-     * Creates an instance of `InvalidOptionsError`.
+     * Creates an instance of `InvalidServiceOptions`.
      * 
      * @param message the error message.
      */

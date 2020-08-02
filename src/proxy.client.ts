@@ -13,9 +13,9 @@ import HttpStatusCodes from './http.statusCodes';
  */
 export default class ProxyClient {
     /**
-     * The remote hostname.
+     * The remote host.
      */
-    private _hostname: string;
+    private _host: string;
 
     /**
      * The remote port.
@@ -52,10 +52,10 @@ export default class ProxyClient {
     //////Gets/Sets
     //////////////////////////////
     /**
-     * The remote hostname.
+     * The remote host.
      */
-    public get hostname() {
-        return this._hostname;
+    public get host() {
+        return this._host;
     }
 
     /**
@@ -93,7 +93,7 @@ export default class ProxyClient {
 
             //Initialize request options.
             const requestOptions: RequestOptions = {
-                hostname: this._hostname,
+                host: this._host,
                 port: this._port,
                 path: requestPath ?? request.path,
                 method: request.method,
@@ -102,7 +102,7 @@ export default class ProxyClient {
 
             //Initialize variables.
             const sourceUrl = `${request.originalUrl}`;
-            const targetUrl = `http://${requestOptions.hostname}:${requestOptions.port}${requestOptions.path}`;
+            const targetUrl = `http://${requestOptions.host}:${requestOptions.port}${requestOptions.path}`;
 
             //Log Event.
             this.logger.info(`${sourceUrl} -> ${targetUrl}`);
@@ -129,13 +129,13 @@ export default class ProxyClient {
     /**
      * Link to the proxy server.
      * 
-     * @param hostname the proxy address.
+     * @param host the proxy address.
      * @param port the proxy HTTP port.
      * @param callback optional callback. Will be called once linked.
      */
-    public link(hostname: string, port: number, callback?: () => void) {
+    public link(host: string, port: number, callback?: () => void) {
         //Initialize variables.
-        this._hostname = hostname;
+        this._host = host;
         this._port = port;
 
         //Set link variable.

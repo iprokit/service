@@ -65,45 +65,17 @@ export default class DBManager {
     /**
      * Creates an instance of a `DBManager`.
      * 
-     * @param logger the logger instance.
      * @param options the constructor options.
-     * 
-     * @throws `ConnectionOptionsError` when a database connection option is invalid.
      */
-    constructor(logger: Logger, options: Options) {
-        //Validate type
-        if (!options.type) {
-            throw new ConnectionOptionsError('Invalid database type provided.');
-        }
-
-        //Validate host
-        if (!options.host) {
-            throw new ConnectionOptionsError('Invalid database host provided.');
-        }
-
-        //Validate name
-        if (!options.name) {
-            throw new ConnectionOptionsError('Invalid database name provided.');
-        }
-
-        //Validate username
-        if (!options.username) {
-            throw new ConnectionOptionsError('Invalid database username provided.');
-        }
-
-        //Validate password
-        if (!options.password) {
-            throw new ConnectionOptionsError('Invalid database password provided.');
-        }
-
+    constructor(options: Options) {
         //Initialize variables.
-        this.logger = logger;
-        this.name = options.name;
-        this.type = options.type;
-        this.host = options.host;
-        this.username = options.username;
-        this.password = options.password;
-        this.paperTrail = options.paperTrail ?? true;
+        this.name = options.connection.name;
+        this.type = options.connection.type;
+        this.host = options.connection.host;
+        this.username = options.connection.username;
+        this.password = options.connection.password;
+        this.paperTrail = options.connection.paperTrail ?? true;
+        this.logger = options.logger;
 
         //Initialize NoSQL connection object.
         if (this.noSQL) {
@@ -229,6 +201,8 @@ export default class DBManager {
      * Connect to the database.
      * 
      * @param callback optional callback. Will be called when the database is connected.
+     * 
+     * @throws `InvalidConnectionOptions` when a database connection option is invalid.
      */
     public connect(callback?: (error?: Error) => void) {
         //NoSQL Connection
@@ -256,6 +230,8 @@ export default class DBManager {
      * Connect to NoSQL database.
      * 
      * @param callback optional callback. Will be called when the database is connected.
+     * 
+     * @throws `InvalidConnectionOptions` when a database connection option is invalid.
      */
     private connectNoSQL(callback?: (error?: Error) => void) {
         //Start Connection.
@@ -268,13 +244,13 @@ export default class DBManager {
         (this.connection as NoSQL).on('error', (error: Error) => {
             //NoSQL Errors.
             if (error.message.includes('Authentication failed')) {
-                error = new ConnectionOptionsError('Connection refused to the database.');
+                error = new InvalidConnectionOptions('Connection refused to the database.');
             }
             if (error.message.includes('getaddrinfo ENOTFOUND')) {
-                error = new ConnectionOptionsError('Invalid database host.');
+                error = new InvalidConnectionOptions('Invalid database host.');
             }
             if (error.message.includes('connection timed out')) {
-                error = new ConnectionOptionsError('Connection timed out to the database.');
+                error = new InvalidConnectionOptions('Connection timed out to the database.');
             }
 
             //Callback with error.
@@ -290,6 +266,8 @@ export default class DBManager {
      * `model.associate()` is called on all the models before the connection.
      * 
      * @param callback optional callback. Will be called when the database is connected.
+     * 
+     * @throws `InvalidConnectionOptions` when a database connection option is invalid.
      */
     private async connectRDB(callback?: (error?: Error) => void) {
         try {
@@ -308,16 +286,16 @@ export default class DBManager {
         } catch (error) {
             //RDB Errors.
             if (error instanceof AccessDeniedError) {
-                error = new ConnectionOptionsError('Access denied to the database.');
+                error = new InvalidConnectionOptions('Access denied to the database.');
             }
             if (error instanceof ConnectionRefusedError) {
-                error = new ConnectionOptionsError('Connection refused to the database.');
+                error = new InvalidConnectionOptions('Connection refused to the database.');
             }
             if (error instanceof HostNotFoundError) {
-                error = new ConnectionOptionsError('Invalid database host.');
+                error = new InvalidConnectionOptions('Invalid database host.');
             }
             if (error instanceof ConnectionError) {
-                error = new ConnectionOptionsError('Could not connect to the database due to unknown connection issue.');
+                error = new InvalidConnectionOptions('Could not connect to the database due to unknown connection issue.');
             }
 
             //Callback with error.
@@ -422,6 +400,21 @@ export default class DBManager {
  */
 export type Options = {
     /**
+     * The database connection options.
+     */
+    connection: ConnectionOptions;
+
+    /**
+     * The logger instance.
+     */
+    logger: Logger;
+}
+
+/**
+ * The connection options for the database.
+ */
+export type ConnectionOptions = {
+    /**
      * The name of the database.
      */
     name: string;
@@ -495,15 +488,15 @@ export declare type Model = typeof RDBModel | typeof NoSQLModel;
 export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
 
 //////////////////////////////
-//////ConnectionOptionsError
+//////InvalidConnectionOptions
 //////////////////////////////
 /**
- * `ConnectionOptionsError` is an instance of Error.
+ * `InvalidConnectionOptions` is an instance of Error.
  * Thrown when a database connection option is invalid.
  */
-export class ConnectionOptionsError extends Error {
+export class InvalidConnectionOptions extends Error {
     /**
-     * Creates an instance of `ConnectionOptionsError`.
+     * Creates an instance of `InvalidConnectionOptions`.
      * 
      * @param message the error message.
      */

@@ -110,7 +110,7 @@ function micro(options?: Options) {
             mesh: mesh,
             proxy: proxy
         };
-        
+
         // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
 
         //Create or retrieve the singleton service.
@@ -225,6 +225,34 @@ export default micro;
 //         callback(1);
 //     }
 // }, this.forceStopTime);
+
+//////////////////////////////
+//////DB
+//////////////////////////////
+// //Validate type
+// if (!options.type) {
+//     throw new ConnectionOptionsError('Invalid database type provided.');
+// }
+
+// //Validate host
+// if (!options.host) {
+//     throw new ConnectionOptionsError('Invalid database host provided.');
+// }
+
+// //Validate name
+// if (!options.name) {
+//     throw new ConnectionOptionsError('Invalid database name provided.');
+// }
+
+// //Validate username
+// if (!options.username) {
+//     throw new ConnectionOptionsError('Invalid database username provided.');
+// }
+
+// //Validate password
+// if (!options.password) {
+//     throw new ConnectionOptionsError('Invalid database password provided.');
+// }
 
 //////////////////////////////
 //////Injections

@@ -9,7 +9,7 @@ import { RequestHandler } from 'express';
 
 //Import Local.
 import Default from '../lib/default';
-import Service, { Options, RemoteService, InvalidOptionsError } from '../lib/service';
+import Service, { Options, InvalidServiceOptions, RemoteService } from '../lib/service';
 import { Proxy } from '../lib/proxy.client.manager';
 import HttpStatusCodes from '../lib/http.statusCodes';
 
@@ -147,7 +147,7 @@ mocha.describe('Service Test', () => {
             try {
                 service = new Service({ name: 'HeroSVC', logPath: '' });
             } catch (error) {
-                if (error instanceof InvalidOptionsError) {
+                if (error instanceof InvalidServiceOptions) {
                     assert.deepStrictEqual(error.message, 'Invalid logPath provided.');
                 }
             }

@@ -30,12 +30,12 @@ export default class ProxyClientManager {
     /**
      * Creates an instance of `ProxyClientManager`.
      * 
-     * @param options the optional constructor options.
+     * @param options the constructor options.
      */
     constructor(options: Options) {
         //Initialize variables.
-        this.proxy = options?.proxy ?? new Proxy();
-        this.logger = options?.logger;
+        this.proxy = options.proxy ?? new Proxy();
+        this.logger = options.logger;
 
         //Initialize cells.
         this.cells = new Array();
@@ -136,7 +136,7 @@ export default class ProxyClientManager {
 //////Constructor: Options
 //////////////////////////////
 /**
- * The optional constructor options for proxy manager.
+ * The constructor options for proxy manager.
  */
 export type Options = {
     /**
@@ -145,9 +145,9 @@ export type Options = {
     proxy?: Proxy;
 
     /**
-     * The optional, logger instance.
+     * The logger instance.
      */
-    logger?: Logger;
+    logger: Logger;
 }
 
 //////////////////////////////
