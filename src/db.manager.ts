@@ -80,17 +80,10 @@ export default class DBManager {
         //Initialize NoSQL connection object.
         if (this.noSQL) {
             //Mongoose connection.
-            this.connection = mongoose.createConnection(`mongodb://${this.host}`, {
-                dbName: this.name,
-                user: this.username,
-                pass: this.password,
-                useNewUrlParser: true,
-                useUnifiedTopology: true
-            });
+            this.connection = mongoose.connection;
             mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
                 this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
             });
-            //TODO: https://iprotechs.atlassian.net/browse/PMICRO-17
         }
 
         //Initialize RDB connection object.
@@ -233,15 +226,22 @@ export default class DBManager {
      * 
      * @throws `InvalidConnectionOptions` when a database connection option is invalid.
      */
-    private connectNoSQL(callback?: (error?: Error) => void) {
-        //Start Connection.
-        (this.connection as NoSQL).once('connected', () => {
+    private async connectNoSQL(callback?: (error?: Error) => void) {
+        try {
+            //Start Connection.
+            await mongoose.connect(`mongodb://${this.host}`, {
+                dbName: this.name,
+                user: this.username,
+                pass: this.password,
+                useNewUrlParser: true,
+                useUnifiedTopology: true
+            });
+
             //Callback.
             if (callback) {
                 callback();
             }
-        });
-        (this.connection as NoSQL).on('error', (error: Error) => {
+        } catch (error) {
             //NoSQL Errors.
             if (error.message.includes('Authentication failed')) {
                 error = new InvalidConnectionOptions('Connection refused to the database.');
@@ -257,7 +257,7 @@ export default class DBManager {
             if (callback) {
                 callback(error);
             }
-        });
+        }
     }
 
     /**

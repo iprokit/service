@@ -894,11 +894,6 @@ mocha.describe('Service Test', () => {
     });
 });
 
-/**
- * TODO: Work from here.
- * -> DB Test
- */
-
 //////////////////////////////
 //////Helpers
 //////////////////////////////

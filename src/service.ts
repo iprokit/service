@@ -177,15 +177,7 @@ export default class Service extends EventEmitter {
         //Initialize DB Manager
         if (options.db) {
             const dbLogger = this.logger.child({ component: 'DB' });
-            try {
-                this.dbManager = new DBManager({ connection: options.db, logger: dbLogger });
-            } catch (error) {
-                if (error instanceof InvalidConnectionOptions) {
-                    this.logger.error(error.message);
-                } else {
-                    this.logger.error(error.stack);
-                }
-            }
+            this.dbManager = new DBManager({ connection: options.db, logger: dbLogger });
         }
 
         //Initialize SCP Server.
