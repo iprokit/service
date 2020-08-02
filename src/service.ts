@@ -298,7 +298,8 @@ export default class Service extends EventEmitter {
      * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyClientManager`.
      */
     private configServiceRegistry() {
-        const onAvailable = (pod: Pod) => {
+        //Bind Events.
+        this.discovery.on('available', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
@@ -316,9 +317,9 @@ export default class Service extends EventEmitter {
                     this.emit('available', remoteService);
                 });
             });
-        }
+        });
 
-        const onUnavailable = (pod: Pod) => {
+        this.discovery.on('unavailable', (pod: Pod) => {
             //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
@@ -335,16 +336,11 @@ export default class Service extends EventEmitter {
                     this.emit('unavailable', remoteService);
                 });
             });
-        }
+        });
 
-        const onError = (error: Error) => {
+        this.discovery.on('error', (error: Error) => {
             this.logger.error(error.stack);
-        }
-
-        //Bind Events.
-        this.discovery.on('available', onAvailable);
-        this.discovery.on('unavailable', onUnavailable);
-        this.discovery.on('error', onError);
+        });
     }
 
     /**
