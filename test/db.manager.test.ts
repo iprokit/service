@@ -57,7 +57,8 @@ mocha.describe('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.dbManager.connected, true);
 
                 service.stop(done);
@@ -165,7 +166,8 @@ mocha.describe('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.dbManager.connected, true);
 
                 service.stop(done);
@@ -183,7 +185,8 @@ mocha.describe('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.dbManager.connected, true);
 
                 service.stop(done);
