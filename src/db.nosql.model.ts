@@ -44,10 +44,17 @@ export default class NoSQLModel {
      * 
      * @returns all the records.
      * 
+     * @default 
+     * options = { order: 'new', pagination: { page: 0, size: 20 } };
+     * 
      * @alias `model.find()`
      */
-    public static async getAll(options: FindOptions) {
+    public static async getAll(options?: FindOptions) {
         let order;
+
+        //Initialize Options.
+        options = options ?? {};
+        options.pagination = options.pagination ?? {};
 
         //Order properties.
         if (options.order === 'new' || !options.order) {
@@ -67,20 +74,12 @@ export default class NoSQLModel {
      * 
      * @param id the record to retrieve by _id.
      * 
-     * @returns the record found.
-     * 
-     * @throws `Error` if no records found.
+     * @returns the record found, undefined otherwise.
      * 
      * @alias `model.findOne()`
      */
     public static async getOneByID(id: any) {
-        const record = await this.findOne({ _id: id });
-
-        if (record) {
-            return record;
-        } else {
-            throw new Error('No records found!');
-        }
+        return await this.findOne({ _id: id }) ?? undefined;
     }
 
     /**
@@ -89,9 +88,7 @@ export default class NoSQLModel {
      * @param id the record to update by id.
      * @param values the values of the record.
      * 
-     * @returns `true` if the record is successfully updated.
-     * 
-     * @throws error if the update failed. Due to, no record found.
+     * @returns true if the record is successfully updated, false otherwise.
      * 
      * @alias `model.updateOne()`
      */
@@ -99,7 +96,7 @@ export default class NoSQLModel {
         const affectedRecords = await this.updateOne({ _id: id }, values);
 
         if (affectedRecords.n === 0 && affectedRecords.nModified === 0) {
-            throw new Error('No records found!');
+            return false;
         } else {
             return true;
         }
@@ -110,9 +107,7 @@ export default class NoSQLModel {
      * 
      * @param id the record to delete by id.
      * 
-     * @returns `true` if the record is successfully deleted.
-     * 
-     * @throws error if the delete failed. Due to, no record found.
+     * @returns true if the record is successfully deleted, false otherwise.
      * 
      * @alias `model.deleteOne()`
      */
@@ -120,7 +115,7 @@ export default class NoSQLModel {
         const affectedRecords = await this.deleteOne({ _id: id });
 
         if (affectedRecords.n === 0 && affectedRecords.deletedCount === 0) {
-            throw new Error('No records found!');
+            return false;
         } else {
             return true;
         }

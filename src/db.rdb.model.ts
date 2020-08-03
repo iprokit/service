@@ -24,7 +24,6 @@ export default class RDBModel extends Model {
      * @default 
      * options = { order: 'new', pagination: { page: 0, size: 20 } };
      * 
-     * 
      * @alias `model.findAll()`
      */
     public static async getAll(options?: FindOptions) {

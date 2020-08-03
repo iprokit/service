@@ -48,7 +48,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, true);
             assert.deepStrictEqual(service.dbManager.noSQL, false);
@@ -77,7 +77,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, true);
             assert.deepStrictEqual(service.dbManager.noSQL, false);
@@ -106,7 +106,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, true);
             assert.deepStrictEqual(service.dbManager.noSQL, false);
@@ -136,7 +136,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, false);
             assert.deepStrictEqual(service.dbManager.noSQL, true);
@@ -165,7 +165,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, false);
             assert.deepStrictEqual(service.dbManager.noSQL, true);
@@ -194,7 +194,7 @@ mocha.describe('Database Test', () => {
             //Class Variables.
             assert.notDeepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.notDeepStrictEqual(service.dbManager.models, undefined);
             assert.deepStrictEqual(service.dbManager.connected, false);
             assert.deepStrictEqual(service.dbManager.rdb, false);
             assert.deepStrictEqual(service.dbManager.noSQL, true);

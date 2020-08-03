@@ -317,7 +317,9 @@ export default class DBManager {
          * @function
          */
         const _noSQLSync = async () => {
-            this.models.forEach(async model => {
+            const models = this.models;
+            for (let index = 0; index < models.length; index++) {
+                const model = models[index];
                 const name = model.collection.name;
 
                 try {
@@ -334,7 +336,7 @@ export default class DBManager {
                         throw error;
                     }
                 }
-            });
+            }
         }
 
         /**
