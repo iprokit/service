@@ -25,24 +25,180 @@ const noSQLOptions: ConnectionOptions = {
 }
 
 mocha.describe('Database Test', () => {
-    mocha.describe('Constructor Test', () => {
-        //TODO: Implement Constructor Test.
+    mocha.describe('Constructor(RDB) Test', () => {
+        mocha.it('should construct service with RDB(default variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: 'HeroDB',
+                type: 'mysql',
+                host: '127.0.0.1',
+                username: 'HeroUser',
+                password: 'HeroPass'
+            }
 
-        // //Options Variables.
-        // assert.deepStrictEqual(service.dbManager.name, db.name);
-        // assert.deepStrictEqual(service.dbManager.type, db.type);
-        // assert.deepStrictEqual(service.dbManager.host, db.host);
-        // assert.deepStrictEqual(service.dbManager.username, db.username);
-        // assert.deepStrictEqual(service.dbManager.password, db.password);
-        // assert.deepStrictEqual(service.dbManager.paperTrail, true);
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
 
-        // //Class Variables.
-        // assert.notDeepStrictEqual(service.dbManager, undefined);
-        // assert.notDeepStrictEqual(service.dbManager.connection, undefined);
-        // assert.deepStrictEqual(service.dbManager.models, []);
-        // assert.deepStrictEqual(service.dbManager.connected, false);
-        // assert.deepStrictEqual(service.dbManager.rdb, false);
-        // assert.deepStrictEqual(service.dbManager.noSQL, true);
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, 'HeroDB');
+            assert.deepStrictEqual(service.dbManager.type, 'mysql');
+            assert.deepStrictEqual(service.dbManager.host, '127.0.0.1');
+            assert.deepStrictEqual(service.dbManager.username, 'HeroUser');
+            assert.deepStrictEqual(service.dbManager.password, 'HeroPass');
+            assert.deepStrictEqual(service.dbManager.paperTrail, true);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, true);
+            assert.deepStrictEqual(service.dbManager.noSQL, false);
+        });
+
+        mocha.it('should construct service with RDB(Truthy variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: 'HeroDB',
+                type: 'mysql',
+                host: '127.0.0.1',
+                username: 'HeroUser',
+                password: 'HeroPass',
+                paperTrail: true
+            }
+
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
+
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, 'HeroDB');
+            assert.deepStrictEqual(service.dbManager.type, 'mysql');
+            assert.deepStrictEqual(service.dbManager.host, '127.0.0.1');
+            assert.deepStrictEqual(service.dbManager.username, 'HeroUser');
+            assert.deepStrictEqual(service.dbManager.password, 'HeroPass');
+            assert.deepStrictEqual(service.dbManager.paperTrail, true);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, true);
+            assert.deepStrictEqual(service.dbManager.noSQL, false);
+        });
+
+        mocha.it('should construct service with RDB(Falsy variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: '',
+                type: 'mysql',
+                host: '',
+                username: '',
+                password: '',
+                paperTrail: false
+            }
+
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
+
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, '');
+            assert.deepStrictEqual(service.dbManager.type, 'mysql');
+            assert.deepStrictEqual(service.dbManager.host, '');
+            assert.deepStrictEqual(service.dbManager.username, '');
+            assert.deepStrictEqual(service.dbManager.password, '');
+            assert.deepStrictEqual(service.dbManager.paperTrail, false);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, true);
+            assert.deepStrictEqual(service.dbManager.noSQL, false);
+        });
+    });
+
+    mocha.describe('Constructor(NoSQL) Test', () => {
+        mocha.it('should construct service with NoSQL(default variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: 'HeroDB',
+                type: 'mongo',
+                host: '127.0.0.1',
+                username: 'HeroUser',
+                password: 'HeroPass'
+            }
+
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
+
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, 'HeroDB');
+            assert.deepStrictEqual(service.dbManager.type, 'mongo');
+            assert.deepStrictEqual(service.dbManager.host, '127.0.0.1');
+            assert.deepStrictEqual(service.dbManager.username, 'HeroUser');
+            assert.deepStrictEqual(service.dbManager.password, 'HeroPass');
+            assert.deepStrictEqual(service.dbManager.paperTrail, true);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, false);
+            assert.deepStrictEqual(service.dbManager.noSQL, true);
+        });
+
+        mocha.it('should construct service with RDB(Truthy variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: 'HeroDB',
+                type: 'mongo',
+                host: '127.0.0.1',
+                username: 'HeroUser',
+                password: 'HeroPass',
+                paperTrail: true
+            }
+
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
+
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, 'HeroDB');
+            assert.deepStrictEqual(service.dbManager.type, 'mongo');
+            assert.deepStrictEqual(service.dbManager.host, '127.0.0.1');
+            assert.deepStrictEqual(service.dbManager.username, 'HeroUser');
+            assert.deepStrictEqual(service.dbManager.password, 'HeroPass');
+            assert.deepStrictEqual(service.dbManager.paperTrail, true);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, false);
+            assert.deepStrictEqual(service.dbManager.noSQL, true);
+        });
+
+        mocha.it('should construct service with RDB(Falsy variables) connection', () => {
+            const db: ConnectionOptions = {
+                name: '',
+                type: 'mongo',
+                host: '',
+                username: '',
+                password: '',
+                paperTrail: false
+            }
+
+            const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
+
+            //Options Variables.
+            assert.deepStrictEqual(service.dbManager.name, '');
+            assert.deepStrictEqual(service.dbManager.type, 'mongo');
+            assert.deepStrictEqual(service.dbManager.host, '');
+            assert.deepStrictEqual(service.dbManager.username, '');
+            assert.deepStrictEqual(service.dbManager.password, '');
+            assert.deepStrictEqual(service.dbManager.paperTrail, false);
+
+            //Class Variables.
+            assert.notDeepStrictEqual(service.dbManager, undefined);
+            assert.notDeepStrictEqual(service.dbManager.connection, undefined);
+            assert.deepStrictEqual(service.dbManager.models, []);
+            assert.deepStrictEqual(service.dbManager.connected, false);
+            assert.deepStrictEqual(service.dbManager.rdb, false);
+            assert.deepStrictEqual(service.dbManager.noSQL, true);
+        });
     });
 
     mocha.describe('Connection(RDB) Test', () => {
