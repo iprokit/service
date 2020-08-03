@@ -48,7 +48,7 @@ mocha.describe('Service Test', () => {
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
-            assert.notDeepStrictEqual(service.routes, undefined);
+            assert.notDeepStrictEqual(service.routers, undefined);
         });
 
         mocha.it('should construct Service with custom(Truthy) variables.', () => {
@@ -93,7 +93,7 @@ mocha.describe('Service Test', () => {
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
-            assert.notDeepStrictEqual(service.routes, undefined);
+            assert.notDeepStrictEqual(service.routers, undefined);
         });
 
         mocha.it('should construct Service with custom(Falsy) variables.', () => {
@@ -138,7 +138,7 @@ mocha.describe('Service Test', () => {
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
-            assert.notDeepStrictEqual(service.routes, undefined);
+            assert.notDeepStrictEqual(service.routers, undefined);
         });
 
         mocha.it('should not construct Service with custom(Invalid) variables.', () => {

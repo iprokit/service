@@ -191,19 +191,19 @@ export default class ServiceRoutes {
         });
 
         //Push router middlewares to `httpRoutes`.
-        this.service.routes.forEach(route => {
+        this.service.routers.forEach(eRouter => {
             const routes = new Array();
-            const mountPath = (route.path === '/') ? '' : route.path;
+            const mountPath = (eRouter.path === '/') ? '' : eRouter.path;
 
             //Get router handlers.
-            route.router.stack.forEach(stack => {
+            eRouter.router.stack.forEach(stack => {
                 if (stack.route) {
                     const route = this.getHandlerInfo(stack);
                     this.isApiRoute(route.method) && routes.push({ fn: route.fn, [route.method]: `${mountPath}${route.path}` });
                 }
             });
 
-            httpRoutes[route.path.toString()] = routes;
+            httpRoutes[eRouter.path.toString()] = routes;
         });
 
         //Merge Routes.

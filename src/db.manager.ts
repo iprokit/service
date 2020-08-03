@@ -1,5 +1,5 @@
 //Import modules
-import { Sequelize as RDB, Dialect, AccessDeniedError, ConnectionRefusedError, HostNotFoundError, ConnectionError } from 'sequelize';
+import { Sequelize as RDB, Dialect } from 'sequelize';
 import mongoose, { Connection as NoSQL } from 'mongoose';
 import { Logger } from 'winston';
 

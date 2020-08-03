@@ -139,9 +139,9 @@ export default class Service extends EventEmitter {
     private _httpServer: HttpServer;
 
     /**
-     * The routes mounted on `Express`.
+     * The routers mounted on `Express`.
      */
-    public readonly routes: Array<Route>;
+    public readonly routers: Array<ExpressRouter>;
 
     /**
      * Creates an instance of a `Service`.
@@ -212,7 +212,7 @@ export default class Service extends EventEmitter {
 
         //Initialize Express.
         this.express = express();
-        this.routes = new Array();
+        this.routers = new Array();
         this.configExpress();
 
         //Add Hooks.
@@ -579,8 +579,8 @@ export default class Service extends EventEmitter {
         //Create a new router.
         const router = express.Router(options);
 
-        //Push to routes.
-        this.routes.push(new Route(mountPath, router));
+        //Push to routers.
+        this.routers.push(new ExpressRouter(mountPath, router));
 
         //Mount the router to express.
         this.express.use(mountPath, router);
@@ -1081,6 +1081,9 @@ export class ServiceRegistry {
         this.remoteServices = new Array();
     }
 
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
     /**
      * True if the all the `RemoteService`'s are connected, false otherwise.
      * `undefined` if no connections.
@@ -1100,7 +1103,7 @@ export class ServiceRegistry {
     }
 
     //////////////////////////////
-    //////Array
+    //////Register/Deregister
     //////////////////////////////
     /**
      * Registeres the `RemoteService`.
@@ -1121,6 +1124,9 @@ export class ServiceRegistry {
         this.remoteServices.splice(index, 1);
     }
 
+    //////////////////////////////
+    //////Get
+    //////////////////////////////
     /**
      * Returns the `RemoteService` found.
      * 
@@ -1278,12 +1284,12 @@ export class RemoteService {
 }
 
 //////////////////////////////
-//////Route
+//////ExpressRouter
 //////////////////////////////
 /**
- * `Route` represents a pointer to the `Router` mounted on `Express`.
+ * `ExpressRouter` represents a pointer to the `Router` mounted on `Express`.
  */
-export class Route {
+export class ExpressRouter {
     /**
      * The routing path.
      */
@@ -1295,7 +1301,7 @@ export class Route {
     public readonly router: Router;
 
     /**
-     * Creates an instance of `Route`.
+     * Creates an instance of `ExpressRouter`.
      * 
      * @param path the routing path.
      * @param router the `Router` instance.
