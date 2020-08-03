@@ -409,15 +409,9 @@ export default class Service extends EventEmitter {
                 if (!error) {
                     //Log Event.
                     this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
-                } else {
-                    if (error instanceof InvalidConnectionOptions) {
-                        this.logger.error(error.message);
-                    } else {
-                        this.logger.error(error.stack);
-                    }
                 }
 
-                done();
+                done(error);
             });
         });
 
@@ -437,11 +431,9 @@ export default class Service extends EventEmitter {
                 if (!error) {
                     //Log Event.
                     this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
-                } else {
-                    this.logger.error(error.stack);
                 }
 
-                done();
+                done(error);
             });
         });
 
@@ -468,7 +460,7 @@ export default class Service extends EventEmitter {
                     this.logger.info(`Stopped HTTP server.`);
                 }
 
-                done();
+                done(error);
             });
         });
 
@@ -480,7 +472,7 @@ export default class Service extends EventEmitter {
                     this.logger.info(`Stopped Discovery.`);
                 }
 
-                done();
+                done(error);
             });
         });
 
@@ -492,7 +484,7 @@ export default class Service extends EventEmitter {
                     this.logger.info(`Stopped SCP Server.`);
                 }
 
-                done();
+                done(error);
             });
         });
 
@@ -504,7 +496,7 @@ export default class Service extends EventEmitter {
                     this.logger.info(`DB Disconnected.`);
                 }
 
-                done();
+                done(error);
             });
         });
     }
@@ -517,7 +509,7 @@ export default class Service extends EventEmitter {
      * 
      * @param callback optional callback, called when the service is started.
      */
-    public start(callback?: () => void) {
+    public start(callback?: (error?: Error) => void) {
         //Log Event.
         this.logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
 
@@ -525,21 +517,17 @@ export default class Service extends EventEmitter {
         this.emit('starting');
 
         //Run Hooks.
-        this.hooks.preStart.execute(() => {
-            this.hooks.start.execute(() => {
-                this.hooks.postStart.execute(() => {
-                    //Log Event.
-                    this.logger.info(`${this.name} started.`);
+        this.hooks.executeStart((error) => {
+            //Log Event.
+            this.logger.info(`${this.name} started.`);
 
-                    //Emit Global: started.
-                    this.emit('started');
+            //Emit Global: started.
+            this.emit('started');
 
-                    //Callback.
-                    if (callback) {
-                        callback();
-                    }
-                });
-            });
+            //Callback.
+            if (callback) {
+                callback(error);
+            }
         });
 
         //Return this for chaining.
@@ -551,7 +539,7 @@ export default class Service extends EventEmitter {
      * 
      * @param callback optional callback, called when the service is stopped.
      */
-    public stop(callback?: () => void) {
+    public stop(callback?: (error?: Error) => void) {
         //Log Event.
         this.logger.info(`Stopping ${this.name}...`);
 
@@ -559,21 +547,17 @@ export default class Service extends EventEmitter {
         this.emit('stopping');
 
         //Run Hooks.
-        this.hooks.preStop.execute(() => {
-            this.hooks.stop.execute(() => {
-                this.hooks.postStop.execute(() => {
-                    //Log Event.
-                    this.logger.info(`${this.name} stopped.`);
+        this.hooks.executeStop((error) => {
+            //Log Event.
+            this.logger.info(`${this.name} stopped.`);
 
-                    //Emit Global: stopped.
-                    this.emit('stopped');
+            //Emit Global: stopped.
+            this.emit('stopped');
 
-                    //Callback.
-                    if (callback) {
-                        callback();
-                    }
-                });
-            });
+            //Callback.
+            if (callback) {
+                callback(error);
+            }
         });
 
         //Return this for chaining.
@@ -913,6 +897,63 @@ export class Hooks {
         this.stop = new Hook();
         this.postStop = new Hook();
     }
+
+    //////////////////////////////
+    //////Execute
+    //////////////////////////////
+    /**
+     * Execute start(preStart, start, postStart) sequence hooks.
+     * 
+     * @param callback optional callback, called when start sequence is complete.
+     */
+    public executeStart(callback?: (error?: Error) => void) {
+        //Initialize the error.
+        let _error: Error;
+
+        this.preStart.execute((error) => {
+            //Pass the error to the next executor.
+            _error = error ?? _error;
+            this.start.execute((error) => {
+                //Pass the error to the next executor.
+                _error = error ?? _error;
+                this.postStart.execute((error) => {
+                    //Pass the error to the next executor.
+                    _error = error ?? _error;
+                    //Callback.
+                    if (callback) {
+                        callback(_error);
+                    }
+                });
+            });
+        });
+    }
+
+    /**
+     * Execute stop(preStop, stop, postStop) sequence hooks.
+     * 
+     * @param callback optional callback, called when stop sequence is complete.
+     */
+    public executeStop(callback?: (error?: Error) => void) {
+        //Initialize the error.
+        let _error: Error;
+
+        this.preStop.execute((error) => {
+            //Pass the error to the next executor.
+            _error = error ?? _error;
+            this.stop.execute((error) => {
+                //Pass the error to the next executor.
+                _error = error ?? _error;
+                this.postStop.execute((error) => {
+                    //Pass the error to the next executor.
+                    _error = error ?? _error;
+                    //Callback.
+                    if (callback) {
+                        callback(_error);
+                    }
+                });
+            });
+        });
+    }
 }
 
 /**
@@ -961,16 +1002,25 @@ export class Hook {
      * 
      * @param callback optional callback, called when the handler executions are complete.
      */
-    public execute(callback?: () => void) {
+    public execute(callback?: (error?: Error) => void) {
         if (this.stack.length > 0) {
             //Initialize the iterator.
             let iterator = 0;
 
+            //Initialize the error.
+            let _error: Error;
+
             /**
              * The done handler.
+             * 
+             * @param error the error caught.
              */
-            const done: DoneHandler = () => {
+            const done: DoneHandler = (error?: Error) => {
+                //Iterate to the next done.
                 iterator++;
+
+                //Pass the error to the next done.
+                _error = error ?? _error;
 
                 if (iterator < this.stack.length) {
                     //CASE: More handlers.
@@ -979,7 +1029,7 @@ export class Hook {
                     //CASE: Last handler.
                     //Callback.
                     if (callback) {
-                        callback();
+                        callback(_error);
                     }
                 }
             }
@@ -1004,9 +1054,11 @@ export interface HookHandler {
 
 /**
  * `DoneHandler` definition.
+ * 
+ * @param error the error caught.
  */
 export interface DoneHandler {
-    (): void;
+    (error?: Error): void;
 }
 
 //////////////////////////////

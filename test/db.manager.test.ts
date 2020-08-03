@@ -4,7 +4,7 @@ import assert from 'assert';
 
 //Import Local.
 import Service from '../lib/service';
-import { ConnectionOptions } from '../lib/db.manager';
+import { ConnectionOptions, InvalidConnectionOptions } from '../lib/db.manager';
 
 const logPath = '/Users/iprotechs/Desktop/logs';
 
@@ -24,9 +24,9 @@ const noSQLOptions: ConnectionOptions = {
     password: 'c3r1stm3s'
 }
 
-mocha.describe.skip('Database Test', () => {
+mocha.describe('Database Test', () => {
     mocha.describe('Constructor Test', () => {
-        //TODO: Implement Constructor Test
+        //TODO: Implement Constructor Test.
 
         // //Options Variables.
         // assert.deepStrictEqual(service.dbManager.name, db.name);
@@ -75,7 +75,11 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.code, 'ER_DBACCESS_DENIED_ERROR');
+                    assert.deepStrictEqual(error.errno, 1044);
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -93,7 +97,11 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.code, 'ECONNREFUSED');
+                    assert.deepStrictEqual(error.errno, 'ECONNREFUSED');
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -111,7 +119,11 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.code, 'ER_ACCESS_DENIED_ERROR');
+                    assert.deepStrictEqual(error.errno, 1045);
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -129,7 +141,11 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.code, 'ER_ACCESS_DENIED_ERROR');
+                    assert.deepStrictEqual(error.errno, 1045);
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -185,7 +201,11 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.message.includes('connect ECONNREFUSED'), true);
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -203,7 +223,10 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.message, 'Authentication failed.');
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);
@@ -221,7 +244,10 @@ mocha.describe.skip('Database Test', () => {
             let service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
             silentLog(service);
 
-            service.start(() => {
+            service.start((error) => {
+                if (error instanceof InvalidConnectionOptions) {
+                    assert.deepStrictEqual(error.message, 'Authentication failed.');
+                }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 
                 service.stop(done);

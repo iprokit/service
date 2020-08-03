@@ -176,7 +176,8 @@ mocha.describe('Service Test', () => {
                 done();
             });
 
-            service.start(() => {
+            service.start((error) => {
+                assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.scpServer.listening, true);
                 assert.deepStrictEqual(service.scpClientManager.connected, {});
                 assert.deepStrictEqual(service.proxyClientManager.linked, {});
@@ -206,7 +207,8 @@ mocha.describe('Service Test', () => {
                 done();
             });
 
-            service.stop(() => {
+            service.stop((error) => {
+                assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.scpServer.listening, false);
                 assert.deepStrictEqual(service.scpClientManager.connected, {});
                 assert.deepStrictEqual(service.proxyClientManager.linked, {});
@@ -630,7 +632,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.start();
+                shieldSVC.start((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
 
             mocha.it('shield should be unavailable to hydra', (done) => {
@@ -649,7 +653,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.stop();
+                shieldSVC.stop((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
         });
 
@@ -691,7 +697,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.start();
+                shieldSVC.start((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
 
             mocha.it('shield should be unavailable to hydra', (done) => {
@@ -710,7 +718,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.stop();
+                shieldSVC.stop((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
         });
 
@@ -752,7 +762,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.start();
+                shieldSVC.start((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
 
             mocha.it('shield should be unavailable to hydra', (done) => {
@@ -771,7 +783,9 @@ mocha.describe('Service Test', () => {
                     done();
                 });
 
-                shieldSVC.stop();
+                shieldSVC.stop((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
         });
     });
@@ -792,13 +806,17 @@ mocha.describe('Service Test', () => {
                 done();
             });
 
-            jarvisSVC.start(() => {
-                armorSVC.start();
+            jarvisSVC.start((error) => {
+                assert.deepStrictEqual(error, undefined);
+                armorSVC.start((error) => {
+                    assert.deepStrictEqual(error, undefined);
+                });
             });
         });
 
         mocha.after((done) => {
-            jarvisSVC.stop(() => {
+            jarvisSVC.stop((error) => {
+                assert.deepStrictEqual(error, undefined);
                 armorSVC.stop(done);
             });
         });

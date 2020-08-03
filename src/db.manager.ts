@@ -242,22 +242,9 @@ export default class DBManager {
                 callback();
             }
         } catch (error) {
-            // console.log({ name: error.name, code: error.code, reason: error.reason, message: error.message });
-
-            //NoSQL Errors.
-            if (error.message.includes('Authentication failed')) {
-                error = new InvalidConnectionOptions('Connection refused to the database.');
-            }
-            if (error.message.includes('getaddrinfo ENOTFOUND')) {
-                error = new InvalidConnectionOptions('Invalid database host.');
-            }
-            if (error.message.includes('connection timed out')) {
-                error = new InvalidConnectionOptions('Connection timed out to the database.');
-            }
-
             //Callback with error.
             if (callback) {
-                callback(error);
+                callback(new InvalidConnectionOptions(error.message));
             }
         }
     }
@@ -286,25 +273,9 @@ export default class DBManager {
                 callback();
             }
         } catch (error) {
-            // console.log({ name: error.name, code: error.original.code, errno: error.original.errno, sqlState: error.original.sqlState, message: error.message });
-
-            //RDB Errors.
-            if (error instanceof AccessDeniedError) {
-                error = new InvalidConnectionOptions('Access denied to the database.');
-            }
-            if (error instanceof ConnectionRefusedError) {
-                error = new InvalidConnectionOptions('Connection refused to the database.');
-            }
-            if (error instanceof HostNotFoundError) {
-                error = new InvalidConnectionOptions('Invalid database host.');
-            }
-            if (error instanceof ConnectionError) {
-                error = new InvalidConnectionOptions('Could not connect to the database due to unknown connection issue.');
-            }
-
             //Callback with error.
             if (callback) {
-                callback(error);
+                callback(new InvalidConnectionOptions(error.message, error.original.code, error.original.errno));
             }
         }
     }
@@ -500,12 +471,28 @@ export declare type ModelAttributes = RDBModelAttributes | NoSQLModelAttributes;
  */
 export class InvalidConnectionOptions extends Error {
     /**
+     * The error code.
+     */
+    public code: string;
+
+    /**
+     * The error number.
+     */
+    public errno: number | string;
+
+    /**
      * Creates an instance of `InvalidConnectionOptions`.
      * 
      * @param message the error message.
+     * @param code the error code.
+     * @param errno the error number.
      */
-    constructor(message: string) {
+    constructor(message: string, code?: string, errno?: number | string) {
         super(message);
+
+        //Initialize Options.
+        this.code = code;
+        this.errno = errno;
 
         // Saving class name in the property of our custom error as a shortcut.
         this.name = this.constructor.name;
