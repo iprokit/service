@@ -308,7 +308,7 @@ export default class DBManager {
     /**
      * Performs asynchronous, sync operation on the database.
      * 
-     * @param force the optional, sync operation should be forced? false by default.
+     * @param force set to true if the sync operation should be forced, false otherwise and by default.
      */
     public async sync(force?: boolean) {
         /**

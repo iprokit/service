@@ -5,7 +5,6 @@ import assert from 'assert';
 //Import Local.
 import Service from '../lib/service';
 import { ConnectionOptions, InvalidConnectionOptions } from '../lib/db.manager';
-import RDBModel, { RDBDataTypes } from '../lib/db.rdb.model';
 
 const logPath = '/Users/iprotechs/Desktop/logs';
 
@@ -225,7 +224,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with RDB(Invalid name) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -252,7 +251,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with RDB(Invalid host) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -279,7 +278,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with RDB(Invalid username) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -306,7 +305,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with RDB(Invalid password) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -333,7 +332,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
     });
 
     mocha.describe('Connection(NoSQL) Test', () => {
@@ -359,7 +358,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with NoSQL(Invalid name) connection and succeed', (done) => {
             const db: ConnectionOptions = {
@@ -383,7 +382,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with NoSQL(Invalid host) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -410,7 +409,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with NoSQL(Invalid username) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -436,7 +435,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
+        }).timeout(1000 * 60);
 
         mocha.it('should start service with NoSQL(Invalid password) connection and fail', (done) => {
             const db: ConnectionOptions = {
@@ -462,65 +461,7 @@ mocha.describe('Database Test', () => {
                     done();
                 });
             });
-        }).timeout(1000 * 60 * 3);
-    });
-
-    // mocha.describe('Model(RDB) Creation & CRUD Test', () => {
-    //     const db: ConnectionOptions = {
-    //         name: rdbOptions.name,
-    //         type: rdbOptions.type,
-    //         host: rdbOptions.host,
-    //         username: rdbOptions.username,
-    //         password: rdbOptions.password
-    //     }
-    //     const service = new Service({ name: 'HeroSVC', db: db, logPath: logPath });
-    //     silentLog(service);
-
-    //     // //Define & Initialize Model
-    //     // class HeroModel extends RDBModel { }
-    //     // const attributes = {
-    //     //     name: {
-    //     //         type: RDBDataTypes.STRING(30),
-    //     //         allowNull: false
-    //     //     }
-    //     // }
-    //     // service.dbManager.initModel('Hero', 'HeroTable', attributes, HeroModel);
-
-    //     mocha.before((done) => {
-    //         service.start((error) => {
-    //             assert.deepStrictEqual(error, undefined);
-    //             // assert.deepStrictEqual(service.dbManager.connected, true);
-
-    //             done();
-    //         });
-    //     });
-
-    //     mocha.after((done) => {
-    //         service.stop((error) => {
-    //             assert.deepStrictEqual(error, undefined);
-    //             // assert.deepStrictEqual(service.dbManager.connected, false);
-
-    //             done();
-    //         });
-    //     });
-
-    //     // mocha.afterEach(async () => {
-    //     //     const synced = await service.dbManager.sync(true);
-    //     //     assert.deepStrictEqual(synced, true);
-    //     // });
-
-    //     mocha.it('should initialize a model', () => {
-    //         console.log('here');
-    //         // assert.deepStrictEqual(service.dbManager.models[0], HeroModel);
-    //     }).timeout(1000 * 60 * 3);
-
-    //     mocha.it('should create one record in the database', (done) => {
-
-    //     });
-    // });
-
-    mocha.describe('Sync Test', () => {
-        //TODO: Implement Sync Test.
+        }).timeout(1000 * 60);
     });
 
     //TODO: Implement health and report test.

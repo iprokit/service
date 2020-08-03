@@ -21,10 +21,18 @@ export default class RDBModel extends Model {
      * 
      * @returns all the records.
      * 
+     * @default 
+     * options = { order: 'new', pagination: { page: 0, size: 20 } };
+     * 
+     * 
      * @alias `model.findAll()`
      */
-    public static async getAll(options: FindOptions) {
+    public static async getAll(options?: FindOptions) {
         let order: Order;
+
+        //Initialize Options.
+        options = options ?? {};
+        options.pagination = options.pagination ?? {};
 
         //Order properties.
         if (options.order === 'new' || !options.order) {
@@ -36,7 +44,7 @@ export default class RDBModel extends Model {
         //Pagination properties.
         const page = model.pagination(options.pagination.page, options.pagination.size);
 
-        return await this.findAll({ order: order, offset: page.offset, limit: page.limit });
+        return await this.findAll({ order: order, offset: page.offset, limit: page.limit, raw: true });
     }
 
     /**
@@ -44,20 +52,12 @@ export default class RDBModel extends Model {
      * 
      * @param id the record to retrieve by id.
      * 
-     * @returns the record found.
-     * 
-     * @throws `Error` if no records found.
+     * @returns the record found, undefined otherwise.
      * 
      * @alias `model.findByPk()`
      */
     public static async getOneByID(id: any) {
-        const record = await this.findByPk(id);
-
-        if (record) {
-            return record;
-        } else {
-            throw new Error('No records found!');
-        }
+        return await this.findByPk(id, { raw: true }) ?? undefined;
     }
 
     /**
@@ -66,9 +66,7 @@ export default class RDBModel extends Model {
      * @param id the record to update by id.
      * @param values the values of the record.
      * 
-     * @returns `true` if the record is successfully updated.
-     * 
-     * @throws error if the update failed. Due to, no record found.
+     * @returns true if the record is successfully updated, false otherwise.
      * 
      * @alias `model.update()`
      */
@@ -76,7 +74,7 @@ export default class RDBModel extends Model {
         const affectedRecords = await this.update(values, { where: { id: id }, individualHooks: true });
 
         if (affectedRecords[0] === 0 && affectedRecords[1].length === 0) {
-            throw new Error('No records found!');
+            return false;
         } else {
             return true;
         }
@@ -87,9 +85,7 @@ export default class RDBModel extends Model {
      * 
      * @param id the record to delete by id.
      * 
-     * @returns `true` if the record is successfully deleted.
-     * 
-     * @throws error if the delete failed. Due to, no record found.
+     * @returns true if the record is successfully deleted, false otherwise.
      * 
      * @alias `model.update()`
      */
@@ -97,7 +93,7 @@ export default class RDBModel extends Model {
         const affectedRecords = await this.destroy({ where: { id: id }, individualHooks: true });
 
         if (affectedRecords === 0) {
-            throw new Error('No records found!');
+            return false;
         } else {
             return true;
         }
