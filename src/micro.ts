@@ -94,9 +94,9 @@ function micro(options?: Options) {
             name: options?.name ?? process.env.npm_package_name,
             version: options?.version ?? process.env.npm_package_version,
             environment: process.env.NODE_ENV,
-            httpPort: Number(process.env.HTTP_PORT),
-            scpPort: Number(process.env.SCP_PORT),
-            discoveryPort: Number(process.env.DISCOVERY_PORT),
+            httpPort: Number(process.env.HTTP_PORT) || undefined,
+            scpPort: Number(process.env.SCP_PORT) || undefined,
+            discoveryPort: Number(process.env.DISCOVERY_PORT) || undefined,
             discoveryIp: process.env.DISCOVERY_IP,
             logPath: process.env.LOG_PATH ?? path.join(projectPath, Default.LOG_PATH),
             db: options?.db && {
@@ -109,7 +109,7 @@ function micro(options?: Options) {
             },
             mesh: mesh,
             proxy: proxy
-        };
+        }
 
         // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
 

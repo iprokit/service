@@ -7,6 +7,9 @@ import Service from '../lib/service';
 import { ConnectionOptions } from '../lib/db.manager';
 import RDBModel, { RDBDataTypes, RDBModelAttributes } from '../lib/db.rdb.model';
 
+//Import Util.
+import { setTimeoutAsync, silentLog } from './util';
+
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 const rdbOptions: ConnectionOptions = {
@@ -245,18 +248,3 @@ mocha.describe('RDB Model Test', () => {
         });
     });
 });
-
-//////////////////////////////
-//////Helpers
-//////////////////////////////
-function silentLog(service: Service) {
-    service.logger.transports.forEach((transport) => (transport.silent = true));
-}
-
-function setTimeoutAsync(ms: number) {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            resolve();
-        }, ms);
-    });
-}

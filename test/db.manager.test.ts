@@ -6,6 +6,9 @@ import assert from 'assert';
 import Service from '../lib/service';
 import { ConnectionOptions, InvalidConnectionOptions } from '../lib/db.manager';
 
+//Import Util.
+import { silentLog } from './util';
+
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 const rdbOptions: ConnectionOptions = {
@@ -463,13 +466,4 @@ mocha.describe('Database Test', () => {
             });
         }).timeout(1000 * 60);
     });
-
-    //TODO: Implement health and report test.
 });
-
-//////////////////////////////
-//////Helpers
-//////////////////////////////
-function silentLog(service: Service) {
-    service.logger.transports.forEach((transport) => (transport.silent = true));
-}

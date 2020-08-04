@@ -51,10 +51,10 @@ export default class Controller {
      */
     public async create(request: Request, response: Response) {
         try {
-            await (this.model as any).create(request.body);
-            response.status(HttpStatusCodes.CREATED).send({ status: true, message: 'Created!' });
+            const createdRecord = await (this.model as any).create(request.body);
+            response.status(HttpStatusCodes.CREATED).send(createdRecord);
         } catch (error) {
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
     }
 
@@ -66,16 +66,16 @@ export default class Controller {
      */
     public async getAll(request: Request, response: Response) {
         try {
-            const data = await this.model.getAll({
+            const allRecords = await this.model.getAll({
                 order: request.query.order as FindOrder,
                 pagination: {
                     page: Number(request.query.page),
                     size: Number(request.query.pageSize)
                 }
             });
-            response.status(HttpStatusCodes.OK).send({ status: true, data: data });
+            response.status(HttpStatusCodes.OK).send(allRecords);
         } catch (error) {
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
     }
 
@@ -87,10 +87,10 @@ export default class Controller {
      */
     public async getOneByID(request: Request, response: Response) {
         try {
-            const data = await this.model.getOneByID(request.params.id);
-            response.status(HttpStatusCodes.OK).send({ status: true, data: data });
+            const oneRecord = await this.model.getOneByID(request.params.id);
+            response.status(HttpStatusCodes.OK).send(oneRecord);
         } catch (error) {
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
     }
 
@@ -102,10 +102,10 @@ export default class Controller {
      */
     public async updateOneByID(request: Request, response: Response) {
         try {
-            await this.model.updateOneByID(request.params.id, request.body);
-            response.status(HttpStatusCodes.OK).send({ status: true, message: 'Updated!' });
+            const updated = await this.model.updateOneByID(request.params.id, request.body);
+            response.status(HttpStatusCodes.OK).send({ updated: updated });
         } catch (error) {
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
     }
 
@@ -117,10 +117,10 @@ export default class Controller {
      */
     public async deleteOneByID(request: Request, response: Response) {
         try {
-            await this.model.deleteOneByID(request.params.id);
-            response.status(HttpStatusCodes.OK).send({ status: true, message: 'Deleted!' });
+            const deleted = await this.model.deleteOneByID(request.params.id);
+            response.status(HttpStatusCodes.OK).send({ deleted: deleted });
         } catch (error) {
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
     }
 }

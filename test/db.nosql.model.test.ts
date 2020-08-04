@@ -7,6 +7,9 @@ import Service from '../lib/service';
 import { ConnectionOptions } from '../lib/db.manager';
 import NoSQLModel, { NoSQLModelAttributes, NoSQLDataTypes } from '../lib/db.nosql.model';
 
+//Import Util.
+import { setTimeoutAsync, silentLog } from './util';
+
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 const noSQLOptions: ConnectionOptions = {
@@ -249,18 +252,3 @@ mocha.describe('NoSQL Model Test', () => {
         });
     });
 });
-
-//////////////////////////////
-//////Helpers
-//////////////////////////////
-function silentLog(service: Service) {
-    service.logger.transports.forEach((transport) => (transport.silent = true));
-}
-
-function setTimeoutAsync(ms: number) {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            resolve();
-        }, ms);
-    });
-}
