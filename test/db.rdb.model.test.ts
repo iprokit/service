@@ -73,12 +73,6 @@ mocha.describe('RDB Model Test', () => {
             const synced = await service.dbManager.sync(true);
             assert.deepStrictEqual(synced, true);
         }).timeout(1000 * 60);
-
-        /**
-         * TODO:
-         * - Need to validate sync
-         * - Need to test force: false
-         */
     });
 
     mocha.describe('CRUD Operations Test', () => {

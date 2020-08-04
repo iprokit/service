@@ -5,7 +5,7 @@ import assert from 'assert';
 //Import Local.
 import Service from '../lib/service';
 import { ConnectionOptions } from '../lib/db.manager';
-import NoSQLModel, { NoSQLModelAttributes } from '../lib/db.nosql.model';
+import NoSQLModel, { NoSQLModelAttributes, NoSQLDataTypes } from '../lib/db.nosql.model';
 
 const logPath = '/Users/iprotechs/Desktop/logs';
 
@@ -17,7 +17,7 @@ const noSQLOptions: ConnectionOptions = {
     password: 'c3r1stm3s'
 }
 
-mocha.describe.only('NoSQL Model Test', () => {
+mocha.describe('NoSQL Model Test', () => {
     const db: ConnectionOptions = {
         name: noSQLOptions.name,
         type: noSQLOptions.type,
@@ -57,7 +57,7 @@ mocha.describe.only('NoSQL Model Test', () => {
     mocha.describe('Creation & Initialization Test', () => {
         mocha.it('should initialize hero model', (done) => {
             assert.deepStrictEqual(HeroModel.hooked, true);
-            
+
             assert.deepStrictEqual(service.dbManager.models.length, 1);
             assert.deepStrictEqual(service.dbManager.models[0], HeroModel._model);
             done();
@@ -69,15 +69,13 @@ mocha.describe.only('NoSQL Model Test', () => {
             const synced = await service.dbManager.sync(true);
             assert.deepStrictEqual(synced, true);
         }).timeout(1000 * 60);
-
-        /**
-         * TODO:
-         * - Need to validate sync
-         * - Need to test force: false
-         */
     });
 
     mocha.describe('CRUD Operations Test', () => {
+        const randomId = '5f28ca9e65af907654c1c6f9';
+        let antmanId: NoSQLDataTypes.ObjectId;
+        let visionId: NoSQLDataTypes.ObjectId;
+
         mocha.describe('#create() Test', () => {
             mocha.it('should execute #HeroModel.create()', async () => {
                 try {
@@ -104,17 +102,21 @@ mocha.describe.only('NoSQL Model Test', () => {
                     const vision: any = await HeroModel.create({ name: 'Vision' }); //id: 6
                     assert.notDeepStrictEqual(vision[0]._id, undefined);
                     await setTimeoutAsync(1000 * 2);
+
+                    //assign id for next test.
+                    antmanId = antman[0]._id;
+                    visionId = vision[0]._id;
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
                 }
             }).timeout(1000 * 60);
         });
 
-        mocha.describe.skip('#getOneByID() Test', () => {
+        mocha.describe('#getOneByID() Test', () => {
             mocha.it('should execute #HeroModel.getOneByID() with valid id and succeed', async () => {
                 try {
-                    const hero: any = await HeroModel.getOneByID(4);
-                    assert.deepStrictEqual(hero.id, 4);
+                    const hero: any = await HeroModel.getOneByID(antmanId);
+                    assert.deepStrictEqual(hero._id, antmanId);
                     assert.deepStrictEqual(hero.name, 'Ant-Man');
                     assert.notDeepStrictEqual(hero.createdAt, undefined);
                     assert.notDeepStrictEqual(hero.updatedAt, undefined);
@@ -125,7 +127,7 @@ mocha.describe.only('NoSQL Model Test', () => {
 
             mocha.it('should execute #HeroModel.getOneByID() with invalid id and fail', async () => {
                 try {
-                    const hero: any = await HeroModel.getOneByID(40);
+                    const hero: any = await HeroModel.getOneByID(randomId);
                     assert.deepStrictEqual(hero, undefined);
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
@@ -133,10 +135,10 @@ mocha.describe.only('NoSQL Model Test', () => {
             }).timeout(1000 * 60);
         });
 
-        mocha.describe.skip('#updateOneByID() Test', () => {
+        mocha.describe('#updateOneByID() Test', () => {
             mocha.it('should execute #HeroModel.updateOneByID() with valid id and succeed', async () => {
                 try {
-                    const updated = await HeroModel.updateOneByID(4, { name: 'Ant Man' });
+                    const updated = await HeroModel.updateOneByID(antmanId, { name: 'Ant Man' });
                     assert.deepStrictEqual(updated, true);
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
@@ -145,7 +147,7 @@ mocha.describe.only('NoSQL Model Test', () => {
 
             mocha.it('should execute #HeroModel.updateOneByID() with invalid id and fail', async () => {
                 try {
-                    const updated = await HeroModel.updateOneByID(40, { name: 'Ant Man' });
+                    const updated = await HeroModel.updateOneByID(randomId, { name: 'Ant Man' });
                     assert.deepStrictEqual(updated, false);
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
@@ -153,10 +155,10 @@ mocha.describe.only('NoSQL Model Test', () => {
             }).timeout(1000 * 60);
         });
 
-        mocha.describe.skip('#deleteOneByID() Test', () => {
+        mocha.describe('#deleteOneByID() Test', () => {
             mocha.it('should execute #HeroModel.deleteOneByID() with valid id and succeed', async () => {
                 try {
-                    const deleted = await HeroModel.deleteOneByID(6);
+                    const deleted = await HeroModel.deleteOneByID(visionId);
                     assert.deepStrictEqual(deleted, true);
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
@@ -165,7 +167,7 @@ mocha.describe.only('NoSQL Model Test', () => {
 
             mocha.it('should execute #HeroModel.deleteOneByID() with invalid id and fail', async () => {
                 try {
-                    const deleted = await HeroModel.deleteOneByID(60);
+                    const deleted = await HeroModel.deleteOneByID(randomId);
                     assert.deepStrictEqual(deleted, false);
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
@@ -173,7 +175,7 @@ mocha.describe.only('NoSQL Model Test', () => {
             }).timeout(1000 * 60);
         });
 
-        mocha.describe.skip('#getAll() Test', () => {
+        mocha.describe('#getAll() Test', () => {
             mocha.it('should execute #HeroModel.getAll() with default options(order: default, pagination: { page: default, size: default })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({});

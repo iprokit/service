@@ -368,8 +368,8 @@ export default class Service extends EventEmitter {
             next();
         });
 
-        //Add PreStart Hook[Top]: Add Service Routes.
-        this.hooks.preStart.addToTop((done) => {
+        //Add PreStart Hook[Bottom]: Add Service Routes.
+        this.hooks.preStart.addToBottom((done) => {
             const serviceRoutes = new ServiceRoutes(this);
 
             //Service routes.
