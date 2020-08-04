@@ -497,8 +497,8 @@ export interface RequestDescriptor extends PropertyDescriptor {
  * Interface for router middlewear.
  */
 export interface RequestFunction {
-    (controller: typeof Controller, handlerName: string, requestDescriptor: RequestDescriptor): void
-};
+    (controller: typeof Controller, handlerName: string, requestDescriptor: RequestDescriptor): void;
+}
 
 /**
  * Creates `get` middlewear handler on the `ExpressRouter` that works on `get` HTTP/HTTPs verbose.
