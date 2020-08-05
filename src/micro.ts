@@ -210,32 +210,6 @@ export default micro;
 //             process.exit(exitCode);
 //         });
 //     });
-
-//     process.on('unhandledRejection', (reason, promise) => {
-//         this.logger.error(`Caught: unhandledRejection ${reason} ${promise}`);
-//     });
-// }
-
-// /**
-//  * The CPU and Memory usage of the service.
-//  */
-// private get systemReport() {
-//     let memoryUsage: { [key: string]: string } = {};
-
-//     Object.entries(process.memoryUsage()).forEach(([key, value]) => {
-//         memoryUsage[key] = `${Math.round(value / 1024 / 1024 * 100) / 100}MB`;
-//     });
-
-//     const cpuUsage = process.cpuUsage();
-
-//     return {
-//         pid: process.pid,
-//         cpu: {
-//             system: cpuUsage.system,
-//             user: cpuUsage.user
-//         },
-//         memory: memoryUsage
-//     }
 // }
 
 // /**

@@ -19,7 +19,7 @@ import Default from './default';
 import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
 import ServiceRoutes from './service.routes';
-import DBManager, { ConnectionOptions, InvalidConnectionOptions } from './db.manager';
+import DBManager, { ConnectionOptions } from './db.manager';
 import ProxyClientManager, { Proxy } from './proxy.client.manager';
 import ProxyClient from './proxy.client';
 
@@ -957,7 +957,7 @@ export class Hooks {
 }
 
 /**
- * A Hook is an array of handlers that will be executed in series.
+ * A Hook is an array of handlers that will be executed in sequence.
  */
 export class Hook {
     /**
@@ -1120,7 +1120,7 @@ export class ServiceRegistry {
      * @param remoteService the remote service.
      */
     public deregister(remoteService: RemoteService) {
-        const index = this.remoteServices.findIndex(_remoteService => remoteService === remoteService);
+        const index = this.remoteServices.findIndex(_remoteService => _remoteService === remoteService);
         this.remoteServices.splice(index, 1);
     }
 
