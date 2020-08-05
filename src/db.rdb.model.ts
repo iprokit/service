@@ -56,7 +56,7 @@ export default class RDBModel extends Model {
      * @alias `model.findByPk()`
      */
     public static async getOneByID(id: any) {
-        return await this.findByPk(id, { raw: true }) ?? undefined;
+        return await this.findByPk(id, { raw: true }) ?? {};
     }
 
     /**

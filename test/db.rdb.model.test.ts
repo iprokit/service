@@ -127,7 +127,7 @@ mocha.describe('RDB Model Test', () => {
             mocha.it('should execute #HeroModel.getOneByID() with invalid id and fail', async () => {
                 try {
                     const hero: any = await HeroModel.getOneByID(40);
-                    assert.deepStrictEqual(hero, undefined);
+                    assert.deepStrictEqual(hero, {});
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
                 }
@@ -175,7 +175,7 @@ mocha.describe('RDB Model Test', () => {
         });
 
         mocha.describe('#getAll() Test', () => {
-            mocha.it('should execute #HeroModel.getAll() with default options(order: default, pagination: { page: default, size: default })', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: default, pagination: { page: default, size: default })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll();
                     assert.deepStrictEqual(heros.length, 5);
@@ -189,7 +189,7 @@ mocha.describe('RDB Model Test', () => {
                 }
             }).timeout(1000 * 60);
 
-            mocha.it('should execute #HeroModel.getAll() with default options(order: new, pagination: { page: default, size: default })', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: new, pagination: { page: default, size: default })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({ order: 'new' });
                     assert.deepStrictEqual(heros.length, 5);
@@ -203,7 +203,7 @@ mocha.describe('RDB Model Test', () => {
                 }
             }).timeout(1000 * 60);
 
-            mocha.it('should execute #HeroModel.getAll() with default options(order: old, pagination: { page: default, size: default })', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: old, pagination: { page: default, size: default })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({ order: 'old' });
                     assert.deepStrictEqual(heros.length, 5);
@@ -217,7 +217,7 @@ mocha.describe('RDB Model Test', () => {
                 }
             }).timeout(1000 * 60);
 
-            mocha.it('should execute #HeroModel.getAll() with default options(order: default, pagination: { page: 1, size: default } )', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: default, pagination: { page: 1, size: default } )', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({ pagination: { page: 1 } });
                     assert.deepStrictEqual(heros.length, 0);
@@ -226,7 +226,7 @@ mocha.describe('RDB Model Test', () => {
                 }
             }).timeout(1000 * 60);
 
-            mocha.it('should execute #HeroModel.getAll() with default options(order: default, pagination: { page: default, size: 1 })', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: default, pagination: { page: default, size: 1 })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({ pagination: { size: 1 } });
                     assert.deepStrictEqual(heros.length, 1);
@@ -236,11 +236,25 @@ mocha.describe('RDB Model Test', () => {
                 }
             }).timeout(1000 * 60);
 
-            mocha.it('should execute #HeroModel.getAll() with default options(order: default, pagination: { page: 1, size: 1 })', async () => {
+            mocha.it('should execute #HeroModel.getAll() with options(order: default, pagination: { page: 1, size: 1 })', async () => {
                 try {
                     const heros: Array<any> = await HeroModel.getAll({ pagination: { page: 1, size: 1 } });
                     assert.deepStrictEqual(heros.length, 1);
                     assert.deepStrictEqual(heros[0].name, 'Ant Man');
+                } catch (error) {
+                    assert.deepStrictEqual(error, undefined);
+                }
+            }).timeout(1000 * 60);
+
+            mocha.it('should execute #HeroModel.getAll() with options(order: default, pagination: { page: undefined, size: undefined })', async () => {
+                try {
+                    const heros: Array<any> = await HeroModel.getAll({ pagination: { page: undefined, size: undefined } });
+                    assert.deepStrictEqual(heros.length, 5);
+                    assert.deepStrictEqual(heros[0].name, 'Hulk');
+                    assert.deepStrictEqual(heros[1].name, 'Ant Man');
+                    assert.deepStrictEqual(heros[2].name, 'Wasp');
+                    assert.deepStrictEqual(heros[3].name, 'Thor');
+                    assert.deepStrictEqual(heros[4].name, 'Iron Man');
                 } catch (error) {
                     assert.deepStrictEqual(error, undefined);
                 }

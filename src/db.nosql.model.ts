@@ -79,7 +79,7 @@ export default class NoSQLModel {
      * @alias `model.findOne()`
      */
     public static async getOneByID(id: any) {
-        return await this.findOne({ _id: id }) ?? undefined;
+        return await this.findOne({ _id: id }) ?? {};
     }
 
     /**

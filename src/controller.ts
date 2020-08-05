@@ -69,8 +69,8 @@ export default class Controller {
             const allRecords = await this.model.getAll({
                 order: request.query.order as FindOrder,
                 pagination: {
-                    page: Number(request.query.page),
-                    size: Number(request.query.pageSize)
+                    page: Number(request.query.page) || undefined,
+                    size: Number(request.query.pageSize) || undefined
                 }
             });
             response.status(HttpStatusCodes.OK).send(allRecords);

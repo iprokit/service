@@ -1,5 +1,5 @@
 //Import Libs.
-import http, { RequestOptions, IncomingMessage } from 'http';
+import http, { IncomingMessage, OutgoingHttpHeaders } from 'http';
 
 //Import Local.
 import Service from '../lib/service';
@@ -16,20 +16,19 @@ export function setTimeoutAsync(ms: number) {
     });
 }
 
-export function httpRequest(host: string, port: number, method: string, path: string, body: any, json: boolean, callback: (response: HttpResponse, error?: Error) => void) {
-    body = (json === true) ? JSON.stringify(body) : body;
-    const requestOptions: RequestOptions = {
-        host: host,
-        port: port,
-        path: path,
-        method: method,
-        headers: {
-            'Accept': '*/*',
-            'Content-Length': Buffer.byteLength(body),
-        }
-    }
+export function httpRequest(options: HttpOptions, callback: (response: HttpResponse, error?: Error) => void) {
+    const host = options.host;
+    const port = options.port;
+    const path = options.path;
+    const method = options.method;
+    const json = options.json;
+    const headers = options.headers || {};
+    const body = (json === true) ? JSON.stringify(options.body) : options.body;
 
-    const request = http.request(requestOptions, (incomingMessage: HttpResponse) => {
+    headers['Accept'] = '*/*';
+    headers['Content-Length'] = Buffer.byteLength(body);
+
+    const request = http.request({ host: host, port: port, path: path, method: method, headers: headers }, (incomingMessage: HttpResponse) => {
         let chunks: string = '';
         incomingMessage.on('error', (error) => {
             callback(undefined, error);
@@ -38,7 +37,7 @@ export function httpRequest(host: string, port: number, method: string, path: st
             chunks += chunk;
         });
         incomingMessage.on('end', () => {
-            incomingMessage.body = (json === true) ? JSON.parse(chunks.toString()) : chunks.toString();
+            incomingMessage.body = (json) ? JSON.parse(chunks.toString()) : chunks.toString();
             callback(incomingMessage);
         });
     });
@@ -51,4 +50,14 @@ export function httpRequest(host: string, port: number, method: string, path: st
 
 export interface HttpResponse extends IncomingMessage {
     body?: any;
+}
+
+export interface HttpOptions {
+    host: string;
+    port: number;
+    method: string;
+    path: string;
+    body: any;
+    json: boolean;
+    headers?: OutgoingHttpHeaders;
 }

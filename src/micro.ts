@@ -89,6 +89,31 @@ function micro(options?: Options) {
             dotenv.config({ path: envPath });
         }
 
+        // //Validate type
+        // if (!options.type) {
+        //     throw new ConnectionOptionsError('Invalid database type provided.');
+        // }
+
+        // //Validate host
+        // if (!options.host) {
+        //     throw new ConnectionOptionsError('Invalid database host provided.');
+        // }
+
+        // //Validate name
+        // if (!options.name) {
+        //     throw new ConnectionOptionsError('Invalid database name provided.');
+        // }
+
+        // //Validate username
+        // if (!options.username) {
+        //     throw new ConnectionOptionsError('Invalid database username provided.');
+        // }
+
+        // //Validate password
+        // if (!options.password) {
+        //     throw new ConnectionOptionsError('Invalid database password provided.');
+        // }
+
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = {
             name: options?.name ?? process.env.npm_package_name,
@@ -225,34 +250,6 @@ export default micro;
 //         callback(1);
 //     }
 // }, this.forceStopTime);
-
-//////////////////////////////
-//////DB
-//////////////////////////////
-// //Validate type
-// if (!options.type) {
-//     throw new ConnectionOptionsError('Invalid database type provided.');
-// }
-
-// //Validate host
-// if (!options.host) {
-//     throw new ConnectionOptionsError('Invalid database host provided.');
-// }
-
-// //Validate name
-// if (!options.name) {
-//     throw new ConnectionOptionsError('Invalid database name provided.');
-// }
-
-// //Validate username
-// if (!options.username) {
-//     throw new ConnectionOptionsError('Invalid database username provided.');
-// }
-
-// //Validate password
-// if (!options.password) {
-//     throw new ConnectionOptionsError('Invalid database password provided.');
-// }
 
 //////////////////////////////
 //////Injections

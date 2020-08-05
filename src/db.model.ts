@@ -9,8 +9,8 @@ export default class Model {
      * @param size the size of the page, i.e number of records per page.
      */
     public static pagination(page?: number, size?: number) {
-        page = (!page || isNaN(page)) ? 0 : page;
-        size = (!size || isNaN(size)) ? 20 : size;
+        page = page ?? 0;
+        size = size ?? 20;
 
         return { offset: page * size, limit: size }
     }
