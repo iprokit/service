@@ -51,8 +51,8 @@ export default class Controller {
      */
     public async create(request: Request, response: Response) {
         try {
-            const createdRecord = await (this.model as any).create(request.body);
-            response.status(HttpStatusCodes.CREATED).send(createdRecord);
+            const created = await (this.model as any).create(request.body);
+            response.status(HttpStatusCodes.CREATED).send(created);
         } catch (error) {
             response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
@@ -66,14 +66,14 @@ export default class Controller {
      */
     public async getAll(request: Request, response: Response) {
         try {
-            const allRecords = await this.model.getAll({
+            const records = await this.model.getAll({
                 order: request.query.order as FindOrder,
                 pagination: {
                     page: Number(request.query.page) || undefined,
                     size: Number(request.query.pageSize) || undefined
                 }
             });
-            response.status(HttpStatusCodes.OK).send(allRecords);
+            response.status(HttpStatusCodes.OK).send(records);
         } catch (error) {
             response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
@@ -87,8 +87,8 @@ export default class Controller {
      */
     public async getOneByID(request: Request, response: Response) {
         try {
-            const oneRecord = await this.model.getOneByID(request.params.id);
-            response.status(HttpStatusCodes.OK).send(oneRecord);
+            const record = await this.model.getOneByID(request.params.id);
+            response.status(HttpStatusCodes.OK).send(record);
         } catch (error) {
             response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });
         }
