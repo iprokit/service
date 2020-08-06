@@ -172,10 +172,10 @@ mocha.describe('Micro Test', () => {
 
             //DB Variables.
             assert.deepStrictEqual(service.dbManager.type, 'mysql');
-            assert.deepStrictEqual(service.dbManager.host, undefined);
-            assert.deepStrictEqual(service.dbManager.name, undefined);
-            assert.deepStrictEqual(service.dbManager.username, undefined);
-            assert.deepStrictEqual(service.dbManager.password, undefined);
+            assert.deepStrictEqual(service.dbManager.host, '');
+            assert.deepStrictEqual(service.dbManager.name, '');
+            assert.deepStrictEqual(service.dbManager.username, '');
+            assert.deepStrictEqual(service.dbManager.password, '');
             assert.deepStrictEqual(service.dbManager.paperTrail, false);
         });
     });
