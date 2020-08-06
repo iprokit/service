@@ -45,7 +45,7 @@ export default class Default {
     public static readonly DISCOVERY_IP: string = '224.0.0.1';
 
     /**
-     * The default time to wait before the service is forcefully stopped when `service.stop()`is called.
+     * The default time to wait before the service is forcefully stopped.
      * 
      * @default 1000 * 5
      */

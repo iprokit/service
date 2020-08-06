@@ -337,6 +337,9 @@ export default class Service extends EventEmitter {
      * - Add preStart hooks for `Express`.
      */
     private configExpress() {
+        //Set environment.
+        this.express.set('env', this.environment);
+
         //Middleware: CORS.
         this.express.use(cors());
         this.express.options('*', cors());

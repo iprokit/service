@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 
 //Local Imports
 import { Model } from './db.manager';
-import { FindOrder } from './db.model';
+import { FindOptions, FindOrder } from './db.model';
 import HttpStatusCodes from './http.statusCodes';
 
 /**
@@ -66,13 +66,25 @@ export default class Controller {
      */
     public async getAll(request: Request, response: Response) {
         try {
-            const records = await this.model.getAll({
-                order: request.query.order as FindOrder,
-                pagination: {
-                    page: Number(request.query.page) || undefined,
-                    size: Number(request.query.pageSize) || undefined
-                }
-            });
+            //Initialize Options.
+            let findOptions: FindOptions = { pagination: {} };
+
+            //Validate order.
+            if (request.query.order) {
+                findOptions.order = request.query.order as FindOrder;
+            }
+
+            //Validate page.
+            if (request.query.page) {
+                findOptions.pagination.page = Number(request.query.page);
+            }
+
+            //Validate pageSize.
+            if (request.query.pageSize) {
+                findOptions.pagination.size = Number(request.query.pageSize);
+            }
+
+            const records = await this.model.getAll(findOptions);
             response.status(HttpStatusCodes.OK).send(records);
         } catch (error) {
             response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ message: error.message });

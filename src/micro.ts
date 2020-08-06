@@ -20,11 +20,6 @@ import Messenger from './messenger';
 //////Global Variables
 //////////////////////////////
 /**
- * The root project path of the service.
- */
-let projectPath: string;
-
-/**
  * Singleton instance of the `Service`.
  */
 let service: Service;
@@ -83,71 +78,74 @@ export const proxy: Proxy = new Proxy();
 function micro(options?: Options) {
     if (!service) {
         //Load Environment variables from .env file.
-        projectPath = path.dirname(require.main.filename);
+        const projectPath = path.dirname(require.main.filename);
         const envPath = path.join(projectPath, '.env');
         if (fs.existsSync(envPath)) {
             dotenv.config({ path: envPath });
         }
 
-        // //Validate type
-        // if (!options.type) {
-        //     throw new ConnectionOptionsError('Invalid database type provided.');
-        // }
-
-        // //Validate host
-        // if (!options.host) {
-        //     throw new ConnectionOptionsError('Invalid database host provided.');
-        // }
-
-        // //Validate name
-        // if (!options.name) {
-        //     throw new ConnectionOptionsError('Invalid database name provided.');
-        // }
-
-        // //Validate username
-        // if (!options.username) {
-        //     throw new ConnectionOptionsError('Invalid database username provided.');
-        // }
-
-        // //Validate password
-        // if (!options.password) {
-        //     throw new ConnectionOptionsError('Invalid database password provided.');
-        // }
-
         //Initialize serviceOptions.
         const serviceOptions: ServiceOptions = {
             name: options?.name ?? process.env.npm_package_name,
             version: options?.version ?? process.env.npm_package_version,
-            environment: process.env.NODE_ENV,
-            httpPort: Number(process.env.HTTP_PORT) || undefined,
-            scpPort: Number(process.env.SCP_PORT) || undefined,
-            discoveryPort: Number(process.env.DISCOVERY_PORT) || undefined,
-            discoveryIp: process.env.DISCOVERY_IP,
             logPath: process.env.LOG_PATH ?? path.join(projectPath, Default.LOG_PATH),
-            db: options?.db && {
-                type: options.db?.type,
-                host: process.env.DB_HOST,
-                name: process.env.DB_NAME,
-                username: process.env.DB_USERNAME,
-                password: process.env.DB_PASSWORD,
-                paperTrail: options.db?.paperTrail
-            },
             mesh: mesh,
             proxy: proxy
         }
 
-        // forceStopTime: options?.forceStopTime, //TODO: Move this to global variable in this class.
+        //Validate environment.
+        if (process.env.NODE_ENV) {
+            serviceOptions.environment = process.env.NODE_ENV;
+        }
+
+        //Validate httpPort.
+        if (process.env.HTTP_PORT) {
+            serviceOptions.httpPort = Number(process.env.HTTP_PORT);
+        }
+
+        //Validate scpPort.
+        if (process.env.SCP_PORT) {
+            serviceOptions.scpPort = Number(process.env.SCP_PORT);
+        }
+
+        //Validate discoveryPort.
+        if (process.env.DISCOVERY_PORT) {
+            serviceOptions.discoveryPort = Number(process.env.DISCOVERY_PORT);
+        }
+
+        //Validate discoveryIp.
+        if (process.env.DISCOVERY_IP) {
+            serviceOptions.discoveryIp = process.env.DISCOVERY_IP;
+        }
+
+        //Initialize serviceOptions for db.
+        if (options?.db) {
+            serviceOptions.db = {
+                type: options.db.type,
+                host: process.env.DB_HOST,
+                name: process.env.DB_NAME,
+                username: process.env.DB_USERNAME,
+                password: process.env.DB_PASSWORD,
+                paperTrail: options.db.paperTrail
+            }
+        }
 
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
+        //Initialize microOptions.
+        const forceStopTime = options?.forceStopTime ?? Default.FORCE_STOP_TIME;
+
         //Add PreStart Hook[Top]: Inject Files.
         service.hooks.preStart.addToTop((done) => {
             //Inject Files.
-            injectFiles(options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+            injectFiles(projectPath, options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
 
             done();
         });
+
+        //Bind Events.
+        bindProcessEvents(forceStopTime);
     }
 
     //Return the singleton service.
@@ -187,43 +185,78 @@ export default micro;
 //////////////////////////////
 //////Bind
 //////////////////////////////
-// /**
-//  * Binds process events on `SIGTERM` and `SIGINT`.
-//  */
-// function bindProcessEvents() {
-//     //Exit
-//     process.once('SIGTERM', () => {
-//         this.logger.info('Received SIGTERM.');
+/**
+ * Binds process events on `SIGTERM` and `SIGINT`.
+ * 
+ * @param forceStopTime the time to wait before the service is forcefully stopped.
+ */
+function bindProcessEvents(forceStopTime: number) {
+    /**
+     * Stops the service.
+     * 
+     * @param callback called when the service is stopped.
+     */
+    const stop = (callback: (exitCode: ExitCode) => void) => {
+        /**
+         * Stop timeout handler.
+         */
+        const stopTimeout = setTimeout(() => {
+            //Log Event.
+            this.logger.error('Forcefully shutting down.');
 
-//         //TODO: Add start flag to validate if the service is running.
-//         this.stop((exitCode: number) => {
-//             process.exit(exitCode);
-//         });
-//     });
+            //Callback.
+            callback(1);
+        }, forceStopTime);
 
-//     //Ctrl + C
-//     process.on('SIGINT', () => {
-//         this.logger.info('Received SIGINT.');
+        //Call service stop.
+        service.stop((error) => {
+            //Remove stop timeout handler.
+            clearTimeout(stopTimeout);
 
-//         //TODO: Add start flag to validate if the service is running.
-//         this.stop((exitCode: number) => {
-//             process.exit(exitCode);
-//         });
-//     });
-// }
+            let stopCode: ExitCode = 0;
+            if (error) {
+                //Log Event.
+                this.logger.error(error.stack);
 
-// /**
-//  * Timeout handler. To force stop the service.
-//  */
-// const timeout = setTimeout(() => {
-//     //Log Event.
-//     this.logger.error('Forcefully shutting down.');
+                //Set Error Code.
+                stopCode = 1;
+            }
 
-//     //Callback.
-//     if (callback) {
-//         callback(1);
-//     }
-// }, this.forceStopTime);
+            //Callback.
+            callback(stopCode);
+        });
+    }
+
+    //Exit
+    process.once('SIGTERM', () => {
+        //Log Event.
+        service.logger.info('Received SIGTERM.');
+
+        //Call Stop.
+        stop((exitCode) => {
+            process.exit(exitCode);
+        });
+    });
+
+    //Ctrl + C
+    process.on('SIGINT', () => {
+        //Log Event.
+        service.logger.info('Received SIGINT.');
+
+        //Call Stop.
+        stop((exitCode) => {
+            process.exit(exitCode);
+        });
+    });
+}
+
+/**
+ * The type definition for exit code.
+ * 
+ * @type `0` success.
+ * @type `1` failure.
+ */
+type ExitCode = 0 | 1;
 
 //////////////////////////////
 //////Injections
@@ -232,11 +265,12 @@ export default micro;
  * Inject files into the service. Respecting the order of loading for dependency.
  * The order is as follows; Model, Messenger and finally the Controller.
  * 
+ * @param path the path to inject the files from.
  * @param modelOptions the auto wire `Model` options.
  * @param messengerOptions the auto inject `Messenger` options.
  * @param controllerOptions the auto inject `Controller` options.
  */
-function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
+function injectFiles(path: string, modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
     //Initialize Options.
     modelOptions = modelOptions ?? { include: { endsWith: ['.model'] } };
     messengerOptions = messengerOptions ?? { include: { endsWith: ['.messenger'] } };
@@ -245,7 +279,7 @@ function injectFiles(modelOptions: FileOptions, messengerOptions: FileOptions, c
     /**
      * All the files in this project.
      */
-    const files = Helper.findFilePaths(projectPath, { include: { extension: ['.js'] } });
+    const files = Helper.findFilePaths(path, { include: { extension: ['.js'] } });
 
     //Wiring Models.
     files.forEach(file => {
@@ -622,7 +656,7 @@ export type Options = {
     version?: string;
 
     /**
-     * The time to wait before the service is forcefully stopped when `service.stop()`is called.
+     * The time to wait before the service is forcefully stopped.
      */
     forceStopTime?: number;
 
