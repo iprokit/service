@@ -12,7 +12,7 @@ import { silentLog } from './util';
 const logPath = '/Users/iprotechs/Desktop/logs';
 
 /**
- * Since Micro is a singelton each test has to be manually unskipped.
+ * ISSUE: Since Micro is a singelton each test has to be manually unskipped.
  */
 mocha.describe('Micro Test', () => {
     //Need to force set log path for testing.
