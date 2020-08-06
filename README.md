@@ -53,12 +53,12 @@ npm install @iprotechs/micro --save
 
 * Install Node.js and Babel.
 ```sh
-npm install @babel/core @babel/node babel-preset-env --save-dev
+npm install @babel/core @babel/node babel-preset-env --save
 ```
 
 * Install Decorators Support.
 ```sh
-npm install @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties --save-dev
+npm install @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties --save
 ```
 
 # Configuration

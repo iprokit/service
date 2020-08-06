@@ -5,6 +5,7 @@ import assert from 'assert';
 //Import Local.
 import micro, { mesh, proxy, models, messengers, controllers } from '../lib/micro';
 import Default from '../lib/default';
+import Helper, { FileOptions } from '../lib/helper';
 
 //Import Util.
 import { silentLog } from './util';
@@ -176,6 +177,124 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.dbManager.username, undefined);
             assert.deepStrictEqual(service.dbManager.password, undefined);
             assert.deepStrictEqual(service.dbManager.paperTrail, false);
+        });
+    });
+
+    mocha.describe('Filter File Test', () => {
+        mocha.describe('Include Test', () => {
+            mocha.describe('Starts-With Test', () => {
+                const fileOptions: FileOptions = { include: { startsWith: ['hero.'] } };
+
+                mocha.it('should load file(hero.model.js) startsWith hero.', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(villain.controller.ts) startsWith hero.', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Ends-With Test', () => {
+                const fileOptions: FileOptions = { include: { endsWith: ['.model'] } };
+
+                mocha.it('should load file(hero.model.js) endsWith .model', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(villain.controller.ts) endsWith .model', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Like-Name Test', () => {
+                const fileOptions: FileOptions = { include: { likeName: ['model'] } };
+
+                mocha.it('should load file(hero.model.js) likeName model', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(villain.controller.ts) likeName model', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Extension Test', () => {
+                const fileOptions: FileOptions = { include: { extension: ['.js'] } };
+
+                mocha.it('should load file(hero.model.js) extension .js', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(villain.controller.ts) extension .js', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+        });
+
+        mocha.describe('Exclude Test', () => {
+            mocha.describe('Starts-With Test', () => {
+                const fileOptions: FileOptions = { exclude: { startsWith: ['hero.'] } };
+
+                mocha.it('should load file(villain.controller.ts) startsWith hero.', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(hero.model.js) startsWith hero.', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Ends-With Test', () => {
+                const fileOptions: FileOptions = { exclude: { endsWith: ['.model'] } };
+
+                mocha.it('should load file(villain.controller.ts) endsWith .model', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(hero.model.js) endsWith .model', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Like-Name Test', () => {
+                const fileOptions: FileOptions = { exclude: { likeName: ['model'] } };
+
+                mocha.it('should load file(villain.controller.ts) likeName model', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(hero.model.js) likeName model', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
+
+            mocha.describe('Extension Test', () => {
+                const fileOptions: FileOptions = { exclude: { extension: ['.js'] } };
+
+                mocha.it('should load file(villain.controller.ts) extension .js', () => {
+                    const file = Helper.filterFile('villain.controller.ts', fileOptions);
+                    assert.deepStrictEqual(file, true);
+                });
+
+                mocha.it('should not load file(hero.model.js) extension .js', () => {
+                    const file = Helper.filterFile('hero.model.js', fileOptions);
+                    assert.deepStrictEqual(file, false);
+                });
+            });
         });
     });
 });

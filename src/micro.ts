@@ -135,11 +135,14 @@ function micro(options?: Options) {
 
         //Initialize microOptions.
         const forceStopTime = options?.forceStopTime ?? Default.FORCE_STOP_TIME;
+        const autoWireModel = options?.autoWireModel ?? { include: { endsWith: ['.model'] } };
+        const autoInjectMessenger = options?.autoInjectMessenger ?? { include: { endsWith: ['.messenger'] } };
+        const autoInjectController = options?.autoInjectController ?? { include: { endsWith: ['.controller'] } };
 
         //Add PreStart Hook[Top]: Inject Files.
         service.hooks.preStart.addToTop((done) => {
             //Inject Files.
-            injectFiles(projectPath, options.autoWireModel, options.autoInjectMessenger, options.autoInjectController);
+            injectFiles(projectPath, autoWireModel, autoInjectMessenger, autoInjectController);
 
             done();
         });
@@ -271,11 +274,6 @@ type ExitCode = 0 | 1;
  * @param controllerOptions the auto inject `Controller` options.
  */
 function injectFiles(path: string, modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
-    //Initialize Options.
-    modelOptions = modelOptions ?? { include: { endsWith: ['.model'] } };
-    messengerOptions = messengerOptions ?? { include: { endsWith: ['.messenger'] } };
-    controllerOptions = controllerOptions ?? { include: { endsWith: ['.controller'] } };
-
     /**
      * All the files in this project.
      */
@@ -656,11 +654,6 @@ export type Options = {
     version?: string;
 
     /**
-     * The time to wait before the service is forcefully stopped.
-     */
-    forceStopTime?: number;
-
-    /**
      * The database configuration options.
      */
     db?: {
@@ -676,6 +669,11 @@ export type Options = {
          */
         paperTrail?: boolean;
     }
+
+    /**
+     * The time to wait before the service is forcefully stopped.
+     */
+    forceStopTime?: number;
 
     /**
      * Auto wire `Model` options.
