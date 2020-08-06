@@ -14,7 +14,7 @@ import Service, { Options as ServiceOptions } from './service';
 import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
 import { Proxy } from './proxy.client.manager';
 import Controller from './controller';
-import Messenger from './messenger';
+import Receiver from './receiver';
 
 //////////////////////////////
 //////Global Variables
@@ -30,9 +30,9 @@ let service: Service;
 export const models: { [name: string]: Model } = {};
 
 /**
- * The auto injected `Messenger`'s under this service.
+ * The auto injected `Receiver`'s under this service.
  */
-export const messengers: { [name: string]: Messenger } = {};
+export const receivers: { [name: string]: Receiver } = {};
 
 /**
  * The auto injected `Controller`'s under this service.
@@ -40,9 +40,9 @@ export const messengers: { [name: string]: Messenger } = {};
 export const controllers: { [name: string]: Controller } = {};
 
 /**
- * An array of `MessengerMeta`.
+ * An array of `ReceiverMeta`.
  */
-const messengerMetas: Array<MessengerMeta> = new Array();
+const receiverMetas: Array<ReceiverMeta> = new Array();
 
 /**
  * An array of `ControllerMeta`.
@@ -136,13 +136,13 @@ function micro(options?: Options) {
         //Initialize microOptions.
         const forceStopTime = options?.forceStopTime ?? Default.FORCE_STOP_TIME;
         const autoWireModel = options?.autoWireModel ?? { include: { endsWith: ['.model'] } };
-        const autoInjectMessenger = options?.autoInjectMessenger ?? { include: { endsWith: ['.messenger'] } };
+        const autoInjectReceiver = options?.autoInjectReceiver ?? { include: { endsWith: ['.receiver'] } };
         const autoInjectController = options?.autoInjectController ?? { include: { endsWith: ['.controller'] } };
 
         //Add PreStart Hook[Top]: Inject Files.
         service.hooks.preStart.addToTop((done) => {
             //Inject Files.
-            injectFiles(projectPath, autoWireModel, autoInjectMessenger, autoInjectController);
+            injectFiles(projectPath, autoWireModel, autoInjectReceiver, autoInjectController);
 
             done();
         });
@@ -266,14 +266,14 @@ type ExitCode = 0 | 1;
 //////////////////////////////
 /**
  * Inject files into the service. Respecting the order of loading for dependency.
- * The order is as follows; Model, Messenger and finally the Controller.
+ * The order is as follows; Model, Receiver and finally the Controller.
  * 
  * @param path the path to inject the files from.
  * @param modelOptions the auto wire `Model` options.
- * @param messengerOptions the auto inject `Messenger` options.
+ * @param receiverOptions the auto inject `Receiver` options.
  * @param controllerOptions the auto inject `Controller` options.
  */
-function injectFiles(path: string, modelOptions: FileOptions, messengerOptions: FileOptions, controllerOptions: FileOptions) {
+function injectFiles(path: string, modelOptions: FileOptions, receiverOptions: FileOptions, controllerOptions: FileOptions) {
     /**
      * All the files in this project.
      */
@@ -286,10 +286,10 @@ function injectFiles(path: string, modelOptions: FileOptions, messengerOptions: 
         }
     });
 
-    //Injecting Messengers.
+    //Injecting Receivers.
     files.forEach(file => {
-        if (Helper.filterFile(file, messengerOptions)) {
-            loadMessenger(file);
+        if (Helper.filterFile(file, receiverOptions)) {
+            loadReceiver(file);
         }
     });
 
@@ -320,41 +320,41 @@ function loadModel(file: string) {
 }
 
 /**
- * Load the `Messenger` with the following steps.
+ * Load the `Receiver` with the following steps.
  * - Call `require()`. SCP Decorators are called automatically, It will add its meta.
- * - Call the messenger constructor.
+ * - Call the receiver constructor.
  * - Get the meta, bind the function to the constructor context.
  * - Push to array.
  * 
- * @param file the path of the messenger.
+ * @param file the path of the receiver.
  */
-function loadMessenger(file: string) {
-    //Load the messenger from the file location.
-    const MessengerInstance = require(file).default;
+function loadReceiver(file: string) {
+    //Load the receiver from the file location.
+    const ReceiverInstance = require(file).default;
 
-    //Initialize the messenger.
-    const messenger = new MessengerInstance();
+    //Initialize the receiver.
+    const receiver = new ReceiverInstance();
 
-    //Get messengerMeta.
-    const messengerMeta = getMessengerMeta(messenger.name);
+    //Get receiverMeta.
+    const receiverMeta = getReceiverMeta(receiver.name);
 
-    //Get messenger name.
-    const name = messenger.name.replace('Messenger', '');
+    //Get receiver name.
+    const name = receiver.name.replace('Receiver', '');
 
     //Get each meta, bind the function and add action to the scpServer.
-    messengerMeta.forEach(meta => {
+    receiverMeta.forEach(meta => {
         //Setup a new Action.
         const action = name + Action.MAP_BREAK + meta.handlerName;
 
         //Add Action.
-        service[meta.type](action, Helper.bind(messenger[meta.handlerName], messenger));
+        service[meta.type](action, Helper.bind(receiver[meta.handlerName], receiver));
     });
 
-    //Add to messengers.
-    messengers[name] = messenger;
+    //Add to receivers.
+    receivers[name] = receiver;
 
     //Log Event.
-    service.logger.debug(`Adding actions from messenger: ${messenger.name}`);
+    service.logger.debug(`Adding actions from receiver: ${receiver.name}`);
 }
 
 /**
@@ -394,12 +394,12 @@ function loadController(file: string) {
 }
 
 /**
- * Returns an array of messenger metas.
+ * Returns an array of receiver metas.
  * 
- * @param name the messenger name.
+ * @param name the receiver name.
  */
-function getMessengerMeta(name: string) {
-    return messengerMetas.filter(messengerMeta => messengerMeta.messengerName === name);
+function getReceiverMeta(name: string) {
+    return receiverMetas.filter(receiverMeta => receiverMeta.receiverName === name);
 }
 
 /**
@@ -474,15 +474,15 @@ export interface ReplyDescriptor extends PropertyDescriptor {
  * Interface for SCP action.
  */
 export interface ReplyFunction {
-    (messenger: typeof Messenger, handlerName: string, replyDescriptor: ReplyDescriptor): void;
+    (receiver: typeof Receiver, handlerName: string, replyDescriptor: ReplyDescriptor): void;
 }
 
 /**
  * Creates a `reply` action on the `ScpServer`.
  */
 export function Reply(): ReplyFunction {
-    return (messenger, handlerName, replyDescriptor) => {
-        messengerMetas.push(new MessengerMeta(messenger.name, handlerName, 'reply'));
+    return (receiver, handlerName, replyDescriptor) => {
+        receiverMetas.push(new ReceiverMeta(receiver.name, handlerName, 'reply'));
     }
 }
 
@@ -548,7 +548,7 @@ export function Delete(path: PathParams): RequestFunction {
 }
 
 //////////////////////////////
-//////MessengerMeta
+//////ReceiverMeta
 //////////////////////////////
 /**
  * The SCP action types.
@@ -556,13 +556,13 @@ export function Delete(path: PathParams): RequestFunction {
 export type ScpType = 'reply';
 
 /**
- * Definition of MessengerMeta.
+ * Definition of ReceiverMeta.
  */
-export class MessengerMeta {
+export class ReceiverMeta {
     /**
-     * The constructor name of the messenger.
+     * The constructor name of the receiver.
      */
-    public readonly messengerName: string;
+    public readonly receiverName: string;
 
     /**
      * The name of the handler.
@@ -575,14 +575,14 @@ export class MessengerMeta {
     public readonly type: ScpType;
 
     /**
-     * Creates an instance of `MessengerMeta`.
+     * Creates an instance of `ReceiverMeta`.
      * 
-     * @param className the constructor name of the messenger.
+     * @param className the constructor name of the receiver.
      * @param handlerName the name of the handler.
      * @param type the type of the SCP actions.
      */
     constructor(className: string, handlerName: string, type: ScpType) {
-        this.messengerName = className;
+        this.receiverName = className;
         this.handlerName = handlerName;
         this.type = type;
     }
@@ -684,12 +684,12 @@ export type Options = {
     autoWireModel?: FileOptions;
 
     /**
-     * Auto inject `Messenger` options.
+     * Auto inject `Receiver` options.
      * 
      * @default
-     * { include: { endsWith: ['.messenger'] } }
+     * { include: { endsWith: ['.receiver'] } }
      */
-    autoInjectMessenger?: FileOptions;
+    autoInjectReceiver?: FileOptions;
 
     /**
      * Auto inject `Controller` options.

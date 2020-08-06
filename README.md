@@ -32,7 +32,7 @@ The underyling API is built on `Express` and the database managment is done by `
     * Maria Database
     * Microsoft SQL Database
 * Auto Sync Tables/Collections
-* Generic/Customizable Controllers, Models, Messengers
+* Generic/Customizable Controllers, Models, Receivers
 * Autowire & Inject Classes and Objects
 * Auto Create Endpoints
 * Auto Create Actions
@@ -322,11 +322,11 @@ heroMicroService.start(() => {
 });
 ```
 
-* introduction.messenger.js
+* introduction.receiver.js
 ```javascript
-import { Messenger, Reply } from '@iprotechs/micro';
+import { Receiver, Reply } from '@iprotechs/micro';
 
-export default class IntroductionMessenger extends Messenger {
+export default class IntroductionReceiver extends Receiver {
     @Reply()
     async hello(message, reply) {
         try {
@@ -346,7 +346,7 @@ export default class HeroController extends Controller {
     @Get('/')
     async callSidekick(request, response) {
         try {
-            //Call: Mesh.NodeName.MessengerName.functionName();
+            //Call: Mesh.NodeName.ReceiverName.functionName();
             const hello = await Mesh.sidekick.Introduction.hello({});
             response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
         } catch (error) {
@@ -391,11 +391,11 @@ sidekickMicroService.start(() => {
 });
 ```
 
-* introduction.messenger.js
+* introduction.receiver.js
 ```javascript
-import { Messenger, Reply } from '@iprotechs/micro';
+import { Receiver, Reply } from '@iprotechs/micro';
 
-export default class IntroductionMessenger extends Messenger {
+export default class IntroductionReceiver extends Receiver {
     @Reply()
     async hello(message, reply) {
         try {
@@ -415,7 +415,7 @@ export default class SidekickController extends Controller {
     @Get('/')
     async callHero(request, response) {
         try {
-            //Call: Mesh.NodeName.MessengerName.functionName();
+            //Call: Mesh.NodeName.ReceiverName.functionName();
             const hello = await Mesh.hero.Introduction.hello({});
             response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
         } catch (error) {

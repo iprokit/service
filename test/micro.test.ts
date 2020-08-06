@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import micro, { mesh, proxy, models, messengers, controllers } from '../lib/micro';
+import micro, { mesh, proxy, models, receivers, controllers } from '../lib/micro';
 import Default from '../lib/default';
 import Helper, { FileOptions } from '../lib/helper';
 
@@ -38,7 +38,7 @@ mocha.describe('Micro Test', () => {
             assert.strictEqual(mesh, service.scpClientManager.mesh);
             assert.strictEqual(proxy, service.proxyClientManager.proxy);
             assert.deepStrictEqual(models, {});
-            assert.deepStrictEqual(messengers, {});
+            assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
 
             //Namespace Variables.
@@ -71,7 +71,7 @@ mocha.describe('Micro Test', () => {
             assert.strictEqual(mesh, service.scpClientManager.mesh);
             assert.strictEqual(proxy, service.proxyClientManager.proxy);
             assert.deepStrictEqual(models, {});
-            assert.deepStrictEqual(messengers, {});
+            assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
 
             //Namespace Variables.
@@ -97,7 +97,7 @@ mocha.describe('Micro Test', () => {
             assert.strictEqual(mesh, service.scpClientManager.mesh);
             assert.strictEqual(proxy, service.proxyClientManager.proxy);
             assert.deepStrictEqual(models, {});
-            assert.deepStrictEqual(messengers, {});
+            assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
 
             //Namespace Variables.
@@ -129,7 +129,7 @@ mocha.describe('Micro Test', () => {
             assert.strictEqual(mesh, service.scpClientManager.mesh);
             assert.strictEqual(proxy, service.proxyClientManager.proxy);
             assert.deepStrictEqual(models, {});
-            assert.deepStrictEqual(messengers, {});
+            assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
 
             //Namespace Variables.
@@ -163,7 +163,7 @@ mocha.describe('Micro Test', () => {
             assert.strictEqual(mesh, service.scpClientManager.mesh);
             assert.strictEqual(proxy, service.proxyClientManager.proxy);
             assert.deepStrictEqual(models, {});
-            assert.deepStrictEqual(messengers, {});
+            assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
 
             //Namespace Variables.
