@@ -498,6 +498,34 @@ mocha.describe('Service Test', () => {
                 });
             });
         });
+
+        mocha.describe('Body(Size) Test', () => {
+            const hulkSize = multiplyHero(1e+8);
+
+            //Routes.
+            service.post('/hulkSize', (request, response) => {
+                let chunks: string = '';
+                request.on('data', (chunk) => {
+                    chunks += chunk;
+                });
+                request.on('end', () => {
+                    assert.deepStrictEqual(chunks, hulkSize);
+
+                    response.status(HttpStatusCodes.OK).send(chunks);
+                });
+            })
+
+            //Client
+            mocha.it('should execute POST(/hulkSize) and receive body(String) with CORS support', (done) => {
+                const options: HttpOptions = { host: '127.0.0.1', port: 3000, method: 'POST', path: '/hulkSize', body: hulkSize, json: false };
+                httpRequest(options, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, hulkSize);
+                    done(error);
+                });
+            }).timeout(1000 * 5);
+        });
     });
 
     mocha.describe('Service Registry Test', () => {
@@ -931,3 +959,16 @@ mocha.describe('Service Test', () => {
         });
     });
 });
+
+//////////////////////////////
+//////Helpers
+//////////////////////////////
+function multiplyHero(size: number) {
+    let hero: string = '';
+
+    for (let index = 0; index < (size / 5); index++) {
+        hero += 'Hulk ';
+    }
+
+    return hero;
+}
