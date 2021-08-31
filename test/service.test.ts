@@ -934,6 +934,36 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
 
                 response.status(HttpStatusCodes.OK).send({ features: ['Lightweight', 'Flight'] });
+            }).post('/add', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
+                assert.deepStrictEqual(request.body, { name: 'Thorbuster' });
+                response.status(HttpStatusCodes.OK).send({ created: true });
+            }).put('/update', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
+                assert.deepStrictEqual(request.body, { name: 'Thorbuster' });
+                response.status(HttpStatusCodes.OK).send({ updated: true });
+            }).delete('/delete', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
+                assert.deepStrictEqual(request.body, { name: 'Thorbuster' });
+                response.status(HttpStatusCodes.OK).send({ deleted: true });
             });
 
             //Client
@@ -953,6 +983,39 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
                     assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
                     assert.deepStrictEqual(response.body, { features: ['Lightweight', 'Flight'] });
+                    done(error);
+                });
+            });
+
+            mocha.it('should proxy(Re-Direct) to POST(/armor/add) and receive body(JSON) with CORS support', (done) => {
+                const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'POST', path: '/armor/add', body: { name: 'Thorbuster' }, json: true };
+                options.headers = { 'Content-Type': 'application/json' };
+                httpRequest(options, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { created: true });
+                    done(error);
+                });
+            });
+
+            mocha.it('should proxy(Re-Direct) to PUT(/armor/update) and receive body(JSON) with CORS support', (done) => {
+                const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'PUT', path: '/armor/update', body: { name: 'Thorbuster' }, json: true };
+                options.headers = { 'Content-Type': 'application/json' };
+                httpRequest(options, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { updated: true });
+                    done(error);
+                });
+            });
+
+            mocha.it('should proxy(Re-Direct) to DELETE(/armor/delete) and receive body(JSON) with CORS support', (done) => {
+                const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'DELETE', path: '/armor/delete', body: { name: 'Thorbuster' }, json: true };
+                options.headers = { 'Content-Type': 'application/json' };
+                httpRequest(options, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { deleted: true });
                     done(error);
                 });
             });

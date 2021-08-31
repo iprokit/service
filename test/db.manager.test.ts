@@ -270,7 +270,7 @@ mocha.describe('Database Test', () => {
             service.start((error) => {
                 if (error instanceof InvalidConnectionOptions) {
                     assert.deepStrictEqual(error.code, 'ECONNREFUSED');
-                    assert.deepStrictEqual(error.errno, 'ECONNREFUSED');
+                    assert.deepStrictEqual(error.errno, -61);
                 }
                 assert.deepStrictEqual(service.dbManager.connected, false);
 

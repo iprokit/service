@@ -118,8 +118,12 @@ export default class ProxyClient {
                 response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send(error.message);
             });
 
-            //Pass the request to proxy request.
-            request.pipe(proxyRequest, { end: true });
+            //If the request is JSON write JSON; else pipe the data.
+            if (request.headers['content-type'] === 'application/json') {
+                proxyRequest.end(JSON.stringify(request.body));
+            } else {
+                request.pipe(proxyRequest, { end: true });
+            }
         }
     }
 
