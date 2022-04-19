@@ -406,46 +406,27 @@ export default class Service extends EventEmitter {
      * Add start hooks.
      */
     private addStartHooks() {
-        //Connect to DB.
         this.dbManager && this.hooks.start.addToBottom((done) => {
             this.dbManager.connect((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
-                }
-
+                error || this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
                 done(error);
             });
         });
-
-        //Listen on SCP Server.
         this.hooks.start.addToBottom((done) => {
             this.scpServer.listen(this.scpPort, () => {
-                //Log Event.
                 this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
-
                 done();
             });
         });
-
-        //Bind Discovery.
         this.hooks.start.addToBottom((done) => {
             this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
-                }
-
+                error || this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
                 done(error);
             });
         });
-
-        //Listen on HTTP Server.
         this.hooks.start.addToBottom((done) => {
             this._httpServer = this.express.listen(this.httpPort, () => {
-                //Log Event.
                 this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
-
                 done();
             });
         });
@@ -455,14 +436,9 @@ export default class Service extends EventEmitter {
      * Add stop hooks.
      */
     private addStopHooks() {
-        //Close HTTP Server.
         this.hooks.stop.addToBottom((done) => {
             this._httpServer.close((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`Stopped HTTP server.`);
-                }
-
+                error || this.logger.info(`Stopped HTTP server.`);
                 done(error);
             });
         });
@@ -470,11 +446,7 @@ export default class Service extends EventEmitter {
         //Close Discovery.
         this.hooks.stop.addToBottom((done) => {
             this.discovery.close((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`Stopped Discovery.`);
-                }
-
+                error || this.logger.info(`Stopped Discovery.`);
                 done(error);
             });
         });
@@ -482,11 +454,7 @@ export default class Service extends EventEmitter {
         //Close SCP Server.
         this.hooks.stop.addToBottom((done) => {
             this.scpServer.close((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`Stopped SCP Server.`);
-                }
-
+                error || this.logger.info(`Stopped SCP Server.`);
                 done(error);
             });
         });
@@ -494,11 +462,7 @@ export default class Service extends EventEmitter {
         //Disconnect from DB.
         this.dbManager && this.hooks.stop.addToBottom((done) => {
             this.dbManager.disconnect((error) => {
-                if (!error) {
-                    //Log Event.
-                    this.logger.info(`DB Disconnected.`);
-                }
-
+                error || this.logger.info(`DB Disconnected.`);
                 done(error);
             });
         });
@@ -880,17 +844,13 @@ export class Hooks {
      * @param callback optional callback, called when start sequence is complete.
      */
     public executeStart(callback?: (error?: Error) => void) {
-        //Initialize the error.
         let _error: Error;
 
         this.preStart.execute((error) => {
-            //Pass the error to the next executor.
             _error = error ?? _error;
             this.start.execute((error) => {
-                //Pass the error to the next executor.
                 _error = error ?? _error;
                 this.postStart.execute((error) => {
-                    //Pass the error to the next executor.
                     _error = error ?? _error;
                     callback && callback(_error);
                 });
@@ -904,17 +864,13 @@ export class Hooks {
      * @param callback optional callback, called when stop sequence is complete.
      */
     public executeStop(callback?: (error?: Error) => void) {
-        //Initialize the error.
         let _error: Error;
 
         this.preStop.execute((error) => {
-            //Pass the error to the next executor.
             _error = error ?? _error;
             this.stop.execute((error) => {
-                //Pass the error to the next executor.
                 _error = error ?? _error;
                 this.postStop.execute((error) => {
-                    //Pass the error to the next executor.
                     _error = error ?? _error;
                     callback && callback(_error);
                 });
