@@ -168,8 +168,6 @@ export default class DBManager {
                 mongoose: (this.connection as NoSQL),
                 timestamps: this.paperTrail
             });
-
-            //Call Hooks.
             model.hooks();
         } else if (this.rdb && model.prototype instanceof RDBModel) {
             //Initializing RDB model
@@ -179,8 +177,6 @@ export default class DBManager {
                 sequelize: (this.connection as RDB),
                 timestamps: this.paperTrail
             });
-
-            //Call Hooks.
             model.hooks();
         } else {
             throw new ModelError(`Database connection type and model type mismatched for ${modelName}`);
@@ -201,20 +197,14 @@ export default class DBManager {
         //NoSQL Connection
         if (this.noSQL) {
             this.connectNoSQL((error) => {
-                //Callback.
-                if (callback) {
-                    callback(error);
-                }
+                callback && callback(error);
             });
         }
 
         //RDB Connection.
         if (this.rdb) {
             this.connectRDB((error) => {
-                //Callback.
-                if (callback) {
-                    callback(error);
-                }
+                callback && callback(error);
             });
         }
     }
@@ -236,16 +226,9 @@ export default class DBManager {
                 useNewUrlParser: true,
                 useUnifiedTopology: true
             });
-
-            //Callback.
-            if (callback) {
-                callback();
-            }
+            callback && callback();
         } catch (error) {
-            //Callback with error.
-            if (callback) {
-                callback(new InvalidConnectionOptions(error.message));
-            }
+            callback && callback(new InvalidConnectionOptions(error.message));
         }
     }
 
@@ -267,16 +250,9 @@ export default class DBManager {
 
             //Start Connection.
             await (this.connection as RDB).authenticate();
-
-            //Callback.
-            if (callback) {
-                callback();
-            }
+            callback && callback();
         } catch (error) {
-            //Callback with error.
-            if (callback) {
-                callback(new InvalidConnectionOptions(error.message, error.original.code, error.original.errno));
-            }
+            callback && callback(new InvalidConnectionOptions(error.message, error.original.code, error.original.errno));
         }
     }
 
@@ -289,16 +265,9 @@ export default class DBManager {
         try {
             //Close the connection.
             await this.connection.close();
-
-            //Callback.
-            if (callback) {
-                callback();
-            }
+            callback && callback();
         } catch (error) {
-            //Callback with error.
-            if (callback) {
-                callback(error);
-            }
+            callback && callback(error);
         }
     }
 

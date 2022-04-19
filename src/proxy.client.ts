@@ -145,12 +145,7 @@ export default class ProxyClient {
         //Set link variable.
         this._linked = true;
 
-        //Callback.
-        if (callback) {
-            callback();
-        }
-
-        //Return this for chaining.
+        callback && callback();
         return this;
     }
 
@@ -162,13 +157,8 @@ export default class ProxyClient {
     public unlink(callback?: () => void) {
         //Set link variable.
         this._linked = false;
-
-        //Callback.
-        if (callback) {
-            callback();
-        }
-
-        //Return this for chaining.
+        
+        callback && callback();
         return this;
     }
 }

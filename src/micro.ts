@@ -93,27 +93,19 @@ function micro(options?: Options) {
             proxy: proxy
         }
 
-        //Validate environment.
+        //Validate env variables.
         if (process.env.NODE_ENV) {
             serviceOptions.environment = process.env.NODE_ENV;
         }
-
-        //Validate httpPort.
         if (process.env.HTTP_PORT) {
             serviceOptions.httpPort = Number(process.env.HTTP_PORT);
         }
-
-        //Validate scpPort.
         if (process.env.SCP_PORT) {
             serviceOptions.scpPort = Number(process.env.SCP_PORT);
         }
-
-        //Validate discoveryPort.
         if (process.env.DISCOVERY_PORT) {
             serviceOptions.discoveryPort = Number(process.env.DISCOVERY_PORT);
         }
-
-        //Validate discoveryIp.
         if (process.env.DISCOVERY_IP) {
             serviceOptions.discoveryIp = process.env.DISCOVERY_IP;
         }
@@ -141,13 +133,10 @@ function micro(options?: Options) {
 
         //Add PreStart Hook[Top]: Inject Files.
         service.hooks.preStart.addToTop((done) => {
-            //Inject Files.
             injectFiles(projectPath, autoWireModel, autoInjectReceiver, autoInjectController);
 
             done();
         });
-
-        //Bind Events.
         bindProcessEvents(forceStopTime);
     }
 
@@ -204,10 +193,7 @@ function bindProcessEvents(forceStopTime: number) {
          * Stop timeout handler.
          */
         const stopTimeout = setTimeout(() => {
-            //Log Event.
             this.logger.error('Forcefully shutting down.');
-
-            //Callback.
             callback(1);
         }, forceStopTime);
 
@@ -218,24 +204,16 @@ function bindProcessEvents(forceStopTime: number) {
 
             let stopCode: ExitCode = 0;
             if (error) {
-                //Log Event.
                 this.logger.error(error.stack);
-
-                //Set Error Code.
                 stopCode = 1;
             }
-
-            //Callback.
             callback(stopCode);
         });
     }
 
     //Exit
     process.once('SIGTERM', () => {
-        //Log Event.
         service.logger.info('Received SIGTERM.');
-
-        //Call Stop.
         stop((exitCode) => {
             process.exit(exitCode);
         });
@@ -243,10 +221,7 @@ function bindProcessEvents(forceStopTime: number) {
 
     //Ctrl + C
     process.on('SIGINT', () => {
-        //Log Event.
         service.logger.info('Received SIGINT.');
-
-        //Call Stop.
         stop((exitCode) => {
             process.exit(exitCode);
         });

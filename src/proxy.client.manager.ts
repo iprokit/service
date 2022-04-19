@@ -77,10 +77,8 @@ export default class ProxyClientManager {
      * Returns the new proxy client created.
      */
     public createClient() {
-        //Create new client.
         const client = new ProxyClient(this.logger);
 
-        //return the client.
         return client;
     }
 
@@ -104,8 +102,6 @@ export default class ProxyClientManager {
             //Add cell.
             this.cells.push(cell);
         }
-
-        //Return this for chaining.
         return this;
     }
 
@@ -126,8 +122,6 @@ export default class ProxyClientManager {
             //Remove cell.
             this.cells.splice(cellIndex, 1);
         }
-
-        //Return this for chaining.
         return this;
     }
 }

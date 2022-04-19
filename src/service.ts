@@ -527,13 +527,8 @@ export default class Service extends EventEmitter {
             //Emit Global: started.
             this.emit('started');
 
-            //Callback.
-            if (callback) {
-                callback(error);
-            }
+            callback && callback(error);
         });
-
-        //Return this for chaining.
         return this;
     }
 
@@ -557,13 +552,8 @@ export default class Service extends EventEmitter {
             //Emit Global: stopped.
             this.emit('stopped');
 
-            //Callback.
-            if (callback) {
-                callback(error);
-            }
+            callback && callback(error);
         });
-
-        //Return this for chaining.
         return this;
     }
 
@@ -600,8 +590,6 @@ export default class Service extends EventEmitter {
      */
     public use(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.use(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -613,8 +601,6 @@ export default class Service extends EventEmitter {
      */
     public all(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.all(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -626,8 +612,6 @@ export default class Service extends EventEmitter {
      */
     public get(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.get(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -639,8 +623,6 @@ export default class Service extends EventEmitter {
      */
     public post(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.post(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -652,8 +634,6 @@ export default class Service extends EventEmitter {
      */
     public put(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.put(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -665,8 +645,6 @@ export default class Service extends EventEmitter {
      */
     public delete(path: PathParams, ...handlers: RequestHandler[]) {
         this.express.delete(path, ...handlers);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -681,8 +659,6 @@ export default class Service extends EventEmitter {
      */
     public reply(action: string, handler: MessageReplyHandler) {
         this.scpServer.reply(action, handler);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -693,8 +669,6 @@ export default class Service extends EventEmitter {
      */
     public defineBroadcast(action: string) {
         this.scpServer.defineBroadcast(action);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -707,8 +681,6 @@ export default class Service extends EventEmitter {
      */
     public broadcast(action: string, body: Body) {
         this.scpServer.broadcast(action, body);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -723,8 +695,6 @@ export default class Service extends EventEmitter {
      */
     public discover(name: string, alias?: string) {
         this.register(name, alias, true);
-
-        //Return this for chaining.
         return this;
     }
 
@@ -922,10 +892,7 @@ export class Hooks {
                 this.postStart.execute((error) => {
                     //Pass the error to the next executor.
                     _error = error ?? _error;
-                    //Callback.
-                    if (callback) {
-                        callback(_error);
-                    }
+                    callback && callback(_error);
                 });
             });
         });
@@ -949,10 +916,7 @@ export class Hooks {
                 this.postStop.execute((error) => {
                     //Pass the error to the next executor.
                     _error = error ?? _error;
-                    //Callback.
-                    if (callback) {
-                        callback(_error);
-                    }
+                    callback && callback(_error);
                 });
             });
         });
@@ -1030,20 +994,14 @@ export class Hook {
                     this.stack[iterator](done);
                 } else {
                     //CASE: Last handler.
-                    //Callback.
-                    if (callback) {
-                        callback(_error);
-                    }
+                    callback && callback(_error);
                 }
             }
 
             //Start the handler call.
             this.stack[iterator](done);
         } else {
-            //Callback.
-            if (callback) {
-                callback();
-            }
+            callback && callback();
         }
     }
 }
@@ -1261,10 +1219,7 @@ export class RemoteService {
 
         this.proxyClient.link(this._address, this._httpPort, () => {
             this.scpClient.connect(this._address, this._scpPort, () => {
-                //Callback.
-                if (callback) {
-                    callback();
-                }
+                callback && callback();
             });
         });
     }
@@ -1277,10 +1232,7 @@ export class RemoteService {
     public disconnect(callback?: () => void) {
         this.proxyClient.unlink(() => {
             this.scpClient.disconnect(() => {
-                //Callback.
-                if (callback) {
-                    callback();
-                }
+                callback && callback();
             });
         });
     }
