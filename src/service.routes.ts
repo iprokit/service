@@ -154,7 +154,6 @@ export default class ServiceRoutes {
     private get dbReport() {
         let models: { [name: string]: string } = {};
 
-        //Gets models.
         if (this.service.dbManager.noSQL) {
             (this.service.dbManager.models).forEach(model => {
                 models[model.name] = model.collection.name;
@@ -222,7 +221,6 @@ export default class ServiceRoutes {
     private get actionsReport() {
         const scpRoutes: { [action: string]: string } = {};
 
-        //Get SCP Routes.
         this.service.scpServer.routes.forEach(route => {
             scpRoutes[route.map] = route.type;
         });

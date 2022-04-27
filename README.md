@@ -471,3 +471,4 @@ gatewayService.start(() => {
 | Version | Description             |
 |---------|-------------------------|
 | 1.0.0   | First release of Micro. |
+| 1.0.1   | Resolved proxy issue.   |

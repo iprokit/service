@@ -296,13 +296,11 @@ export default class Service extends EventEmitter {
     private configServiceRegistry() {
         //Bind Events.
         this.discovery.on('available', (pod: Pod) => {
-            //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one and connect.
             const remoteService = this.serviceRegistry.getByName(pod.name) ?? this.register(pod.name);
             remoteService.connect(pod.address, pod.params.httpPort, pod.params.scpPort, () => {
-                //Log Event.
                 this.logger.info(`Connected to remote service ${remoteService.name}`);
 
                 //Emit Global: available.
@@ -311,13 +309,11 @@ export default class Service extends EventEmitter {
         });
 
         this.discovery.on('unavailable', (pod: Pod) => {
-            //Log Event.
             this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
 
             //Try finding the remoteService and disconnect.
             const remoteService = this.serviceRegistry.getByName(pod.name);
             remoteService.disconnect(() => {
-                //Log Event.
                 this.logger.info(`Disconnected from remote service ${remoteService.name}`);
 
                 //Emit Global: unavailable.
@@ -442,24 +438,18 @@ export default class Service extends EventEmitter {
                 done(error);
             });
         });
-
-        //Close Discovery.
         this.hooks.stop.addToBottom((done) => {
             this.discovery.close((error) => {
                 error || this.logger.info(`Stopped Discovery.`);
                 done(error);
             });
         });
-
-        //Close SCP Server.
         this.hooks.stop.addToBottom((done) => {
             this.scpServer.close((error) => {
                 error || this.logger.info(`Stopped SCP Server.`);
                 done(error);
             });
         });
-
-        //Disconnect from DB.
         this.dbManager && this.hooks.stop.addToBottom((done) => {
             this.dbManager.disconnect((error) => {
                 error || this.logger.info(`DB Disconnected.`);
@@ -477,18 +467,12 @@ export default class Service extends EventEmitter {
      * @param callback optional callback, called when the service is started.
      */
     public start(callback?: (error?: Error) => void) {
-        //Log Event.
         this.logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
 
-        //Emit Global: starting.
         this.emit('starting');
-
-        //Run Hooks.
         this.hooks.executeStart((error) => {
-            //Log Event.
             this.logger.info(`${this.name} started.`);
 
-            //Emit Global: started.
             this.emit('started');
 
             callback && callback(error);
@@ -502,18 +486,12 @@ export default class Service extends EventEmitter {
      * @param callback optional callback, called when the service is stopped.
      */
     public stop(callback?: (error?: Error) => void) {
-        //Log Event.
         this.logger.info(`Stopping ${this.name}...`);
 
-        //Emit Global: stopping.
         this.emit('stopping');
-
-        //Run Hooks.
         this.hooks.executeStop((error) => {
-            //Log Event.
             this.logger.info(`${this.name} stopped.`);
 
-            //Emit Global: stopped.
             this.emit('stopped');
 
             callback && callback(error);
@@ -708,7 +686,6 @@ export default class Service extends EventEmitter {
         this.hooks.preStop.addToBottom((done) => {
             if (remoteService.connected) {
                 remoteService.disconnect(() => {
-                    //Log Event.
                     this.logger.info(`Disconnected from remote service ${remoteService.name}`);
 
                     done();

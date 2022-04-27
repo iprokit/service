@@ -104,7 +104,6 @@ export default class ProxyClient {
             const sourceUrl = `${request.originalUrl}`;
             const targetUrl = `http://${requestOptions.host}:${requestOptions.port}${requestOptions.path}`;
 
-            //Log Event.
             this.logger.info(`${sourceUrl} -> ${targetUrl}`);
 
             const proxyRequest = http.request(requestOptions, (proxyResponse) => {

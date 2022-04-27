@@ -290,7 +290,6 @@ function loadModel(file: string) {
     //Add to models.
     models[ModelInstance.name] = ModelInstance;
 
-    //Log Event.
     service.logger.debug(`Wiring model: ${ModelInstance.name}`);
 }
 
@@ -328,7 +327,6 @@ function loadReceiver(file: string) {
     //Add to receivers.
     receivers[name] = receiver;
 
-    //Log Event.
     service.logger.debug(`Adding actions from receiver: ${receiver.name}`);
 }
 
@@ -364,7 +362,6 @@ function loadController(file: string) {
     //Add to controllers.
     controllers[name] = controller;
 
-    //Log Event.
     service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
 }
 

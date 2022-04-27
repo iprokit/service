@@ -69,17 +69,13 @@ export default class Controller {
             //Initialize Options.
             let findOptions: FindOptions = { pagination: {} };
 
-            //Validate order.
+            //Validate request queries.
             if (request.query.order) {
                 findOptions.order = request.query.order as FindOrder;
             }
-
-            //Validate page.
             if (request.query.page) {
                 findOptions.pagination.page = Number(request.query.page);
             }
-
-            //Validate pageSize.
             if (request.query.pageSize) {
                 findOptions.pagination.size = Number(request.query.pageSize);
             }

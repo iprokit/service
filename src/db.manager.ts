@@ -77,18 +77,16 @@ export default class DBManager {
         this.paperTrail = options.connection.paperTrail ?? true;
         this.logger = options.logger;
 
-        //Initialize NoSQL connection object.
+        //Initialize NoSQL connection object with Mongoose connection.
         if (this.noSQL) {
-            //Mongoose connection.
             this.connection = mongoose.connection;
             mongoose.set('debug', (collectionName: string, method: string, query: string, doc: string) => {
                 this.logger.info(`Executing: ${method} ${collectionName}: ${JSON.stringify(query)}`);
             });
         }
 
-        //Initialize RDB connection object.
+        //Initialize RDB connection object with Sequelize constructor.
         if (this.rdb) {
-            //Sequelize constructor.
             this.connection = new RDB(this.name, this.username, this.password, {
                 host: this.host,
                 dialect: (this.type as Dialect),
@@ -161,7 +159,6 @@ export default class DBManager {
      */
     public initModel(modelName: string, entityName: string, attributes: ModelAttributes, model: Model) {
         if (this.noSQL && model.prototype instanceof NoSQLModel) {
-            //Initializing NoSQL model
             (model as typeof NoSQLModel).init((attributes as NoSQLModelAttributes), {
                 collectionName: entityName,
                 modelName: modelName,
@@ -170,7 +167,6 @@ export default class DBManager {
             });
             model.hooks();
         } else if (this.rdb && model.prototype instanceof RDBModel) {
-            //Initializing RDB model
             (model as typeof RDBModel).init((attributes as RDBModelAttributes), {
                 tableName: entityName,
                 modelName: modelName,
@@ -194,14 +190,11 @@ export default class DBManager {
      * @throws `InvalidConnectionOptions` when a database connection option is invalid.
      */
     public connect(callback?: (error?: Error) => void) {
-        //NoSQL Connection
         if (this.noSQL) {
             this.connectNoSQL((error) => {
                 callback && callback(error);
             });
         }
-
-        //RDB Connection.
         if (this.rdb) {
             this.connectRDB((error) => {
                 callback && callback(error);
@@ -218,7 +211,6 @@ export default class DBManager {
      */
     private async connectNoSQL(callback?: (error?: Error) => void) {
         try {
-            //Start Connection.
             await mongoose.connect(`mongodb://${this.host}`, {
                 dbName: this.name,
                 user: this.username,
@@ -243,12 +235,9 @@ export default class DBManager {
      */
     private async connectRDB(callback?: (error?: Error) => void) {
         try {
-            //Associate models.
             this.models.forEach(model => {
                 (model as typeof RDBModel).associate();
             });
-
-            //Start Connection.
             await (this.connection as RDB).authenticate();
             callback && callback();
         } catch (error) {
@@ -263,7 +252,6 @@ export default class DBManager {
      */
     public async disconnect(callback?: (error?: Error) => void) {
         try {
-            //Close the connection.
             await this.connection.close();
             callback && callback();
         } catch (error) {
@@ -320,14 +308,10 @@ export default class DBManager {
         //Setting default.
         force = force ?? false;
 
-        //Call DB Sync
         try {
-            //NoSQL Connection.
             if (this.noSQL) {
                 await _noSQLSync();
             }
-
-            //RDB Connection.
             if (this.rdb) {
                 await _rdbSync();
             }

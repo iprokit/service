@@ -37,7 +37,6 @@ export default class ProxyClientManager {
         this.proxy = options.proxy ?? new Proxy();
         this.logger = options.logger;
 
-        //Initialize cells.
         this.cells = new Array();
     }
 
