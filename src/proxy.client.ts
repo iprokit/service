@@ -119,7 +119,9 @@ export default class ProxyClient {
 
             //If the request is JSON write JSON; else pipe the data.
             if (request.headers['content-type'] === 'application/json') {
-                proxyRequest.end(JSON.stringify(request.body));
+                const body = JSON.stringify(request.body);
+                proxyRequest.setHeader('content-length', body.length); //Override content-length header.
+                proxyRequest.end(body);
             } else {
                 request.pipe(proxyRequest, { end: true });
             }
