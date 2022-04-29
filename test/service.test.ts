@@ -9,7 +9,7 @@ import { RequestHandler } from 'express';
 //Import Local.
 import Default from '../lib/default';
 import Service, { Options, InvalidServiceOptions, RemoteService } from '../lib/service';
-import { Proxy } from '../lib/proxy.client.manager';
+import Proxy from '../lib/proxy';
 import HttpStatusCodes from '../lib/http.statusCodes';
 
 //Import Util.
@@ -37,7 +37,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.discoveryIp, Default.DISCOVERY_IP);
             assert.deepStrictEqual(service.logPath, logPath);
             assert.notDeepStrictEqual(service.scpClientManager.mesh, undefined);
-            assert.notDeepStrictEqual(service.proxyClientManager.proxy, undefined);
+            assert.deepStrictEqual(service.proxy, undefined);
 
             //Class Variables.
             assert.notDeepStrictEqual(service.ip, undefined);
@@ -46,7 +46,6 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.scpServer, undefined);
             assert.notDeepStrictEqual(service.scpClientManager, undefined);
-            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
@@ -82,7 +81,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.discoveryIp, '224.0.0.2');
             assert.deepStrictEqual(service.logPath, logPath);
             assert.deepStrictEqual(service.scpClientManager.mesh, mesh);
-            assert.deepStrictEqual(service.proxyClientManager.proxy, proxy);
+            assert.deepStrictEqual(service.proxy, proxy);
 
             //Class Variables.
             assert.notDeepStrictEqual(service.ip, undefined);
@@ -91,7 +90,6 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.scpServer, undefined);
             assert.notDeepStrictEqual(service.scpClientManager, undefined);
-            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
@@ -127,7 +125,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.discoveryIp, '');
             assert.deepStrictEqual(service.logPath, logPath);
             assert.deepStrictEqual(service.scpClientManager.mesh, mesh);
-            assert.deepStrictEqual(service.proxyClientManager.proxy, proxy);
+            assert.deepStrictEqual(service.proxy, proxy);
 
             //Class Variables.
             assert.notDeepStrictEqual(service.ip, undefined);
@@ -136,7 +134,6 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.dbManager, undefined);
             assert.notDeepStrictEqual(service.scpServer, undefined);
             assert.notDeepStrictEqual(service.scpClientManager, undefined);
-            assert.notDeepStrictEqual(service.proxyClientManager, undefined);
             assert.notDeepStrictEqual(service.discovery, undefined);
             assert.notDeepStrictEqual(service.serviceRegistry, undefined);
             assert.notDeepStrictEqual(service.express, undefined);
@@ -182,7 +179,6 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.scpServer.listening, true);
                 assert.deepStrictEqual(service.scpClientManager.connected, {});
-                assert.deepStrictEqual(service.proxyClientManager.linked, {});
                 assert.deepStrictEqual(service.discovery.listening, true);
                 assert.deepStrictEqual(service.serviceRegistry.connected, undefined);
                 assert.deepStrictEqual(service.httpServer.listening, true);
@@ -213,7 +209,6 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(error, undefined);
                 assert.deepStrictEqual(service.scpServer.listening, false);
                 assert.deepStrictEqual(service.scpClientManager.connected, {});
-                assert.deepStrictEqual(service.proxyClientManager.linked, {});
                 assert.deepStrictEqual(service.discovery.listening, false);
                 assert.deepStrictEqual(service.serviceRegistry.connected, undefined);
                 assert.deepStrictEqual(service.httpServer.listening, false);
@@ -669,7 +664,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, false);
                     assert.deepStrictEqual(remoteService.scpClient.connected, true);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, true);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -690,7 +685,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, false);
                     assert.deepStrictEqual(remoteService.scpClient.connected, false);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, false);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -734,7 +729,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, true);
                     assert.deepStrictEqual(remoteService.scpClient.connected, true);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, true);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -755,7 +750,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, true);
                     assert.deepStrictEqual(remoteService.scpClient.connected, false);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, false);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -799,7 +794,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, true);
                     assert.deepStrictEqual(remoteService.scpClient.connected, true);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, true);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, true);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -820,7 +815,7 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(remoteService.defined, true);
                     assert.deepStrictEqual(remoteService.scpClient.connected, false);
                     assert.deepStrictEqual(remoteService.scpClient.reconnecting, false);
-                    assert.deepStrictEqual(remoteService.proxyClient.linked, false);
+                    assert.deepStrictEqual(remoteService.proxyHandler.linked, false);
 
                     //Validate ServiceRegistry, Mesh & Proxy.
                     assert.deepStrictEqual(hydraSVC.serviceRegistry.remoteServices.length, 1);
@@ -843,7 +838,9 @@ mocha.describe('Service Test', () => {
         jarvisSVC.discover('Armor');
         silentLog(jarvisSVC);
 
-        const armorSVC = new Service({ name: 'Armor', logPath: logPath, httpPort: 3002, scpPort: 6002 });
+        const armorMesh = new Mesh();
+        const armorProxy = new Proxy();
+        const armorSVC = new Service({ name: 'Armor', logPath: logPath, httpPort: 3002, scpPort: 6002, mesh: armorMesh, proxy: armorProxy });
         silentLog(armorSVC);
 
         mocha.before((done) => {

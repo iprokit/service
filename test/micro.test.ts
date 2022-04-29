@@ -36,7 +36,7 @@ mocha.describe('Micro Test', () => {
 
             //Global Variables.
             assert.strictEqual(mesh, service.scpClientManager.mesh);
-            assert.strictEqual(proxy, service.proxyClientManager.proxy);
+            assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
@@ -69,7 +69,7 @@ mocha.describe('Micro Test', () => {
 
             //Global Variables.
             assert.strictEqual(mesh, service.scpClientManager.mesh);
-            assert.strictEqual(proxy, service.proxyClientManager.proxy);
+            assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
@@ -95,7 +95,7 @@ mocha.describe('Micro Test', () => {
 
             //Global Variables.
             assert.strictEqual(mesh, service.scpClientManager.mesh);
-            assert.strictEqual(proxy, service.proxyClientManager.proxy);
+            assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
@@ -127,7 +127,7 @@ mocha.describe('Micro Test', () => {
 
             //Global Variables.
             assert.strictEqual(mesh, service.scpClientManager.mesh);
-            assert.strictEqual(proxy, service.proxyClientManager.proxy);
+            assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});
@@ -161,7 +161,7 @@ mocha.describe('Micro Test', () => {
 
             //Global Variables.
             assert.strictEqual(mesh, service.scpClientManager.mesh);
-            assert.strictEqual(proxy, service.proxyClientManager.proxy);
+            assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
             assert.deepStrictEqual(controllers, {});

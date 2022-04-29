@@ -12,7 +12,7 @@ import Default from './default';
 import Helper, { FileOptions } from './helper';
 import Service, { Options as ServiceOptions } from './service';
 import { Type as DBType, Model, ModelAttributes, ModelError } from './db.manager';
-import { Proxy } from './proxy.client.manager';
+import Proxy from './proxy';
 import Controller from './controller';
 import Receiver from './receiver';
 
@@ -58,10 +58,7 @@ const controllerMetas: Array<ControllerMeta> = new Array();
 export const mesh: Mesh = new Mesh();
 
 /**
- * `Proxy` is an implementation of reverse proxie.
- * 
- * During runtime:
- * `ProxyHandler` functions are populated into `Proxy` with its cellName.
+ * Forwards HTTP request/response.
  */
 export const proxy: Proxy = new Proxy();
 

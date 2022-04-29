@@ -263,7 +263,7 @@ export default class ServiceRoutes {
                     reconnecting: remoteService.scpClient.reconnecting,
                 },
                 proxyClient: {
-                    linked: remoteService.proxyClient.linked
+                    linked: remoteService.proxyHandler.linked
                 }
             }
         });

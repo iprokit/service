@@ -20,8 +20,7 @@ import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
 import ServiceRoutes from './service.routes';
 import DBManager, { ConnectionOptions } from './db.manager';
-import ProxyClientManager, { Proxy } from './proxy.client.manager';
-import ProxyClient from './proxy.client';
+import Proxy, { ProxyHandler } from './proxy';
 
 /**
  * This class is an implementation of a simple and lightweight service.
@@ -114,9 +113,9 @@ export default class Service extends EventEmitter {
     public readonly scpClientManager: ScpClientManager;
 
     /**
-     * Instance of `ProxyClientManager`.
+     * Instance of `Proxy`.
      */
-    public readonly proxyClientManager: ProxyClientManager;
+    public readonly proxy: Proxy;
 
     /**
      * Instance of `Discovery`.
@@ -163,6 +162,7 @@ export default class Service extends EventEmitter {
         this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
         this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
         this.logPath = options.logPath;
+        this.proxy = options.proxy;
 
         //Initialize IP.
         this.ip = ip.address();
@@ -198,10 +198,6 @@ export default class Service extends EventEmitter {
             }
         }
         this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });
-
-        //Initialize Proxy Client Manager.
-        const proxyLogger = this.logger.child({ component: 'Proxy' });
-        this.proxyClientManager = new ProxyClientManager({ proxy: options.proxy, logger: proxyLogger });
 
         //Initialize Discovery.
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
@@ -291,7 +287,7 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyClientManager`.
+     * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyHandler`.
      */
     private configServiceRegistry() {
         //Bind Events.
@@ -674,12 +670,11 @@ export default class Service extends EventEmitter {
         });
         this.scpClientManager.mount(traceName, scpClient);
 
-        //Create a new `ProxyClient`.
-        const proxyClient = this.proxyClientManager.createClient();
-        this.proxyClientManager.add(traceName, proxyClient);
+        //Create a new `ProxyHandler`.
+        const proxyHandler = this.proxy.mount(traceName);
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyClient);
+        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyHandler);
         this.serviceRegistry.register(remoteService);
 
         //Add preStop Hook[Bottom]: Disconnect.
@@ -757,7 +752,7 @@ export type Options = {
     mesh?: Mesh;
 
     /**
-     * `ProxyHandler`'s are populated into this `Proxy` during runtime.
+     * Forwards HTTP request/response.
      */
     proxy?: Proxy;
 }
@@ -991,7 +986,7 @@ export class ServiceRegistry {
         }
 
         //Try getting remoteService that disconnected.
-        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected && !remoteService.proxyClient.linked);
+        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected && !remoteService.proxyHandler.linked);
 
         return (remoteService === undefined) ? true : false;
     }
@@ -1065,9 +1060,9 @@ export class RemoteService {
     public readonly scpClient: ScpClient;
 
     /**
-     * The instance of `ProxyClient`.
+     * The instance of `ProxyHandler`.
      */
-    public readonly proxyClient: ProxyClient;
+    public readonly proxyHandler: ProxyHandler;
 
     /**
      * The remote address.
@@ -1091,15 +1086,15 @@ export class RemoteService {
      * @param alias the optional, alias name of the service.
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
      * @param scpClient the instance of `ScpClient`.
-     * @param proxyClient the instance of `ProxyClient`.
+     * @param proxyHandler the instance of `ProxyHandler`.
      */
-    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, proxyClient: ProxyClient) {
+    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, proxyHandler: ProxyHandler) {
         //Initialize variables.
         this.name = name;
         this.alias = alias;
         this.defined = defined;
         this.scpClient = scpClient;
-        this.proxyClient = proxyClient;
+        this.proxyHandler = proxyHandler;
     }
 
     //////////////////////////////
@@ -1130,7 +1125,7 @@ export class RemoteService {
      * True if the remote service is connected, false if disconnected.
      */
     public get connected() {
-        return this.proxyClient.linked && this.scpClient.connected;
+        return this.proxyHandler.linked && this.scpClient.connected;
     }
 
     //////////////////////////////
@@ -1150,11 +1145,8 @@ export class RemoteService {
         this._httpPort = httpPort;
         this._scpPort = scpPort;
 
-        this.proxyClient.link(this._address, this._httpPort, () => {
-            this.scpClient.connect(this._address, this._scpPort, () => {
-                callback && callback();
-            });
-        });
+        this.proxyHandler.link(this._httpPort, this._address);
+        this.scpClient.connect(this._address, this._scpPort, callback);
     }
 
     /**
@@ -1163,11 +1155,8 @@ export class RemoteService {
      * @param callback optional callback. Will be called once disconnected.
      */
     public disconnect(callback?: () => void) {
-        this.proxyClient.unlink(() => {
-            this.scpClient.disconnect(() => {
-                callback && callback();
-            });
-        });
+        this.proxyHandler.unlink();
+        this.scpClient.disconnect(callback);
     }
 }
 
