@@ -672,6 +672,9 @@ export default class Service extends EventEmitter {
 
         //Create a new `ProxyHandler`.
         const proxyHandler = this.proxy.mount(traceName);
+        proxyHandler.on('forward', (source, target) => {
+            this.logger.info(`${source.path} -> http://${target.host}:${target.port}${target.path}`, { component: 'Proxy' });
+        });
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
         const remoteService = new RemoteService(name, alias, defined, scpClient, proxyHandler);

@@ -1,4 +1,5 @@
 //Import Libs.
+import { EventEmitter } from 'events';
 import http, { RequestOptions } from 'http';
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 
@@ -74,7 +75,7 @@ export default class Proxy {
 /**
  * ProxyHandler is responsible for forwarding HTTP request/response.
  */
-export class ProxyHandler {
+export class ProxyHandler extends EventEmitter {
     /**
      * The name of the proxy handler.
      */
@@ -101,6 +102,8 @@ export class ProxyHandler {
      * @param name the name of the proxy handler.
      */
     constructor(name: string) {
+        super();
+
         //Initialize Options.
         this.name = name;
 
@@ -162,6 +165,10 @@ export class ProxyHandler {
                 headers: request.headers
             }
 
+            const source = { path: request.originalUrl }
+            const target = { host: requestOptions.host, port: requestOptions.port, path: requestOptions.path }
+            this.emit('forward', source, target);
+
             const proxyRequest = http.request(requestOptions, (proxyResponse) => {
                 response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
                 proxyResponse.pipe(response, { end: true });
@@ -195,6 +202,7 @@ export class ProxyHandler {
         this._host = host;
         this._port = port;
         this._linked = true;
+        this.emit('link');
         return this;
     }
 
@@ -203,6 +211,7 @@ export class ProxyHandler {
      */
     public unlink() {
         this._linked = false;
+        this.emit('unlink');
         return this;
     }
 }
