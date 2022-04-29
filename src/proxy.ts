@@ -25,7 +25,6 @@ export default class Proxy {
      * Creates an instance of Proxy.
      */
     constructor() {
-        //Initialize Variables.
         this.proxyHandlers = new Array();
     }
 

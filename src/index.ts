@@ -1,4 +1,4 @@
-//Local Imports
+//Import Local.
 import micro from './micro';
 
 //Export HTTP

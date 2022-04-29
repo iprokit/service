@@ -1,8 +1,8 @@
-//Import @iprotechs Modules
+//Import @iprotechs Libs.
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
 import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, MessageReplyHandler, Logging } from '@iprotechs/scp';
 
-//Import Modules
+//Import Libs.
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import express, { Express, Router, Request, Response, NextFunction, RouterOptions } from 'express';
@@ -14,7 +14,7 @@ import morgan from 'morgan';
 import WinstonDailyRotateFile from 'winston-daily-rotate-file';
 import ip from 'ip';
 
-//Local Imports
+//Import Local.
 import Default from './default';
 import Helper from './helper';
 import HttpStatusCodes from './http.statusCodes';
@@ -150,10 +150,9 @@ export default class Service extends EventEmitter {
      * @throws `InvalidServiceOptions` when a service option is invalid.
      */
     constructor(options: Options) {
-        //Call super for EventEmitter.
         super();
 
-        //Initialize variables.
+        //Initialize Options.
         this.name = options.name;
         this.version = options.version ?? Default.VERSION;
         this.environment = options.environment ?? Default.ENVIRONMENT;
@@ -280,7 +279,6 @@ export default class Service extends EventEmitter {
      * Configures SCP by setting up `ScpServer`.
      */
     private configSCP() {
-        //Bind Events.
         this.scpServer.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
@@ -290,7 +288,6 @@ export default class Service extends EventEmitter {
      * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyHandler`.
      */
     private configServiceRegistry() {
-        //Bind Events.
         this.discovery.on('available', (pod: Pod) => {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
@@ -298,8 +295,6 @@ export default class Service extends EventEmitter {
             const remoteService = this.serviceRegistry.getByName(pod.name) ?? this.register(pod.name);
             remoteService.connect(pod.address, pod.params.httpPort, pod.params.scpPort, () => {
                 this.logger.info(`Connected to remote service ${remoteService.name}`);
-
-                //Emit Global: available.
                 this.emit('available', remoteService);
             });
         });
@@ -311,8 +306,6 @@ export default class Service extends EventEmitter {
             const remoteService = this.serviceRegistry.getByName(pod.name);
             remoteService.disconnect(() => {
                 this.logger.info(`Disconnected from remote service ${remoteService.name}`);
-
-                //Emit Global: unavailable.
                 this.emit('unavailable', remoteService);
             });
         });
@@ -507,16 +500,9 @@ export default class Service extends EventEmitter {
      * @returns the created router.
      */
     public createRouter(mountPath: PathParams, options?: RouterOptions) {
-        //Create a new router.
         const router = express.Router(options);
-
-        //Push to routers.
         this.routers.push(new ExpressRouter(mountPath, router));
-
-        //Mount the router to express.
         this.express.use(mountPath, router);
-
-        //Return the router.
         return router;
     }
 
@@ -801,7 +787,6 @@ export class Hooks {
      * Creates an instance of `Hooks`.
      */
     constructor() {
-        //Initialize variables.
         this.preStart = new Hook();
         this.start = new Hook();
         this.postStart = new Hook();
@@ -867,7 +852,6 @@ export class Hook {
      * Creates an instance of `Hook`.
      */
     constructor() {
-        //Initialize stack.
         this.stack = new Array();
     }
 
@@ -969,7 +953,6 @@ export class ServiceRegistry {
      * Creates an instance of `ServiceRegistry`.
      */
     constructor() {
-        //Initialize remoteServices.
         this.remoteServices = new Array();
     }
 
@@ -1092,7 +1075,6 @@ export class RemoteService {
      * @param proxyHandler the instance of `ProxyHandler`.
      */
     constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, proxyHandler: ProxyHandler) {
-        //Initialize variables.
         this.name = name;
         this.alias = alias;
         this.defined = defined;
@@ -1143,7 +1125,6 @@ export class RemoteService {
      * @param callback optional callback. Will be called once connected.
      */
     public connect(address: string, httpPort: number, scpPort: number, callback?: () => void) {
-        //Initialize variables.
         this._address = address;
         this._httpPort = httpPort;
         this._scpPort = scpPort;
@@ -1187,7 +1168,6 @@ export class ExpressRouter {
      * @param router the `Router` instance.
      */
     constructor(path: PathParams, router: Router) {
-        //Initialize variables.
         this.path = path;
         this.router = router;
     }

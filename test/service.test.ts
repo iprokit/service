@@ -1,4 +1,4 @@
-//Import @iprotechs Modules
+//Import @iprotechs Libs.
 import { Mesh, Body } from '@iprotechs/scp';
 
 //Import Libs.

@@ -1,10 +1,10 @@
-//Import modules
+//Import Libs.
 import { Connection as Mongoose, Model, Schema, SchemaDefinition, Document, Types, ModelUpdateOptions } from 'mongoose';
 
-//Local Imports
+//Import Local.
 import model, { FindOptions } from './db.model';
 
-//Export Libs
+//Export Libs.
 export { SchemaDefinition as NoSQLModelAttributes, Types as NoSQLDataTypes }
 
 /**
@@ -56,7 +56,7 @@ export default class NoSQLModel {
         options = options ?? {};
         options.pagination = options.pagination ?? {};
 
-        //Order properties.
+        //Order Properties.
         if (options.order === 'new' || !options.order) {
             order = { createdAt: -1 };
         } else if (options.order === 'old') {

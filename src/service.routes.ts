@@ -1,7 +1,7 @@
-//Import modules
+//Import Libs.
 import { Request, Response } from 'express';
 
-//Local Imports
+//Import Local.
 import Service from './service';
 import HttpStatusCodes from './http.statusCodes';
 
@@ -22,7 +22,6 @@ export default class ServiceRoutes {
      * @param service the service instance.
      */
     constructor(service: Service) {
-        //Initialize variables.
         this.service = service;
     }
 

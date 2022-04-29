@@ -1,7 +1,7 @@
-//Import Modules
+//Import Libs.
 import { Request, Response } from 'express';
 
-//Local Imports
+//Import Local.
 import { Model } from './db.manager';
 import { FindOptions, FindOrder } from './db.model';
 import HttpStatusCodes from './http.statusCodes';

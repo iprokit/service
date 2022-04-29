@@ -1,13 +1,13 @@
-//Import modules
+//Import Libs.
 import { Sequelize as RDB, Dialect } from 'sequelize';
 import mongoose, { Connection as NoSQL } from 'mongoose';
 import { Logger } from 'winston';
 
-//Local Imports
+//Import Local.
 import RDBModel, { RDBModelAttributes } from './db.rdb.model';
 import NoSQLModel, { NoSQLModelAttributes } from './db.nosql.model';
 
-//Export Libs
+//Export Libs.
 export { RDB }
 export { NoSQL }
 
@@ -68,7 +68,7 @@ export default class DBManager {
      * @param options the constructor options.
      */
     constructor(options: Options) {
-        //Initialize variables.
+        //Initialize Options.
         this.name = options.connection.name;
         this.type = options.connection.type;
         this.host = options.connection.host;

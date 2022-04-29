@@ -1,13 +1,13 @@
-//Import @iprotechs Modules
+//Import @iprotechs Libs.
 import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
 
-//Import Modules
+//Import Libs.
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 
-//Local Imports
+//Import Local.
 import Default from './default';
 import Helper, { FileOptions } from './helper';
 import Service, { Options as ServiceOptions } from './service';
@@ -81,7 +81,7 @@ function micro(options?: Options) {
             dotenv.config({ path: envPath });
         }
 
-        //Initialize serviceOptions.
+        //Initialize Service Options.
         const serviceOptions: ServiceOptions = {
             name: options?.name ?? process.env.npm_package_name,
             version: options?.version ?? process.env.npm_package_version,
@@ -90,7 +90,7 @@ function micro(options?: Options) {
             proxy: proxy
         }
 
-        //Validate env variables.
+        //Initialize Environment Variables.
         if (process.env.NODE_ENV) {
             serviceOptions.environment = process.env.NODE_ENV;
         }
@@ -107,7 +107,7 @@ function micro(options?: Options) {
             serviceOptions.discoveryIp = process.env.DISCOVERY_IP;
         }
 
-        //Initialize serviceOptions for db.
+        //Initialize Service Options for DB.
         if (options?.db) {
             serviceOptions.db = {
                 type: options.db.type,
@@ -122,7 +122,7 @@ function micro(options?: Options) {
         //Create or retrieve the singleton service.
         service = new Service(serviceOptions);
 
-        //Initialize microOptions.
+        //Initialize Micro Variables.
         const forceStopTime = options?.forceStopTime ?? Default.FORCE_STOP_TIME;
         const autoWireModel = options?.autoWireModel ?? { include: { endsWith: ['.model'] } };
         const autoInjectReceiver = options?.autoInjectReceiver ?? { include: { endsWith: ['.receiver'] } };
@@ -194,9 +194,7 @@ function bindProcessEvents(forceStopTime: number) {
             callback(1);
         }, forceStopTime);
 
-        //Call service stop.
         service.stop((error) => {
-            //Remove stop timeout handler.
             clearTimeout(stopTimeout);
 
             let stopCode: ExitCode = 0;
@@ -246,26 +244,17 @@ type ExitCode = 0 | 1;
  * @param controllerOptions the auto inject `Controller` options.
  */
 function injectFiles(path: string, modelOptions: FileOptions, receiverOptions: FileOptions, controllerOptions: FileOptions) {
-    /**
-     * All the files in this project.
-     */
     const files = Helper.findFilePaths(path, { include: { extension: ['.js'] } });
-
-    //Wiring Models.
     files.forEach(file => {
         if (Helper.filterFile(file, modelOptions)) {
             loadModel(file);
         }
     });
-
-    //Injecting Receivers.
     files.forEach(file => {
         if (Helper.filterFile(file, receiverOptions)) {
             loadReceiver(file);
         }
     });
-
-    //Injecting Controllers.
     files.forEach(file => {
         if (Helper.filterFile(file, controllerOptions)) {
             loadController(file);

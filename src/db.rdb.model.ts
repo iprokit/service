@@ -1,10 +1,10 @@
-//Import modules
+//Import Libs.
 import { Model, ModelAttributes, DataTypes, Op, Order } from 'sequelize';
 
-//Local Imports
+//Import Local.
 import model, { FindOptions } from './db.model';
 
-//Export Libs
+//Export Libs.
 export { ModelAttributes as RDBModelAttributes, DataTypes as RDBDataTypes, Op as RDBOp }
 
 /**
@@ -33,7 +33,7 @@ export default class RDBModel extends Model {
         options = options ?? {};
         options.pagination = options.pagination ?? {};
 
-        //Order properties.
+        //Order Properties.
         if (options.order === 'new' || !options.order) {
             order = [['createdAt', 'DESC']];
         } else if (options.order === 'old') {
