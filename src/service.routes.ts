@@ -218,25 +218,18 @@ export default class ServiceRoutes {
      * The remote functions exposed.
      */
     private get rfisReport() {
-        const remoteExecutors: { [rfi: string]: string } = {};
-
-        this.service.scpServer.remoteExecutors.forEach(remoteExecutor => {
-            remoteExecutors[remoteExecutor.map] = remoteExecutor.mode;
-        });
-
-        return remoteExecutors;
+        return this.service.scpServer.remoteExecutors.map(remoteExecutor => remoteExecutor.stringify());
     }
 
     /**
      * The remote functions that can be called on each `Node` mounted on `Mesh`.
      */
     private get meshReport() {
-        const mesh: { [nodeName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
+        const mesh: { [nodeName: string]: Array<string> } = {};
 
         this.service.mesh.nodes.forEach(node => {
-            mesh[node.nname] = {
-                broadcasts: node.rfis.filter(rfi => rfi.isBroadcast()).map(rfi => rfi.stringify()),
-                replies: node.rfis.filter(rfi => rfi.isReply()).map(rfi => rfi.stringify())
+            if (node.rfis) {
+                mesh[node.nname] = node.rfis.map(rfi => rfi.stringify());
             }
         });
 

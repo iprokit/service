@@ -184,6 +184,9 @@ export default class Service extends EventEmitter {
         this.scpServer = new ScpServer(this.name);
         this.configSCP();
 
+        //Initialize Mesh.
+        (this.mesh as any).name = this.name;
+
         //Initialize Discovery.
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
 
