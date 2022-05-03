@@ -35,7 +35,7 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.logPath, logPath);
 
             //Global Variables.
-            assert.strictEqual(mesh, service.scpClientManager.mesh);
+            assert.strictEqual(mesh, service.mesh);
             assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
@@ -68,7 +68,7 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.logPath, logPath);
 
             //Global Variables.
-            assert.strictEqual(mesh, service.scpClientManager.mesh);
+            assert.strictEqual(mesh, service.mesh);
             assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
@@ -94,7 +94,7 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.logPath, logPath);
 
             //Global Variables.
-            assert.strictEqual(mesh, service.scpClientManager.mesh);
+            assert.strictEqual(mesh, service.mesh);
             assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
@@ -126,7 +126,7 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.logPath, logPath);
 
             //Global Variables.
-            assert.strictEqual(mesh, service.scpClientManager.mesh);
+            assert.strictEqual(mesh, service.mesh);
             assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});
@@ -160,7 +160,7 @@ mocha.describe('Micro Test', () => {
             assert.deepStrictEqual(service.logPath, logPath);
 
             //Global Variables.
-            assert.strictEqual(mesh, service.scpClientManager.mesh);
+            assert.strictEqual(mesh, service.mesh);
             assert.strictEqual(proxy, service.proxy);
             assert.deepStrictEqual(models, {});
             assert.deepStrictEqual(receivers, {});

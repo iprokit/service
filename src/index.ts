@@ -7,7 +7,6 @@ export { default as HttpStatusCodes } from './http.statusCodes';
 
 //Export SCP
 export { default as Receiver } from './receiver';
-export { SocketError, ErrorReply, WriteError } from '@iprotechs/scp';
 
 //Export DB Components
 export { RDB, NoSQL, ModelError, InvalidConnectionOptions } from './db.manager';

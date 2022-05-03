@@ -1,6 +1,6 @@
 //Import @iprotechs Libs.
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import scp, { Server as ScpServer, Client as ScpClient, ClientManager as ScpClientManager, Mesh, Body, MessageReplyHandler, Logging } from '@iprotechs/scp';
+import { Server as ScpServer, Node, Mesh, ReplyAsyncFunction } from '@iprotechs/scp';
 
 //Import Libs.
 import { EventEmitter } from 'events';
@@ -108,9 +108,9 @@ export default class Service extends EventEmitter {
     public readonly scpServer: ScpServer;
 
     /**
-     * Instance of `ScpClientManager`.
+     * Instance of `Mesh`.
      */
-    public readonly scpClientManager: ScpClientManager;
+    public readonly mesh: Mesh;
 
     /**
      * Instance of `Proxy`.
@@ -161,6 +161,7 @@ export default class Service extends EventEmitter {
         this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
         this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
         this.logPath = options.logPath;
+        this.mesh = options.mesh;
         this.proxy = options.proxy;
 
         //Initialize IP.
@@ -180,23 +181,8 @@ export default class Service extends EventEmitter {
         }
 
         //Initialize SCP Server.
-        const scpLogger = this.logger.child({ component: 'SCP' });
-        const scpLoggerWrite: Logging = {
-            action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                scpLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map}(${status}) - ${ms} ms`);
-            }
-        }
-        this.scpServer = scp.createServer({ name: this.name, logging: scpLoggerWrite });
+        this.scpServer = new ScpServer(this.name);
         this.configSCP();
-
-        //Initialize SCP Client Manager.
-        const meshLogger = this.logger.child({ component: 'Mesh' });
-        const meshLoggerWrite: Logging = {
-            action: (identifier, remoteAddress, verbose, action, status, ms) => {
-                meshLogger.info(`${identifier}(${remoteAddress}) ${verbose} ${action.map}(${status}) - ${ms} ms`);
-            }
-        }
-        this.scpClientManager = scp.createClientManager({ mesh: options.mesh, logging: meshLoggerWrite });
 
         //Initialize Discovery.
         this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
@@ -576,36 +562,34 @@ export default class Service extends EventEmitter {
     //////SCP Server
     //////////////////////////////
     /**
-     * Creates a `reply` handler on the `ScpServer`.
+     * Creates asynchronous remote reply function that can be executed by all the client socket connections.
      * 
-     * @param action the unique action.
-     * @param handler the handler to be called. The handler will take message and reply as parameters.
+     * @param map the map of the remote reply function.
+     * @param replyFunction the reply function to execute.
      */
-    public reply(action: string, handler: MessageReplyHandler) {
-        this.scpServer.reply(action, handler);
+    public reply<Message, Reply>(map: string, replyFunction: ReplyAsyncFunction<Message, Reply>) {
+        this.scpServer.replyAsync(map, replyFunction);
         return this;
     }
 
     /**
-     * Defines a SCP broadcast action on the `ScpServer`.
+     * Registers a broadcast.
      * 
-     * @param action the action.
+     * @param map the map of the broadcast.
      */
-    public defineBroadcast(action: string) {
-        this.scpServer.defineBroadcast(action);
+    public registerBroadcast(map: string) {
+        this.scpServer.registerBroadcast(map);
         return this;
     }
 
     /**
-     * Triggers the broadcast action on all the connected services.
-     * A broadcast has to be defined `service.defineBroadcast()` before broadcast action can be triggered.
+     * Broadcasts the supplied body to all the client socket connections.
      * 
-     * @param action the action.
-     * @param body the body to send.
+     * @param map the map of the broadcast.
+     * @param body the optional body to broadcast.
      */
-    public broadcast(action: string, body: Body) {
-        this.scpServer.broadcast(action, body);
-        return this;
+    public broadcast<Body>(map: string, body?: Body) {
+        return this.scpServer.broadcast(map, body);
     }
 
     //////////////////////////////
@@ -649,12 +633,11 @@ export default class Service extends EventEmitter {
         defined = defined ?? false;
         const traceName = alias ?? name;
 
-        //Create a new `ScpClient`.
-        const scpClient = this.scpClientManager.createClient({ name: this.name });
-        scpClient.on('error', (error: Error) => {
+        //Create a new `Node`.
+        const node = this.mesh.mount(traceName);
+        node.on('error', (error: Error) => {
             this.logger.error(error.stack);
         });
-        this.scpClientManager.mount(traceName, scpClient);
 
         //Create a new `ProxyHandler`.
         const proxyHandler = this.proxy.mount(traceName);
@@ -663,7 +646,7 @@ export default class Service extends EventEmitter {
         });
 
         //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, scpClient, proxyHandler);
+        const remoteService = new RemoteService(name, alias, defined, node, proxyHandler);
         this.serviceRegistry.register(remoteService);
 
         //Add preStop Hook[Bottom]: Disconnect.
@@ -736,7 +719,7 @@ export type Options = {
     db?: ConnectionOptions;
 
     /**
-     * `Node`'s are populated into this `Mesh` during runtime.
+     * Executes SCP remote functions.
      */
     mesh?: Mesh;
 
@@ -972,7 +955,7 @@ export class ServiceRegistry {
         }
 
         //Try getting remoteService that disconnected.
-        const remoteService = remoteServices.find(remoteService => !remoteService.scpClient.connected && !remoteService.proxyHandler.linked);
+        const remoteService = remoteServices.find(remoteService => !remoteService.node.connected && !remoteService.proxyHandler.linked);
 
         return (remoteService === undefined) ? true : false;
     }
@@ -1041,9 +1024,9 @@ export class RemoteService {
     public readonly defined: boolean;
 
     /**
-     * The instance of `ScpClient`.
+     * The instance of `Node`.
      */
-    public readonly scpClient: ScpClient;
+    public readonly node: Node;
 
     /**
      * The instance of `ProxyHandler`.
@@ -1071,14 +1054,14 @@ export class RemoteService {
      * @param name the name of the service.
      * @param alias the optional, alias name of the service.
      * @param defined set to true if the service is defined by the consumer, false if auto discovered.
-     * @param scpClient the instance of `ScpClient`.
+     * @param node the instance of `Node`.
      * @param proxyHandler the instance of `ProxyHandler`.
      */
-    constructor(name: string, alias: string, defined: boolean, scpClient: ScpClient, proxyHandler: ProxyHandler) {
+    constructor(name: string, alias: string, defined: boolean, node: Node, proxyHandler: ProxyHandler) {
         this.name = name;
         this.alias = alias;
         this.defined = defined;
-        this.scpClient = scpClient;
+        this.node = node;
         this.proxyHandler = proxyHandler;
     }
 
@@ -1110,7 +1093,7 @@ export class RemoteService {
      * True if the remote service is connected, false if disconnected.
      */
     public get connected() {
-        return this.proxyHandler.linked && this.scpClient.connected;
+        return this.proxyHandler.linked && this.node.connected;
     }
 
     //////////////////////////////
@@ -1130,7 +1113,7 @@ export class RemoteService {
         this._scpPort = scpPort;
 
         this.proxyHandler.link(this._httpPort, this._address);
-        this.scpClient.connect(this._address, this._scpPort, callback);
+        this.node.connect(this._scpPort, this._address, callback);
     }
 
     /**
@@ -1140,7 +1123,7 @@ export class RemoteService {
      */
     public disconnect(callback?: () => void) {
         this.proxyHandler.unlink();
-        this.scpClient.disconnect(callback);
+        this.node.disconnect(callback);
     }
 }
 

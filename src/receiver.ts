@@ -1,5 +1,5 @@
 /**
- * A generic `Receiver` acts as an interface between two services to process all incoming data as `Action`'s.
+ * A generic `Receiver` is an instance of all the remote reply functions grouped by `className`;
  */
 export default class Receiver {
     /**

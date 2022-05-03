@@ -67,7 +67,7 @@ export default class ServiceRoutes {
                 healthy = healthy && dbManager;
             }
 
-            const code = (healthy === true) ? HttpStatusCodes.OK : HttpStatusCodes.INTERNAL_SERVER_ERROR;
+            const code = (healthy === true) ? HttpStatusCodes.OK : HttpStatusCodes.SERVICE_UNAVAILABLE;
             const health = {
                 name: this.service.name,
                 version: this.service.version,
@@ -90,8 +90,8 @@ export default class ServiceRoutes {
      * - Service: The service configuration.
      * - DB: The `DBManager` connection configuration and `Model`'s loaded.
      * - Endpoints: The `HTTP` `Endpoint`'s exposed.
-     * - Actions: The `SCP` `Action`'s exposed.
-     * - Mesh: The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
+     * - RFIs: The remote functions exposed.
+     * - Mesh: The remote functions that can be called on each `Node` mounted on `Mesh`.
      * - ServiceRegistry: The `RemoteService`'s registed.
      */
     public getReport(request: Request, response: Response) {
@@ -100,7 +100,7 @@ export default class ServiceRoutes {
                 service: this.serviceReport,
                 db: this.service.dbManager && this.dbReport,
                 endpoints: this.endpointsReport,
-                actions: this.actionsReport,
+                rfis: this.rfisReport,
                 mesh: this.meshReport,
                 serviceRegistry: this.serviceRegistryReport
             }
@@ -141,7 +141,7 @@ export default class ServiceRoutes {
             ip: this.service.ip,
             logPath: this.service.logPath,
             identifiers: {
-                scp: this.service.scpServer.identifier,
+                scp: this.service.scpServer.id,
                 discovery: this.service.discovery.id
             }
         }
@@ -215,28 +215,28 @@ export default class ServiceRoutes {
     }
 
     /**
-     * The `SCP` `Action`'s exposed.
+     * The remote functions exposed.
      */
-    private get actionsReport() {
-        const scpRoutes: { [action: string]: string } = {};
+    private get rfisReport() {
+        const remoteExecutors: { [rfi: string]: string } = {};
 
-        this.service.scpServer.routes.forEach(route => {
-            scpRoutes[route.map] = route.type;
+        this.service.scpServer.remoteExecutors.forEach(remoteExecutor => {
+            remoteExecutors[remoteExecutor.map] = remoteExecutor.mode;
         });
 
-        return scpRoutes;
+        return remoteExecutors;
     }
 
     /**
-     * The `SCP` `Action`'s that can be called on each `Node` mounted on `Mesh`.
+     * The remote functions that can be called on each `Node` mounted on `Mesh`.
      */
     private get meshReport() {
-        const mesh: { [traceName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
+        const mesh: { [nodeName: string]: { broadcasts: Array<string>, replies: Array<string> } } = {};
 
-        Object.entries(this.service.scpClientManager.mesh).forEach(([traceName, node]) => {
-            mesh[traceName] = {
-                broadcasts: node.broadcasts,
-                replies: node.replies
+        this.service.mesh.nodes.forEach(node => {
+            mesh[node.nname] = {
+                broadcasts: node.rfis.filter(rfi => rfi.isBroadcast()).map(rfi => rfi.stringify()),
+                replies: node.rfis.filter(rfi => rfi.isReply()).map(rfi => rfi.stringify())
             }
         });
 
@@ -255,15 +255,8 @@ export default class ServiceRoutes {
                 address: remoteService.address,
                 httpPort: remoteService.httpPort,
                 scpPort: remoteService.scpPort,
-                scpClient: {
-                    client: remoteService.scpClient.identifier,
-                    remote: remoteService.scpClient.node.identifier,
-                    connected: remoteService.scpClient.connected,
-                    reconnecting: remoteService.scpClient.reconnecting,
-                },
-                proxyClient: {
-                    linked: remoteService.proxyHandler.linked
-                }
+                nodeConnected: remoteService.node.connected,
+                proxyHandlerLinked: remoteService.proxyHandler.linked
             }
         });
     }

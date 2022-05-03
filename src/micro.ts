@@ -1,5 +1,5 @@
 //Import @iprotechs Libs.
-import { Action, Body, MessageReplyHandler, Mesh } from '@iprotechs/scp';
+import { RFI, Mesh, ReplyAsyncFunction } from '@iprotechs/scp';
 
 //Import Libs.
 import path from 'path';
@@ -50,10 +50,7 @@ const receiverMetas: Array<ReceiverMeta> = new Array();
 const controllerMetas: Array<ControllerMeta> = new Array();
 
 /**
- * `Mesh` is a representation of unique services's in the form of Object's.
- *
- * During runtime:
- * `Node` objects are populated into `Mesh` with its traceName as a get accessor.
+ * Executes SCP remote functions.
  */
 export const mesh: Mesh = new Mesh();
 
@@ -143,14 +140,13 @@ function micro(options?: Options) {
 
 namespace micro {
     /**
-     * Triggers the broadcast action on all the connected services.
-     * A broadcast has to be defined `micro.defineBroadcast()` before broadcast action can be triggered.
+     * Broadcasts the supplied body to all the client socket connections.
      * 
-     * @param action the action.
-     * @param body the body to send.
+     * @param map the map of the broadcast.
+     * @param body the optional body to broadcast.
      */
-    export function broadcast(action: string, body: Body) {
-        service.broadcast(action, body);
+    export function broadcast<Body>(map: string, body?: Body) {
+        return service.broadcast(map, body);
     }
 
     /**
@@ -301,19 +297,19 @@ function loadReceiver(file: string) {
     //Get receiver name.
     const name = receiver.name.replace('Receiver', '');
 
-    //Get each meta, bind the function and add action to the scpServer.
+    //Get each meta, bind the function and add remote function to the scpServer.
     receiverMeta.forEach(meta => {
-        //Setup a new Action.
-        const action = name + Action.MAP_BREAK + meta.handlerName;
+        //Setup a new map.
+        const map = name + RFI.CLASS_BREAK + meta.handlerName;
 
-        //Add Action.
-        service[meta.type](action, Helper.bind(receiver[meta.handlerName], receiver));
+        //Add remote function.
+        service[meta.mode](map, Helper.bind(receiver[meta.handlerName], receiver));
     });
 
     //Add to receivers.
     receivers[name] = receiver;
 
-    service.logger.debug(`Adding actions from receiver: ${receiver.name}`);
+    service.logger.debug(`Adding rfis from receiver: ${receiver.name}`);
 }
 
 /**
@@ -424,21 +420,21 @@ export function Entity(options: EntityOptions): ModelClass {
 /**
  * Interface for `ReplyFunction` descriptor.
  */
-export interface ReplyDescriptor extends PropertyDescriptor {
-    value: MessageReplyHandler;
+export interface ReplyDescriptor<Message, Reply> extends PropertyDescriptor {
+    value: ReplyAsyncFunction<Message, Reply>;
 }
 
 /**
- * Interface for SCP action.
+ * Interface for remote reply function.
  */
-export interface ReplyFunction {
-    (receiver: typeof Receiver, handlerName: string, replyDescriptor: ReplyDescriptor): void;
+export interface ReplyFunction<Message, Reply> {
+    (receiver: typeof Receiver, handlerName: string, replyDescriptor: ReplyDescriptor<Message, Reply>): void;
 }
 
 /**
- * Creates a `reply` action on the `ScpServer`.
+ * Creates a remote reply function on the `ScpServer`.
  */
-export function Reply(): ReplyFunction {
+export function Reply<Message, Reply>(): ReplyFunction<Message, Reply> {
     return (receiver, handlerName, replyDescriptor) => {
         receiverMetas.push(new ReceiverMeta(receiver.name, handlerName, 'reply'));
     }
@@ -509,9 +505,9 @@ export function Delete(path: PathParams): RequestFunction {
 //////ReceiverMeta
 //////////////////////////////
 /**
- * The SCP action types.
+ * The SCP mode.
  */
-export type ScpType = 'reply';
+export type Mode = 'reply';
 
 /**
  * Definition of ReceiverMeta.
@@ -528,21 +524,21 @@ export class ReceiverMeta {
     public readonly handlerName: string;
 
     /**
-     * The type of the SCP actions.
+     * The mode of SCP.
      */
-    public readonly type: ScpType;
+    public readonly mode: Mode;
 
     /**
      * Creates an instance of `ReceiverMeta`.
      * 
      * @param className the constructor name of the receiver.
      * @param handlerName the name of the handler.
-     * @param type the type of the SCP actions.
+     * @param mode the mode of SCP.
      */
-    constructor(className: string, handlerName: string, type: ScpType) {
+    constructor(className: string, handlerName: string, mode: Mode) {
         this.receiverName = className;
         this.handlerName = handlerName;
-        this.type = type;
+        this.mode = mode;
     }
 }
 
