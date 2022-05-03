@@ -252,12 +252,12 @@ export default class HeroController extends Controller {
         await super.getAll(request, response);
     }
 
-    @Put('/:id')
+    @Put('/id/:id')
     async updateOneByID(request, response) {
         await super.updateOneByID(request, response);
     }
 
-    @Delete('/:id')
+    @Delete('/id/:id')
     async deleteOneByID(request, response) {
         await super.deleteOneByID(request, response);
     }
@@ -304,9 +304,9 @@ const heroMicroService = Micro();
 heroMicroService.discover('sidekickSvc', 'sidekick');
 
 /**
- * Define broadcast names.
+ * Register broadcast names.
  */
-heroMicroService.defineBroadcast('hero.poke');
+heroMicroService.registerBroadcast('hero.poke');
 
 //Start the microservice.
 heroMicroService.start(() => {
@@ -314,9 +314,9 @@ heroMicroService.start(() => {
 
     //Send a broadcast every 5 seconds.
     for (let i = 0; i <= 10; i++) {
-        setTimeout(() => {
+        setTimeout(async () => {
             const body = { message: 'Poke' };
-            Micro.broadcast('hero.poke', body);
+            await Micro.broadcast('hero.poke', body);
         }, 5 * 1000);
     }
 });
@@ -328,19 +328,15 @@ import { Receiver, Reply } from '@iprotechs/micro';
 
 export default class IntroductionReceiver extends Receiver {
     @Reply()
-    async hello(message, reply) {
-        try {
-            reply.send({ intro: 'I am Hero Service.' });
-        } catch (error) {
-            reply.sendError(error);
-        }
+    async hello(message) {
+        return { intro: 'I am Hero Service.' }
     }
 }
 ```
 
 * hero.controller.js
 ```javascript
-import { Controller, HttpStatusCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
+import { Controller, Get, Mesh, HttpStatusCodes } from '@iprotechs/micro';
 
 export default class HeroController extends Controller {
     @Get('/')
@@ -348,19 +344,9 @@ export default class HeroController extends Controller {
         try {
             //Call: Mesh.NodeName.ReceiverName.functionName();
             const hello = await Mesh.sidekick.Introduction.hello({});
-            response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
+            response.status(HttpStatusCodes.OK).send(hello);
         } catch (error) {
-            //When node is unavailable.
-            if (error instanceof SocketError) {
-                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
-                return;
-            }
-            //When error reply is received.
-            if (error instanceof ErrorReply) {
-                response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                return;
-            }
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 }
@@ -397,19 +383,15 @@ import { Receiver, Reply } from '@iprotechs/micro';
 
 export default class IntroductionReceiver extends Receiver {
     @Reply()
-    async hello(message, reply) {
-        try {
-            reply.send({ intro: 'I am Sidekick Service.' });
-        } catch (error) {
-            reply.sendError(error);
-        }
+    async hello(message) {
+        return { intro: 'I am Sidekick Service.' }
     }
 }
 ```
 
 * sidekick.controller.js
 ```javascript
-import { Controller, HttpStatusCodes, Get, Mesh, SocketError, ErrorReply } from '@iprotechs/micro';
+import { Controller, Get, Mesh, HttpStatusCodes } from '@iprotechs/micro';
 
 export default class SidekickController extends Controller {
     @Get('/')
@@ -417,19 +399,9 @@ export default class SidekickController extends Controller {
         try {
             //Call: Mesh.NodeName.ReceiverName.functionName();
             const hello = await Mesh.hero.Introduction.hello({});
-            response.status(HttpStatusCodes.OK).send({ status: true, data: hello });
+            response.status(HttpStatusCodes.OK).send(hello);
         } catch (error) {
-            //When node is unavailable.
-            if (error instanceof SocketError) {
-                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ status: false, message: error.message });
-                return;
-            }
-            //When error reply is received.
-            if (error instanceof ErrorReply) {
-                response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
-                return;
-            }
-            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send({ status: false, message: error.message });
+            response.status(HttpStatusCodes.INTERNAL_SERVER_ERROR).send(error.message);
         }
     }
 }
@@ -468,8 +440,7 @@ gatewayService.start(() => {
 ```
 
 ## Versions:
-| Version | Description                    |
-|---------|--------------------------------|
-| 1.0.0   | First release of Micro.        |
-| 1.0.1   | Resolved proxy issue.          |
-| 1.0.2   | Resolved proxy stalling issue. |
+| Version | Description             |
+|---------|-------------------------|
+| 1.0.0   | First release of Micro. |
+| 1.1.0   | Upgraded to SCP v2.1.0  |
