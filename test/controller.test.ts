@@ -1,7 +1,7 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 
 //Import Local.
 import Service from '../lib/service';
@@ -78,6 +78,7 @@ mocha.describe('Controller Test', () => {
         }
         const heroController = new HeroController();
         const heroRouter = service.createRouter('/hero');
+        heroRouter.use(express.json())
         heroRouter.post('/', Helper.bind(heroController.create, heroController));
         heroRouter.get('/', Helper.bind(heroController.getAll, heroController));
         heroRouter.get('/:id', Helper.bind(heroController.getOneByID, heroController));
@@ -362,6 +363,7 @@ mocha.describe('Controller Test', () => {
         }
         const heroController = new HeroController();
         const heroRouter = service.createRouter('/hero');
+        heroRouter.use(express.json())
         heroRouter.post('/', Helper.bind(heroController.create, heroController));
         heroRouter.get('/', Helper.bind(heroController.getAll, heroController));
         heroRouter.get('/:id', Helper.bind(heroController.getOneByID, heroController));

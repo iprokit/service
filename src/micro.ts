@@ -5,6 +5,7 @@ import { RFI, Mesh, ReplyAsyncFunction } from '@iprotechs/scp';
 import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import express from 'express';
 import { PathParams, RequestHandler } from 'express-serve-static-core';
 
 //Import Local.
@@ -334,6 +335,7 @@ function loadController(file: string) {
     //Setup a new Router.
     const name = controller.name.replace('Controller', '');
     const router = service.createRouter(`/${name.toLowerCase()}`);
+    router.use(express.json())
 
     //Get each meta, bind the function and add route to the router.
     controllerMeta.forEach(meta => {

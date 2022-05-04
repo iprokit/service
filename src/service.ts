@@ -161,8 +161,8 @@ export default class Service extends EventEmitter {
         this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
         this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
         this.logPath = options.logPath;
-        this.mesh = options.mesh;
-        this.proxy = options.proxy;
+        this.mesh = options.mesh ?? new Mesh();
+        this.proxy = options.proxy ?? new Proxy();
 
         //Initialize IP.
         this.ip = ip.address();
@@ -318,8 +318,8 @@ export default class Service extends EventEmitter {
         this.express.use(cors());
         this.express.options('*', cors());
 
-        //Middleware: JSON.
-        this.express.use(express.json());
+        // //Middleware: JSON.
+        // this.express.use(express.json());
 
         //Setup child logger for HTTP.
         const httpLogger = this.logger.child({ component: 'HTTP' });
@@ -351,12 +351,14 @@ export default class Service extends EventEmitter {
 
             //Service routes.
             const serviceRouter = this.createRouter('/');
+            serviceRouter.use(express.json())
             serviceRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
             serviceRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
 
             //Database routes.
             if (this.dbManager) {
                 const databaseRouter = this.createRouter('/db');
+                databaseRouter.use(express.json())
                 databaseRouter.get('/sync', Helper.bind(serviceRoutes.syncDatabase, serviceRoutes));
             }
 

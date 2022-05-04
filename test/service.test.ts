@@ -4,7 +4,7 @@ import { Mesh } from '@iprotechs/scp';
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { RequestHandler } from 'express';
+import express, { RequestHandler } from 'express';
 
 //Import Local.
 import Default from '../lib/default';
@@ -36,8 +36,8 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.discoveryPort, Default.DISCOVERY_PORT);
             assert.deepStrictEqual(service.discoveryIp, Default.DISCOVERY_IP);
             assert.deepStrictEqual(service.logPath, logPath);
-            assert.deepStrictEqual(service.mesh, undefined);
-            assert.deepStrictEqual(service.proxy, undefined);
+            assert.notDeepStrictEqual(service.mesh, undefined);
+            assert.notDeepStrictEqual(service.proxy, undefined);
 
             //Class Variables.
             assert.notDeepStrictEqual(service.ip, undefined);
@@ -212,9 +212,7 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Express Test', () => {
-        const mesh = new Mesh();
-        const proxy = new Proxy();
-        const service = new Service({ name: 'HeroSVC', logPath: logPath, mesh: mesh, proxy: proxy });
+        const service = new Service({ name: 'HeroSVC', logPath: logPath });
         silentLog(service);
 
         mocha.before((done) => {
@@ -226,6 +224,8 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Router(Default) Creation Test', () => {
+            service.express.use(express.json());
+
             //Before Routes.
             service.use('/sidekick', (request, response, next) => {
                 request.body.sidekick = true;
@@ -326,6 +326,7 @@ mocha.describe('Service Test', () => {
 
         mocha.describe('Router(Custom) Creation Test', () => {
             const heroRouter = service.createRouter('/hero');
+            heroRouter.use(express.json())
 
             //Before Routes.
             heroRouter.use('/', (request, response, next) => {
@@ -904,6 +905,7 @@ mocha.describe('Service Test', () => {
 
             //Server Armor
             const armorRouter = armorSVC.createRouter('/');
+            armorRouter.use(express.json())
             armorRouter.get('/busters', (request, response) => {
                 //Validate proxy has passed variables.
                 assert.deepStrictEqual((request as any).proxy.m1, 1);
