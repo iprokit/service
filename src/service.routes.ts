@@ -228,9 +228,7 @@ export default class ServiceRoutes {
         const mesh: { [nodeName: string]: Array<string> } = {};
 
         this.service.mesh.nodes.forEach(node => {
-            if (node.rfis) {
-                mesh[node.nname] = node.rfis.map(rfi => rfi.stringify());
-            }
+            mesh[node.nname] = node.rfis?.map(rfi => rfi.stringify());
         });
 
         return mesh;

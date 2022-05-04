@@ -26,6 +26,11 @@ import Receiver from './receiver';
 let service: Service;
 
 /**
+ * The base url the service.
+ */
+let baseURL: string;
+
+/**
  * The auto wired `Model`'s under this service.
  */
 export const models: { [name: string]: Model } = {};
@@ -121,6 +126,7 @@ function micro(options?: Options) {
         service = new Service(serviceOptions);
 
         //Initialize Micro Variables.
+        baseURL = options?.baseURL ?? '/';
         const forceStopTime = options?.forceStopTime ?? Default.FORCE_STOP_TIME;
         const autoWireModel = options?.autoWireModel ?? { include: { endsWith: ['.model'] } };
         const autoInjectReceiver = options?.autoInjectReceiver ?? { include: { endsWith: ['.receiver'] } };
@@ -334,7 +340,8 @@ function loadController(file: string) {
 
     //Setup a new Router.
     const name = controller.name.replace('Controller', '');
-    const router = service.createRouter(`/${name.toLowerCase()}`);
+    const path = baseURL === '/' ? `/${name.toLowerCase()}` : `${baseURL}/${name.toLowerCase()}`;
+    const router = service.createRouter(path);
     router.use(express.json())
 
     //Get each meta, bind the function and add route to the router.
@@ -608,6 +615,11 @@ export type Options = {
      * The version of the service.
      */
     version?: string;
+
+    /**
+     * The base url the service.
+     */
+    baseURL?: string;
 
     /**
      * The database configuration options.
