@@ -159,7 +159,7 @@ export class ProxyHandler extends EventEmitter {
             const requestOptions: RequestOptions = {
                 host: this._host,
                 port: this._port,
-                path: path ?? request.path,
+                path: path ?? request.url,
                 method: request.method,
                 headers: request.headers
             }

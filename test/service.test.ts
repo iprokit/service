@@ -906,16 +906,7 @@ mocha.describe('Service Test', () => {
             //Server Armor
             const armorRouter = armorSVC.createRouter('/');
             armorRouter.use(express.json())
-            armorRouter.get('/busters', (request, response) => {
-                //Validate proxy has passed variables.
-                assert.deepStrictEqual((request as any).proxy.m1, 1);
-                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
-                assert.deepStrictEqual((request as any).proxy.m3, true);
-                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
-                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
-
-                response.status(HttpStatusCodes.OK).send({ armor: ['Thorbuster', 'Hulkbuster'] });
-            }).get('/features', (request, response) => {
+            armorRouter.get('/features', (request, response) => {
                 //Validate proxy has passed variables.
                 assert.deepStrictEqual((request as any).proxy.m1, 1);
                 assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
@@ -924,6 +915,18 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
 
                 response.status(HttpStatusCodes.OK).send({ features: ['Lightweight', 'Flight'] });
+            }).get('/busters', (request, response) => {
+                //Validate proxy has passed variables.
+                assert.deepStrictEqual((request as any).proxy.m1, 1);
+                assert.deepStrictEqual((request as any).proxy.m2, 'Armor');
+                assert.deepStrictEqual((request as any).proxy.m3, true);
+                assert.deepStrictEqual((request as any).proxy.m4, ['Armor']);
+                assert.deepStrictEqual((request as any).proxy.m5, { armor: true });
+
+                //Validate Query Params
+                assert.deepStrictEqual(request.query.power, 'on');
+
+                response.status(HttpStatusCodes.OK).send({ armor: ['Thorbuster', 'Hulkbuster'] });
             }).post('/add', (request, response) => {
                 //Validate proxy has passed variables.
                 assert.deepStrictEqual((request as any).proxy.m1, 1);
@@ -957,16 +960,6 @@ mocha.describe('Service Test', () => {
             });
 
             //Client
-            mocha.it('should proxy(Direct) to GET(/armor/busters) and receive body(JSON) with CORS support', (done) => {
-                const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'GET', path: '/armor/busters', body: {}, json: true };
-                httpRequest(options, (response, error) => {
-                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
-                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
-                    assert.deepStrictEqual(response.body, { armor: ['Thorbuster', 'Hulkbuster'] });
-                    done(error);
-                });
-            });
-
             mocha.it('should proxy(Re-Direct) to GET(/armor/powers) and receive body(JSON) with CORS support', (done) => {
                 const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'GET', path: '/armor/powers', body: {}, json: true };
                 httpRequest(options, (response, error) => {
@@ -977,7 +970,17 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should proxy(Re-Direct) to POST(/armor/add) and receive body(JSON) with CORS support', (done) => {
+            mocha.it('should proxy(Direct) to GET(/armor/busters?power=on) and receive body(JSON) with CORS support', (done) => {
+                const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'GET', path: '/armor/busters?power=on', body: {}, json: true };
+                httpRequest(options, (response, error) => {
+                    assert.deepStrictEqual(response.headers['access-control-allow-origin'], '*');
+                    assert.deepStrictEqual(response.statusCode, HttpStatusCodes.OK);
+                    assert.deepStrictEqual(response.body, { armor: ['Thorbuster', 'Hulkbuster'] });
+                    done(error);
+                });
+            });
+
+            mocha.it('should proxy(Direct) to POST(/armor/add) and receive body(JSON) with CORS support', (done) => {
                 const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'POST', path: '/armor/add', body: { name: 'Thorbuster' }, json: true };
                 options.headers = { 'Content-Type': 'application/json' };
                 httpRequest(options, (response, error) => {
@@ -988,7 +991,7 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should proxy(Re-Direct) to PUT(/armor/update) and receive body(JSON) with CORS support', (done) => {
+            mocha.it('should proxy(Direct) to PUT(/armor/update) and receive body(JSON) with CORS support', (done) => {
                 const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'PUT', path: '/armor/update', body: { name: 'Thorbuster' }, json: true };
                 options.headers = { 'Content-Type': 'application/json' };
                 httpRequest(options, (response, error) => {
@@ -999,7 +1002,7 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should proxy(Re-Direct) to DELETE(/armor/delete) and receive body(JSON) with CORS support', (done) => {
+            mocha.it('should proxy(Direct) to DELETE(/armor/delete) and receive body(JSON) with CORS support', (done) => {
                 const options: HttpOptions = { host: '127.0.0.1', port: 3001, method: 'DELETE', path: '/armor/delete', body: { name: 'Thorbuster' }, json: true };
                 options.headers = { 'Content-Type': 'application/json' };
                 httpRequest(options, (response, error) => {
