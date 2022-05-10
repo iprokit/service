@@ -1,6 +1,6 @@
 //Import @iprotechs Libs.
 import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import { Server as ScpServer, Node, Mesh, ReplyAsyncFunction } from '@iprotechs/scp';
+import { Server as ScpServer, Node, Mesh, Connection as ScpConnection, ReplyAsyncFunction } from '@iprotechs/scp';
 
 //Import Libs.
 import { EventEmitter } from 'events';
@@ -268,8 +268,13 @@ export default class Service extends EventEmitter {
      * Configures SCP by setting up `ScpServer`.
      */
     private configSCP() {
+        this.scpServer.on('connection', (connection: ScpConnection) => {
+            connection.on('error', (error: Error) => {
+                this.logger.error(error.stack, { component: `SCP:${connection.name}` });
+            });
+        });
         this.scpServer.on('error', (error: Error) => {
-            this.logger.error(error.stack);
+            this.logger.error(error.stack, { component: 'SCP' });
         });
     }
 
@@ -300,7 +305,7 @@ export default class Service extends EventEmitter {
         });
 
         this.discovery.on('error', (error: Error) => {
-            this.logger.error(error.stack);
+            this.logger.error(error.stack, { component: 'DISCOVERY' });
         });
     }
 
@@ -641,7 +646,7 @@ export default class Service extends EventEmitter {
         //Create a new `Node`.
         const node = this.mesh.mount(traceName);
         node.on('error', (error: Error) => {
-            this.logger.error(error.stack);
+            this.logger.error(error.stack, { component: `NODE:${traceName}` });
         });
 
         //Create a new `ProxyHandler`.
