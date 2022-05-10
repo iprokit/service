@@ -279,14 +279,14 @@ export default class Service extends EventEmitter {
     }
 
     /**
-     * Configures `ServiceRegistry` by setting up `Discovery`, `ScpClientManager` and `ProxyHandler`.
+     * Configures `ServiceRegistry` by setting up `Discovery`, `Node` and `ProxyHandler`.
      */
     private configServiceRegistry() {
         this.discovery.on('available', (pod: Pod) => {
             this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
 
             //Try finding the remoteService or create a new one and connect.
-            const remoteService = this.serviceRegistry.getByName(pod.name) ?? this.register(pod.name);
+            const remoteService = this.register(pod.name);
             remoteService.connect(pod.address, pod.params.httpPort, pod.params.scpPort, () => {
                 this.logger.info(`Connected to remote service ${remoteService.name}`);
                 this.emit('available', remoteService);
@@ -1001,7 +1001,7 @@ export class ServiceRegistry {
      * @param name the name of the remote service.
      */
     public getByName(name: string) {
-        return this.remoteServices.find(remoteService => remoteService.name === name);
+        return name ? this.remoteServices.find(remoteService => remoteService.name === name) : undefined;
     }
 
     /**
@@ -1010,7 +1010,7 @@ export class ServiceRegistry {
      * @param alias the alias of the remote service.
      */
     public getByAlias(alias: string) {
-        return this.remoteServices.find(remoteService => remoteService.alias === alias);
+        return alias ? this.remoteServices.find(remoteService => remoteService.alias === alias) : undefined;
     }
 }
 
