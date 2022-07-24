@@ -443,4 +443,4 @@ gatewayService.start(() => {
 | Version | Description             |
 |---------|-------------------------|
 | 1.0.0   | First release of Micro. |
-| 1.1.0   | Upgraded to SCP v2.1.0  |
+| 1.2.0   | Upgraded to SCP v2.2.1  |
