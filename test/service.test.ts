@@ -8,7 +8,8 @@ import express, { RequestHandler } from 'express';
 
 //Import Local.
 import Default from '../lib/default';
-import Service, { Options, InvalidServiceOptions, RemoteService } from '../lib/service';
+import Service, { Options, InvalidServiceOptions } from '../lib/service';
+import { RemoteService } from '../lib/service.registry';
 import Proxy from '../lib/proxy';
 import HttpStatusCodes from '../lib/http.statusCodes';
 

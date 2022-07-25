@@ -243,11 +243,16 @@ export default class ServiceRoutes {
                 name: remoteService.name,
                 alias: remoteService.alias,
                 defined: remoteService.defined,
-                address: remoteService.address,
-                httpPort: remoteService.httpPort,
-                scpPort: remoteService.scpPort,
-                nodeConnected: remoteService.node.connected,
-                proxyHandlerLinked: remoteService.proxyHandler.linked
+                proxyHandler: {
+                    address: remoteService.httpAddress,
+                    port: remoteService.httpPort,
+                    linked: remoteService.proxyHandler.linked
+                },
+                node: {
+                    address: remoteService.scpAddress,
+                    port: remoteService.scpPort,
+                    connected: remoteService.node.connected
+                }
             }
         });
     }
