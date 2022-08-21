@@ -20,7 +20,7 @@ const logPath = '/Users/iprotechs/Desktop/logs';
 const rdbOptions: ConnectionOptions = {
     name: 'rutvik_promicro',
     type: 'mysql',
-    host: 'stage-elb-internet-664379967.ap-south-1.elb.amazonaws.com',
+    host: 'stage2.aqucloud.com',
     username: 'rutvik',
     password: 'Pr0m1cr@2020'
 }
@@ -28,7 +28,7 @@ const rdbOptions: ConnectionOptions = {
 const noSQLOptions: ConnectionOptions = {
     name: 'PoC',
     type: 'mongo',
-    host: 'stage-elb-internet-664379967.ap-south-1.elb.amazonaws.com',
+    host: 'stage2.aqucloud.com',
     username: 'admin',
     password: 'c3r1stm3s'
 }
