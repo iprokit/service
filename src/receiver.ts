@@ -14,6 +14,6 @@ export default class Receiver {
      * The name of the receiver.
      */
     public get name() {
-        return this.constructor.name;
+        return this.constructor.name.replace('Receiver', '');
     }
 }

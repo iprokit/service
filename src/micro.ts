@@ -46,11 +46,6 @@ export const receivers: { [name: string]: Receiver } = {};
 export const controllers: { [name: string]: Controller } = {};
 
 /**
- * An array of `ReceiverMeta`.
- */
-const receiverMetas: Array<ReceiverMeta> = new Array();
-
-/**
  * An array of `ControllerMeta`.
  */
 const controllerMetas: Array<ControllerMeta> = new Array();
@@ -284,9 +279,7 @@ function loadModel(file: string) {
 
 /**
  * Load the `Receiver` with the following steps.
- * - Call `require()`. SCP Decorators are called automatically, It will add its meta.
- * - Call the receiver constructor.
- * - Get the meta, bind the function to the constructor context.
+ * - Call `require()`. SCP Decorators are called automatically.
  * - Push to array.
  * 
  * @param file the path of the receiver.
@@ -298,23 +291,8 @@ function loadReceiver(file: string) {
     //Initialize the receiver.
     const receiver = new ReceiverInstance();
 
-    //Get receiverMeta.
-    const receiverMeta = getReceiverMeta(receiver.name);
-
-    //Get receiver name.
-    const name = receiver.name.replace('Receiver', '');
-
-    //Get each meta, bind the function and add remote function to the scpServer.
-    receiverMeta.forEach(meta => {
-        //Setup a new map.
-        const map = name + RFI.CLASS_BREAK + meta.handlerName;
-
-        //Add remote function.
-        service[meta.mode](map, Helper.bind(receiver[meta.handlerName], receiver));
-    });
-
     //Add to receivers.
-    receivers[name] = receiver;
+    receivers[receiver.name] = receiver;
 
     service.logger.debug(`Adding rfis from receiver: ${receiver.name}`);
 }
@@ -354,15 +332,6 @@ function loadController(file: string) {
     controllers[name] = controller;
 
     service.logger.debug(`Adding endpoints from controller: ${controller.name}`);
-}
-
-/**
- * Returns an array of receiver metas.
- * 
- * @param name the receiver name.
- */
-function getReceiverMeta(name: string) {
-    return receiverMetas.filter(receiverMeta => receiverMeta.receiverName === name);
 }
 
 /**
@@ -445,7 +414,7 @@ export interface ReplyFunction<Message, Reply> {
  */
 export function Reply<Message, Reply>(): ReplyFunction<Message, Reply> {
     return (receiver, handlerName, replyDescriptor) => {
-        receiverMetas.push(new ReceiverMeta(receiver.name, handlerName, 'reply'));
+        service.reply(`${receiver.name}${RFI.CLASS_BREAK}${handlerName}`, replyDescriptor.value);
     }
 }
 
@@ -507,47 +476,6 @@ export function Put(path: PathParams): RequestFunction {
 export function Delete(path: PathParams): RequestFunction {
     return (controller, handlerName, requestDescriptor) => {
         controllerMetas.push(new ControllerMeta(controller.name, handlerName, 'delete', path));
-    }
-}
-
-//////////////////////////////
-//////ReceiverMeta
-//////////////////////////////
-/**
- * The SCP mode.
- */
-export type Mode = 'reply';
-
-/**
- * Definition of ReceiverMeta.
- */
-export class ReceiverMeta {
-    /**
-     * The constructor name of the receiver.
-     */
-    public readonly receiverName: string;
-
-    /**
-     * The name of the handler.
-     */
-    public readonly handlerName: string;
-
-    /**
-     * The mode of SCP.
-     */
-    public readonly mode: Mode;
-
-    /**
-     * Creates an instance of `ReceiverMeta`.
-     * 
-     * @param className the constructor name of the receiver.
-     * @param handlerName the name of the handler.
-     * @param mode the mode of SCP.
-     */
-    constructor(className: string, handlerName: string, mode: Mode) {
-        this.receiverName = className;
-        this.handlerName = handlerName;
-        this.mode = mode;
     }
 }
 
