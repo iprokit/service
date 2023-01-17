@@ -1,2 +1,2 @@
 //Import Local.
-import './scp/client.test';
+import './scp.test';
