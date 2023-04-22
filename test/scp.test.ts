@@ -65,9 +65,9 @@ mocha.describe('SCP Test', () => {
         mocha.beforeEach(async () => {
             server = new ScpServer();
             server.listen(port);
-            server.reply(echoReplyMap, remoteReply((arg) => { return arg; }));
-            server.reply(spreadReplyMap, remoteReply((arg1, arg2, arg3, arg4, arg5) => { return [arg1, arg2, arg3, arg4, arg5]; }));
-            server.reply(errorReplyMap, remoteReply((arg) => { throw new Error('SCP error'); }));
+            server.reply(echoReplyMap, remoteReply((arg) => arg));
+            server.reply(spreadReplyMap, remoteReply((...args) => args));
+            server.reply(errorReplyMap, remoteReply((arg) => { throw new Error(arg); }));
             server.registerBroadcast(broadcastMap, remoteBroadcast());
             await once(server, 'listening');
 
@@ -99,14 +99,14 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(reply3, payloads);
 
             //Spread
-            const reply4 = await client.message(spreadReplyMap, payloads[0], payloads[1], payloads[2], payloads[3], payloads[4]);
-            assert.deepStrictEqual(reply4, [payloads[0], payloads[1], payloads[2], payloads[3], payloads[4]]);
+            const reply4 = await client.message(spreadReplyMap, ...payloads);
+            assert.deepStrictEqual(reply4, payloads);
 
             //Error
             try {
-                await client.message(errorReplyMap);
+                await client.message(errorReplyMap, 'SCP Error');
             } catch (error) {
-                assert.deepStrictEqual(error.message, 'SCP error');
+                assert.deepStrictEqual(error.message, 'SCP Error');
             }
         });
 
