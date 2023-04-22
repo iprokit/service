@@ -1,2 +1,3 @@
 //Export Local.
-export { default as ScpClient, UniqueSocket } from './scp/client';
+export { default as Server, Connection, remoteReply, ReplyFunction, remoteBroadcast } from './scp.server';
+export { default as Client } from './scp.client';

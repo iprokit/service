@@ -6,7 +6,7 @@ import { finished } from 'stream';
 import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
 //Import Local.
-import Helper from '../helper';
+import Helper from './helper';
 
 /**
  * This class implements a simple SCP Client.
@@ -131,7 +131,7 @@ export default class Client extends EventEmitter {
      * @emits `connect` when the connection is successfully established.
      */
     private onConnect() {
-        this.greeting((error?: Error) => {
+        this.subscribe((error?: Error) => {
             if (error) return;
 
             this._connected = true;
@@ -140,12 +140,12 @@ export default class Client extends EventEmitter {
     }
 
     /**
-     * - Greeting is handled by `greeting` function.
+     * - Subscribe is handled by `subscribe` function.
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.isReply() && incoming.map === 'SCP.greeting') {
-            this._socket.emit('greeting', incoming);
+        if (incoming.isReply() && incoming.map === 'SCP.subscribe') {
+            this._socket.emit('subscribe', incoming);
         }
         if (incoming.isBroadcast()) {
             this.broadcast(incoming);
@@ -175,24 +175,28 @@ export default class Client extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Greeting
+    //////Subscribe
     //////////////////////////////
     /**
-     * Executes remote reply(greeting) function on the server.
+     * Subscribes to the server to receive broadcasts.
      * 
-     * @param callback the callback called once the greeting is exchanged.
+     * @param callback called once the subscription is complete.
      */
-    private greeting(callback: (error?: Error) => void) {
+    private subscribe(callback: (error?: Error) => void) {
         //Read: Reply from incoming stream.
-        this._socket.once('greeting', (incoming: Incoming) => {
-            finished(incoming, callback);
-            incoming.resume();
+        this._socket.once('subscribe', async (incoming: Incoming) => {
+            try {
+                for await (const chunk of incoming) { }
+                callback();
+            } catch (error) {
+                callback(error);
+            }
         });
 
         //Write: Message to outgoing stream.
         this._socket.createOutgoing((outgoing: Outgoing) => {
             finished(outgoing, (error) => error && callback(error));
-            outgoing.setRFI(RFI.createReply('SCP.greeting'));
+            outgoing.setRFI(RFI.createReply('SCP.subscribe'));
             outgoing.setParam('RFID', Helper.generateRFID());
             outgoing.setParam('CID', this.identifier);
             outgoing.end('');
@@ -203,7 +207,32 @@ export default class Client extends EventEmitter {
     //////Message
     //////////////////////////////
     /**
-     * Executes remote reply function on the server.
+     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from remote reply function.
+     * 
+     * @param map the map of the remote reply function.
+     * @param callback called when the reply is available on the `Incoming` stream.
+     */
+    public createMessage(map: string, callback?: (incoming: Incoming) => void) {
+        //Create socket.
+        const socket = new Socket({ emitIncoming: false });
+        socket.on('end', () => socket.destroy());
+        socket.connect(this.remotePort, this.remoteAddress);
+
+        //Create incoming.
+        (socket as any)._incoming = new Incoming(socket);
+        socket.incoming.on('rfi', () => callback(socket.incoming));
+        socket.incoming.on('end', () => socket.destroy());
+
+        //Create outgoing.
+        (socket as any)._outgoing = new Outgoing(socket);
+        socket.outgoing.setRFI(RFI.createReply(map));
+        socket.outgoing.setParam('RFID', Helper.generateRFID());
+        socket.outgoing.setParam('CID', this.identifier);
+        return socket.outgoing;
+    }
+
+    /**
+     * Sends a message to the remote reply function and returns a promise that resolves to the reply received.
      * 
      * @param map the map of the remote reply function.
      * @param message the message to send.
@@ -211,7 +240,7 @@ export default class Client extends EventEmitter {
     public message<Reply>(map: string, ...message: Array<any>) {
         return new Promise<Reply>(async (resolve, reject) => {
             //Read: Reply from incoming stream.
-            const outgoing = this.messenger(map, async (incoming) => {
+            const outgoing = this.createMessage(map, async (incoming) => {
                 try {
                     let chunks = '';
                     for await (const chunk of incoming) {
@@ -245,7 +274,7 @@ export default class Client extends EventEmitter {
     //////Broadcast
     //////////////////////////////
     /**
-     * Process the incoming broadcast.
+     * Process the incoming broadcast stream.
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
@@ -273,34 +302,6 @@ export default class Client extends EventEmitter {
                 /* LIFE HAPPENS!!! */
             }
         })();
-    }
-
-    //////////////////////////////
-    //////Messenger
-    //////////////////////////////
-    /**
-     * Returns the created outgoing stream.
-     * 
-     * @param map the map of the remote reply function.
-     * @param callback the callback will be added as a listener for the `rfi` event once.
-     */
-    public messenger(map: string, callback?: (incoming: Incoming) => void) {
-        //Create socket.
-        const socket = new UniqueSocket();
-        socket.on('end', () => socket.destroy());
-        socket.connect(this.remotePort, this.remoteAddress);
-
-        //Create incoming.
-        const incoming = socket.makeIncoming();
-        incoming.on('rfi', () => callback(incoming));
-        incoming.on('end', () => socket.destroy());
-
-        //Create outgoing.
-        const outgoing = socket.makeOutgoing();
-        outgoing.setRFI(RFI.createReply(map));
-        outgoing.setParam('RFID', Helper.generateRFID());
-        outgoing.setParam('CID', this.identifier);
-        return outgoing;
     }
 
     //////////////////////////////
@@ -342,24 +343,5 @@ export default class Client extends EventEmitter {
         this._socket.setKeepAlive(true);
         this._connected = false;
         this.addListeners();
-    }
-}
-
-//////////////////////////////
-//////Unique Socket
-//////////////////////////////
-export class UniqueSocket extends Socket {
-    constructor() {
-        super({ emitIncoming: false });
-    }
-
-    public makeIncoming() {
-        (this as any)._incoming = new Incoming(this);
-        return this.incoming;
-    }
-
-    public makeOutgoing() {
-        (this as any)._outgoing = new Outgoing(this);
-        return this.outgoing;
     }
 }
