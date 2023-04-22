@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 //Import Local.
-import { Server, Client, remoteReply, remoteBroadcast } from '../lib';
+import { ScpServer, ScpClient, remoteReply, remoteBroadcast } from '../lib';
 import { createIdentifier, createMap, createBody } from './util';
 
 const host = '127.0.0.1';
@@ -13,22 +13,22 @@ const port = 6000;
 mocha.describe('SCP Test', () => {
     mocha.describe('Constructor Test', () => {
         mocha.it('should construct server', (done) => {
-            const server = new Server();
+            const server = new ScpServer();
             assert.deepStrictEqual(server.remoteFunctions.length, 1);
             done();
         });
 
         mocha.it('should construct client', (done) => {
             const identifier = createIdentifier();
-            const client = new Client(identifier);
+            const client = new ScpClient(identifier);
             assert.deepStrictEqual(client.identifier, identifier);
             done();
         });
     });
 
     mocha.describe('Subscription Test', () => {
-        let server: Server;
-        let client: Client;
+        let server: ScpServer;
+        let client: ScpClient;
 
         mocha.afterEach(async () => {
             client.close();
@@ -39,13 +39,13 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should subscribe on connect event', async () => {
             //Server
-            server = new Server();
+            server = new ScpServer();
             server.listen(port);
             await once(server, 'listening');
 
             //Client
             const identifier = createIdentifier();
-            client = new Client(identifier);
+            client = new ScpClient(identifier);
             client.connect(port, host);
             await once(client, 'connect');
 
@@ -55,15 +55,15 @@ mocha.describe('SCP Test', () => {
     });
 
     mocha.describe('Remote Function Test', () => {
-        let server: Server;
-        let client: Client;
+        let server: ScpServer;
+        let client: ScpClient;
 
         const echoReplyMap = createMap(), spreadReplyMap = createMap(), errorReplyMap = createMap();
         const broadcastMap = createMap();
         const payloads = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createBody(1000), { msg: createBody(1000) }, createBody(1000).split('')];
 
         mocha.beforeEach(async () => {
-            server = new Server();
+            server = new ScpServer();
             server.listen(port);
             server.reply(echoReplyMap, remoteReply((arg) => { return arg; }));
             server.reply(spreadReplyMap, remoteReply((arg1, arg2, arg3, arg4, arg5) => { return [arg1, arg2, arg3, arg4, arg5]; }));
@@ -71,7 +71,7 @@ mocha.describe('SCP Test', () => {
             server.registerBroadcast(broadcastMap, remoteBroadcast());
             await once(server, 'listening');
 
-            client = new Client(createIdentifier());
+            client = new ScpClient(createIdentifier());
             client.connect(port, host);
             await once(client, 'connect');
         });

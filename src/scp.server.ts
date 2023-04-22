@@ -3,7 +3,7 @@ import { once } from 'events';
 import { finished } from 'stream';
 
 //Import @iprotechs Libs.
-import { Incoming, Outgoing, Server as ScpServer, Connection as ScpConnection, Broadcaster, ReplyHandler, BroadcastHandler, NextFunction } from '@iprotechs/scp';
+import { Incoming, Outgoing, Server, Connection, Broadcaster, ReplyHandler, BroadcastHandler, NextFunction } from '@iprotechs/scp';
 
 //Import Local.
 import Helper from './helper';
@@ -18,7 +18,7 @@ import Helper from './helper';
  * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
  * @emits `close` when the server is fully closed.
  */
-export default class Server extends ScpServer {
+export default class ScpServer extends Server {
     /**
      * Creates an instance of SCP server.
      */
@@ -45,8 +45,8 @@ export default class Server extends ScpServer {
             }
 
             //Set: Connection properties.
-            (incoming.socket as Connection).identifier = incoming.getParam('CID');
-            (incoming.socket as Connection).canBroadcast = true;
+            (incoming.socket as ScpConnection).identifier = incoming.getParam('CID');
+            (incoming.socket as ScpConnection).canBroadcast = true;
 
             //Write: Reply(Subscribe) to outgoing stream.
             finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
@@ -71,7 +71,7 @@ export default class Server extends ScpServer {
 //////////////////////////////
 //////Connection
 //////////////////////////////
-export class Connection extends ScpConnection {
+export class ScpConnection extends Connection {
     /**
      * The unique identifier of the client/connection.
      */
@@ -153,7 +153,7 @@ export type ReplyFunction<Reply> = (...message: any) => Promise<Reply> | Reply;
  */
 export function remoteBroadcast<Payload>(): BroadcastHandler<Payload> {
     return (payload: Payload, broadcaster: Broadcaster, next: NextFunction) => {
-        const connections = broadcaster.connections.filter((connection: Connection) => connection.canBroadcast);
+        const connections = broadcaster.connections.filter((connection: ScpConnection) => connection.canBroadcast);
 
         //Write: Broadcast to outgoing stream.
         broadcaster.createOutgoing(connections, async (outgoing) => {

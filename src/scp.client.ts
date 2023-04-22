@@ -16,7 +16,7 @@ import Helper from './helper';
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
-export default class Client extends EventEmitter {
+export default class ScpClient extends EventEmitter {
     /**
      * The unique identifier of the client.
      */
