@@ -1,9 +1,8 @@
 //Import Libs.
-import { once } from 'events';
 import { finished } from 'stream';
 
 //Import @iprotechs Libs.
-import { Incoming, Outgoing, Server, Connection, Broadcaster, ReplyHandler, BroadcastHandler, NextFunction } from '@iprotechs/scp';
+import { RFI, IRFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
 
 //Import Local.
 import Helper from './helper';
@@ -20,151 +19,233 @@ import Helper from './helper';
  */
 export default class ScpServer extends Server {
     /**
-     * Creates an instance of SCP server.
+     * The unique identifier of the server.
      */
-    constructor() {
+    public readonly identifier: string;
+
+    /**
+     * The client socket connections.
+     */
+    public readonly connections: Array<ScpConnection>;
+
+    /**
+     * The remote functions on the server.
+     */
+    public readonly remoteFunctions: Array<RemoteFunction>;
+
+    /**
+     * Creates an instance of SCP server.
+     * 
+     * @param identifier the unique identifier of the server.
+     */
+    constructor(identifier: string) {
         super();
 
-        //Initialize Functions.
-        this.reply('SCP.subscribe', this.subscribe());
+        //Initialize Options.
+        this.identifier = identifier;
+
+        //Initialize Variables.
+        this.remoteFunctions = new Array();
+
+        //Bind listeners.
+        this.onIncoming = this.onIncoming.bind(this);
+
+        //Add listeners.
+        this.addListener('incoming', this.onIncoming);
     }
 
     //////////////////////////////
-    //////Reply: Subscribe
+    //////Event Listeners
     //////////////////////////////
     /**
-     * Remote reply function that registers client subscriptions and allows them to receive broadcasts sent from the server.
+     * - Subscribe is handled by `subscribe` function.
+     * - Reply is handled by `reply` function.
      */
-    private subscribe() {
-        return async (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => {
-            //Read: Message(Subscribe) from incoming stream.
+    private onIncoming(incoming: Incoming, outgoing: Outgoing) {
+        //Set: Outgoing params.
+        outgoing.setParam('RFID', incoming.getParam('RFID'));
+        outgoing.setParam('SID', this.identifier);
+
+        //Handle Subscribe.
+        if (incoming.mode === 'SUBSCRIBE' && incoming.map === 'SCP.subscribe') {
+            this.subscribe(incoming, outgoing);
+            return;
+        }
+
+        //Handle remote functions.
+        const remoteFunction = this.getRemoteFunction(incoming.mode, incoming.map);
+        if (remoteFunction) {
+            remoteFunction.handler(incoming, outgoing);
+        } else {
+            outgoing.setParam('STATUS', 'ERROR');
+            outgoing.end('Not Found');
+        }
+    }
+
+    //////////////////////////////
+    //////Subscribe
+    //////////////////////////////
+    /**
+     * Registers the subscription from the client socket connection.
+     * Broadcasts can only be sent to subscribed connections.
+     */
+    private subscribe(incoming: Incoming, outgoing: Outgoing) {
+        //Read: Incoming stream.
+        finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
+        incoming.resume();
+
+        //Set: Connection properties.
+        (incoming.socket as ScpConnection).identifier = incoming.getParam('CID');
+        (incoming.socket as ScpConnection).canBroadcast = true;
+
+        //Write: Outgoing stream.
+        finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
+        outgoing.end('');
+    }
+
+    //////////////////////////////
+    //////Reply
+    //////////////////////////////
+    /**
+     * Creates an `Incoming` stream to receive a message and `Outgoing` stream to send a reply.
+     * 
+     * @param map the map of the remote reply function.
+     * @param handler the handler of the remote reply function.
+     */
+    public createReply(map: string, handler: RemoteFunctionHandler) {
+        this.createRemoteFunction('REPLY', map, handler);
+        return this;
+    }
+
+    /**
+     * Receives a message and returns a promise that resolves a reply.
+     * 
+     * @param map the map of the remote reply function.
+     * @param replyFunction the remote reply function.
+     */
+    public reply<Reply>(map: string, replyFunction: ReplyFunction<Reply>) {
+        this.createReply(map, async (incoming: Incoming, outgoing: Outgoing) => {
+            //Looks like the message is not an object, Consumer needs to handle it!
+            if (incoming.getParam('FORMAT') !== 'OBJECT') {
+                replyFunction(incoming, outgoing);
+                return;
+            }
+
+            //Read: Incoming stream.
+            let chunks = '';
             try {
-                for await (const chunk of incoming) { }
+                for await (const chunk of incoming) {
+                    chunks += chunk;
+                }
             } catch (error) {
                 /* LIFE HAPPENS!!! */
             }
 
-            //Set: Connection properties.
-            (incoming.socket as ScpConnection).identifier = incoming.getParam('CID');
-            (incoming.socket as ScpConnection).canBroadcast = true;
+            //Execute: Reply function.
+            let reply = '';
+            try {
+                let returned = await replyFunction(...JSON.parse(chunks));
+                reply = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
+                outgoing.setParam('STATUS', 'OK');
+            } catch (error) {
+                delete error.stack; /* Delete stack from error because we dont need it. */
+                reply = JSON.stringify(error, Object.getOwnPropertyNames(error));
+                outgoing.setParam('STATUS', 'ERROR');
+            }
 
-            //Write: Reply(Subscribe) to outgoing stream.
+            //Write: Outgoing stream.
             finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-            outgoing.end('');
-        }
+            outgoing.setParam('FORMAT', 'OBJECT');
+            outgoing.end(reply);
+        });
+        return this;
     }
 
     //////////////////////////////
     //////Broadcast
     //////////////////////////////
     /**
-     * Broadcasts the supplied arguments to all the client socket connections.
-     *
+     * Broadcasts the supplied to all the subscribed client socket connections.
+     * 
      * @param map the map of the broadcast.
      * @param payload the payload to broadcast.
      */
     public broadcast(map: string, ...payload: Array<any>) {
-        return super.broadcast(map, payload);
+        for (const connection of this.connections) {
+            if (!connection.canBroadcast) continue;
+
+            connection.createOutgoing((outgoing: Outgoing) => {
+                outgoing.setRFI(new RFI('BROADCAST', map));
+                outgoing.setParam('RFID', Helper.generateRFID());
+                outgoing.setParam('SID', this.identifier);
+                outgoing.setParam('FORMAT', 'OBJECT');
+                outgoing.end(JSON.stringify(payload));
+            });
+        }
+        return this;
+    }
+
+    //////////////////////////////
+    //////Helpers
+    //////////////////////////////
+    /**
+     * Creates a remote function.
+     * 
+     * @param mode the mode of the remote function.
+     * @param map the map of the remote function.
+     * @param handler the handler of the remote function.
+     */
+    private createRemoteFunction(mode: string, map: string, handler: RemoteFunctionHandler) {
+        if (this.getRemoteFunction(mode, map)) return;
+
+        this.remoteFunctions.push({ mode, map, handler });
+    }
+
+    /**
+     * Returns the remote function.
+     * 
+     * @param mode the mode of the remote function.
+     * @param map the map of the remote function.
+     */
+    private getRemoteFunction(mode: string, map: string) {
+        return this.remoteFunctions.find(remoteFunction => remoteFunction.map === map && remoteFunction.mode === mode);
     }
 }
 
 //////////////////////////////
 //////Connection
 //////////////////////////////
-export class ScpConnection extends Connection {
+export interface ScpConnection extends Connection {
     /**
-     * The unique identifier of the client/connection.
+     * The unique identifier of the client socket connection.
      */
-    public identifier: string;
+    identifier: string;
 
     /**
      * Set to true to send broadcasts, false otherwise.
      */
-    public canBroadcast: boolean;
+    canBroadcast: boolean;
 }
 
 //////////////////////////////
-//////Reply
+//////Remote Function
 //////////////////////////////
 /**
- * Returns a `ReplyHandler` that takes an asynchronous `replyFunction`.
- * This function converts input parameters to an `Incoming` message stream and output parameters to an `Outgoing` reply stream.
- * 
- * @param replyFunction The asynchronous function to handle the reply.
- * 
- * @example
- * ```
- * server.reply('User.create', remoteReply(async (user) => {
- *      return await UserDB.create(user);
- * }));
- * ```
+ * `RemoteFunction` represents a function that can be executed by a client.
  */
-export function remoteReply<Reply>(replyFunction: ReplyFunction<Reply>): ReplyHandler {
-    return async (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => {
-        //Looks like the message is not an object, Consumer needs to handle it!
-        if (incoming.getParam('FORMAT') !== 'OBJECT') {
-            next();
-            return;
-        }
-
-        //Read: Message from incoming stream.
-        let chunks = '';
-        try {
-            for await (const chunk of incoming) {
-                chunks += chunk;
-            }
-        } catch (error) {
-            /* LIFE HAPPENS!!! */
-        }
-
-        //Execute: Reply function.
-        let reply = '';
-        try {
-            let returned = await replyFunction(...JSON.parse(chunks));
-            reply = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-            outgoing.setParam('STATUS', 'OK');
-        } catch (error) {
-            delete error.stack; /* Delete stack from error because we dont need it. */
-            reply = JSON.stringify(error, Object.getOwnPropertyNames(error));
-            outgoing.setParam('STATUS', 'ERROR');
-        }
-
-        //Write: Reply to outgoing stream.
-        finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-        if (!outgoing.write(reply)) {
-            await once(outgoing, 'drain');
-        }
-        outgoing.end();
-    }
+export interface RemoteFunction extends IRFI {
+    handler: RemoteFunctionHandler;
 }
 
+/**
+ * The remote function handler.
+ */
+export type RemoteFunctionHandler = (incoming: Incoming, outgoing: Outgoing) => void;
+
+//////////////////////////////
+//////Reply Function
+//////////////////////////////
+/**
+ * The reply function.
+ */
 export type ReplyFunction<Reply> = (...message: any) => Promise<Reply> | Reply;
-
-//////////////////////////////
-//////Broadcast
-//////////////////////////////
-/**
- * Returns a `BroadcastHandler` that broadcasts the payload passed from `server.broadcast()` into the `Outgoing` stream.
- * 
- * @example
- * ```
- * server.registerBroadcast('User.update', remoteBroadcast());
- * ```
- */
-export function remoteBroadcast<Payload>(): BroadcastHandler<Payload> {
-    return (payload: Payload, broadcaster: Broadcaster, next: NextFunction) => {
-        const connections = broadcaster.connections.filter((connection: ScpConnection) => connection.canBroadcast);
-
-        //Write: Broadcast to outgoing stream.
-        broadcaster.createOutgoing(connections, async (outgoing) => {
-            outgoing.setParam('RFID', Helper.generateRFID());
-            outgoing.setParam('FORMAT', 'OBJECT');
-
-            finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-            if (!outgoing.write(JSON.stringify(payload))) {
-                await once(outgoing, 'drain');
-            }
-            outgoing.end();
-        });
-    }
-}

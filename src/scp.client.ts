@@ -1,5 +1,5 @@
 //Import Libs.
-import { EventEmitter, once } from 'events';
+import { EventEmitter } from 'events';
 import { finished } from 'stream';
 
 //Import @iprotechs Libs.
@@ -43,8 +43,12 @@ export default class ScpClient extends EventEmitter {
         //Initialize Options.
         this.identifier = identifier;
 
-        //Initialize Functions.
-        this.bindListeners();
+        //Bind Listeners.
+        this.onConnect = this.onConnect.bind(this);
+        this.onIncoming = this.onIncoming.bind(this);
+        this.onError = this.onError.bind(this);
+        this.onEnd = this.onEnd.bind(this);
+        this.onClose = this.onClose.bind(this);
     }
 
     //////////////////////////////
@@ -100,31 +104,6 @@ export default class ScpClient extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Event Management
-    //////////////////////////////
-    /**
-     * Bind event listeners.
-     */
-    private bindListeners() {
-        this.onConnect = this.onConnect.bind(this);
-        this.onIncoming = this.onIncoming.bind(this);
-        this.onError = this.onError.bind(this);
-        this.onEnd = this.onEnd.bind(this);
-        this.onClose = this.onClose.bind(this);
-    }
-
-    /**
-     * Add event listeners to SCP socket.
-     */
-    private addListeners() {
-        this._socket.addListener('connect', this.onConnect);
-        this._socket.addListener('incoming', this.onIncoming);
-        this._socket.addListener('error', this.onError);
-        this._socket.addListener('end', this.onEnd);
-        this._socket.addListener('close', this.onClose);
-    }
-
-    //////////////////////////////
     //////Event Listeners
     //////////////////////////////
     /**
@@ -144,10 +123,10 @@ export default class ScpClient extends EventEmitter {
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.isReply() && incoming.map === 'SCP.subscribe') {
+        if (incoming.mode === 'SUBSCRIBE' && incoming.map === 'SCP.subscribe') {
             this._socket.emit('subscribe', incoming);
         }
-        if (incoming.isBroadcast()) {
+        if (incoming.mode === 'BROADCAST') {
             this.broadcast(incoming);
         }
     }
@@ -183,20 +162,16 @@ export default class ScpClient extends EventEmitter {
      * @param callback called once the subscription is complete.
      */
     private subscribe(callback: (error?: Error) => void) {
-        //Read: Reply from incoming stream.
-        this._socket.once('subscribe', async (incoming: Incoming) => {
-            try {
-                for await (const chunk of incoming) { }
-                callback();
-            } catch (error) {
-                callback(error);
-            }
+        //Read: Incoming stream.
+        this._socket.once('subscribe', (incoming: Incoming) => {
+            finished(incoming, (error) => callback(error));
+            incoming.resume();
         });
 
-        //Write: Message to outgoing stream.
+        //Write: Outgoing stream.
         this._socket.createOutgoing((outgoing: Outgoing) => {
             finished(outgoing, (error) => error && callback(error));
-            outgoing.setRFI(RFI.createReply('SCP.subscribe'));
+            outgoing.setRFI(new RFI('SUBSCRIBE', 'SCP.subscribe'));
             outgoing.setParam('RFID', Helper.generateRFID());
             outgoing.setParam('CID', this.identifier);
             outgoing.end('');
@@ -225,7 +200,7 @@ export default class ScpClient extends EventEmitter {
 
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
-        socket.outgoing.setRFI(RFI.createReply(map));
+        socket.outgoing.setRFI(new RFI('REPLY', map));
         socket.outgoing.setParam('RFID', Helper.generateRFID());
         socket.outgoing.setParam('CID', this.identifier);
         return socket.outgoing;
@@ -238,8 +213,8 @@ export default class ScpClient extends EventEmitter {
      * @param message the message to send.
      */
     public message<Reply>(map: string, ...message: Array<any>) {
-        return new Promise<Reply>(async (resolve, reject) => {
-            //Read: Reply from incoming stream.
+        return new Promise<Reply>((resolve, reject) => {
+            //Read: Incoming stream.
             const outgoing = this.createMessage(map, async (incoming) => {
                 try {
                     let chunks = '';
@@ -260,13 +235,10 @@ export default class ScpClient extends EventEmitter {
                 }
             });
 
-            //Write: Message to outgoing stream.
+            //Write: Outgoing stream.
             finished(outgoing, (error) => error && reject(error));
             outgoing.setParam('FORMAT', 'OBJECT');
-            if (!outgoing.write(JSON.stringify(message))) {
-                await once(outgoing, 'drain');
-            }
-            outgoing.end();
+            outgoing.end(JSON.stringify(message));
         });
     }
 
@@ -290,7 +262,7 @@ export default class ScpClient extends EventEmitter {
             return;
         }
 
-        //Read: Broadcast from incoming stream.
+        //Read: Incoming stream.
         (async () => {
             try {
                 let chunks = '';
@@ -298,9 +270,7 @@ export default class ScpClient extends EventEmitter {
                     chunks += chunk;
                 }
                 this.emit(incoming.map, ...JSON.parse(chunks));
-            } catch (error) {
-                /* LIFE HAPPENS!!! */
-            }
+            } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
     }
 
@@ -316,7 +286,16 @@ export default class ScpClient extends EventEmitter {
      */
     public connect(port: number, host: string, callback?: () => void) {
         callback && this.once('connect', callback);
-        this.initSocket();
+        this._connected = false;
+
+        //Setup Socket.
+        this._socket = new Socket();
+        this._socket.addListener('connect', this.onConnect);
+        this._socket.addListener('incoming', this.onIncoming);
+        this._socket.addListener('error', this.onError);
+        this._socket.addListener('end', this.onEnd);
+        this._socket.addListener('close', this.onClose);
+        this._socket.setKeepAlive(true);
         this._socket.connect(port, host);
         return this;
     }
@@ -330,18 +309,5 @@ export default class ScpClient extends EventEmitter {
         callback && this.once('close', callback);
         this._socket.destroy();
         return this;
-    }
-
-    //////////////////////////////
-    //////Helpers
-    //////////////////////////////
-    /**
-     * Initializes the socket.
-     */
-    private initSocket() {
-        this._socket = new Socket();
-        this._socket.setKeepAlive(true);
-        this._connected = false;
-        this.addListeners();
     }
 }
