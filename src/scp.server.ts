@@ -2,7 +2,7 @@
 import { finished } from 'stream';
 
 //Import @iprotechs Libs.
-import { RFI, IRFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
+import { RFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
 
 //Import Local.
 import Helper from './helper';
@@ -59,7 +59,7 @@ export default class ScpServer extends Server {
     //////////////////////////////
     /**
      * - Subscribe is handled by `subscribe` function.
-     * - Reply is handled by `reply` function.
+     * - [Mode?] is handled by `transport` function.
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
         //Set: Outgoing params.
@@ -72,14 +72,8 @@ export default class ScpServer extends Server {
             return;
         }
 
-        //Handle remote functions.
-        const remoteFunction = this.getRemoteFunction(incoming.mode, incoming.map);
-        if (remoteFunction) {
-            remoteFunction.handler(incoming, outgoing);
-        } else {
-            outgoing.setParam('STATUS', 'ERROR');
-            outgoing.end('Not Found');
-        }
+        //Below line will blow your mind! 🤯
+        this.transport(0, incoming, outgoing);
     }
 
     //////////////////////////////
@@ -113,7 +107,7 @@ export default class ScpServer extends Server {
      * @param handler the handler of the remote reply function.
      */
     public createReply(map: string, handler: RemoteFunctionHandler) {
-        this.createRemoteFunction('REPLY', map, handler);
+        this.remoteFunctions.push(new RemoteFunction('REPLY', map, handler));
         return this;
     }
 
@@ -124,10 +118,10 @@ export default class ScpServer extends Server {
      * @param replyFunction the remote reply function.
      */
     public reply<Reply>(map: string, replyFunction: ReplyFunction<Reply>) {
-        this.createReply(map, async (incoming: Incoming, outgoing: Outgoing) => {
+        this.createReply(map, async (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => {
             //Looks like the message is not an object, Consumer needs to handle it!
             if (incoming.getParam('FORMAT') !== 'OBJECT') {
-                replyFunction(incoming, outgoing);
+                next();
                 return;
             }
 
@@ -186,29 +180,34 @@ export default class ScpServer extends Server {
     }
 
     //////////////////////////////
-    //////Helpers
+    //////Transport
     //////////////////////////////
     /**
-     * Creates a remote function.
+     * Recursively loop through the remote functions to find and execute its handler.
      * 
-     * @param mode the mode of the remote function.
-     * @param map the map of the remote function.
-     * @param handler the handler of the remote function.
+     * @param index the iteration of the loop.
+     * @param incoming the incoming stream.
+     * @param outgoing the outgoing stream.
      */
-    private createRemoteFunction(mode: string, map: string, handler: RemoteFunctionHandler) {
-        if (this.getRemoteFunction(mode, map)) return;
+    private transport(index: number, incoming: Incoming, outgoing: Outgoing) {
+        const remoteFunction = this.remoteFunctions[index++];
 
-        this.remoteFunctions.push({ mode, map, handler });
-    }
+        //Need I say more.
+        if (!remoteFunction) return;
 
-    /**
-     * Returns the remote function.
-     * 
-     * @param mode the mode of the remote function.
-     * @param map the map of the remote function.
-     */
-    private getRemoteFunction(mode: string, map: string) {
-        return this.remoteFunctions.find(remoteFunction => remoteFunction.map === map && remoteFunction.mode === mode);
+        //Shits about to go down! 😎
+        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === '*') ? true : false;
+        const className = (remoteFunction.className === incoming.rfi.className || remoteFunction.className === '*') ? true : false;
+        const functionName = (remoteFunction.functionName === incoming.rfi.functionName || remoteFunction.functionName === '*') ? true : false;
+
+        if (mode && className && functionName) {
+            //Remote function found, lets execute the handler.
+            const next: NextFunction = () => this.transport(index, incoming, outgoing);
+            remoteFunction.handler(incoming, outgoing, next);
+        } else {
+            //Remote function not found, lets keep going though the loop.
+            this.transport(index, incoming, outgoing);
+        }
     }
 }
 
@@ -233,14 +232,36 @@ export interface ScpConnection extends Connection {
 /**
  * `RemoteFunction` represents a function that can be executed by a client.
  */
-export interface RemoteFunction extends IRFI {
-    handler: RemoteFunctionHandler;
+export class RemoteFunction extends RFI {
+    /**
+     * The handler of remote function.
+     */
+    public readonly handler: RemoteFunctionHandler;
+
+    /**
+     * Creates an instances of `RemoteFunction`.
+     * 
+     * @param mode the mode of remote function.
+     * @param map the map of remote function.
+     * @param handler the handler of remote function.
+     */
+    constructor(mode: string, map: string, handler: RemoteFunctionHandler) {
+        super(mode, map);
+
+        //Initialize Options.
+        this.handler = handler;
+    }
 }
 
 /**
  * The remote function handler.
  */
-export type RemoteFunctionHandler = (incoming: Incoming, outgoing: Outgoing) => void;
+export type RemoteFunctionHandler = (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => void;
+
+/**
+ * The next function.
+ */
+export type NextFunction = () => void;
 
 //////////////////////////////
 //////Reply Function
