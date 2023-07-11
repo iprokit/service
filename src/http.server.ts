@@ -3,6 +3,9 @@ import { Server, IncomingMessage, ServerResponse } from 'http';
 import { parse } from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
+//Import Local.
+import { NextFunction } from './common';
+
 export default class HttpServer extends Server {
     public readonly routes: Array<Route>;
 
@@ -112,5 +115,3 @@ export interface Route {
 export type HttpMethod = 'ALL' | 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export type RequestHandler = (request: Request, response: Response, next: NextFunction) => void;
-
-export type NextFunction = () => void;

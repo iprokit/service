@@ -5,7 +5,7 @@ import { finished } from 'stream';
 import { RFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
 
 //Import Local.
-import Helper from './helper';
+import { generateRFID, NextFunction } from './common';
 
 /**
  * This class is used to create a SCP server.
@@ -170,7 +170,7 @@ export default class ScpServer extends Server {
 
             connection.createOutgoing((outgoing: Outgoing) => {
                 outgoing.setRFI(new RFI('BROADCAST', map));
-                outgoing.setParam('RFID', Helper.generateRFID());
+                outgoing.setParam('RFID', generateRFID());
                 outgoing.setParam('SID', this.identifier);
                 outgoing.setParam('FORMAT', 'OBJECT');
                 outgoing.end(JSON.stringify(payload));
@@ -245,7 +245,7 @@ export class RemoteFunction extends RFI {
      * @param map the map of remote function.
      * @param handler the handler of remote function.
      */
-    constructor(mode: string, map: string, handler: RemoteFunctionHandler) {
+    constructor(mode: Mode, map: string, handler: RemoteFunctionHandler) {
         super(mode, map);
 
         //Initialize Options.
@@ -254,14 +254,14 @@ export class RemoteFunction extends RFI {
 }
 
 /**
+ * The remote function mode.
+ */
+export type Mode = 'REPLY';
+
+/**
  * The remote function handler.
  */
 export type RemoteFunctionHandler = (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => void;
-
-/**
- * The next function.
- */
-export type NextFunction = () => void;
 
 //////////////////////////////
 //////Reply Function

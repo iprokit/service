@@ -1,0 +1,32 @@
+//Import Libs.
+import crypto from 'crypto';
+
+/**
+ * Generates a new ID.
+ * 
+ * @returns the generated ID.
+ */
+export function generateID() {
+    const bytes = crypto.randomBytes(10).toString('hex');
+    const slider = (max: number) => {
+        return Math.floor(Math.random() * Math.floor(max));
+    }
+
+    const _r = slider(bytes.length / 2);
+    const length = 5;
+    return bytes.slice(_r, _r + length);
+}
+
+/**
+ * Generates a new RFID.
+ * 
+ * @returns the generated RFID.
+ */
+export function generateRFID() {
+    return new Date().getTime().toString(26) + '-' + Math.random().toString(36).slice(2) + '-' + crypto.randomBytes(10).toString('hex');
+}
+
+/**
+ * The next function.
+ */
+export type NextFunction = () => void;

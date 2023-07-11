@@ -6,7 +6,7 @@ import { finished } from 'stream';
 import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
 //Import Local.
-import Helper from './helper';
+import { generateRFID } from './common';
 
 /**
  * This class implements a simple SCP Client.
@@ -172,7 +172,7 @@ export default class ScpClient extends EventEmitter {
         this._socket.createOutgoing((outgoing: Outgoing) => {
             finished(outgoing, (error) => error && callback(error));
             outgoing.setRFI(new RFI('SUBSCRIBE', 'SCP.subscribe'));
-            outgoing.setParam('RFID', Helper.generateRFID());
+            outgoing.setParam('RFID', generateRFID());
             outgoing.setParam('CID', this.identifier);
             outgoing.end('');
         });
@@ -201,7 +201,7 @@ export default class ScpClient extends EventEmitter {
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
         socket.outgoing.setRFI(new RFI('REPLY', map));
-        socket.outgoing.setParam('RFID', Helper.generateRFID());
+        socket.outgoing.setParam('RFID', generateRFID());
         socket.outgoing.setParam('CID', this.identifier);
         return socket.outgoing;
     }
