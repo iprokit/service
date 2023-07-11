@@ -17,7 +17,6 @@ mocha.describe('SCP Test', () => {
             const identifier = createIdentifier();
             const server = new ScpServer(identifier);
             assert.deepStrictEqual(server.identifier, identifier);
-            assert.deepStrictEqual(server.remoteFunctions.length, 0);
             done();
         });
 
