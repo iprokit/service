@@ -2,7 +2,7 @@
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
-import { get } from 'http';
+import http, { IncomingMessage } from 'http';
 
 //Import Local.
 import { HttpServer, Request, Response, NextFunction } from '../lib';
@@ -33,22 +33,38 @@ mocha.describe('HTTP Test', () => {
         const requestHandler = () => {
             return (request: Request, response: Response, next: NextFunction) => {
                 response.writeHead(200);
-                response.end(response.body);
+                response.end(`${response.body}-${request.query.x}${request.query.y}`);
             }
+        }
+
+        const request = (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string) => {
+            return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
+                const request = http.request({ host, port, method, path }, async (response) => {
+                    try {
+                        let body = '';
+                        for await (const chunk of response) {
+                            body += chunk;
+                        }
+                        resolve({ response, body });
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+                request.end('');
+            });
         }
 
         mocha.beforeEach(async () => {
             server = new HttpServer();
-            server.use(nextHandler(''));
-            server.get('/a', nextHandler('a1'));
-            server.get('/a/:id', nextHandler('a2'));
-            server.get('/a/:id/b', nextHandler('a3'));
-            server.get('/a/:id/b/:id', nextHandler('a4'));
-            server.post('/b', nextHandler('b'));
-            server.put('/c', nextHandler('c'));
-            server.patch('/d', nextHandler('d'));
-            server.delete('/e', nextHandler('e'));
-            server.all('/', requestHandler());
+            server.all('*', nextHandler(''));
+            server.get('/a/:id/*', nextHandler('a1'));
+            server.get('/a/:id/b/:id/*', nextHandler('a2'));
+            server.get('/a/:id/b/:id/c/:id', nextHandler('a3'));
+            server.post('/a', nextHandler('a'));
+            server.put('/b', nextHandler('b'));
+            server.patch('/c', nextHandler('c'));
+            server.delete('/d', nextHandler('d'));
+            server.all('/*', requestHandler());
             server.listen(port);
             await once(server, 'listening');
         });
@@ -58,17 +74,34 @@ mocha.describe('HTTP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should respond to request when path matches', (done) => {
-            const request = get({ host, port, method: 'GET', path: '/a/1/b/2/c' }, async (response) => {
-                let chunks = '';
-                for await (const chunk of response) {
-                    chunks += chunk;
-                }
-                assert.deepStrictEqual(response.statusCode, 200);
-                assert.deepStrictEqual(chunks, 'a1a2a3a4');
-                done();
-            });
-            request.end('');
+        mocha.it('should respond to GET request', async () => {
+            const { response, body } = await request('GET', '/a/1/b/2/c?x=1&y=1');
+            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(body, 'a1a2-11');
+        });
+
+        mocha.it('should respond to POST request', async () => {
+            const { response, body } = await request('POST', '/a?x=2&y=2');
+            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(body, 'a-22');
+        });
+
+        mocha.it('should respond to PUT request', async () => {
+            const { response, body } = await request('PUT', '/b?x=3&y=3');
+            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(body, 'b-33');
+        });
+
+        mocha.it('should respond to PATCH request', async () => {
+            const { response, body } = await request('PATCH', '/c?x=4&y=4');
+            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(body, 'c-44');
+        });
+
+        mocha.it('should respond to DELETE request', async () => {
+            const { response, body } = await request('DELETE', '/d?x=5&y=5');
+            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(body, 'd-55');
         });
     });
 });
