@@ -63,7 +63,7 @@ export default class HttpServer extends Server {
     }
 
     public use(handler: RequestHandler) {
-        this.routes.push({ method: 'ALL', path: '*', handler });
+        this.routes.push({ method: 'ALL', path: '/', handler });
     }
 
     //////////////////////////////
@@ -77,11 +77,11 @@ export default class HttpServer extends Server {
 
         //Shits about to go down! 😎
         const method = (route.method === request.method || route.method === 'ALL') ? true : false;
-        const matchPath = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
+        const matchPath = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\/$/, '')}(?:\/|$)`);
 
         if (method && matchPath) {
             //Route found, lets extract params and execute the handler.
-            const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1));
+            const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1)) || [];
             request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = matchPath[index + 1], params), {});
 
             const next: NextFunction = () => this.dispatch(index, request, response);
@@ -101,7 +101,9 @@ export interface Request extends IncomingMessage {
     params: { [key: string]: string };
     query: ParsedUrlQuery;
 }
-export interface Response extends ServerResponse { }
+export interface Response extends ServerResponse {
+    body: any;
+}
 
 //////////////////////////////
 /////Route

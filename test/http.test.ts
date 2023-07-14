@@ -19,19 +19,36 @@ mocha.describe('HTTP Test', () => {
         });
     });
 
-    mocha.describe('HTTP Method Test', () => {
+    mocha.describe('Route Test', () => {
         let server: HttpServer;
 
-        const getHandler = () => {
+        const nextHandler = (key: string) => {
+            return (request: Request, response: Response, next: NextFunction) => {
+                if (response.body === undefined) response.body = '';
+                response.body += key;
+                next();
+            }
+        }
+
+        const requestHandler = () => {
             return (request: Request, response: Response, next: NextFunction) => {
                 response.writeHead(200);
-                response.end('');
+                response.end(response.body);
             }
         }
 
         mocha.beforeEach(async () => {
             server = new HttpServer();
-            server.get('/user/:id', getHandler());
+            server.use(nextHandler(''));
+            server.get('/a', nextHandler('a1'));
+            server.get('/a/:id', nextHandler('a2'));
+            server.get('/a/:id/b', nextHandler('a3'));
+            server.get('/a/:id/b/:id', nextHandler('a4'));
+            server.post('/b', nextHandler('b'));
+            server.put('/c', nextHandler('c'));
+            server.patch('/d', nextHandler('d'));
+            server.delete('/e', nextHandler('e'));
+            server.all('/', requestHandler());
             server.listen(port);
             await once(server, 'listening');
         });
@@ -41,9 +58,14 @@ mocha.describe('HTTP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('Match Param Test', (done) => {
-            const request = get({ host, port, method: 'GET', path: '/user/13543634?username=rutvik&password=123' }, (response) => {
-                response.resume();
+        mocha.it('should respond to request when path matches', (done) => {
+            const request = get({ host, port, method: 'GET', path: '/a/1/b/2/c' }, async (response) => {
+                let chunks = '';
+                for await (const chunk of response) {
+                    chunks += chunk;
+                }
+                assert.deepStrictEqual(response.statusCode, 200);
+                assert.deepStrictEqual(chunks, 'a1a2a3a4');
                 done();
             });
             request.end('');
