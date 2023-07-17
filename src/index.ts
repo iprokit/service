@@ -6,8 +6,8 @@ export { default as ScpServer, ScpConnection, RemoteFunction, RemoteFunctionHand
 //Export HTTP.
 export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHandler } from './http.server';
 
-//Export Service Registry.
-export { default as ServiceRegistry } from './service.registry';
+//Export Proxy.
+export { default as ProxyAgent } from './proxy.agent';
 
 //Export Common.
 export { generateID, generateRFID, NextFunction } from './common';
