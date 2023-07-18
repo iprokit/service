@@ -1,3 +1,6 @@
+//Import Libs.
+import http, { IncomingMessage } from 'http';
+
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let body = '';
@@ -17,4 +20,21 @@ export function createMap() {
 
 export function createBody(size: number) {
     return createString(size);
+}
+
+export function clientRequest(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', host: string, port: number, path: string, body: string) {
+    return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
+        const request = http.request({ host, port, method, path }, async (response) => {
+            try {
+                let body = '';
+                for await (const chunk of response) {
+                    body += chunk;
+                }
+                resolve({ response, body });
+            } catch (error) {
+                reject(error);
+            }
+        });
+        request.end(body);
+    });
 }

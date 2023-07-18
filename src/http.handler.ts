@@ -10,13 +10,14 @@ import { NextFunction } from './common';
 //////////////////////////////
 //////Proxy
 //////////////////////////////
-export function proxy(options: ProxyOptions, path?: string): RequestHandler {
+export function proxy(options: ProxyOptions): RequestHandler {
     return (request: Request, response: Response, next: NextFunction) => {
+        const path = request.url.replace(new RegExp(`^${request.route.replace(/\/\*$/, '')}`), '');
         const requestOptions: RequestOptions = {
+            method: request.method,
             host: options.host,
             port: options.port,
-            path: path ?? request.url,
-            method: request.method,
+            path: path,
             headers: request.headers
         }
 
