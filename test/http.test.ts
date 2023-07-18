@@ -5,7 +5,7 @@ import { once } from 'events';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpServer, Request, Response, NextFunction } from '../lib';
+import { HttpServer, Request, Response, NextFunction, HttpStatusCode } from '../lib';
 
 const host = '127.0.0.1';
 const port = 3000;
@@ -24,16 +24,15 @@ mocha.describe('HTTP Test', () => {
 
         const nextHandler = (key: string) => {
             return (request: Request, response: Response, next: NextFunction) => {
-                if (response.body === undefined) response.body = '';
-                response.body += key;
+                if ((response as any).body === undefined) (response as any).body = '';
+                (response as any).body += key;
                 next();
             }
         }
 
         const requestHandler = () => {
             return (request: Request, response: Response, next: NextFunction) => {
-                response.writeHead(200);
-                response.end(`${response.body}-${request.query.x}${request.query.y}`);
+                response.writeHead(HttpStatusCode.OK).end(`${(response as any).body}-${request.query.x}${request.query.y}`);
             }
         }
 
@@ -76,32 +75,38 @@ mocha.describe('HTTP Test', () => {
 
         mocha.it('should respond to GET request', async () => {
             const { response, body } = await request('GET', '/a/1/b/2/c?x=1&y=1');
-            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(body, 'a1a2-11');
         });
 
         mocha.it('should respond to POST request', async () => {
             const { response, body } = await request('POST', '/a?x=2&y=2');
-            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(body, 'a-22');
         });
 
         mocha.it('should respond to PUT request', async () => {
             const { response, body } = await request('PUT', '/b?x=3&y=3');
-            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(body, 'b-33');
         });
 
         mocha.it('should respond to PATCH request', async () => {
             const { response, body } = await request('PATCH', '/c?x=4&y=4');
-            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(body, 'c-44');
         });
 
         mocha.it('should respond to DELETE request', async () => {
             const { response, body } = await request('DELETE', '/d?x=5&y=5');
-            assert.deepStrictEqual(response.statusCode, 200);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(body, 'd-55');
+        });
+    });
+
+    mocha.describe('Proxy Test', () => {
+        mocha.it('should proxy request with default path', () => {
+
         });
     });
 });

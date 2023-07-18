@@ -129,12 +129,12 @@ export default class HttpServer extends Server {
 
         //Shits about to go down! 😎
         const method = (route.method === request.method || route.method === 'ALL') ? true : false;
-        const matchPath = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\*$/, '.*')}$`);
+        const path = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\*$/, '.*')}$`);
 
-        if (method && matchPath) {
+        if (method && path) {
             //Route found, lets extract params and execute the handler.
             const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1)) || [];
-            request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = matchPath[index + 1], params), {});
+            request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = path[index + 1], params), {});
 
             const next: NextFunction = () => this.dispatch(index, request, response);
             route.handler(request, response, next);
@@ -171,12 +171,7 @@ export interface Request extends IncomingMessage {
 /**
  * Represents a server response to an HTTP request.
  */
-export interface Response extends ServerResponse {
-    /**
-     * The body of the response.
-     */
-    body: any;
-}
+export interface Response extends ServerResponse { }
 
 //////////////////////////////
 /////Route
