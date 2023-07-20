@@ -5,7 +5,7 @@ export { default as ScpServer, ScpConnection, RemoteFunction, RemoteFunctionHand
 
 //Export HTTP.
 export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHandler } from './http.server';
-export { proxy, ProxyOptions } from './http.handler';
+export { proxy } from './http.handler';
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export Common.

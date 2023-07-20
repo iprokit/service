@@ -98,7 +98,7 @@ mocha.describe('HTTP Test', () => {
 
         mocha.beforeEach(async () => {
             proxyServer = new HttpServer();
-            proxyServer.all('/a/*', proxy({ host: host, port: 3001 }));
+            proxyServer.all('/a/*', proxy(3001, host));
             proxyServer.listen(port);
             await once(proxyServer, 'listening');
 
@@ -117,16 +117,10 @@ mocha.describe('HTTP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should proxy request with default path', async () => {
-            const { response, body } = await clientRequest('GET', host, port, '/a/a1', '');
+        mocha.it('should proxy request & response', async () => {
+            const { response, body } = await clientRequest('GET', host, port, '/a/a2', '');
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
-            assert.deepStrictEqual(body, 'a1');
+            assert.deepStrictEqual(body, 'a2');
         });
-
-        // mocha.it('should proxy request with custom path', async () => {
-        //     const { response, body } = await clientRequest('GET', host, port, '/a/b2', '');
-        //     assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
-        //     assert.deepStrictEqual(body, 'b2');
-        // });
     });
 });
