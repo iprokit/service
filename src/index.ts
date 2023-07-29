@@ -8,5 +8,8 @@ export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHan
 export { proxy } from './http.handler';
 export { default as HttpStatusCode } from './http.statusCode';
 
+//Export Discovery.
+export { default as DiscoveryLink, LinkInfo, RemoteService } from './discovery.link';
+
 //Export Common.
 export { generateID, generateRFID, NextFunction } from './common';
