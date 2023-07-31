@@ -37,7 +37,7 @@ mocha.describe('Discovery Test', () => {
         });
 
         mocha.it('should register remote service', () => {
-            //TODO: Work from here.
+
         });
     });
 });

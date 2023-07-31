@@ -7,8 +7,8 @@ import Client from './scp.client';
 export default class DiscoveryLink extends Discovery {
     public readonly remoteServices = new Array<RemoteService>();
 
-    constructor(identifier: string, info: LinkInfo) {
-        super(identifier, { http: String(info.http), scp: String(info.scp), host: info.host });
+    constructor(identifier: string, args: LinkArgs) {
+        super(identifier, { http: String(args.http), scp: String(args.scp), host: args.host });
 
         //Initialize Variables.
         this.remoteServices = new Array();
@@ -41,7 +41,7 @@ export default class DiscoveryLink extends Discovery {
     }
 }
 
-export interface LinkInfo {
+export interface LinkArgs {
     http: number;
     scp: number;
     host: string;
