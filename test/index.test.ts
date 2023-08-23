@@ -1,4 +1,4 @@
 //Import Local.
-import './scp.test';
 import './http.test';
-import './discovery.test';
+import './scp.test';
+import './service.test';

@@ -9,6 +9,11 @@ import { NextFunction } from './common';
 /**
  * This class is used to create a HTTP server.
  * A `Server` is bound to an IP address and port number and listens for incoming HTTP client connections.
+ *
+ * @emits `listening` when the server has been bound after calling `server.listen()`.
+ * @emits `error` when an error occurs.
+ * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
+ * @emits `close` when the server is fully closed.
  */
 export default class HttpServer extends Server {
     /**
