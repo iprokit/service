@@ -9,7 +9,8 @@ export { proxy } from './http.handler';
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export Discovery.
-export { default as DiscoveryLink, LinkArgs, RemoteService } from './discovery.link';
+export { Pod, Args as PodArgs, Discovery } from '@iprotechs/discovery';
+export { default as DiscoveryMesh, JoinArgs, Node } from './discovery.mesh';
 
 //Export Common.
 export { generateID, generateRFID, NextFunction } from './common';

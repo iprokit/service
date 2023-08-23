@@ -11,14 +11,6 @@ const host = '127.0.0.1';
 const port = 3000;
 
 mocha.describe('HTTP Test', () => {
-    mocha.describe('Constructor Test', () => {
-        mocha.it('should construct server', (done) => {
-            const server = new HttpServer();
-            assert.notDeepStrictEqual(server, undefined);
-            done();
-        });
-    });
-
     mocha.describe('Route Test', () => {
         let server: HttpServer;
 
