@@ -1,5 +1,5 @@
 //Import Libs.
-import { EventEmitter, once } from 'events';
+import { EventEmitter } from 'events';
 import { promisify } from 'util';
 
 //Import @iprotechs Libs.
@@ -63,8 +63,7 @@ export default class Service extends EventEmitter {
 
         const node = this.createNode(identifier);
         node.link(Number(http), host);
-        node.connect(Number(scp), host);
-        await once(node, 'connect');
+        await promisify(node.connect).bind(node)(Number(scp), host);
         this.emit('node', node);
     }
 
@@ -142,31 +141,18 @@ export default class Service extends EventEmitter {
     public async start(httpPort: number, scpPort: number, discoveryPort: number, discoveryHost: string) {
         const discoveryArgs: Args = { http: String(httpPort), scp: String(scpPort), host: localAddress() }
 
-        this.httpServer.listen(httpPort);
-        await once(this.httpServer, 'listening');
-
-        this.scpServer.listen(scpPort);
-        await once(this.scpServer, 'listening');
-
-        this.discovery.bind(discoveryPort, discoveryHost, this.identifier, discoveryArgs);
-        await once(this.discovery, 'listening');
-
+        await promisify(this.httpServer.listen).bind(this.httpServer)(httpPort);
+        await promisify(this.scpServer.listen).bind(this.scpServer)(scpPort);
+        await promisify(this.discovery.bind).bind(this.discovery)(discoveryPort, discoveryHost, this.identifier, discoveryArgs);
         this.emit('start');
         return this;
     }
 
     public async stop() {
-        this.httpServer.close();
-        await once(this.httpServer, 'close');
-
+        await promisify(this.httpServer.close).bind(this.httpServer)();
         await Promise.all(this.nodes.map(async (node) => await promisify(node.close).bind(node)()));
-
-        this.scpServer.close();
-        await once(this.scpServer, 'close');
-
-        this.discovery.close();
-        await once(this.discovery, 'close');
-
+        await promisify(this.scpServer.close).bind(this.scpServer)();
+        await promisify(this.discovery.close).bind(this.discovery)();
         this.emit('stop');
         return this;
     }
