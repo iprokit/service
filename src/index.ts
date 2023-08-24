@@ -12,7 +12,7 @@ export { default as ScpServer, ScpConnection, RemoteFunction, RemoteFunctionHand
 export { Pod, Args as PodArgs, Discovery } from '@iprotechs/discovery';
 
 //Export Common.
-export { generateID, generateRFID, NextFunction } from './common';
+export { localAddress, generateID, generateRFID, NextFunction } from './common';
 
 //Export Service.
-export { default as Service, RemoteService } from './service';
+export { default as Service, Node } from './service';

@@ -1,18 +1,20 @@
 //Import Libs.
 import { EventEmitter, once } from 'events';
+import { promisify } from 'util';
 
 //Import @iprotechs Libs.
 import { Pod, Args, Discovery } from '@iprotechs/discovery';
 
 //Import Local.
-import HttpServer from './http.server';
-import ScpServer from './scp.server';
+import HttpServer, { RequestHandler } from './http.server';
+import ScpServer, { RemoteFunctionHandler, ReplyFunction } from './scp.server';
 import ScpClient from './scp.client';
+import { localAddress } from './common';
 
 export default class Service extends EventEmitter {
     public readonly identifier: string;
 
-    public readonly remoteServices: Array<RemoteService>;
+    public readonly nodes: Array<Node>;
 
     public readonly httpServer: HttpServer;
     public readonly scpServer: ScpServer;
@@ -25,7 +27,7 @@ export default class Service extends EventEmitter {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.remoteServices = new Array();
+        this.nodes = new Array();
         this.httpServer = new HttpServer();
         this.scpServer = new ScpServer(this.identifier);
         this.discovery = new Discovery();
@@ -38,33 +40,107 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    public get routes() {
+        return this.httpServer.routes;
+    }
+
+    public get remoteFunctions() {
+        return this.scpServer.remoteFunctions;
+    }
+
+    public get listening() {
+        return { http: this.httpServer.listening, scp: this.scpServer.listening, discovery: this.discovery.listening }
+    }
+
+    //////////////////////////////
     //////Event Listeners
     //////////////////////////////
     private async onDiscover(pod: Pod) {
         const { identifier, args } = pod;
         const { http, scp, host } = args;
 
-        const remoteService = this.register(identifier);
-        remoteService.link(Number(http), host);
-        remoteService.connect(Number(scp), host);
-        await once(remoteService, 'connect');
-        this.emit('remoteService', remoteService);
+        const node = this.createNode(identifier);
+        node.link(Number(http), host);
+        node.connect(Number(scp), host);
+        await once(node, 'connect');
+        this.emit('node', node);
     }
 
     //////////////////////////////
-    //////Register
+    //////Node
     //////////////////////////////
-    public register(identifier: string) {
-        const remoteService = new RemoteService(identifier);
-        this.remoteServices.push(remoteService);
-        return remoteService;
+    public createNode(identifier: string) {
+        let node = this.getNode(identifier);
+        if (node)
+            return node;
+
+        node = new Node(identifier);
+        this.nodes.push(node);
+        return node;
+    }
+
+    public getNode(identifier: string) {
+        return this.nodes.find(node => node.identifier === identifier);
+    }
+
+    //////////////////////////////
+    //////HTTP
+    //////////////////////////////
+    public get(path: string, handler: RequestHandler) {
+        this.httpServer.get(path, handler);
+        return this;
+    }
+
+    public post(path: string, handler: RequestHandler) {
+        this.httpServer.post(path, handler);
+        return this;
+    }
+
+    public put(path: string, handler: RequestHandler) {
+        this.httpServer.put(path, handler);
+        return this;
+    }
+
+    public patch(path: string, handler: RequestHandler) {
+        this.httpServer.patch(path, handler);
+        return this;
+    }
+
+    public delete(path: string, handler: RequestHandler) {
+        this.httpServer.delete(path, handler);
+        return this;
+    }
+
+    public all(path: string, handler: RequestHandler) {
+        this.httpServer.all(path, handler);
+        return this;
+    }
+
+    //////////////////////////////
+    //////SCP
+    //////////////////////////////
+    public createReply(map: string, handler: RemoteFunctionHandler) {
+        this.scpServer.createReply(map, handler);
+        return this;
+    }
+
+    public reply<Reply>(map: string, replyFunction: ReplyFunction<Reply>) {
+        this.scpServer.reply(map, replyFunction);
+        return this;
+    }
+
+    public broadcast(map: string, ...payload: Array<any>) {
+        this.scpServer.broadcast(map, ...payload);
+        return this;
     }
 
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(httpPort: number, scpPort: number, discoveryPort: number, discoveryHost: string, localHost: string) {
-        const discoveryArgs: Args = { http: String(httpPort), scp: String(scpPort), host: localHost }
+    public async start(httpPort: number, scpPort: number, discoveryPort: number, discoveryHost: string) {
+        const discoveryArgs: Args = { http: String(httpPort), scp: String(scpPort), host: localAddress() }
 
         this.httpServer.listen(httpPort);
         await once(this.httpServer, 'listening');
@@ -83,10 +159,7 @@ export default class Service extends EventEmitter {
         this.httpServer.close();
         await once(this.httpServer, 'close');
 
-        await Promise.all(this.remoteServices.map(async (remoteService) => {
-            remoteService.close();
-            await once(remoteService, 'close');
-        }));
+        await Promise.all(this.nodes.map(async (node) => await promisify(node.close).bind(node)()));
 
         this.scpServer.close();
         await once(this.scpServer, 'close');
@@ -100,9 +173,9 @@ export default class Service extends EventEmitter {
 }
 
 //////////////////////////////
-//////RemoteService
+//////Node
 //////////////////////////////
-export class RemoteService extends ScpClient {
+export class Node extends ScpClient {
     private _linkAddress: string;
     private _linkPort: number;
 

@@ -64,6 +64,7 @@ export default class HttpServer extends Server {
      */
     public get(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'GET', path, handler });
+        return this;
     }
 
     /**
@@ -74,6 +75,7 @@ export default class HttpServer extends Server {
      */
     public post(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'POST', path, handler });
+        return this;
     }
 
     /**
@@ -84,6 +86,7 @@ export default class HttpServer extends Server {
      */
     public put(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'PUT', path, handler });
+        return this;
     }
 
     /**
@@ -94,6 +97,7 @@ export default class HttpServer extends Server {
      */
     public patch(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'PATCH', path, handler });
+        return this;
     }
 
     /**
@@ -104,6 +108,7 @@ export default class HttpServer extends Server {
      */
     public delete(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'DELETE', path, handler });
+        return this;
     }
 
     /**
@@ -114,6 +119,7 @@ export default class HttpServer extends Server {
      */
     public all(path: string, handler: RequestHandler) {
         this.routes.push({ method: 'ALL', path, handler });
+        return this;
     }
 
     //////////////////////////////

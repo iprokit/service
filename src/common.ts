@@ -1,5 +1,19 @@
 //Import Libs.
-import crypto from 'crypto';
+import { networkInterfaces } from 'os';
+import { randomBytes } from 'crypto';
+
+/**
+ * Returns the first active IPv4 address reported by the Operating System.
+ */
+export function localAddress() {
+    const interfaces = networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        const activeInterface = interfaces[name].find(activeInterface => activeInterface.family === 'IPv4' && !activeInterface.internal);
+        if (activeInterface)
+            return activeInterface.address;
+    }
+    return undefined; // No active IPv4 address found.
+}
 
 /**
  * Generates a new ID.
@@ -7,7 +21,7 @@ import crypto from 'crypto';
  * @returns the generated ID.
  */
 export function generateID() {
-    const bytes = crypto.randomBytes(10).toString('hex');
+    const bytes = randomBytes(10).toString('hex');
     const slider = (max: number) => {
         return Math.floor(Math.random() * Math.floor(max));
     }
@@ -23,7 +37,7 @@ export function generateID() {
  * @returns the generated RFID.
  */
 export function generateRFID() {
-    return new Date().getTime().toString(26) + '-' + Math.random().toString(36).slice(2) + '-' + crypto.randomBytes(10).toString('hex');
+    return new Date().getTime().toString(26) + '-' + Math.random().toString(36).slice(2) + '-' + randomBytes(10).toString('hex');
 }
 
 /**
