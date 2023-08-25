@@ -57,14 +57,14 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Event Listeners
     //////////////////////////////
-    private async onDiscover(pod: Pod) {
+    private onDiscover(pod: Pod) {
         const { identifier, args } = pod;
         const { http, scp, host } = args;
 
         const node = this.createNode(identifier);
+        node.once('connect', () => this.emit('nodeConnected', node));
         node.link(Number(http), host);
-        await promisify(node.connect).bind(node)(Number(scp), host);
-        this.emit('node', node);
+        node.connect(Number(scp), host);
     }
 
     //////////////////////////////
@@ -72,8 +72,7 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     public createNode(identifier: string) {
         let node = this.getNode(identifier);
-        if (node)
-            return node;
+        if (node) return node;
 
         node = new Node(identifier);
         this.nodes.push(node);

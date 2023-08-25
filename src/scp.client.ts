@@ -307,12 +307,33 @@ export default class ScpClient extends EventEmitter {
      */
     public close(callback?: () => void) {
         if (!this._socket) {
-            callback?.();
+            callback && callback();
             return this;
         }
 
         callback && this.once('close', callback);
         this._socket.destroy();
+        return this;
+    }
+
+    //////////////////////////////
+    //////Ref/Unref
+    //////////////////////////////
+    /**
+     * Ref the socket.
+     * If the socket is refed calling ref again will have no effect.
+     */
+    public ref() {
+        this._socket.ref();
+        return this;
+    }
+
+    /**
+     * Unref the socket.
+     * If the socket is unrefed calling unref again will have no effect.
+     */
+    public unref() {
+        this._socket.unref();
         return this;
     }
 }

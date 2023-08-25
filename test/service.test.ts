@@ -65,9 +65,9 @@ mocha.describe('Service Test', () => {
             done();
         });
 
-        mocha.it('should emit node event for single service', (done) => {
+        mocha.it('should emit connected event for single node', (done) => {
             //Service: 1st
-            service.on('node', async (node: Node) => {
+            service.on('nodeConnected', async (node: Node) => {
                 assert.deepStrictEqual(node.identifier, serviceA.identifier);
                 assert.deepStrictEqual(node.connected, true);
                 await serviceA.stop(); //Calling End
@@ -79,11 +79,11 @@ mocha.describe('Service Test', () => {
             serviceA.start(3001, 6001, discoveryPort, discoveryHost);
         });
 
-        mocha.it('should emit node event for multiple services', (done) => {
+        mocha.it('should emit connected event for multiple nodes', (done) => {
             let nodes = 0;
 
             //Service: 1st
-            service.on('node', async (node: Node) => {
+            service.on('nodeConnected', async (node: Node) => {
                 assert.deepStrictEqual(node.identifier, services[nodes].identifier);
                 assert.deepStrictEqual(node.connected, true);
                 if (nodes === services.length - 1) {
