@@ -70,13 +70,21 @@ mocha.describe('Service Test', () => {
             done();
         });
 
-        mocha.it('should emit connected event for single node', (done) => {
+        mocha.it('should emit connect & disconnect events for single node', (done) => {
+            let reconnect = -1;
+
             //Service: 1st
-            service.on('nodeConnected', async (node: Node) => {
+            service.on('connect', async (node: Node) => {
                 assert.deepStrictEqual(node.identifier, serviceA.identifier);
                 assert.deepStrictEqual(node.connected, true);
                 await serviceA.stop(); //Calling End
-                done();
+            });
+            service.on('disconnect', async (node: Node) => {
+                assert.deepStrictEqual(node.identifier, serviceA.identifier);
+                assert.deepStrictEqual(node.connected, false);
+                reconnect++;
+                if (reconnect === 0) await serviceA.start(3001, 6001, discoveryPort, discoveryHost);
+                if (reconnect === 1) done();
             });
 
             //Service: 2nd
@@ -84,28 +92,35 @@ mocha.describe('Service Test', () => {
             serviceA.start(3001, 6001, discoveryPort, discoveryHost);
         });
 
-        mocha.it('should emit connected event for multiple nodes', (done) => {
-            const nodeCount = 10;
-            let nodes = 0;
+        mocha.it('should emit connect & disconnect events for multiple nodes', (done) => {
+            const nodeCount = 5;
+            let c = 0, d = 0;
+            const reconnects = Array(nodeCount).fill(-1);
 
             //Service: 1st
-            service.on('nodeConnected', async (node: Node) => {
-                assert.deepStrictEqual(node.identifier, services[nodes].identifier);
+            service.on('connect', async (node: Node) => {
+                assert.deepStrictEqual(node.identifier, services[c].identifier);
                 assert.deepStrictEqual(node.connected, true);
-                if (nodes === nodeCount - 1) {
-                    await Promise.all(services.map(async (service) => await service.stop())); //Calling End
-                    done();
-                }
-                nodes++;
+                await services[c].stop(); //Calling End
+                c++;
+                if (c === nodeCount) c = 0;
+            });
+            service.on('disconnect', async (node: Node) => {
+                assert.deepStrictEqual(node.identifier, services[d].identifier);
+                assert.deepStrictEqual(node.connected, false);
+                reconnects[d]++;
+                if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, discoveryPort, discoveryHost);
+                if (reconnects[d] === 1 && d + 1 === nodeCount) done();
+                d++;
+                if (d === nodeCount) d = 0;
             });
 
             //Service: 2nd
-            const services = new Array<Service>();
-            for (let i = 0; i < nodeCount; i++) {
+            const services = Array(nodeCount).fill({}).map((_, i) => {
                 const service = new Service(createIdentifier());
-                service.start(httpPort + i + 1, scpPort + i + 1, discoveryPort, discoveryHost);
-                services.push(service);
-            }
+                service.start(httpPort + i + 1, scpPort + i + 1, discoveryPort, discoveryHost)
+                return service;
+            });
         });
     });
 });

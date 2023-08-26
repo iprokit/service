@@ -306,10 +306,7 @@ export default class ScpClient extends EventEmitter {
      * @param callback the optional callback will be added as a listener for the `close` event once.
      */
     public close(callback?: () => void) {
-        if (!this._socket) {
-            callback && callback();
-            return this;
-        }
+        if (!this._socket) return this;
 
         callback && this.once('close', callback);
         this._socket.destroy();

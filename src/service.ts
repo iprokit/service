@@ -34,9 +34,11 @@ export default class Service extends EventEmitter {
 
         //Bind Listeners.
         this.onDiscover = this.onDiscover.bind(this);
+        this.onUpdate = this.onUpdate.bind(this);
 
         //Add Listeners.
         this.discovery.addListener('discover', this.onDiscover);
+        this.discovery.addListener('update', this.onUpdate);
     }
 
     //////////////////////////////
@@ -62,9 +64,24 @@ export default class Service extends EventEmitter {
         const { http, scp, host } = args;
 
         const node = this.createNode(identifier);
-        node.once('connect', () => this.emit('nodeConnected', node));
         node.link(Number(http), host);
-        node.connect(Number(scp), host);
+        node.connect(Number(scp), host, () => this.emit('connect', node));
+    }
+
+    private onUpdate(pod: Pod) {
+        const { identifier, args } = pod;
+        const { http, scp, host } = args;
+
+        const node = this.getNode(identifier);
+        if (!pod.available && !node.connected) { /* Disconnected. */
+            this.emit('disconnect', node);
+        }
+        if (pod.available && !node.connected) { /* Reconnected. */
+            node.link(Number(http), host);
+            node.connect(Number(scp), host, () => this.emit('connect', node));
+        }
+        if (!pod.available && node.connected) { /* Disconnecting. */ }
+        if (pod.available && node.connected) { /* Wont happen. */ }
     }
 
     //////////////////////////////
@@ -149,7 +166,7 @@ export default class Service extends EventEmitter {
 
     public async stop() {
         await promisify(this.httpServer.close).bind(this.httpServer)();
-        await Promise.all(this.nodes.map(async (node) => await promisify(node.close).bind(node)()));
+        await Promise.all(this.nodes.map(async (node) => node.connected && await promisify(node.close).bind(node)()));
         await promisify(this.scpServer.close).bind(this.scpServer)();
         await promisify(this.discovery.close).bind(this.discovery)();
         this.emit('stop');

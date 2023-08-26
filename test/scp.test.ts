@@ -216,7 +216,7 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should message(object) and expect reply(object) in parallel', async () => {
             //Client
-            const reply = await Promise.all(payloads.map((message) => client.message(echoMap, message)));
+            const reply = await Promise.all(payloads.map(async (message) => await client.message(echoMap, message)));
             assert.deepStrictEqual(reply, payloads);
         });
 
