@@ -25,22 +25,27 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Start/Stop Test', () => {
-        mocha.it('should emit start & stop events', async () => {
+        mocha.it('should emit start & stop events multiple times', (done) => {
+            const startCount = 10;
             let start = 0, stop = 0;
 
             const service = new Service(createIdentifier());
             service.on('start', () => {
-                assert.deepStrictEqual(service.listening, { http: true, scp: true, discovery: true });
                 start++;
+                assert.deepStrictEqual(service.listening, { http: true, scp: true, discovery: true });
             });
             service.on('stop', () => {
-                assert.deepStrictEqual(service.listening, { http: false, scp: false, discovery: false });
                 stop++;
+                assert.deepStrictEqual(service.listening, { http: false, scp: false, discovery: false });
             });
-
-            await service.start(httpPort, scpPort, discoveryPort, discoveryHost);
-            await service.stop(); //Calling End
-            assert.deepStrictEqual(start, stop);
+            (async () => {
+                for (let i = 0; i < startCount; i++) {
+                    await service.start(httpPort, scpPort, discoveryPort, discoveryHost);
+                    await service.stop(); //Calling End
+                    assert.deepStrictEqual(start, stop);
+                }
+                done();
+            })();
         });
     });
 
@@ -80,13 +85,14 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should emit connected event for multiple nodes', (done) => {
+            const nodeCount = 10;
             let nodes = 0;
 
             //Service: 1st
             service.on('nodeConnected', async (node: Node) => {
                 assert.deepStrictEqual(node.identifier, services[nodes].identifier);
                 assert.deepStrictEqual(node.connected, true);
-                if (nodes === services.length - 1) {
+                if (nodes === nodeCount - 1) {
                     await Promise.all(services.map(async (service) => await service.stop())); //Calling End
                     done();
                 }
@@ -95,7 +101,7 @@ mocha.describe('Service Test', () => {
 
             //Service: 2nd
             const services = new Array<Service>();
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < nodeCount; i++) {
                 const service = new Service(createIdentifier());
                 service.start(httpPort + i + 1, scpPort + i + 1, discoveryPort, discoveryHost);
                 services.push(service);

@@ -324,7 +324,7 @@ export default class ScpClient extends EventEmitter {
      * If the socket is refed calling ref again will have no effect.
      */
     public ref() {
-        this._socket.ref();
+        this._socket?.ref();
         return this;
     }
 
@@ -333,7 +333,7 @@ export default class ScpClient extends EventEmitter {
      * If the socket is unrefed calling unref again will have no effect.
      */
     public unref() {
-        this._socket.unref();
+        this._socket?.unref();
         return this;
     }
 }
