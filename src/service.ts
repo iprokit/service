@@ -1,5 +1,6 @@
 //Import Libs.
 import { EventEmitter } from 'events';
+import { AddressInfo } from 'net';
 import { promisify } from 'util';
 
 //Import @iprotechs Libs.
@@ -53,7 +54,25 @@ export default class Service extends EventEmitter {
     }
 
     public get listening() {
-        return { http: this.httpServer.listening, scp: this.scpServer.listening, discovery: this.discovery.listening }
+        const http = this.httpServer.listening;
+        const scp = this.scpServer.listening;
+        const discovery = this.discovery.listening;
+        return { http, scp, discovery }
+    }
+
+    public address() {
+        const http = this.httpServer.address() as AddressInfo;
+        const scp = this.scpServer.address() as AddressInfo;
+        const discovery = this.discovery.address() as AddressInfo;
+        return { http, scp, discovery }
+    }
+
+    public multicastAddress() {
+        return this.discovery.multicastAddress;
+    }
+
+    public localAddress() {
+        return localAddress();
     }
 
     //////////////////////////////
@@ -154,12 +173,11 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(httpPort: number, scpPort: number, discoveryPort: number, discoveryHost: string) {
-        const discoveryArgs: Args = { http: String(httpPort), scp: String(scpPort), host: localAddress() }
-
-        await promisify(this.httpServer.listen).bind(this.httpServer)(httpPort);
-        await promisify(this.scpServer.listen).bind(this.scpServer)(scpPort);
-        await promisify(this.discovery.bind).bind(this.discovery)(discoveryPort, discoveryHost, this.identifier, discoveryArgs);
+    public async start(http: number, scp: number, discovery: number, multicast: string) {
+        const discoveryArgs: Args = { http: String(http), scp: String(scp), host: this.localAddress() }
+        await promisify(this.httpServer.listen).bind(this.httpServer)(http);
+        await promisify(this.scpServer.listen).bind(this.scpServer)(scp);
+        await promisify(this.discovery.bind).bind(this.discovery)(discovery, multicast, this.identifier, discoveryArgs);
         this.emit('start');
         return this;
     }

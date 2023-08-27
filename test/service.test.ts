@@ -9,7 +9,7 @@ import { createIdentifier } from './util';
 const httpPort = 3000;
 const scpPort = 6000;
 const discoveryPort = 5000;
-const discoveryHost = '224.0.0.1';
+const multicastAddress = '224.0.0.1';
 
 mocha.describe('Service Test', () => {
     mocha.describe('Constructor Test', () => {
@@ -30,17 +30,27 @@ mocha.describe('Service Test', () => {
             let start = 0, stop = 0;
 
             const service = new Service(createIdentifier());
+            assert.deepStrictEqual(service.listening, { http: false, scp: false, discovery: false });
+            assert.deepStrictEqual(service.address(), { http: null, scp: null, discovery: null });
+            assert.deepStrictEqual(service.multicastAddress(), null);
             service.on('start', () => {
                 start++;
                 assert.deepStrictEqual(service.listening, { http: true, scp: true, discovery: true });
+                assert.deepStrictEqual(service.address().http.port, httpPort);
+                assert.deepStrictEqual(service.address().scp.port, scpPort);
+                assert.deepStrictEqual(service.address().discovery.port, discoveryPort);
+                assert.deepStrictEqual(service.multicastAddress(), multicastAddress);
+                assert.notDeepStrictEqual(service.localAddress(), null);
             });
             service.on('stop', () => {
                 stop++;
                 assert.deepStrictEqual(service.listening, { http: false, scp: false, discovery: false });
+                assert.deepStrictEqual(service.address(), { http: null, scp: null, discovery: null });
+                assert.deepStrictEqual(service.multicastAddress(), null);
             });
             (async () => {
                 for (let i = 0; i < startCount; i++) {
-                    await service.start(httpPort, scpPort, discoveryPort, discoveryHost);
+                    await service.start(httpPort, scpPort, discoveryPort, multicastAddress);
                     await service.stop(); //Calling End
                     assert.deepStrictEqual(start, stop);
                 }
@@ -54,7 +64,7 @@ mocha.describe('Service Test', () => {
 
         mocha.beforeEach(async () => {
             service = new Service(createIdentifier());
-            await service.start(httpPort, scpPort, discoveryPort, discoveryHost);
+            await service.start(httpPort, scpPort, discoveryPort, multicastAddress);
         });
 
         mocha.afterEach(async () => {
@@ -83,13 +93,13 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(node.identifier, serviceA.identifier);
                 assert.deepStrictEqual(node.connected, false);
                 reconnect++;
-                if (reconnect === 0) await serviceA.start(3001, 6001, discoveryPort, discoveryHost);
+                if (reconnect === 0) await serviceA.start(3001, 6001, discoveryPort, multicastAddress);
                 if (reconnect === 1) done();
             });
 
             //Service: 2nd
             const serviceA = new Service(createIdentifier());
-            serviceA.start(3001, 6001, discoveryPort, discoveryHost);
+            serviceA.start(3001, 6001, discoveryPort, multicastAddress);
         });
 
         mocha.it('should emit connect & disconnect events for multiple nodes', (done) => {
@@ -109,7 +119,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(node.identifier, services[d].identifier);
                 assert.deepStrictEqual(node.connected, false);
                 reconnects[d]++;
-                if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, discoveryPort, discoveryHost);
+                if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, discoveryPort, multicastAddress);
                 if (reconnects[d] === 1 && d + 1 === nodeCount) done();
                 d++;
                 if (d === nodeCount) d = 0;
@@ -118,7 +128,7 @@ mocha.describe('Service Test', () => {
             //Service: 2nd
             const services = Array(nodeCount).fill({}).map((_, i) => {
                 const service = new Service(createIdentifier());
-                service.start(httpPort + i + 1, scpPort + i + 1, discoveryPort, discoveryHost)
+                service.start(httpPort + i + 1, scpPort + i + 1, discoveryPort, multicastAddress)
                 return service;
             });
         });

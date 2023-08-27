@@ -1,6 +1,7 @@
 //Import Libs.
 import { EventEmitter } from 'events';
 import { finished } from 'stream';
+import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
 import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
@@ -100,7 +101,7 @@ export default class ScpClient extends EventEmitter {
      * The bound address, the address family name and port of the client as reported by the operating system.
      */
     public address() {
-        return this._socket?.address();
+        return (this._socket && this.connected) ? this._socket.address() as AddressInfo : null;
     }
 
     //////////////////////////////

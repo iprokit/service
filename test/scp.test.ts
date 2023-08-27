@@ -48,15 +48,18 @@ mocha.describe('SCP Test', () => {
 
             //Client
             const client = new ScpClient(createIdentifier());
+            assert.deepStrictEqual(client.address(), null);
             client.on('connect', () => {
                 connect++;
                 assert.deepStrictEqual(client.connected, true);
+                assert.notDeepStrictEqual(client.address(), null);
                 assert.deepStrictEqual(server.connections[0].canBroadcast, true);
                 assert.deepStrictEqual(server.connections[0].identifier, client.identifier);
             });
             client.on('close', () => {
                 close++;
                 assert.deepStrictEqual(client.connected, false);
+                assert.deepStrictEqual(client.address(), null);
             });
             (async () => {
                 for (let i = 0; i < connectCount; i++) {
