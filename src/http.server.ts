@@ -1,14 +1,11 @@
 //Import Libs.
 import { Server, IncomingMessage, ServerResponse } from 'http';
-import { parse } from 'url';
+import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
-
-//Import Local.
-import { NextFunction } from './common';
 
 /**
  * This class is used to create a HTTP server.
- * A `Server` is bound to an IP address and port number and listens for incoming HTTP client connections.
+ * A `HttpServer` is bound to an IP address and port number and listens for incoming HTTP client connections.
  *
  * @emits `listening` when the server has been bound after calling `server.listen()`.
  * @emits `error` when an error occurs.
@@ -45,7 +42,7 @@ export default class HttpServer extends Server {
      */
     private onRequest(request: Request, response: Response) {
         //Set: Request.
-        const { pathname, query } = parse(request.url, true);
+        const { pathname, query } = URL.parse(request.url, true);
         request.path = pathname;
         request.query = query;
 
@@ -222,3 +219,8 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
  * The request handler.
  */
 export type RequestHandler = (request: Request, response: Response, next: NextFunction) => void;
+
+/**
+ * The next function.
+ */
+export type NextFunction = () => void;

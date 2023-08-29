@@ -1,17 +1,14 @@
 //Import Libs.
 import { EventEmitter } from 'events';
-import { finished } from 'stream';
+import Stream from 'stream';
 import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
 import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
-//Import Local.
-import { generateRFID } from './common';
-
 /**
  * This class implements a simple SCP Client.
- * A `Client` is responsible for managing connection persistence to the server.
+ * A `ScpClient` is responsible for managing connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
  * @emits `error` when an error occurs.
@@ -34,7 +31,7 @@ export default class ScpClient extends EventEmitter {
     private _socket: Socket;
 
     /**
-     * Creates an instance of Client.
+     * Creates an instance of SCP client.
      * 
      * @param identifier the unique identifier of the client.
      */
@@ -112,7 +109,7 @@ export default class ScpClient extends EventEmitter {
      */
     private onConnect() {
         this.subscribe((error?: Error) => {
-            if (error) return;
+            if (error) return; /* LIFE HAPPENS!!! */
 
             this._connected = true;
             this.emit('connect');
@@ -165,15 +162,14 @@ export default class ScpClient extends EventEmitter {
     private subscribe(callback: (error?: Error) => void) {
         //Read: Incoming stream.
         this._socket.once('subscribe', (incoming: Incoming) => {
-            finished(incoming, (error) => callback(error));
+            Stream.finished(incoming, (error) => callback(error));
             incoming.resume();
         });
 
         //Write: Outgoing stream.
         this._socket.createOutgoing((outgoing: Outgoing) => {
-            finished(outgoing, (error) => error && callback(error));
+            Stream.finished(outgoing, (error) => error && callback(error));
             outgoing.setRFI(new RFI('SUBSCRIBE', 'SCP.subscribe'));
-            outgoing.setParam('RFID', generateRFID());
             outgoing.setParam('CID', this.identifier);
             outgoing.end('');
         });
@@ -183,12 +179,12 @@ export default class ScpClient extends EventEmitter {
     //////Message
     //////////////////////////////
     /**
-     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from remote reply function.
+     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from remote function.
      * 
-     * @param map the map of the remote reply function.
+     * @param map the map of the remote function.
      * @param callback called when the reply is available on the `Incoming` stream.
      */
-    public createMessage(map: string, callback?: (incoming: Incoming) => void) {
+    public message(map: string, callback?: (incoming: Incoming) => void) {
         //Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.on('end', () => socket.destroy());
@@ -202,45 +198,8 @@ export default class ScpClient extends EventEmitter {
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
         socket.outgoing.setRFI(new RFI('REPLY', map));
-        socket.outgoing.setParam('RFID', generateRFID());
         socket.outgoing.setParam('CID', this.identifier);
         return socket.outgoing;
-    }
-
-    /**
-     * Sends a message to the remote reply function and returns a promise that resolves to the reply received.
-     * 
-     * @param map the map of the remote reply function.
-     * @param message the message to send.
-     */
-    public message<Reply>(map: string, ...message: Array<any>) {
-        return new Promise<Reply>((resolve, reject) => {
-            //Read: Incoming stream.
-            const outgoing = this.createMessage(map, async (incoming) => {
-                try {
-                    let chunks = '';
-                    for await (const chunk of incoming) {
-                        chunks += chunk;
-                    }
-
-                    if (incoming.getParam('STATUS') === 'OK') {
-                        resolve(JSON.parse(chunks));
-                    }
-                    if (incoming.getParam('STATUS') === 'ERROR') {
-                        const error = new Error();
-                        Object.assign(error, JSON.parse(chunks));
-                        reject(error);
-                    }
-                } catch (error) {
-                    reject(error);
-                }
-            });
-
-            //Write: Outgoing stream.
-            finished(outgoing, (error) => error && reject(error));
-            outgoing.setParam('FORMAT', 'OBJECT');
-            outgoing.end(JSON.stringify(message));
-        });
     }
 
     //////////////////////////////
@@ -252,25 +211,19 @@ export default class ScpClient extends EventEmitter {
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
         if (this.listenerCount(incoming.map) === 0) {
-            finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
+            Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
             incoming.resume();
-            return;
-        }
-
-        //Looks like the broadcast is not an object, Consumer needs to handle it!
-        if (incoming.getParam('FORMAT') !== 'OBJECT') {
-            this.emit(incoming.map, incoming);
             return;
         }
 
         //Read: Incoming stream.
         (async () => {
             try {
-                let chunks = '';
+                let payload = '';
                 for await (const chunk of incoming) {
-                    chunks += chunk;
+                    payload += chunk;
                 }
-                this.emit(incoming.map, ...JSON.parse(chunks));
+                this.emit(incoming.map, payload, incoming.params);
             } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
     }

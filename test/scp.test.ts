@@ -5,8 +5,8 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { Args, Incoming, Outgoing, ScpClient, ScpServer, NextFunction } from '../lib';
-import { createIdentifier, createMap, createBody } from './util';
+import { Params, Args, ScpClient, ScpServer, RemoteFunctionHandler } from '../lib';
+import { createIdentifier, createBody, clientMessage } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
@@ -53,7 +53,6 @@ mocha.describe('SCP Test', () => {
                 connect++;
                 assert.deepStrictEqual(client.connected, true);
                 assert.notDeepStrictEqual(client.address(), null);
-                assert.deepStrictEqual(server.connections[0].canBroadcast, true);
                 assert.deepStrictEqual(server.connections[0].identifier, client.identifier);
             });
             client.on('close', () => {
@@ -89,50 +88,31 @@ mocha.describe('SCP Test', () => {
         let server: ScpServer;
         let client: ScpClient;
 
-        const nextHandler = (key: string) => {
-            return (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => {
+        const proceedHandler = (key: string): RemoteFunctionHandler => {
+            return (incoming, outgoing, proceed) => {
                 outgoing.setParam(key, '1');
-                next();
+                proceed();
             }
         }
 
-        const replyHandler = () => {
-            return (incoming: Incoming, outgoing: Outgoing, next: NextFunction) => {
+        const replyHandler = (): RemoteFunctionHandler => {
+            return (incoming, outgoing, proceed) => {
                 incoming.pipe(outgoing);
                 incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
             }
         }
 
-        const message = (client: ScpClient, map: string, body: string) => {
-            return new Promise<{ incoming: Incoming, incomingBody: string }>((resolve, reject) => {
-                const outgoing = client.createMessage(map, async (incoming: Incoming) => {
-                    let incomingBody = '';
-                    for await (const chunk of incoming) {
-                        incomingBody += chunk;
-                    }
-                    resolve({ incoming, incomingBody });
-                });
-                outgoing.end(body);
-            });
-        }
-
-        const echoMap = createMap(), spreadMap = createMap(), errorMap = createMap();
-        const payloads = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createBody(1000), { msg: createBody(1000) }, createBody(1000).split('')];
-
         mocha.beforeEach(async () => {
             server = new ScpServer(createIdentifier());
-            server.createReply('*.a', nextHandler('*.a'));
-            server.createReply('*.b', nextHandler('*.b'));
-            server.createReply('A.*', nextHandler('A.*'));
-            server.createReply('A.a', replyHandler());
-            server.createReply('A.b', replyHandler());
-            server.createReply('B.*', nextHandler('B.*'));
-            server.createReply('B.a', replyHandler());
-            server.createReply('B.b', replyHandler());
-            server.reply(echoMap, ((arg) => arg));
-            server.reply(spreadMap, ((...args) => args));
-            server.reply(errorMap, ((arg) => { throw new Error(arg); }));
-            server.createReply('*.*', replyHandler());
+            server.reply('*.a', proceedHandler('*.a'));
+            server.reply('*.b', proceedHandler('*.b'));
+            server.reply('A.*', proceedHandler('A.*'));
+            server.reply('A.a', replyHandler());
+            server.reply('A.b', replyHandler());
+            server.reply('B.*', proceedHandler('B.*'));
+            server.reply('B.a', replyHandler());
+            server.reply('B.b', replyHandler());
+            server.reply('*.*', replyHandler());
             server.listen(port);
             await once(server, 'listening');
 
@@ -148,8 +128,8 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should reply to message when className matches', async () => {
             //Client
-            const outgoingBody = createBody(100);
-            const { incoming, incomingBody } = await message(client, 'A.c', outgoingBody);
+            const outgoingBody = createBody(1000);
+            const { incoming, body: incomingBody } = await clientMessage(client, 'A.c', outgoingBody);
             assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.map, 'A.c');
             assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
@@ -162,8 +142,8 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should reply to message when functionName matches', async () => {
             //Client
-            const outgoingBody = createBody(100);
-            const { incoming, incomingBody } = await message(client, 'C.a', outgoingBody);
+            const outgoingBody = createBody(1000);
+            const { incoming, body: incomingBody } = await clientMessage(client, 'C.a', outgoingBody);
             assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.map, 'C.a');
             assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
@@ -176,8 +156,8 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should reply to message when className & functionName matches', async () => {
             //Client
-            const outgoingBody = createBody(100);
-            const { incoming, incomingBody } = await message(client, 'B.b', outgoingBody);
+            const outgoingBody = createBody(1000);
+            const { incoming, body: incomingBody } = await clientMessage(client, 'B.b', outgoingBody);
             assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.map, 'B.b');
             assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
@@ -188,68 +168,16 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(incomingBody, outgoingBody);
         });
 
-        mocha.it('should message(empty) and expect reply(empty)', async () => {
-            //Client
-            const reply = await client.message(echoMap);
-            assert.deepStrictEqual(reply, {});
-        });
-
-        mocha.it('should message(...object) and expect reply(object)', async () => {
-            //Client
-            const reply = await client.message(spreadMap, ...payloads);
-            assert.deepStrictEqual(reply, payloads);
-        });
-
-        mocha.it('should message(object) and expect reply(error)', async () => {
-            //Client
-            try {
-                await client.message(errorMap, 'SCP Error');
-            } catch (error) {
-                assert.deepStrictEqual(error.message, 'SCP Error');
-            }
-        });
-
-        mocha.it('should message(object) and expect reply(object) in sequence', async () => {
-            //Client
-            for (const message of payloads) {
-                const reply = await client.message(echoMap, message);
-                assert.deepStrictEqual(reply, message);
-            }
-        });
-
-        mocha.it('should message(object) and expect reply(object) in parallel', async () => {
-            //Client
-            const reply = await Promise.all(payloads.map(async (message) => await client.message(echoMap, message)));
-            assert.deepStrictEqual(reply, payloads);
-        });
-
-        mocha.it('should receive broadcast(empty)', async () => {
+        mocha.it('should receive broadcast', async () => {
             //Server
-            server.broadcast(echoMap);
+            const outgoingPayload = createBody(1000);
+            server.broadcast('A.a', outgoingPayload, { A: 'a' });
 
             //Client
-            const broadcast = await once(client, echoMap);
-            assert.deepStrictEqual(broadcast, []);
-        });
-
-        mocha.it('should receive broadcast(...object)', async () => {
-            //Server
-            server.broadcast(spreadMap, ...payloads);
-
-            //Client
-            const broadcast = await once(client, spreadMap);
-            assert.deepStrictEqual(broadcast, payloads);
-        });
-
-        mocha.it('should receive broadcast(object) in sequence', async () => {
-            for (const payload of payloads) {
-                //Server
-                server.broadcast(echoMap, payload);
-
-                //Client
-                const broadcast = await once(client, echoMap);
-                assert.deepStrictEqual(broadcast[0], payload)
-            }
+            const [incomingPayload, params] = await once(client, 'A.a') as [string, Params];
+            assert.deepStrictEqual(incomingPayload, outgoingPayload);
+            assert.deepStrictEqual(params.SID, server.identifier);
+            assert.deepStrictEqual(params.A, 'a');
         });
     });
 });

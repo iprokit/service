@@ -4,22 +4,23 @@ import { AddressInfo } from 'net';
 import { promisify } from 'util';
 
 //Import @iprotechs Libs.
+import { Params } from '@iprotechs/scp';
 import { Pod, Args, Discovery } from '@iprotechs/discovery';
 
 //Import Local.
 import HttpServer, { RequestHandler } from './http.server';
-import ScpServer, { RemoteFunctionHandler, ReplyFunction } from './scp.server';
+import ScpServer from './scp.server';
 import ScpClient from './scp.client';
-import { localAddress } from './common';
+import Utilities, { HttpRelay, ReplyFunction } from './utilities';
 
 export default class Service extends EventEmitter {
     public readonly identifier: string;
 
-    public readonly nodes: Array<Node>;
-
     public readonly httpServer: HttpServer;
     public readonly scpServer: ScpServer;
     public readonly discovery: Discovery;
+
+    public readonly links: Array<Link>;
 
     constructor(identifier: string) {
         super();
@@ -28,10 +29,10 @@ export default class Service extends EventEmitter {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.nodes = new Array();
         this.httpServer = new HttpServer();
         this.scpServer = new ScpServer(this.identifier);
         this.discovery = new Discovery();
+        this.links = new Array();
 
         //Bind Listeners.
         this.onDiscover = this.onDiscover.bind(this);
@@ -67,12 +68,12 @@ export default class Service extends EventEmitter {
         return { http, scp, discovery }
     }
 
-    public multicastAddress() {
+    public get multicastAddress() {
         return this.discovery.multicastAddress;
     }
 
     public localAddress() {
-        return localAddress();
+        return Utilities.localAddress();
     }
 
     //////////////////////////////
@@ -82,41 +83,50 @@ export default class Service extends EventEmitter {
         const { identifier, args } = pod;
         const { http, scp, host } = args;
 
-        const node = this.createNode(identifier);
-        node.link(Number(http), host);
-        node.connect(Number(scp), host, () => this.emit('connect', node));
+        //Create/Get link.
+        const link = this.discover(identifier);
+        const { httpRelay, scpClient } = link;
+
+        //Establish connection.
+        httpRelay.connect(Number(http), host);
+        scpClient.connect(Number(scp), host, () => this.emit('connect', link));
     }
 
     private onUpdate(pod: Pod) {
         const { identifier, args } = pod;
         const { http, scp, host } = args;
 
-        const node = this.getNode(identifier);
-        if (!pod.available && !node.connected) { /* Disconnected. */
-            this.emit('disconnect', node);
+        //Get link.
+        const link = this.getLink(identifier);
+        const { httpRelay, scpClient } = link;
+
+        //Be ready to be confused 😈.
+        if (!pod.available && !scpClient.connected) { /* Closed. */
+            this.emit('close', link);
         }
-        if (pod.available && !node.connected) { /* Reconnected. */
-            node.link(Number(http), host);
-            node.connect(Number(scp), host, () => this.emit('connect', node));
+        if (pod.available && !scpClient.connected) { /* Reconnected. */
+            httpRelay.connect(Number(http), host);
+            scpClient.connect(Number(scp), host, () => this.emit('connect', link));
         }
-        if (!pod.available && node.connected) { /* Disconnecting. */ }
-        if (pod.available && node.connected) { /* Wont happen. */ }
+        if (!pod.available && scpClient.connected) { /* Closing. */ }
+        if (pod.available && scpClient.connected) { /* Wont happen. */ }
     }
 
     //////////////////////////////
-    //////Node
+    //////Link
     //////////////////////////////
-    public createNode(identifier: string) {
-        let node = this.getNode(identifier);
-        if (node) return node;
+    public discover(identifier: string) {
+        let link = this.getLink(identifier);
+        if (link) return link;
 
-        node = new Node(identifier);
-        this.nodes.push(node);
-        return node;
+        //Forging a new link 🚀🎉.
+        link = { identifier, httpRelay: new HttpRelay(), scpClient: new ScpClient(identifier) }
+        this.links.push(link);
+        return link;
     }
 
-    public getNode(identifier: string) {
-        return this.nodes.find(node => node.identifier === identifier);
+    public getLink(identifier: string) {
+        return this.links.find(link => link.identifier === identifier);
     }
 
     //////////////////////////////
@@ -153,20 +163,41 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////SCP
+    //////HTTP: Proxy
     //////////////////////////////
-    public createReply(map: string, handler: RemoteFunctionHandler) {
-        this.scpServer.createReply(map, handler);
+    public proxy(path: string, identifier: string) {
+        const { httpRelay } = this.getLink(identifier);
+        this.all(path, Utilities.proxy(httpRelay));
         return this;
     }
 
+    //////////////////////////////
+    //////SCP
+    //////////////////////////////
     public reply<Reply>(map: string, replyFunction: ReplyFunction<Reply>) {
-        this.scpServer.reply(map, replyFunction);
+        this.scpServer.reply(map, Utilities.reply(replyFunction));
         return this;
     }
 
     public broadcast(map: string, ...payload: Array<any>) {
-        this.scpServer.broadcast(map, ...payload);
+        this.scpServer.broadcast(map, JSON.stringify(payload), { FORMAT: 'OBJECT' });
+        return this;
+    }
+
+    //////////////////////////////
+    //////SCP: Client
+    //////////////////////////////
+    public async message<Reply>(identifier: string, map: string, ...message: Array<any>) {
+        const { scpClient } = this.getLink(identifier);
+        return await Utilities.message<Reply>(scpClient, map, ...message);
+    }
+
+    public onBroadcast(identifier: string, map: string, listener: (...payload: Array<any>) => void) {
+        const { scpClient } = this.getLink(identifier);
+        scpClient.on(map, (payload: string, params: Params) => {
+            if (params.FORMAT === 'OBJECT') return listener(...JSON.parse(payload));
+            listener(payload, params);
+        });
         return this;
     }
 
@@ -184,38 +215,18 @@ export default class Service extends EventEmitter {
 
     public async stop() {
         await promisify(this.httpServer.close).bind(this.httpServer)();
-        await Promise.all(this.nodes.map(async (node) => node.connected && await promisify(node.close).bind(node)()));
+        await Promise.all(this.links.map(async ({ scpClient }) => scpClient.connected && await promisify(scpClient.close).bind(scpClient)()));
         await promisify(this.scpServer.close).bind(this.scpServer)();
         await promisify(this.discovery.close).bind(this.discovery)();
         this.emit('stop');
         return this;
     }
 }
-
 //////////////////////////////
-//////Node
+//////Link
 //////////////////////////////
-export class Node extends ScpClient {
-    private _linkAddress: string;
-    private _linkPort: number;
-
-    //////////////////////////////
-    //////Gets/Sets
-    //////////////////////////////
-    public get linkAddress() {
-        return this._linkAddress;
-    }
-
-    public get linkPort() {
-        return this._linkPort;
-    }
-
-    //////////////////////////////
-    //////Connection Management
-    //////////////////////////////
-    public link(port: number, host: string) {
-        this._linkPort = port;
-        this._linkAddress = host;
-        return this;
-    }
+export interface Link {
+    identifier: string;
+    httpRelay: HttpRelay;
+    scpClient: ScpClient;
 }

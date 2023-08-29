@@ -1,6 +1,9 @@
 //Import Libs.
 import http, { IncomingMessage } from 'http';
 
+//Import Local.
+import { Incoming, ScpClient } from '../lib';
+
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let body = '';
@@ -36,5 +39,22 @@ export function clientRequest(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE
             }
         });
         request.end(body);
+    });
+}
+
+export function clientMessage(client: ScpClient, map: string, body: string) {
+    return new Promise<{ incoming: Incoming, body: string }>((resolve, reject) => {
+        const outgoing = client.message(map, async (incoming) => {
+            try {
+                let body = '';
+                for await (const chunk of incoming) {
+                    body += chunk;
+                }
+                resolve({ incoming, body });
+            } catch (error) {
+                reject(error);
+            }
+        });
+        outgoing.end(body);
     });
 }

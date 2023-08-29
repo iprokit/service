@@ -1,18 +1,17 @@
 //Export HTTP.
-export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHandler } from './http.server';
-export { proxy } from './http.handler';
+export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHandler, NextFunction } from './http.server';
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export SCP.
 export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprotechs/scp';
+export { default as ScpServer, ScpConnection, RemoteFunction, Mode, RemoteFunctionHandler, ProceedFunction } from './scp.server';
 export { default as ScpClient } from './scp.client';
-export { default as ScpServer, ScpConnection, RemoteFunction, RemoteFunctionHandler, ReplyFunction } from './scp.server';
 
 //Export Discovery.
 export { Pod, Args as PodArgs, Discovery } from '@iprotechs/discovery';
 
-//Export Common.
-export { localAddress, generateID, generateRFID, NextFunction } from './common';
+//Export Utilities.
+export { default as Utilities, HttpRelay, ReplyFunction } from './utilities';
 
 //Export Service.
-export { default as Service, Node } from './service';
+export { default as Service, Link } from './service';
