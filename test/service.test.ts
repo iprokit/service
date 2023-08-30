@@ -136,17 +136,17 @@ mocha.describe('Service Test', () => {
             }
         }
 
-        const echoMap = createMap(), spreadMap = createMap(), errorMap = createMap();
+        const echoMap = createMap(), spreadMap = createMap(), errorMap = createMap(), broadcastMap = createMap();
         const payloads = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createBody(1000), { msg: createBody(1000) }, createBody(1000).split('')];
 
         mocha.beforeEach(async () => {
             serviceA = new Service('SVC_A');
-            serviceA.discover('SVC_B');
+            serviceA.link('SVC_B');
             serviceA.proxy('/a/*', 'SVC_B');
             await serviceA.start(httpPort, scpPort, discoveryPort, multicastAddress);
 
             serviceB = new Service('SVC_B');
-            serviceB.discover('SVC_A');
+            serviceB.link('SVC_A');
             serviceB.get('/b1', requestHandler('b1'));
             serviceB.get('/b2', requestHandler('b2'));
             serviceB.get('/b3', requestHandler('b3'));
@@ -155,7 +155,7 @@ mocha.describe('Service Test', () => {
             serviceB.reply(errorMap, ((message) => { throw new Error(message); }));
             await serviceB.start(httpPort + 1, scpPort + 1, discoveryPort, multicastAddress);
 
-            //Wait for services to be connected.
+            //Wait for services to be connected to each other.
             await Promise.all([await once(serviceA, 'connect'), await once(serviceB, 'connect')]);
         });
 
@@ -208,10 +208,10 @@ mocha.describe('Service Test', () => {
 
         mocha.it('should receive broadcast(empty)', (done) => {
             //Service: 1st
-            serviceA.broadcast(echoMap);
+            serviceA.broadcast(broadcastMap);
 
             //Service: 2nd
-            serviceB.onBroadcast('SVC_A', echoMap, (...payload) => {
+            serviceB.onBroadcast('SVC_A', broadcastMap, (...payload) => {
                 assert.deepStrictEqual(payload, []);
                 done();
             });
@@ -219,10 +219,10 @@ mocha.describe('Service Test', () => {
 
         mocha.it('should receive broadcast(...object)', (done) => {
             //Service: 1st
-            serviceA.broadcast(echoMap, ...payloads);
+            serviceA.broadcast(broadcastMap, ...payloads);
 
             //Service: 2nd
-            serviceB.onBroadcast('SVC_A', echoMap, (...payload) => {
+            serviceB.onBroadcast('SVC_A', broadcastMap, (...payload) => {
                 assert.deepStrictEqual(payload, payloads);
                 done();
             });
@@ -232,10 +232,10 @@ mocha.describe('Service Test', () => {
             let broadcast = -1;
 
             //Service: 1st
-            payloads.forEach((payload) => serviceA.broadcast(echoMap, payload));
+            payloads.forEach((payload) => serviceA.broadcast(broadcastMap, payload));
 
             //Service: 2nd
-            serviceB.onBroadcast('SVC_A', echoMap, (payload) => {
+            serviceB.onBroadcast('SVC_A', broadcastMap, (payload) => {
                 broadcast++;
                 assert.deepStrictEqual(payload, payloads[broadcast]);
                 if (broadcast + 1 === payloads.length) done();

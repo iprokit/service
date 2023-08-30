@@ -34,8 +34,8 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "3.6.3",
-    "@iprotechs/discovery": "3.2.6"
+    "@iprotechs/scp": "3.6.4",
+    "@iprotechs/discovery": "3.2.7"
   },
   "devDependencies": {
     "typescript": "5.0.4",

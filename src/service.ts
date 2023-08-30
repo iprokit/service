@@ -55,17 +55,19 @@ export default class Service extends EventEmitter {
     }
 
     public get listening() {
-        const http = this.httpServer.listening;
-        const scp = this.scpServer.listening;
-        const discovery = this.discovery.listening;
-        return { http, scp, discovery }
+        return {
+            http: this.httpServer.listening,
+            scp: this.scpServer.listening,
+            discovery: this.discovery.listening
+        }
     }
 
     public address() {
-        const http = this.httpServer.address() as AddressInfo;
-        const scp = this.scpServer.address() as AddressInfo;
-        const discovery = this.discovery.address() as AddressInfo;
-        return { http, scp, discovery }
+        return {
+            http: this.httpServer.address() as AddressInfo,
+            scp: this.scpServer.address() as AddressInfo,
+            discovery: this.discovery.address() as AddressInfo
+        }
     }
 
     public get multicastAddress() {
@@ -77,14 +79,13 @@ export default class Service extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Event Listeners
+    //////Event Listeners: Discovery
     //////////////////////////////
     private onDiscover(pod: Pod) {
-        const { identifier, args } = pod;
-        const { http, scp, host } = args;
+        const { identifier, args: { http, scp, host } } = pod;
 
         //Create/Get link.
-        const link = this.discover(identifier);
+        const link = this.link(identifier);
         const { httpRelay, scpClient } = link;
 
         //Establish connection.
@@ -93,8 +94,7 @@ export default class Service extends EventEmitter {
     }
 
     private onUpdate(pod: Pod) {
-        const { identifier, args } = pod;
-        const { http, scp, host } = args;
+        const { identifier, args: { http, scp, host } } = pod;
 
         //Get link.
         const link = this.getLink(identifier);
@@ -115,7 +115,7 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Link
     //////////////////////////////
-    public discover(identifier: string) {
+    public link(identifier: string) {
         let link = this.getLink(identifier);
         if (link) return link;
 
@@ -126,7 +126,7 @@ export default class Service extends EventEmitter {
     }
 
     public getLink(identifier: string) {
-        return this.links.find(link => link.identifier === identifier);
+        return this.links.find((link) => link.identifier === identifier);
     }
 
     //////////////////////////////
