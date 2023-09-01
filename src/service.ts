@@ -103,13 +103,15 @@ export default class Service extends EventEmitter {
         //Be ready to be confused 😈.
         if (!pod.available && !scpClient.connected) { /* Closed. */
             this.emit('close', link);
+            return;
         }
         if (pod.available && !scpClient.connected) { /* Reconnected. */
             httpRelay.configure(Number(http), host);
             scpClient.connect(Number(scp), host, () => this.emit('connect', link));
+            return;
         }
-        if (!pod.available && scpClient.connected) { /* Closing. */ }
-        if (pod.available && scpClient.connected) { /* Wont happen. */ }
+        if (!pod.available && scpClient.connected) return; /* Closing. */
+        if (pod.available && scpClient.connected) return; /* Wont happen. */
     }
 
     //////////////////////////////
