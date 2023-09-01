@@ -18,7 +18,7 @@ namespace Utilities {
     export function localAddress() {
         const interfaces = OS.networkInterfaces();
         for (const name of Object.keys(interfaces)) {
-            const activeInterface = interfaces[name].find((activeInterface) => activeInterface.family === 'IPv4' && !activeInterface.internal);
+            const activeInterface = interfaces[name].find(({ family, internal }) => family === 'IPv4' && !internal);
             if (activeInterface)
                 return activeInterface.address;
         }

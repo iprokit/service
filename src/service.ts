@@ -215,7 +215,7 @@ export default class Service extends EventEmitter {
 
     public async stop() {
         await promisify(this.httpServer.close).bind(this.httpServer)();
-        await Promise.all(this.links.map(async (link) => link.scpClient.connected && await promisify(link.scpClient.close).bind(link.scpClient)()));
+        await Promise.all(this.links.map(async ({ scpClient }) => scpClient.connected && await promisify(scpClient.close).bind(scpClient)()));
         await promisify(this.scpServer.close).bind(this.scpServer)();
         await promisify(this.discovery.close).bind(this.discovery)();
         this.emit('stop');
