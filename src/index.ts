@@ -8,7 +8,7 @@ export { default as ScpServer, ScpConnection, RemoteFunction, Mode, RemoteFuncti
 export { default as ScpClient } from './scp.client';
 
 //Export Discovery.
-export { Pod, Args as PodArgs, Discovery } from '@iprotechs/discovery';
+export { Pod, Attrs, Discovery } from '@iprotechs/discovery';
 
 //Export Utilities.
 export { default as Utilities, HttpRelay, ReplyFunction } from './utilities';

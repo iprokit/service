@@ -6,23 +6,19 @@ import { Incoming, ScpClient } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let body = '';
+    let string = '';
     for (let i = 0; i < size; i++) {
-        body += characters.charAt(Math.floor(Math.random() * characters.length));
+        string += characters.charAt(Math.floor(Math.random() * characters.length));
     }
-    return body;
+    return string;
 }
 
 export function createIdentifier() {
     return createString(10);
 }
 
-export function createMap() {
+export function createOperation() {
     return `${createString(10)}.${createString(10)}`;
-}
-
-export function createBody(size: number) {
-    return createString(size);
 }
 
 export function clientRequest(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', host: string, port: number, path: string, body: string) {
@@ -42,19 +38,19 @@ export function clientRequest(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE
     });
 }
 
-export function clientMessage(client: ScpClient, map: string, body: string) {
-    return new Promise<{ incoming: Incoming, body: string }>((resolve, reject) => {
-        const outgoing = client.message(map, async (incoming) => {
+export function clientMessage(client: ScpClient, operation: string, data: string) {
+    return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
+        const outgoing = client.message(operation, async (incoming) => {
             try {
-                let body = '';
+                let data = '';
                 for await (const chunk of incoming) {
-                    body += chunk;
+                    data += chunk;
                 }
-                resolve({ incoming, body });
+                resolve({ incoming, data });
             } catch (error) {
                 reject(error);
             }
         });
-        outgoing.end(body);
+        outgoing.end(data);
     });
 }

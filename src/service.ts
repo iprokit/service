@@ -5,7 +5,7 @@ import { promisify } from 'util';
 
 //Import @iprotechs Libs.
 import { Params } from '@iprotechs/scp';
-import { Pod, Args, Discovery } from '@iprotechs/discovery';
+import { Pod, Attrs, Discovery } from '@iprotechs/discovery';
 
 //Import Local.
 import HttpServer, { RequestHandler } from './http.server';
@@ -82,7 +82,7 @@ export default class Service extends EventEmitter {
     //////Event Listeners: Discovery
     //////////////////////////////
     private onDiscover(pod: Pod) {
-        const { identifier, args: { http, scp, host } } = pod;
+        const { identifier, attrs: { http, scp, host } } = pod;
 
         //Create/Get link.
         const link = this.link(identifier);
@@ -94,7 +94,7 @@ export default class Service extends EventEmitter {
     }
 
     private onUpdate(pod: Pod) {
-        const { identifier, args: { http, scp, host } } = pod;
+        const { identifier, attrs: { http, scp, host } } = pod;
 
         //Get link.
         const link = this.getLink(identifier);
@@ -176,29 +176,29 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////SCP
     //////////////////////////////
-    public reply<Reply>(map: string, replyFunction: ReplyFunction<Reply>) {
-        this.scpServer.reply(map, Utilities.reply(replyFunction));
+    public reply<Reply>(operation: string, replyFunction: ReplyFunction<Reply>) {
+        this.scpServer.reply(operation, Utilities.reply(replyFunction));
         return this;
     }
 
-    public broadcast(map: string, ...payload: Array<any>) {
-        this.scpServer.broadcast(map, JSON.stringify(payload), { FORMAT: 'OBJECT' });
+    public broadcast(operation: string, ...broadcast: Array<any>) {
+        this.scpServer.broadcast(operation, JSON.stringify(broadcast), { FORMAT: 'OBJECT' });
         return this;
     }
 
     //////////////////////////////
     //////SCP: Client
     //////////////////////////////
-    public async message<Reply>(identifier: string, map: string, ...message: Array<any>) {
+    public async message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
         const { scpClient } = this.getLink(identifier);
-        return await Utilities.message<Reply>(scpClient, map, ...message);
+        return await Utilities.message<Reply>(scpClient, operation, ...message);
     }
 
-    public onBroadcast(identifier: string, map: string, listener: (...payload: Array<any>) => void) {
+    public onBroadcast(identifier: string, operation: string, listener: (...broadcast: Array<any>) => void) {
         const { scpClient } = this.getLink(identifier);
-        scpClient.on(map, (payload: string, params: Params) => {
-            if (params.FORMAT === 'OBJECT') return listener(...JSON.parse(payload));
-            listener(payload, params);
+        scpClient.on(operation, (data: string, params: Params) => {
+            if (params.FORMAT === 'OBJECT') return listener(...JSON.parse(data));
+            listener(data, params);
         });
         return this;
     }
@@ -207,10 +207,10 @@ export default class Service extends EventEmitter {
     //////Start/Stop
     //////////////////////////////
     public async start(http: number, scp: number, discovery: number, multicast: string) {
-        const discoveryArgs: Args = { http: String(http), scp: String(scp), host: this.localAddress() }
+        const discoveryAttrs: Attrs = { http: String(http), scp: String(scp), host: this.localAddress() }
         await promisify(this.httpServer.listen).bind(this.httpServer)(http);
         await promisify(this.scpServer.listen).bind(this.scpServer)(scp);
-        await promisify(this.discovery.bind).bind(this.discovery)(discovery, multicast, this.identifier, discoveryArgs);
+        await promisify(this.discovery.bind).bind(this.discovery)(discovery, multicast, this.identifier, discoveryAttrs);
         this.emit('start');
         return this;
     }

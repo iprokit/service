@@ -121,7 +121,7 @@ export default class ScpClient extends EventEmitter {
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.mode === 'SUBSCRIBE' && incoming.map === 'SCP.subscribe') {
+        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'SCP.subscribe') {
             this._socket.emit('subscribe', incoming);
         }
         if (incoming.mode === 'BROADCAST') {
@@ -181,10 +181,10 @@ export default class ScpClient extends EventEmitter {
     /**
      * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from remote function.
      * 
-     * @param map the map of the remote function.
+     * @param operation the operation of the remote function.
      * @param callback called when the reply is available on the `Incoming` stream.
      */
-    public message(map: string, callback?: (incoming: Incoming) => void) {
+    public message(operation: string, callback?: (incoming: Incoming) => void) {
         //Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.on('end', () => socket.destroy());
@@ -197,7 +197,7 @@ export default class ScpClient extends EventEmitter {
 
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
-        socket.outgoing.setRFI(new RFI('REPLY', map));
+        socket.outgoing.setRFI(new RFI('REPLY', operation));
         socket.outgoing.setParam('CID', this.identifier);
         return socket.outgoing;
     }
@@ -210,7 +210,7 @@ export default class ScpClient extends EventEmitter {
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
-        if (this.listenerCount(incoming.map) === 0) {
+        if (this.listenerCount(incoming.operation) === 0) {
             Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
             incoming.resume();
             return;
@@ -219,11 +219,11 @@ export default class ScpClient extends EventEmitter {
         //Read: Incoming stream.
         (async () => {
             try {
-                let payload = '';
+                let data = '';
                 for await (const chunk of incoming) {
-                    payload += chunk;
+                    data += chunk;
                 }
-                this.emit(incoming.map, payload, incoming.params);
+                this.emit(incoming.operation, data, incoming.params);
             } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
     }

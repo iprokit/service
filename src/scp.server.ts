@@ -63,7 +63,7 @@ export default class ScpServer extends Server {
         outgoing.setParam('SID', this.identifier);
 
         //Handle Subscribe.
-        if (incoming.mode === 'SUBSCRIBE' && incoming.map === 'SCP.subscribe') {
+        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'SCP.subscribe') {
             this.subscribe(incoming, outgoing);
             return;
         }
@@ -98,11 +98,11 @@ export default class ScpServer extends Server {
     /**
      * Registers a remote function for handling REPLY.
      * 
-     * @param map the map of the remote function.
+     * @param operation the operation of the remote function.
      * @param handler the handler of the remote function.
      */
-    public reply(map: string, handler: RemoteFunctionHandler) {
-        this.remoteFunctions.push(new RemoteFunction('REPLY', map, handler));
+    public reply(operation: string, handler: RemoteFunctionHandler) {
+        this.remoteFunctions.push(new RemoteFunction('REPLY', operation, handler));
         return this;
     }
 
@@ -112,19 +112,19 @@ export default class ScpServer extends Server {
     /**
      * Broadcasts the supplied to all the subscribed client socket connections.
      * 
-     * @param map the map of the broadcast.
-     * @param payload the payload to broadcast.
+     * @param operation the operation of the broadcast.
+     * @param data the data to broadcast.
      * @param params the optional input/output parameters of the broadcast.
      */
-    public broadcast(map: string, payload: string, params?: Params) {
+    public broadcast(operation: string, data: string, params?: Params) {
         for (const connection of this.connections) {
             if (!connection.identifier) continue;
 
             connection.createOutgoing((outgoing: Outgoing) => {
                 Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-                outgoing.setRFI(new RFI('BROADCAST', map, params));
+                outgoing.setRFI(new RFI('BROADCAST', operation, params));
                 outgoing.setParam('SID', this.identifier);
-                outgoing.end(payload);
+                outgoing.end(data);
             });
         }
         return this;
@@ -188,11 +188,11 @@ export class RemoteFunction extends RFI {
      * Creates an instances of `RemoteFunction`.
      * 
      * @param mode the mode of remote function.
-     * @param map the map of remote function.
+     * @param operation the operation of remote function.
      * @param handler the handler of remote function.
      */
-    constructor(mode: Mode, map: string, handler: RemoteFunctionHandler) {
-        super(mode, map);
+    constructor(mode: Mode, operation: string, handler: RemoteFunctionHandler) {
+        super(mode, operation);
 
         //Initialize Options.
         this.handler = handler;

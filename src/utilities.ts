@@ -66,17 +66,17 @@ namespace Utilities {
             }
 
             //Read: Incoming stream.
-            let chunks = '';
+            let data = '';
             try {
                 for await (const chunk of incoming) {
-                    chunks += chunk;
+                    data += chunk;
                 }
             } catch (error) { /* LIFE HAPPENS!!! */ }
 
             //Execute: Reply function.
             let reply = '';
             try {
-                let returned = await replyFunction(...JSON.parse(chunks));
+                let returned = await replyFunction(...JSON.parse(data));
                 reply = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
                 outgoing.setParam('STATUS', 'OK');
             } catch (error) {
@@ -99,25 +99,25 @@ namespace Utilities {
      * Sends a message to the remote function and returns a promise that resolves to the received reply.
      * 
      * @param client the client to which the message is sent.
-     * @param map the map of the remote function.
+     * @param operation the operation of the remote function.
      * @param message the message to send.
      */
-    export function message<Reply>(client: ScpClient, map: string, ...message: Array<any>) {
+    export function message<Reply>(client: ScpClient, operation: string, ...message: Array<any>) {
         return new Promise<Reply>((resolve, reject) => {
             //Read: Incoming stream.
-            const outgoing = client.message(map, async (incoming) => {
+            const outgoing = client.message(operation, async (incoming) => {
                 try {
-                    let chunks = '';
+                    let data = '';
                     for await (const chunk of incoming) {
-                        chunks += chunk;
+                        data += chunk;
                     }
 
                     if (incoming.getParam('STATUS') === 'OK') {
-                        resolve(JSON.parse(chunks));
+                        resolve(JSON.parse(data));
                     }
                     if (incoming.getParam('STATUS') === 'ERROR') {
                         const error = new Error();
-                        Object.assign(error, JSON.parse(chunks));
+                        Object.assign(error, JSON.parse(data));
                         reject(error);
                     }
                 } catch (error) {
@@ -186,7 +186,6 @@ export class HttpRelay {
      * @param callback called when the response is available.
      */
     public request(method: HttpMethod, path: string, headers: IncomingHttpHeaders, callback: (response: IncomingMessage) => void) {
-        //TODO: Work from here, validate if address & port are available. If not throw error.
         //Create options.
         const options: RequestOptions = { method, host: this.remoteAddress, port: this.remotePort, path, headers }
 
