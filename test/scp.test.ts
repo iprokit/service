@@ -126,58 +126,72 @@ mocha.describe('SCP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should reply to message when className matches', async () => {
-            //Client
-            const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientMessage(client, 'A.c', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'REPLY');
-            assert.deepStrictEqual(incoming.operation, 'A.c');
-            assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-            assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
-            assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
-            assert.deepStrictEqual(incoming.getParam('A.*'), '1');
-            assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
-            assert.deepStrictEqual(incomingData, outgoingData);
+        mocha.describe('Message/Reply Test', () => {
+            mocha.it('should reply to message when className matches', async () => {
+                //Client
+                const outgoingData = createString(1000);
+                const { incoming, data: incomingData } = await clientMessage(client, 'A.c', outgoingData);
+                assert.deepStrictEqual(incoming.mode, 'REPLY');
+                assert.deepStrictEqual(incoming.operation, 'A.c');
+                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
+                assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
+                assert.deepStrictEqual(incoming.getParam('A.*'), '1');
+                assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
+                assert.deepStrictEqual(incomingData, outgoingData);
+            });
+
+            mocha.it('should reply to message when functionName matches', async () => {
+                //Client
+                const outgoingData = createString(1000);
+                const { incoming, data: incomingData } = await clientMessage(client, 'C.a', outgoingData);
+                assert.deepStrictEqual(incoming.mode, 'REPLY');
+                assert.deepStrictEqual(incoming.operation, 'C.a');
+                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.getParam('*.a'), '1');
+                assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
+                assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
+                assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
+                assert.deepStrictEqual(incomingData, outgoingData);
+            });
+
+            mocha.it('should reply to message when className & functionName matches', async () => {
+                //Client
+                const outgoingData = createString(1000);
+                const { incoming, data: incomingData } = await clientMessage(client, 'B.b', outgoingData);
+                assert.deepStrictEqual(incoming.mode, 'REPLY');
+                assert.deepStrictEqual(incoming.operation, 'B.b');
+                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
+                assert.deepStrictEqual(incoming.getParam('*.b'), '1');
+                assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
+                assert.deepStrictEqual(incoming.getParam('B.*'), '1');
+                assert.deepStrictEqual(incomingData, outgoingData);
+            });
+
+            mocha.it('should throw SCP_CLIENT_INVALID_CONNECTION', async () => {
+                //Client
+                const scpClient = new ScpClient(createIdentifier());
+                try {
+                    const outgoing = scpClient.message('B.b', (incoming) => { });
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SCP_CLIENT_INVALID_CONNECTION');
+                }
+            });
         });
 
-        mocha.it('should reply to message when functionName matches', async () => {
-            //Client
-            const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientMessage(client, 'C.a', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'REPLY');
-            assert.deepStrictEqual(incoming.operation, 'C.a');
-            assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-            assert.deepStrictEqual(incoming.getParam('*.a'), '1');
-            assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
-            assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
-            assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
-            assert.deepStrictEqual(incomingData, outgoingData);
-        });
+        mocha.describe('Broadcast Test', () => {
+            mocha.it('should receive broadcast', async () => {
+                //Server
+                const outgoingData = createString(1000);
+                server.broadcast('A.a', outgoingData, { A: 'a' });
 
-        mocha.it('should reply to message when className & functionName matches', async () => {
-            //Client
-            const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientMessage(client, 'B.b', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'REPLY');
-            assert.deepStrictEqual(incoming.operation, 'B.b');
-            assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-            assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
-            assert.deepStrictEqual(incoming.getParam('*.b'), '1');
-            assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
-            assert.deepStrictEqual(incoming.getParam('B.*'), '1');
-            assert.deepStrictEqual(incomingData, outgoingData);
-        });
-
-        mocha.it('should receive broadcast', async () => {
-            //Server
-            const outgoingData = createString(1000);
-            server.broadcast('A.a', outgoingData, { A: 'a' });
-
-            //Client
-            const [incomingData, params] = await once(client, 'A.a') as [string, Params];
-            assert.deepStrictEqual(incomingData, outgoingData);
-            assert.deepStrictEqual(params.SID, server.identifier);
-            assert.deepStrictEqual(params.A, 'a');
+                //Client
+                const [incomingData, params] = await once(client, 'A.a') as [string, Params];
+                assert.deepStrictEqual(incomingData, outgoingData);
+                assert.deepStrictEqual(params.SID, server.identifier);
+                assert.deepStrictEqual(params.A, 'a');
+            });
         });
     });
 });

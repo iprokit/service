@@ -175,7 +175,7 @@ mocha.describe('Service Test', () => {
             });
         });
 
-        mocha.describe('Message Test', () => {
+        mocha.describe('Message/Reply Test', () => {
             const messages = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
             mocha.it('should message(empty) and expect reply(empty)', async () => {

@@ -185,6 +185,9 @@ export default class ScpClient extends EventEmitter {
      * @param callback called when the reply is available on the `Incoming` stream.
      */
     public message(operation: string, callback?: (incoming: Incoming) => void) {
+        //Ohooomyyy 🤦.
+        if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
+
         //Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.on('end', () => socket.destroy());
