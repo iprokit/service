@@ -87,7 +87,6 @@ namespace Utilities {
 
             //Write: Outgoing stream.
             Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-            outgoing.setParam('FORMAT', 'OBJECT');
             outgoing.end(reply);
         }
     }

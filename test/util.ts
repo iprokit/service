@@ -17,10 +17,6 @@ export function createIdentifier() {
     return createString(10);
 }
 
-export function createOperation() {
-    return `${createString(10)}.${createString(10)}`;
-}
-
 export function clientRequest(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', host: string, port: number, path: string, body: string) {
     return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
         const request = http.request({ host, port, method, path }, async (response) => {

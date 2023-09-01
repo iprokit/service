@@ -5,7 +5,7 @@ import { once } from 'events';
 
 //Import Local.
 import { RequestHandler, HttpStatusCode, Service, Link } from '../lib';
-import { createString, createIdentifier, createOperation, clientRequest } from './util';
+import { createString, createIdentifier, clientRequest } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -130,14 +130,15 @@ mocha.describe('Service Test', () => {
     mocha.describe('Link Test', () => {
         let serviceA: Service, serviceB: Service;
 
-        const requestHandler = (body: string): RequestHandler => {
-            return (request, response, next) => {
-                response.writeHead(HttpStatusCode.OK).end(body);
+        const requestHandler = (key: string): RequestHandler => {
+            return async (request, response, next) => {
+                let body = '';
+                for await (const chunk of request) {
+                    body += chunk;
+                }
+                response.writeHead(HttpStatusCode.OK).end(`${body}-${key}`);
             }
         }
-
-        const echoOperation = createOperation(), spreadOperation = createOperation(), errorOperation = createOperation(), broadcastOperation = createOperation();
-        const data = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
         mocha.beforeEach(async () => {
             serviceA = new Service('SVC_A');
@@ -147,12 +148,12 @@ mocha.describe('Service Test', () => {
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
-            serviceB.get('/b1', requestHandler('b1'));
-            serviceB.get('/b2', requestHandler('b2'));
-            serviceB.get('/b3', requestHandler('b3'));
-            serviceB.reply(echoOperation, ((message) => message));
-            serviceB.reply(spreadOperation, ((...message) => message));
-            serviceB.reply(errorOperation, ((message) => { throw new Error(message); }));
+            serviceB.post('/b1', requestHandler('b1'));
+            serviceB.post('/b2', requestHandler('b2'));
+            serviceB.post('/b3', requestHandler('b3'));
+            serviceB.reply('B.echo', ((message) => message));
+            serviceB.reply('B.spread', ((...message) => message));
+            serviceB.reply('B.error', ((message) => { throw new Error(message); }));
             await serviceB.start(httpPort + 1, scpPort + 1, discoveryPort, multicastAddress);
 
             //Wait for services to be connected to each other.
@@ -164,83 +165,94 @@ mocha.describe('Service Test', () => {
             await serviceB.stop();
         });
 
-        mocha.it('should proxy request & response', async () => {
-            //Service: 1st
-            const { response, body } = await clientRequest('GET', serviceA.localAddress(), httpPort, '/a/b2', '');
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
-            assert.deepStrictEqual(body, 'b2');
-        });
-
-        mocha.it('should message(empty) and expect reply(empty)', async () => {
-            //Service: 1st
-            const reply = await serviceA.message('SVC_B', echoOperation);
-            assert.deepStrictEqual(reply, {});
-        });
-
-        mocha.it('should message(...object) and expect reply(object)', async () => {
-            //Service: 1st
-            const reply = await serviceA.message('SVC_B', spreadOperation, ...data);
-            assert.deepStrictEqual(reply, data);
-        });
-
-        mocha.it('should message(object) and expect reply(error)', async () => {
-            //Service: 1st
-            try {
-                await serviceA.message('SVC_B', errorOperation, 'SCP Error');
-            } catch (error) {
-                assert.deepStrictEqual(error.message, 'SCP Error');
-            }
-        });
-
-        mocha.it('should message(object) and expect reply(object) in sequence', async () => {
-            //Service: 1st
-            for await (const datum of data) {
-                const reply = await serviceA.message('SVC_B', echoOperation, datum);
-                assert.deepStrictEqual(reply, datum);
-            }
-        });
-
-        mocha.it('should message(object) and expect reply(object) in parallel', async () => {
-            //Service: 1st
-            const reply = await Promise.all(data.map(async (datum) => await serviceA.message('SVC_B', echoOperation, datum)));
-            assert.deepStrictEqual(reply, data);
-        });
-
-        mocha.it('should receive broadcast(empty)', (done) => {
-            //Service: 1st
-            serviceA.broadcast(broadcastOperation);
-
-            //Service: 2nd
-            serviceB.onBroadcast('SVC_A', broadcastOperation, (...broadcast) => {
-                assert.deepStrictEqual(broadcast, []);
-                done();
+        mocha.describe('Proxy Test', () => {
+            mocha.it('should proxy request & response', async () => {
+                //Service: 1st
+                const requestBody = createString(1000);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress(), httpPort, '/a/b2', requestBody);
+                assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+                assert.deepStrictEqual(responseBody, `${requestBody}-b2`);
             });
         });
 
-        mocha.it('should receive broadcast(...object)', (done) => {
-            //Service: 1st
-            serviceA.broadcast(broadcastOperation, ...data);
+        mocha.describe('Message Test', () => {
+            const messages = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
-            //Service: 2nd
-            serviceB.onBroadcast('SVC_A', broadcastOperation, (...broadcast) => {
-                assert.deepStrictEqual(broadcast, data);
-                done();
+            mocha.it('should message(empty) and expect reply(empty)', async () => {
+                //Service: 1st
+                const reply = await serviceA.message('SVC_B', 'B.echo');
+                assert.deepStrictEqual(reply, {});
+            });
+
+            mocha.it('should message(...object) and expect reply(object)', async () => {
+                //Service: 1st
+                const reply = await serviceA.message('SVC_B', 'B.spread', ...messages);
+                assert.deepStrictEqual(reply, messages);
+            });
+
+            mocha.it('should message(object) and expect reply(error)', async () => {
+                //Service: 1st
+                try {
+                    await serviceA.message('SVC_B', 'B.error', 'SCP Error');
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SCP Error');
+                }
+            });
+
+            mocha.it('should message(object) and expect reply(object) in sequence', async () => {
+                //Service: 1st
+                for await (const message of messages) {
+                    const reply = await serviceA.message('SVC_B', 'B.echo', message);
+                    assert.deepStrictEqual(reply, message);
+                }
+            });
+
+            mocha.it('should message(object) and expect reply(object) in parallel', async () => {
+                //Service: 1st
+                const reply = await Promise.all(messages.map(async (message) => await serviceA.message('SVC_B', 'B.echo', message)));
+                assert.deepStrictEqual(reply, messages);
             });
         });
 
-        mocha.it('should receive broadcast(object) in sequence', (done) => {
-            let broadcasts = -1;
+        mocha.describe('Broadcast Test', () => {
+            const broadcasts = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
-            //Service: 1st
-            for (const datum of data) {
-                serviceA.broadcast(broadcastOperation, datum);
-            }
+            mocha.it('should receive broadcast(empty)', (done) => {
+                //Service: 1st
+                serviceA.broadcast('B.broadcast');
 
-            //Service: 2nd
-            serviceB.onBroadcast('SVC_A', broadcastOperation, (broadcast) => {
-                broadcasts++;
-                assert.deepStrictEqual(broadcast, data[broadcasts]);
-                if (broadcasts + 1 === data.length) done();
+                //Service: 2nd
+                serviceB.onBroadcast('SVC_A', 'B.broadcast', (...broadcast) => {
+                    assert.deepStrictEqual(broadcast, []);
+                    done();
+                });
+            });
+
+            mocha.it('should receive broadcast(...object)', (done) => {
+                //Service: 1st
+                serviceA.broadcast('B.broadcast', ...broadcasts);
+
+                //Service: 2nd
+                serviceB.onBroadcast('SVC_A', 'B.broadcast', (...broadcast) => {
+                    assert.deepStrictEqual(broadcast, broadcasts);
+                    done();
+                });
+            });
+
+            mocha.it('should receive broadcast(object) in sequence', (done) => {
+                let broadcastCount = -1;
+
+                //Service: 1st
+                for (const broadcast of broadcasts) {
+                    serviceA.broadcast('B.broadcast', broadcast);
+                }
+
+                //Service: 2nd
+                serviceB.onBroadcast('SVC_A', 'B.broadcast', (broadcast) => {
+                    broadcastCount++;
+                    assert.deepStrictEqual(broadcast, broadcasts[broadcastCount]);
+                    if (broadcastCount + 1 === broadcasts.length) done();
+                });
             });
         });
     });
