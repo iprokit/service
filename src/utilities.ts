@@ -18,7 +18,7 @@ namespace Utilities {
     export function localAddress() {
         const interfaces = OS.networkInterfaces();
         for (const name of Object.keys(interfaces)) {
-            const activeInterface = interfaces[name].find(({ family, internal }) => family === 'IPv4' && !internal);
+            const activeInterface = interfaces[name].find((activeInterface) => activeInterface.family === 'IPv4' && !activeInterface.internal);
             if (activeInterface)
                 return activeInterface.address;
         }
@@ -139,7 +139,7 @@ export default Utilities;
 //////////////////////////////
 /**
  * This class implements a simple Http Relay.
- * A `HttpRelay` is responsible for managing connection persistence to the target server.
+ * A `HttpRelay` is responsible for managing connections to the target server.
  */
 export class HttpRelay {
     /**
@@ -186,9 +186,9 @@ export class HttpRelay {
      * @param callback called when the response is available.
      */
     public request(method: HttpMethod, path: string, headers: IncomingHttpHeaders, callback: (response: IncomingMessage) => void) {
+        //TODO: Work from here, validate if address & port are available. If not throw error.
         //Create options.
-        const { remoteAddress: host, remotePort: port } = this;
-        const options: RequestOptions = { method, host, port, path, headers }
+        const options: RequestOptions = { method, host: this.remoteAddress, port: this.remotePort, path, headers }
 
         //Create request.
         const request = HTTP.request(options, (response) => callback(response));
@@ -196,15 +196,15 @@ export class HttpRelay {
     }
 
     //////////////////////////////
-    //////Connection Management
+    //////Configure
     //////////////////////////////
     /**
-     * Initiate the connection to the target server.
+     * Configure the connection to the target server.
      * 
      * @param port the remote port.
      * @param host the remote host.
      */
-    public connect(port: number, host: string) {
+    public configure(port: number, host: string) {
         this._remotePort = port;
         this._remoteAddress = host;
         return this;

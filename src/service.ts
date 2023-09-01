@@ -89,7 +89,7 @@ export default class Service extends EventEmitter {
         const { httpRelay, scpClient } = link;
 
         //Establish connection.
-        httpRelay.connect(Number(http), host);
+        httpRelay.configure(Number(http), host);
         scpClient.connect(Number(scp), host, () => this.emit('connect', link));
     }
 
@@ -105,7 +105,7 @@ export default class Service extends EventEmitter {
             this.emit('close', link);
         }
         if (pod.available && !scpClient.connected) { /* Reconnected. */
-            httpRelay.connect(Number(http), host);
+            httpRelay.configure(Number(http), host);
             scpClient.connect(Number(scp), host, () => this.emit('connect', link));
         }
         if (!pod.available && scpClient.connected) { /* Closing. */ }
@@ -215,7 +215,7 @@ export default class Service extends EventEmitter {
 
     public async stop() {
         await promisify(this.httpServer.close).bind(this.httpServer)();
-        await Promise.all(this.links.map(async ({ scpClient }) => scpClient.connected && await promisify(scpClient.close).bind(scpClient)()));
+        await Promise.all(this.links.map(async (link) => link.scpClient.connected && await promisify(link.scpClient.close).bind(link.scpClient)()));
         await promisify(this.scpServer.close).bind(this.scpServer)();
         await promisify(this.discovery.close).bind(this.discovery)();
         this.emit('stop');
