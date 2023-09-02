@@ -122,7 +122,7 @@ export default class Service extends EventEmitter {
         if (link) return link;
 
         //Forging a new link 🚀🎉.
-        link = { identifier, httpRelay: new HttpRelay(), scpClient: new ScpClient(identifier) }
+        link = { identifier, httpRelay: new HttpRelay(identifier), scpClient: new ScpClient(identifier) }
         this.links.push(link);
         return link;
     }

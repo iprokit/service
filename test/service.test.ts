@@ -143,7 +143,9 @@ mocha.describe('Service Test', () => {
         mocha.beforeEach(async () => {
             serviceA = new Service('SVC_A');
             serviceA.link('SVC_B');
+            serviceA.link('SVC_C');
             serviceA.proxy('/a/*', 'SVC_B');
+            serviceA.proxy('/b/*', 'SVC_C');
             await serviceA.start(httpPort, scpPort, discoveryPort, multicastAddress);
 
             serviceB = new Service('SVC_B');
@@ -166,12 +168,20 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Proxy Test', () => {
-            mocha.it('should proxy request & response', async () => {
+            mocha.it('should proxy a request and its response to the target service', async () => {
                 //Service: 1st
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress(), httpPort, '/a/b2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
                 assert.deepStrictEqual(responseBody, `${requestBody}-b2`);
+            });
+
+            mocha.it('should handle proxy request to an unavailable target service', async () => {
+                //Service: 1st
+                const requestBody = createString(1000);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress(), httpPort, '/b/c2', requestBody);
+                assert.deepStrictEqual(response.statusCode, HttpStatusCode.SERVICE_UNAVAILABLE);
+                assert.deepStrictEqual(responseBody, 'SVC_C is unavailable.');
             });
         });
 

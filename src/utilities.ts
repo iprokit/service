@@ -5,6 +5,7 @@ import HTTP, { RequestOptions } from 'http';
 
 //Import Local.
 import { RequestHandler } from './http.server';
+import HttpStatusCode from './http.statusCode';
 import { RemoteFunctionHandler } from './scp.server';
 import ScpClient from './scp.client';
 
@@ -35,6 +36,13 @@ namespace Utilities {
      */
     export function proxy(relay: HttpRelay): RequestHandler {
         return (request, response, next) => {
+            //Ohooomyyy 🤦.
+            if (!relay.remoteAddress || !relay.remotePort) {
+                response.writeHead(HttpStatusCode.SERVICE_UNAVAILABLE);
+                response.end(`${relay.identifier} is unavailable.`);
+                return;
+            }
+
             const { method, url, headers, route } = request;
             const path = url.replace(new RegExp(`^${route.path.replace(/\/\*$/, '')}`), '');
             const options: RequestOptions = { host: relay.remoteAddress, port: relay.remotePort, method, path, headers }
@@ -143,6 +151,11 @@ export default Utilities;
  */
 export class HttpRelay {
     /**
+     * The unique identifier of the relay.
+     */
+    public readonly identifier: string;
+
+    /**
      * Set the remote address of the relay.
      */
     private _remoteAddress: string;
@@ -154,8 +167,12 @@ export class HttpRelay {
 
     /**
      * Creates an instance of HTTP relay.
+     * 
+     * @param identifier the unique identifier of the relay.
      */
-    constructor() { }
+    constructor(identifier: string) {
+        this.identifier = identifier;
+    }
 
     //////////////////////////////
     //////Gets/Sets
