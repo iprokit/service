@@ -127,7 +127,7 @@ mocha.describe('SCP Test', () => {
         });
 
         mocha.describe('Message/Reply Test', () => {
-            mocha.it('should reply to message when className matches', async () => {
+            mocha.it('should receive reply to message when className matches', async () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'A.c', outgoingData);
@@ -141,7 +141,7 @@ mocha.describe('SCP Test', () => {
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
-            mocha.it('should reply to message when functionName matches', async () => {
+            mocha.it('should receive reply to message when functionName matches', async () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'C.a', outgoingData);
@@ -155,7 +155,7 @@ mocha.describe('SCP Test', () => {
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
-            mocha.it('should reply to message when className & functionName matches', async () => {
+            mocha.it('should receive reply to message when className & functionName matches', async () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'B.b', outgoingData);
