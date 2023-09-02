@@ -62,37 +62,37 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Connection Test', () => {
-        let service: Service;
+        let serviceA: Service;
 
         mocha.beforeEach(async () => {
-            service = new Service(createIdentifier());
-            await service.start(httpPort, scpPort, discoveryPort, multicastAddress);
+            serviceA = new Service(createIdentifier());
+            await serviceA.start(httpPort, scpPort, discoveryPort, multicastAddress);
         });
 
         mocha.afterEach(async () => {
-            await service.stop();
+            await serviceA.stop();
         });
 
         mocha.it('should emit connect & close events for single link', (done) => {
             let reconnect = -1;
 
             //Service: 1st
-            service.on('connect', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, serviceA.identifier);
+            serviceA.on('connect', async (link: Link) => {
+                assert.deepStrictEqual(link.identifier, serviceB.identifier);
                 assert.deepStrictEqual(link.scpClient.connected, true);
-                await serviceA.stop(); //Calling End
+                await serviceB.stop(); //Calling End
             });
-            service.on('close', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, serviceA.identifier);
+            serviceA.on('close', async (link: Link) => {
+                assert.deepStrictEqual(link.identifier, serviceB.identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnect++;
-                if (reconnect === 0) await serviceA.start(3001, 6001, discoveryPort, multicastAddress);
+                if (reconnect === 0) await serviceB.start(3001, 6001, discoveryPort, multicastAddress);
                 if (reconnect === 1) done();
             });
 
             //Service: 2nd
-            const serviceA = new Service(createIdentifier());
-            serviceA.start(3001, 6001, discoveryPort, multicastAddress);
+            const serviceB = new Service(createIdentifier());
+            serviceB.start(3001, 6001, discoveryPort, multicastAddress);
         });
 
         mocha.it('should emit connect & close events for multiple links', (done) => {
@@ -101,14 +101,14 @@ mocha.describe('Service Test', () => {
             const reconnects = Array(linkCount).fill(-1);
 
             //Service: 1st
-            service.on('connect', async (link: Link) => {
+            serviceA.on('connect', async (link: Link) => {
                 assert.deepStrictEqual(link.identifier, services[c].identifier);
                 assert.deepStrictEqual(link.scpClient.connected, true);
                 await services[c].stop(); //Calling End
                 c++;
                 if (c === linkCount) c = 0; //Rest c
             });
-            service.on('close', async (link: Link) => {
+            serviceA.on('close', async (link: Link) => {
                 assert.deepStrictEqual(link.identifier, services[d].identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnects[d]++;
