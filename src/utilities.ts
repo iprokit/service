@@ -1,7 +1,7 @@
 //Import Libs.
 import OS from 'os';
 import Stream from 'stream';
-import HTTP, { IncomingMessage, RequestOptions, IncomingHttpHeaders } from 'http';
+import HTTP, { RequestOptions } from 'http';
 
 //Import Local.
 import { RequestHandler } from './http.server';
@@ -37,9 +37,10 @@ namespace Utilities {
         return (request, response, next) => {
             const { method, url, headers, route } = request;
             const path = url.replace(new RegExp(`^${route.path.replace(/\/\*$/, '')}`), '');
+            const options: RequestOptions = { method, host: relay.remoteAddress, port: relay.remotePort, path, headers }
 
             //Let's boogie 🕺💃 🎶.
-            const proxyRequest = relay.request(method as HttpMethod, path, headers, (proxyResponse) => {
+            const proxyRequest = HTTP.request(options, (proxyResponse) => {
                 response.on('error', (error: Error) => { /* LIFE HAPPENS!!! */ });
                 response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
                 proxyResponse.pipe(response, { end: true });
@@ -138,7 +139,7 @@ export default Utilities;
 //////////////////////////////
 /**
  * This class implements a simple Http Relay.
- * A `HttpRelay` is responsible for managing connections to the target server.
+ * A `HttpRelay` is responsible for managing connection configuration to the target server.
  */
 export class HttpRelay {
     /**
@@ -171,26 +172,6 @@ export class HttpRelay {
      */
     public get remotePort() {
         return this._remotePort;
-    }
-
-    //////////////////////////////
-    //////Request
-    //////////////////////////////
-    /**
-     * Create an HTTP request to the target server.
-     * 
-     * @param method the request method.
-     * @param path the request path.
-     * @param headers the request headers.
-     * @param callback called when the response is available.
-     */
-    public request(method: HttpMethod, path: string, headers: IncomingHttpHeaders, callback: (response: IncomingMessage) => void) {
-        //Create options.
-        const options: RequestOptions = { method, host: this.remoteAddress, port: this.remotePort, path, headers }
-
-        //Create request.
-        const request = HTTP.request(options, (response) => callback(response));
-        return request;
     }
 
     //////////////////////////////
