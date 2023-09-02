@@ -58,7 +58,7 @@ export default class HttpServer extends Server {
      * 
      * @param index the iteration of the loop.
      * @param request the incoming request.
-     * @param response the server response.
+     * @param response the outgoing response.
      */
     private dispatch(index: number, request: Request, response: Response) {
         const route = this.routes[index++];

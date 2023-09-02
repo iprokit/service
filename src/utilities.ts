@@ -37,7 +37,7 @@ namespace Utilities {
         return (request, response, next) => {
             const { method, url, headers, route } = request;
             const path = url.replace(new RegExp(`^${route.path.replace(/\/\*$/, '')}`), '');
-            const options: RequestOptions = { method, host: relay.remoteAddress, port: relay.remotePort, path, headers }
+            const options: RequestOptions = { host: relay.remoteAddress, port: relay.remotePort, method, path, headers }
 
             //Let's boogie 🕺💃 🎶.
             const proxyRequest = HTTP.request(options, (proxyResponse) => {
