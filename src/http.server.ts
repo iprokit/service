@@ -51,6 +51,40 @@ export default class HttpServer extends Server {
     }
 
     //////////////////////////////
+    //////Dispatch
+    //////////////////////////////
+    /**
+     * Recursively loop through the routes to find and execute its handler.
+     * 
+     * @param index the iteration of the loop.
+     * @param request the incoming request.
+     * @param response the server response.
+     */
+    private dispatch(index: number, request: Request, response: Response) {
+        const route = this.routes[index++];
+
+        //Need I say more.
+        if (!route) return;
+
+        //Shits about to go down! 😎
+        const method = (route.method === request.method || route.method === 'ALL') ? true : false;
+        const path = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\*$/, '.*')}$`);
+
+        if (method && path) {
+            //Route found, lets extract params and execute the handler.
+            const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1)) || [];
+            request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = path[index + 1], params), {});
+            request.route = route;
+
+            const next: NextFunction = () => this.dispatch(index, request, response);
+            route.handler(request, response, next);
+        } else {
+            //Route not found, lets keep going though the loop.
+            this.dispatch(index, request, response);
+        }
+    }
+
+    //////////////////////////////
     //////HTTP Methods
     //////////////////////////////
     /**
@@ -118,40 +152,6 @@ export default class HttpServer extends Server {
         this.routes.push({ method: 'ALL', path, handler });
         return this;
     }
-
-    //////////////////////////////
-    //////Dispatch
-    //////////////////////////////
-    /**
-     * Recursively loop through the routes to find and execute its handler.
-     * 
-     * @param index the iteration of the loop.
-     * @param request the incoming request.
-     * @param response the server response.
-     */
-    private dispatch(index: number, request: Request, response: Response) {
-        const route = this.routes[index++];
-
-        //Need I say more.
-        if (!route) return;
-
-        //Shits about to go down! 😎
-        const method = (route.method === request.method || route.method === 'ALL') ? true : false;
-        const path = request.path.match(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\*$/, '.*')}$`);
-
-        if (method && path) {
-            //Route found, lets extract params and execute the handler.
-            const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1)) || [];
-            request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = path[index + 1], params), {});
-            request.route = route;
-
-            const next: NextFunction = () => this.dispatch(index, request, response);
-            route.handler(request, response, next);
-        } else {
-            //Route not found, lets keep going though the loop.
-            this.dispatch(index, request, response);
-        }
-    }
 }
 
 //////////////////////////////
@@ -183,7 +183,7 @@ export interface Request extends IncomingMessage {
 }
 
 /**
- * Represents a server response to an HTTP request.
+ * Represents an outgoing HTTP response.
  */
 export interface Response extends ServerResponse { }
 

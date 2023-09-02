@@ -73,6 +73,37 @@ export default class ScpServer extends Server {
     }
 
     //////////////////////////////
+    //////Transport
+    //////////////////////////////
+    /**
+     * Recursively loop through the remote functions to find and execute its handler.
+     * 
+     * @param index the iteration of the loop.
+     * @param incoming the incoming stream.
+     * @param outgoing the outgoing stream.
+     */
+    private transport(index: number, incoming: Incoming, outgoing: Outgoing) {
+        const remoteFunction = this.remoteFunctions[index++];
+
+        //Need I say more.
+        if (!remoteFunction) return;
+
+        //Shits about to go down! 😎
+        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === '*') ? true : false;
+        const className = (remoteFunction.className === incoming.rfi.className || remoteFunction.className === '*') ? true : false;
+        const functionName = (remoteFunction.functionName === incoming.rfi.functionName || remoteFunction.functionName === '*') ? true : false;
+
+        if (mode && className && functionName) {
+            //Remote function found, lets execute the handler.
+            const proceed: ProceedFunction = () => this.transport(index, incoming, outgoing);
+            remoteFunction.handler(incoming, outgoing, proceed);
+        } else {
+            //Remote function not found, lets keep going though the loop.
+            this.transport(index, incoming, outgoing);
+        }
+    }
+
+    //////////////////////////////
     //////Subscribe
     //////////////////////////////
     /**
@@ -128,37 +159,6 @@ export default class ScpServer extends Server {
             });
         }
         return this;
-    }
-
-    //////////////////////////////
-    //////Transport
-    //////////////////////////////
-    /**
-     * Recursively loop through the remote functions to find and execute its handler.
-     * 
-     * @param index the iteration of the loop.
-     * @param incoming the incoming stream.
-     * @param outgoing the outgoing stream.
-     */
-    private transport(index: number, incoming: Incoming, outgoing: Outgoing) {
-        const remoteFunction = this.remoteFunctions[index++];
-
-        //Need I say more.
-        if (!remoteFunction) return;
-
-        //Shits about to go down! 😎
-        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === '*') ? true : false;
-        const className = (remoteFunction.className === incoming.rfi.className || remoteFunction.className === '*') ? true : false;
-        const functionName = (remoteFunction.functionName === incoming.rfi.functionName || remoteFunction.functionName === '*') ? true : false;
-
-        if (mode && className && functionName) {
-            //Remote function found, lets execute the handler.
-            const proceed: ProceedFunction = () => this.transport(index, incoming, outgoing);
-            remoteFunction.handler(incoming, outgoing, proceed);
-        } else {
-            //Remote function not found, lets keep going though the loop.
-            this.transport(index, incoming, outgoing);
-        }
     }
 }
 
