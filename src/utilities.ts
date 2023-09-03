@@ -49,12 +49,24 @@ namespace Utilities {
 
             //Let's boogie 🕺💃 🎶.
             const proxyRequest = HTTP.request(options, (proxyResponse) => {
-                response.on('error', (error: Error) => { /* LIFE HAPPENS!!! */ });
                 response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
-                proxyResponse.pipe(response, { end: true });
+                Stream.pipeline(proxyResponse, response, (error: Error) => {
+                    if (error) {
+                        response.writeHead(HttpStatusCode.INTERNAL_SERVER_ERROR);
+                        response.end(error.message);
+                    }
+                });
             });
-            request.on('error', (error: Error) => { /* LIFE HAPPENS!!! */ });
-            request.pipe(proxyRequest, { end: true });
+            proxyRequest.on('error', (error: Error) => {
+                response.writeHead(HttpStatusCode.INTERNAL_SERVER_ERROR);
+                response.end(error.message);
+            });
+            Stream.pipeline(request, proxyRequest, (error: Error) => {
+                if (error) {
+                    response.writeHead(HttpStatusCode.INTERNAL_SERVER_ERROR);
+                    response.end(error.message);
+                }
+            });
         }
     }
 
