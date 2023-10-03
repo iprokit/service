@@ -80,7 +80,7 @@ export default class SdpServer extends Socket {
         this.send(this.selfPod, this.address().port, this.multicastAddress, (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
-            callback && this.once('echo', callback);
+            this.once('echo', callback);
         });
     }
 
