@@ -161,7 +161,7 @@ mocha.describe('Service Test', () => {
             await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, multicastAddress);
 
             //Wait for services to be connected to each other.
-            await Promise.all([await once(serviceA, 'connect'), await once(serviceB, 'connect')]);
+            await Promise.all([once(serviceA, 'connect'), once(serviceB, 'connect')]);
         });
 
         mocha.afterEach(async () => {
@@ -221,7 +221,7 @@ mocha.describe('Service Test', () => {
 
             mocha.it('should message(object) and expect reply(object) in parallel', async () => {
                 //Service: 1st
-                const reply = await Promise.all(messages.map(async (message) => await serviceA.message('SVC_B', 'B.echo', message)));
+                const reply = await Promise.all(messages.map((message) => serviceA.message('SVC_B', 'B.echo', message)));
                 assert.deepStrictEqual(reply, messages);
             });
         });

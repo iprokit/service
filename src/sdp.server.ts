@@ -47,22 +47,23 @@ export default class SdpServer extends Socket {
     //////Event Listeners
     //////////////////////////////
     private onPod(pod: Pod, sender: Sender) {
-        //Pod ignore echo.
+        //Pod echo.
         if (pod.identifier === this.identifier) {
             this._localAddress = pod.available ? sender.address : undefined;
+            this.emit('echo');
             return;
         }
 
         const index = this.pods.findIndex(({ identifier }) => identifier === pod.identifier);
         pod.attrs.address = sender.address; //Copy address to pod.
 
-        //Pod discovered.
+        //Pod discover.
         if (index === -1) {
             this.pods.push(pod);
-            this.sendPod(true, () => this.emit('discover', pod));
+            this.multicast(true, () => this.emit('discover', pod));
         }
 
-        //Pod updated.
+        //Pod update.
         if (index >= 0) {
             if (this.pods[index].available !== pod.available) {
                 this.pods[index] = pod;
@@ -72,14 +73,14 @@ export default class SdpServer extends Socket {
     }
 
     //////////////////////////////
-    //////Send
+    //////Multicast
     //////////////////////////////
-    public sendPod(available: boolean, callback?: () => void) {
+    private multicast(available: boolean, callback: () => void) {
         this.selfPod.available = available;
         this.send(this.selfPod, this.address().port, this.multicastAddress, (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
-            callback && callback();
+            callback && this.once('echo', callback);
         });
     }
 
@@ -106,7 +107,7 @@ export default class SdpServer extends Socket {
 
         this.bind(port, () => {
             this.configure(multicast, attrs);
-            this.sendPod(true, () => this.emit('listening'));
+            this.multicast(true, () => this.emit('listening'));
         });
         return this;
     }
@@ -114,7 +115,7 @@ export default class SdpServer extends Socket {
     public close(callback?: () => void) {
         callback && this.once('close', callback);
 
-        this.sendPod(false, () => {
+        this.multicast(false, () => {
             this.deconfigure();
             super.close();
         });

@@ -3,12 +3,12 @@ export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHan
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export SCP.
-export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprotechs/scp';
+export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprotechs/scp';
 export { default as ScpServer, ScpConnection, RemoteFunction, Mode, RemoteFunctionHandler, ProceedFunction } from './scp.server';
 export { default as ScpClient } from './scp.client';
 
 //Export SDP.
-export { Pod, Attrs, Sender } from '@iprotechs/sdp';
+export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprotechs/sdp';
 export { default as SdpServer } from './sdp.server';
 
 //Export Utilities.

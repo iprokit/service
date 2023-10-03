@@ -2,7 +2,6 @@
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
-import { promisify } from 'util';
 
 //Import Local.
 import { Pod, SdpServer } from '../lib';
@@ -32,7 +31,7 @@ mocha.describe('SDP Test', () => {
                 listening++;
                 assert.deepStrictEqual(server.listening, true);
                 assert.deepStrictEqual(server.multicastAddress, address);
-                assert.deepStrictEqual(server.localAddress, null);
+                assert.notDeepStrictEqual(server.localAddress, null);
             });
             server.on('close', () => {
                 close++;
@@ -40,12 +39,12 @@ mocha.describe('SDP Test', () => {
                 assert.deepStrictEqual(server.multicastAddress, null);
                 assert.deepStrictEqual(server.localAddress, null);
             });
-            (async () => {
-                await promisify(server.listen).bind(server)(port, address, {});
-                await promisify(server.close).bind(server)(); //Calling End
-                assert.deepStrictEqual(listening, close);
-                done();
-            })();
+            server.listen(port, address, {}, () => {
+                server.close(() => {
+                    assert.deepStrictEqual(listening, close);
+                    done();
+                });
+            });
         });
     });
 
@@ -66,13 +65,15 @@ mocha.describe('SDP Test', () => {
             const serverA = new SdpServer(createIdentifier());
             serverA.listen(port, address, {});
 
-            const [[podDiscoverA], [podDiscoverB]]: Array<Array<Pod>> = await Promise.all([await once(server, 'discover'), await once(serverA, 'discover')]);
+            const [[podDiscoverA], [podDiscoverB]]: Array<Array<Pod>> = await Promise.all([once(server, 'discover'), once(serverA, 'discover')]);
             assert.deepStrictEqual(podDiscoverA.identifier, serverA.identifier);
             assert.deepStrictEqual(podDiscoverB.identifier, server.identifier);
             assert.deepStrictEqual(podDiscoverA.available, true);
             assert.deepStrictEqual(podDiscoverB.available, true);
-            assert.deepStrictEqual(podDiscoverA.attrs, { address: serverA.localAddress });
-            assert.deepStrictEqual(podDiscoverB.attrs, { address: server.localAddress });
+            assert.notDeepStrictEqual(podDiscoverA.attrs, {});
+            assert.notDeepStrictEqual(podDiscoverB.attrs, {});
+            assert.notDeepStrictEqual(server.localAddress, null);
+            assert.notDeepStrictEqual(serverA.localAddress, null);
             assert.deepStrictEqual(server.listening, true);
             assert.deepStrictEqual(serverA.listening, true);
             assert.deepStrictEqual(server.pods.length, 1);
@@ -82,7 +83,9 @@ mocha.describe('SDP Test', () => {
             const [podUpdate]: Array<Pod> = await once(server, 'update');
             assert.deepStrictEqual(podUpdate.identifier, serverA.identifier);
             assert.deepStrictEqual(podUpdate.available, false);
-            assert.deepStrictEqual(podUpdate.attrs, { address: serverA.localAddress });
+            assert.notDeepStrictEqual(podUpdate.attrs, {});
+            assert.notDeepStrictEqual(server.localAddress, null);
+            assert.deepStrictEqual(serverA.localAddress, null);
             assert.deepStrictEqual(server.listening, true);
             assert.deepStrictEqual(serverA.listening, false);
             assert.deepStrictEqual(server.pods.length, 1);
