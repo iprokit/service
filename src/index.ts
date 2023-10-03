@@ -7,8 +7,9 @@ export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket, SocketOption
 export { default as ScpServer, ScpConnection, RemoteFunction, Mode, RemoteFunctionHandler, ProceedFunction } from './scp.server';
 export { default as ScpClient } from './scp.client';
 
-//Export Discovery.
-export { Pod, Attrs, Discovery } from '@iprotechs/discovery';
+//Export SDP.
+export { Pod, Attrs, Sender } from '@iprotechs/sdp';
+export { default as SdpServer } from './sdp.server';
 
 //Export Utilities.
 export { default as Utilities, HttpRelay, ReplyFunction } from './utilities';

@@ -5,12 +5,13 @@ import { promisify } from 'util';
 
 //Import @iprotechs Libs.
 import { Params } from '@iprotechs/scp';
-import { Pod, Attrs, Discovery } from '@iprotechs/discovery';
+import { Pod } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { RequestHandler } from './http.server';
 import ScpServer from './scp.server';
 import ScpClient from './scp.client';
+import SdpServer from './sdp.server';
 import Utilities, { HttpRelay, ReplyFunction } from './utilities';
 
 export default class Service extends EventEmitter {
@@ -18,7 +19,7 @@ export default class Service extends EventEmitter {
 
     public readonly httpServer: HttpServer;
     public readonly scpServer: ScpServer;
-    public readonly discovery: Discovery;
+    public readonly sdpServer: SdpServer;
 
     public readonly links: Array<Link>;
 
@@ -31,7 +32,7 @@ export default class Service extends EventEmitter {
         //Initialize Variables.
         this.httpServer = new HttpServer();
         this.scpServer = new ScpServer(this.identifier);
-        this.discovery = new Discovery();
+        this.sdpServer = new SdpServer(this.identifier);
         this.links = new Array();
 
         //Bind Listeners.
@@ -39,8 +40,8 @@ export default class Service extends EventEmitter {
         this.onUpdate = this.onUpdate.bind(this);
 
         //Add Listeners.
-        this.discovery.addListener('discover', this.onDiscover);
-        this.discovery.addListener('update', this.onUpdate);
+        this.sdpServer.addListener('discover', this.onDiscover);
+        this.sdpServer.addListener('update', this.onUpdate);
     }
 
     //////////////////////////////
@@ -58,7 +59,7 @@ export default class Service extends EventEmitter {
         return {
             http: this.httpServer.listening,
             scp: this.scpServer.listening,
-            discovery: this.discovery.listening
+            sdp: this.sdpServer.listening
         }
     }
 
@@ -66,20 +67,20 @@ export default class Service extends EventEmitter {
         return {
             http: this.httpServer.address() as AddressInfo,
             scp: this.scpServer.address() as AddressInfo,
-            discovery: this.discovery.address() as AddressInfo
+            sdp: this.sdpServer.address() as AddressInfo
         }
     }
 
     public get multicastAddress() {
-        return this.discovery.multicastAddress;
+        return this.sdpServer.multicastAddress;
     }
 
-    public localAddress() {
-        return Utilities.localAddress();
+    public get localAddress() {
+        return this.sdpServer.localAddress;
     }
 
     //////////////////////////////
-    //////Event Listeners: Discovery
+    //////Event Listeners: SDP
     //////////////////////////////
     private onDiscover(pod: Pod) {
         const { identifier, attrs: { http, scp, host } } = pod;
@@ -206,11 +207,10 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(http: number, scp: number, discovery: number, multicast: string) {
-        const discoveryAttrs: Attrs = { http: String(http), scp: String(scp), host: this.localAddress() }
+    public async start(http: number, scp: number, sdp: number, multicast: string) {
         await promisify(this.httpServer.listen).bind(this.httpServer)(http);
         await promisify(this.scpServer.listen).bind(this.scpServer)(scp);
-        await promisify(this.discovery.bind).bind(this.discovery)(discovery, multicast, this.identifier, discoveryAttrs);
+        await promisify(this.sdpServer.listen).bind(this.sdpServer)(sdp, multicast, { http: String(http), scp: String(scp) });
         this.emit('start');
         return this;
     }
@@ -219,7 +219,7 @@ export default class Service extends EventEmitter {
         await promisify(this.httpServer.close).bind(this.httpServer)();
         await Promise.all(this.links.map(async ({ scpClient }) => scpClient.connected && await promisify(scpClient.close).bind(scpClient)()));
         await promisify(this.scpServer.close).bind(this.scpServer)();
-        await promisify(this.discovery.close).bind(this.discovery)();
+        await promisify(this.sdpServer.close).bind(this.sdpServer)();
         this.emit('stop');
         return this;
     }
