@@ -41,6 +41,9 @@ export default class ScpClient extends EventEmitter {
         //Initialize Options.
         this.identifier = identifier;
 
+        //Initialize Variables.
+        this._connected = false;
+
         //Bind Listeners.
         this.onConnect = this.onConnect.bind(this);
         this.onIncoming = this.onIncoming.bind(this);
@@ -243,7 +246,6 @@ export default class ScpClient extends EventEmitter {
      */
     public connect(port: number, host: string, callback?: () => void) {
         callback && this.once('connect', callback);
-        this._connected = false;
 
         //Setup Socket.
         this._socket = new Socket();

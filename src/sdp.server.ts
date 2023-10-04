@@ -1,12 +1,19 @@
+//Import Libs.
+import { EventEmitter } from 'events';
+
 //Import @iprotechs Libs.
 import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
 
-export default class SdpServer extends Socket {
+export default class SdpServer extends EventEmitter {
     public readonly selfPod: Pod;
     public readonly pods: Array<Pod>;
 
     private _localAddress: string;
     private _multicastAddress: string;
+
+    private _listening: boolean;
+
+    private _socket: Socket;
 
     constructor(identifier: string) {
         super();
@@ -16,17 +23,19 @@ export default class SdpServer extends Socket {
 
         //Initialize Variables.
         this.pods = new Array();
+        this._listening = false;
 
         //Bind listeners.
         this.onPod = this.onPod.bind(this);
-
-        //Add listeners.
-        this.addListener('pod', this.onPod);
     }
 
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
+    public get listening() {
+        return this._listening;
+    }
+
     public get identifier() {
         return this.selfPod.identifier;
     }
@@ -39,8 +48,8 @@ export default class SdpServer extends Socket {
         return this._multicastAddress ?? null;
     }
 
-    public get listening() {
-        return this.bound;
+    public address() {
+        return (this._socket) ? this._socket.address() : null;
     }
 
     //////////////////////////////
@@ -50,7 +59,7 @@ export default class SdpServer extends Socket {
         //Pod echo.
         if (pod.identifier === this.identifier) {
             this._localAddress = pod.available ? sender.address : undefined;
-            this.emit('echo');
+            this._socket.emit('echo');
             return;
         }
 
@@ -77,26 +86,11 @@ export default class SdpServer extends Socket {
     //////////////////////////////
     private multicast(available: boolean, callback: () => void) {
         this.selfPod.available = available;
-        this.send(this.selfPod, this.address().port, this.multicastAddress, (error: Error) => {
+        this._socket.send(this.selfPod, this.address().port, this.multicastAddress, (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
-            this.once('echo', callback);
+            this._socket.once('echo', callback);
         });
-    }
-
-    //////////////////////////////
-    //////Configuration
-    //////////////////////////////
-    private configure(multicast: string, attrs: Attrs) {
-        this._multicastAddress = multicast;
-        this.addMembership(this.multicastAddress);
-        this.selfPod.attrs = attrs;
-    }
-
-    private deconfigure() {
-        this.selfPod.attrs = {};
-        this.removeMembership(this.multicastAddress);
-        this._multicastAddress = undefined;
     }
 
     //////////////////////////////
@@ -105,20 +99,48 @@ export default class SdpServer extends Socket {
     public listen(port: number, multicast: string, attrs: Attrs, callback?: () => void) {
         callback && this.once('listening', callback);
 
-        this.bind(port, () => {
-            this.configure(multicast, attrs);
-            this.multicast(true, () => this.emit('listening'));
+        //Setup Socket.
+        this._socket = new Socket();
+        this._socket.addListener('pod', this.onPod);
+        this._socket.addListener('error', (error: Error) => this.emit('error', error));
+        this._socket.bind(port, () => {
+            this._multicastAddress = multicast;
+            this._socket.addMembership(this.multicastAddress);
+            this.selfPod.attrs = attrs;
+            this.multicast(true, () => {
+                this._listening = true;
+                this.emit('listening');
+            });
         });
         return this;
     }
 
     public close(callback?: () => void) {
-        callback && this.once('close', callback);
+        if (!this._socket) return this;
 
+        callback && this.once('close', callback);
         this.multicast(false, () => {
-            this.deconfigure();
-            super.close();
+            this._socket.removeMembership(this.multicastAddress);
+            this._multicastAddress = undefined;
+            this.selfPod.attrs = {};
+            this._socket.close(() => {
+                this._listening = false;
+                this.emit('close');
+            });
         });
+        return this;
+    }
+
+    //////////////////////////////
+    //////Ref/Unref
+    //////////////////////////////
+    public ref() {
+        this._socket?.ref();
+        return this;
+    }
+
+    public unref() {
+        this._socket?.unref();
         return this;
     }
 }

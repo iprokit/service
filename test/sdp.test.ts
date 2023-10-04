@@ -2,6 +2,7 @@
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
+import { promisify } from 'util';
 
 //Import Local.
 import { Pod, SdpServer } from '../lib';
@@ -21,7 +22,8 @@ mocha.describe('SDP Test', () => {
     });
 
     mocha.describe('Connection Test', () => {
-        mocha.it('should emit listening and close events', (done) => {
+        mocha.it('should emit listening and close events multiple times', (done) => {
+            const listeningCount = 10;
             let listening = 0, close = 0;
 
             const server = new SdpServer(createIdentifier());
@@ -39,12 +41,14 @@ mocha.describe('SDP Test', () => {
                 assert.deepStrictEqual(server.multicastAddress, null);
                 assert.deepStrictEqual(server.localAddress, null);
             });
-            server.listen(port, address, {}, () => {
-                server.close(() => {
+            (async () => {
+                for (let i = 0; i < listeningCount; i++) {
+                    await promisify(server.listen).bind(server)(port, address, {});
+                    await promisify(server.close).bind(server)(); //Calling End
                     assert.deepStrictEqual(listening, close);
-                    done();
-                });
-            });
+                }
+                done();
+            })();
         });
     });
 
