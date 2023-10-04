@@ -53,47 +53,47 @@ mocha.describe('SDP Test', () => {
     });
 
     mocha.describe('Discover/Update Test', () => {
-        const server = new SdpServer(createIdentifier());
+        const serverA = new SdpServer(createIdentifier());
 
         mocha.beforeEach(async () => {
-            server.listen(port, address, {});
-            await once(server, 'listening');
+            serverA.listen(port, address, {});
+            await once(serverA, 'listening');
         });
 
         mocha.afterEach(async () => {
-            server.close();
-            await once(server, 'close');
+            serverA.close();
+            await once(serverA, 'close');
         });
 
         mocha.it('should emit discover and update events for single pod', async () => {
-            const serverA = new SdpServer(createIdentifier());
-            serverA.listen(port, address, {});
+            const serverB = new SdpServer(createIdentifier());
 
-            const [[podDiscoverA], [podDiscoverB]]: Array<Array<Pod>> = await Promise.all([once(server, 'discover'), once(serverA, 'discover')]);
-            assert.deepStrictEqual(podDiscoverA.identifier, serverA.identifier);
-            assert.deepStrictEqual(podDiscoverB.identifier, server.identifier);
-            assert.deepStrictEqual(podDiscoverA.available, true);
-            assert.deepStrictEqual(podDiscoverB.available, true);
-            assert.notDeepStrictEqual(podDiscoverA.attrs, {});
-            assert.notDeepStrictEqual(podDiscoverB.attrs, {});
-            assert.notDeepStrictEqual(server.localAddress, null);
+            serverB.listen(port, address, {});
+            const [[discoverA], [discoverB]]: Array<Array<Pod>> = await Promise.all([once(serverA, 'discover'), once(serverB, 'discover')]);
+            assert.deepStrictEqual(discoverA.identifier, serverB.identifier);
+            assert.deepStrictEqual(discoverB.identifier, serverA.identifier);
+            assert.deepStrictEqual(discoverA.available, true);
+            assert.deepStrictEqual(discoverB.available, true);
+            assert.notDeepStrictEqual(discoverA.attrs, {});
+            assert.notDeepStrictEqual(discoverB.attrs, {});
             assert.notDeepStrictEqual(serverA.localAddress, null);
-            assert.deepStrictEqual(server.listening, true);
+            assert.notDeepStrictEqual(serverB.localAddress, null);
             assert.deepStrictEqual(serverA.listening, true);
-            assert.deepStrictEqual(server.pods.length, 1);
+            assert.deepStrictEqual(serverB.listening, true);
             assert.deepStrictEqual(serverA.pods.length, 1);
-            serverA.close(); //Calling End
+            assert.deepStrictEqual(serverB.pods.length, 1);
 
-            const [podUpdate]: Array<Pod> = await once(server, 'update');
-            assert.deepStrictEqual(podUpdate.identifier, serverA.identifier);
-            assert.deepStrictEqual(podUpdate.available, false);
-            assert.notDeepStrictEqual(podUpdate.attrs, {});
-            assert.notDeepStrictEqual(server.localAddress, null);
-            assert.deepStrictEqual(serverA.localAddress, null);
-            assert.deepStrictEqual(server.listening, true);
-            assert.deepStrictEqual(serverA.listening, false);
-            assert.deepStrictEqual(server.pods.length, 1);
+            serverB.close(); //Calling End
+            const [updateA]: Array<Pod> = await once(serverA, 'update');
+            assert.deepStrictEqual(updateA.identifier, serverB.identifier);
+            assert.deepStrictEqual(updateA.available, false);
+            assert.notDeepStrictEqual(updateA.attrs, {});
+            assert.notDeepStrictEqual(serverA.localAddress, null);
+            assert.deepStrictEqual(serverB.localAddress, null);
+            assert.deepStrictEqual(serverA.listening, true);
+            assert.deepStrictEqual(serverB.listening, false);
             assert.deepStrictEqual(serverA.pods.length, 1);
+            assert.deepStrictEqual(serverB.pods.length, 1);
         });
     });
 });
