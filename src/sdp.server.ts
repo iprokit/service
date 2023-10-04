@@ -5,7 +5,9 @@ import { EventEmitter } from 'events';
 import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
 
 export default class SdpServer extends EventEmitter {
-    public readonly selfPod: Pod;
+    public readonly identifier: string;
+    public attrs: Attrs;
+
     public readonly pods: Array<Pod>;
 
     private _localAddress: string;
@@ -19,10 +21,13 @@ export default class SdpServer extends EventEmitter {
         super();
 
         //Initialize Options.
-        this.selfPod = new Pod(identifier, null);
+        this.identifier = identifier;
 
         //Initialize Variables.
+        this.attrs = {};
         this.pods = new Array();
+        this._localAddress = null;
+        this._multicastAddress = null;
         this._listening = false;
 
         //Bind listeners.
@@ -36,16 +41,12 @@ export default class SdpServer extends EventEmitter {
         return this._listening;
     }
 
-    public get identifier() {
-        return this.selfPod.identifier;
-    }
-
     public get localAddress() {
-        return this._localAddress ?? null;
+        return this._localAddress;
     }
 
     public get multicastAddress() {
-        return this._multicastAddress ?? null;
+        return this._multicastAddress;
     }
 
     public address() {
@@ -58,7 +59,7 @@ export default class SdpServer extends EventEmitter {
     private onPod(pod: Pod, sender: Sender) {
         //Pod echo.
         if (pod.identifier === this.identifier) {
-            this._localAddress = pod.available ? sender.address : undefined;
+            this._localAddress = pod.available ? sender.address : null;
             this._socket.emit('echo');
             return;
         }
@@ -85,8 +86,8 @@ export default class SdpServer extends EventEmitter {
     //////Multicast
     //////////////////////////////
     private multicast(available: boolean, callback: () => void) {
-        this.selfPod.available = available;
-        this._socket.send(this.selfPod, this.address().port, this.multicastAddress, (error: Error) => {
+        const pod = new Pod(this.identifier, available, this.attrs);
+        this._socket.send(pod, this.address().port, this.multicastAddress, (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
             this._socket.once('echo', callback);
@@ -106,7 +107,7 @@ export default class SdpServer extends EventEmitter {
         this._socket.bind(port, () => {
             this._multicastAddress = multicast;
             this._socket.addMembership(this.multicastAddress);
-            this.selfPod.attrs = attrs;
+            this.attrs = attrs;
             this.multicast(true, () => {
                 this._listening = true;
                 this.emit('listening');
@@ -121,8 +122,8 @@ export default class SdpServer extends EventEmitter {
         callback && this.once('close', callback);
         this.multicast(false, () => {
             this._socket.removeMembership(this.multicastAddress);
-            this._multicastAddress = undefined;
-            this.selfPod.attrs = {};
+            this._multicastAddress = null;
+            this.attrs = {};
             this._socket.close(() => {
                 this._listening = false;
                 this.emit('close');
