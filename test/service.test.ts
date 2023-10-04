@@ -27,7 +27,7 @@ mocha.describe('Service Test', () => {
 
     mocha.describe('Start/Stop Test', () => {
         mocha.it('should emit start & stop events multiple times', (done) => {
-            const startCount = 10;
+            const startCount = 20;
             let start = 0, stop = 0;
 
             //Service: 1st
@@ -98,7 +98,7 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should emit connect & close events for multiple links', (done) => {
-            const linkCount = 5;
+            const linkCount = 20;
             let c = 0, d = 0;
             const reconnects = Array(linkCount).fill(-1);
 

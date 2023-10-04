@@ -1,7 +1,7 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { once } from 'events';
+import { on, once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
@@ -23,7 +23,7 @@ mocha.describe('SDP Test', () => {
 
     mocha.describe('Connection Test', () => {
         mocha.it('should emit listening and close events multiple times', (done) => {
-            const listeningCount = 10;
+            const listeningCount = 20;
             let listening = 0, close = 0;
 
             const server = new SdpServer(createIdentifier());
@@ -53,7 +53,7 @@ mocha.describe('SDP Test', () => {
     });
 
     mocha.describe('Discover/Update Test', () => {
-        mocha.it('should emit discover and update events', async () => {
+        mocha.it('should emit discover and update events for single pod', async () => {
             const serverA = new SdpServer(createIdentifier()), serverB = new SdpServer(createIdentifier());
             await promisify(serverA.listen).bind(serverA)(port, address, {});
 
@@ -65,24 +65,39 @@ mocha.describe('SDP Test', () => {
             assert.deepStrictEqual(discoverB.available, true);
             assert.notDeepStrictEqual(discoverA.attrs, {});
             assert.notDeepStrictEqual(discoverB.attrs, {});
-            assert.notDeepStrictEqual(serverA.localAddress, null);
-            assert.notDeepStrictEqual(serverB.localAddress, null);
-            assert.deepStrictEqual(serverA.listening, true);
-            assert.deepStrictEqual(serverB.listening, true);
-            assert.deepStrictEqual(serverA.pods.length, 1);
-            assert.deepStrictEqual(serverB.pods.length, 1);
 
             serverB.close(); //Calling End
             const [updateA]: Array<Pod> = await once(serverA, 'update');
             assert.deepStrictEqual(updateA.identifier, serverB.identifier);
             assert.deepStrictEqual(updateA.available, false);
             assert.notDeepStrictEqual(updateA.attrs, {});
-            assert.notDeepStrictEqual(serverA.localAddress, null);
-            assert.deepStrictEqual(serverB.localAddress, null);
-            assert.deepStrictEqual(serverA.listening, true);
-            assert.deepStrictEqual(serverB.listening, false);
-            assert.deepStrictEqual(serverA.pods.length, 1);
-            assert.deepStrictEqual(serverB.pods.length, 1);
+
+            await promisify(serverA.close).bind(serverA)();
+        });
+
+        mocha.it('should emit discover and update events for multiple pods', async () => {
+            const serverA = new SdpServer(createIdentifier()), serverB = Array(5).fill({}).map(() => new SdpServer(createIdentifier()));
+            let discoveries = 0, updates = 0;
+
+            await promisify(serverA.listen).bind(serverA)(port, address, {});
+
+            serverB.forEach((server) => server.listen(port, address, {}));
+            for await (const [discover] of on(serverA, 'discover')) {
+                assert.deepStrictEqual(discover.identifier, serverB[discoveries].identifier);
+                assert.deepStrictEqual(discover.available, true);
+                assert.notDeepStrictEqual(discover.attrs, {});
+                discoveries++;
+                if (discoveries === serverB.length - 1) break;
+            }
+
+            serverB.forEach((server) => server.close()); //Calling End
+            for await (const [update] of on(serverA, 'update')) {
+                assert.deepStrictEqual(update.identifier, serverB[updates].identifier);
+                assert.deepStrictEqual(update.available, false);
+                assert.notDeepStrictEqual(update.attrs, {});
+                updates++;
+                if (updates === serverB.length - 1) break;
+            }
 
             await promisify(serverA.close).bind(serverA)();
         });

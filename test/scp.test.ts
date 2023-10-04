@@ -43,7 +43,7 @@ mocha.describe('SCP Test', () => {
         });
 
         mocha.it('should emit connect & close events multiple times', (done) => {
-            const connectCount = 10;
+            const connectCount = 20;
             let connect = 0, close = 0;
 
             //Client
