@@ -173,7 +173,7 @@ export default class ScpClient extends EventEmitter {
         this._socket.createOutgoing((outgoing: Outgoing) => {
             Stream.finished(outgoing, (error) => error && callback(error));
             outgoing.setRFI(new RFI('SUBSCRIBE', 'SCP.subscribe'));
-            outgoing.setParam('CID', this.identifier);
+            outgoing.set('CID', this.identifier);
             outgoing.end('');
         });
     }
@@ -204,7 +204,7 @@ export default class ScpClient extends EventEmitter {
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
         socket.outgoing.setRFI(new RFI('REPLY', operation));
-        socket.outgoing.setParam('CID', this.identifier);
+        socket.outgoing.set('CID', this.identifier);
         return socket.outgoing;
     }
 

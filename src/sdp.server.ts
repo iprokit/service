@@ -23,7 +23,7 @@ export default class SdpServer extends EventEmitter {
     /**
      * The attributes to multicast.
      */
-    public attrs: Attrs;
+    public readonly attrs: Attrs;
 
     /**
      * The pods discovered.
@@ -34,16 +34,6 @@ export default class SdpServer extends EventEmitter {
      * The local address of the server.
      */
     private _localAddress: string;
-
-    /**
-     * The multicast address of the server.
-     */
-    private _multicastAddress: string;
-
-    /**
-    * True when the server is listening for pods, false otherwise.
-    */
-    private _listening: boolean;
 
     /**
      * The underlying SDP Socket.
@@ -62,11 +52,9 @@ export default class SdpServer extends EventEmitter {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.attrs = {};
+        this.attrs = new Attrs();
         this.pods = new Array();
         this._localAddress = null;
-        this._multicastAddress = null;
-        this._listening = false;
 
         //Bind listeners.
         this.onPod = this.onPod.bind(this);
@@ -76,13 +64,6 @@ export default class SdpServer extends EventEmitter {
     //////Gets/Sets
     //////////////////////////////
     /**
-     * True when the server is listening for pods, false otherwise.
-     */
-    public get listening() {
-        return this._listening;
-    }
-
-    /**
      * The local address of the server.
      */
     public get localAddress() {
@@ -90,10 +71,17 @@ export default class SdpServer extends EventEmitter {
     }
 
     /**
-     * The multicast address of the server.
+     * True when the server is listening for pods, false otherwise.
      */
-    public get multicastAddress() {
-        return this._multicastAddress;
+    public get listening() {
+        return (this._socket) ? this._socket.bound : false;
+    }
+
+    /**
+     * The multicast groups joined.
+     */
+    public get memberships() {
+        return (this._socket) ? this._socket.memberships : null;
     }
 
     /**
@@ -119,12 +107,12 @@ export default class SdpServer extends EventEmitter {
         }
 
         const index = this.pods.findIndex(({ identifier }) => identifier === pod.identifier);
-        pod.attrs.address = sender.address; //Copy address to pod.
+        pod.set('address', sender.address); //Copy address to pod.
 
         //Pod discover.
         if (index === -1) {
             this.pods.push(pod);
-            this.multicast(true, () => this.emit('discover', pod));
+            this.multicast(true, false, () => this.emit('discover', pod));
         }
 
         //Pod update.
@@ -142,16 +130,19 @@ export default class SdpServer extends EventEmitter {
     /**
      * Encodes and multicasts a pod on the network.
      * 
-     * @param available set to true for an available pod, false otherwise.
+     * @param available set true for an available pod, false otherwise.
+     * @param echo set true to wait for echo event, false otherwise.
      * @param callback called once the pod is multicasted.
      */
-    private multicast(available: boolean, callback: () => void) {
+    private multicast(available: boolean, echo: boolean, callback: () => void) {
         const pod = new Pod(this.identifier, available, this.attrs);
-        this._socket.send(pod, this.address().port, this.multicastAddress, (error: Error) => {
+
+        //If you can spare a moment to notice, there's just one membership here 🙃
+        this._socket.send(pod, this._socket.address().port, this._socket.memberships[0], (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
-            //Waiting for the echo!!!
-            this._socket.once('echo', callback);
+            //To be or not to be - Shakespeare 🤔
+            echo ? this._socket.once('echo', callback) : callback();
         });
     }
 
@@ -163,10 +154,9 @@ export default class SdpServer extends EventEmitter {
      * 
      * @param port the local port.
      * @param multicast the multicast address.
-     * @param attrs the attributes to multicast.
      * @param callback the optional callback will be added as a listener for the `listening` event once.
      */
-    public listen(port: number, multicast: string, attrs: Attrs, callback?: () => void) {
+    public listen(port: number, multicast: string, callback?: () => void) {
         callback && this.once('listening', callback);
 
         //Setup Socket.
@@ -174,11 +164,8 @@ export default class SdpServer extends EventEmitter {
         this._socket.addListener('pod', this.onPod);
         this._socket.addListener('error', (error: Error) => this.emit('error', error));
         this._socket.bind(port, () => {
-            this._multicastAddress = multicast;
-            this._socket.addMembership(this.multicastAddress);
-            this.attrs = attrs;
-            this.multicast(true, () => {
-                this._listening = true;
+            this._socket.addMembership(multicast);
+            this.multicast(true, true, () => {
                 this.emit('listening');
             });
         });
@@ -194,12 +181,9 @@ export default class SdpServer extends EventEmitter {
         if (!this._socket) return this;
 
         callback && this.once('close', callback);
-        this.multicast(false, () => {
-            this._socket.removeMembership(this.multicastAddress);
-            this._multicastAddress = null;
-            this.attrs = {};
+        this.multicast(false, true, () => {
+            this._socket.removeMemberships();
             this._socket.close(() => {
-                this._listening = false;
                 this.emit('close');
             });
         });

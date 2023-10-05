@@ -90,7 +90,7 @@ mocha.describe('SCP Test', () => {
 
         const proceedHandler = (key: string): RemoteFunctionHandler => {
             return (incoming, outgoing, proceed) => {
-                outgoing.setParam(key, '1');
+                outgoing.set(key, '1');
                 proceed();
             }
         }
@@ -133,11 +133,11 @@ mocha.describe('SCP Test', () => {
                 const { incoming, data: incomingData } = await clientMessage(client, 'A.c', outgoingData);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'A.c');
-                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
-                assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
-                assert.deepStrictEqual(incoming.getParam('A.*'), '1');
-                assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
+                assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.has('*.a'), false);
+                assert.deepStrictEqual(incoming.has('*.b'), false);
+                assert.deepStrictEqual(incoming.get('A.*'), '1');
+                assert.deepStrictEqual(incoming.has('B.*'), false);
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
@@ -147,11 +147,11 @@ mocha.describe('SCP Test', () => {
                 const { incoming, data: incomingData } = await clientMessage(client, 'C.a', outgoingData);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'C.a');
-                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.getParam('*.a'), '1');
-                assert.deepStrictEqual(incoming.getParam('*.b'), undefined);
-                assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
-                assert.deepStrictEqual(incoming.getParam('B.*'), undefined);
+                assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.get('*.a'), '1');
+                assert.deepStrictEqual(incoming.has('*.b'), false);
+                assert.deepStrictEqual(incoming.has('A.*'), false);
+                assert.deepStrictEqual(incoming.has('B.*'), false);
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
@@ -161,11 +161,11 @@ mocha.describe('SCP Test', () => {
                 const { incoming, data: incomingData } = await clientMessage(client, 'B.b', outgoingData);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'B.b');
-                assert.deepStrictEqual(incoming.getParam('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.getParam('*.a'), undefined);
-                assert.deepStrictEqual(incoming.getParam('*.b'), '1');
-                assert.deepStrictEqual(incoming.getParam('A.*'), undefined);
-                assert.deepStrictEqual(incoming.getParam('B.*'), '1');
+                assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+                assert.deepStrictEqual(incoming.has('*.a'), false);
+                assert.deepStrictEqual(incoming.get('*.b'), '1');
+                assert.deepStrictEqual(incoming.has('A.*'), false);
+                assert.deepStrictEqual(incoming.get('B.*'), '1');
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
@@ -184,13 +184,13 @@ mocha.describe('SCP Test', () => {
             mocha.it('should receive broadcast', async () => {
                 //Server
                 const outgoingData = createString(1000);
-                server.broadcast('A.a', outgoingData, { A: 'a' });
+                server.broadcast('A.a', outgoingData, [['A', 'a']]);
 
                 //Client
                 const [incomingData, params] = await once(client, 'A.a') as [string, Params];
                 assert.deepStrictEqual(incomingData, outgoingData);
-                assert.deepStrictEqual(params.SID, server.identifier);
-                assert.deepStrictEqual(params.A, 'a');
+                assert.deepStrictEqual(params.get('SID'), server.identifier);
+                assert.deepStrictEqual(params.get('A'), 'a');
             });
         });
     });

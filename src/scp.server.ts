@@ -2,7 +2,7 @@
 import Stream from 'stream';
 
 //Import @iprotechs Libs.
-import { RFI, Params, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
+import { RFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
 
 /**
  * This class is used to create a SCP server.
@@ -60,7 +60,7 @@ export default class ScpServer extends Server {
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
         //Set: Outgoing params.
-        outgoing.setParam('SID', this.identifier);
+        outgoing.set('SID', this.identifier);
 
         //Handle Subscribe.
         if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'SCP.subscribe') {
@@ -116,7 +116,7 @@ export default class ScpServer extends Server {
         incoming.resume();
 
         //Set: Connection properties.
-        (incoming.socket as ScpConnection).identifier = incoming.getParam('CID');
+        (incoming.socket as ScpConnection).identifier = incoming.get('CID');
 
         //Write: Outgoing stream.
         Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
@@ -147,14 +147,14 @@ export default class ScpServer extends Server {
      * @param data the data to broadcast.
      * @param params the optional input/output parameters of the broadcast.
      */
-    public broadcast(operation: string, data: string, params?: Params) {
+    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
         for (const connection of this.connections) {
             if (!connection.identifier) continue;
 
             connection.createOutgoing((outgoing: Outgoing) => {
                 Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
                 outgoing.setRFI(new RFI('BROADCAST', operation, params));
-                outgoing.setParam('SID', this.identifier);
+                outgoing.set('SID', this.identifier);
                 outgoing.end(data);
             });
         }
