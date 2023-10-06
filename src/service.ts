@@ -71,8 +71,8 @@ export default class Service extends EventEmitter {
         }
     }
 
-    public get multicastAddress() {
-        return this.sdpServer.multicastAddress;
+    public get memberships() {
+        return this.sdpServer.memberships;
     }
 
     public get localAddress() {
@@ -83,10 +83,12 @@ export default class Service extends EventEmitter {
     //////Event Listeners: SDP
     //////////////////////////////
     private onDiscover(pod: Pod) {
-        const { identifier, attrs: { http, scp, host } } = pod;
+        const http = pod.get('http');
+        const scp = pod.get('scp');
+        const host = pod.get('host');
 
         //Create/Get link.
-        const link = this.link(identifier);
+        const link = this.link(pod.identifier);
         const { httpRelay, scpClient } = link;
 
         //Establish connection.
@@ -95,10 +97,12 @@ export default class Service extends EventEmitter {
     }
 
     private onUpdate(pod: Pod) {
-        const { identifier, attrs: { http, scp, host } } = pod;
+        const http = pod.get('http');
+        const scp = pod.get('scp');
+        const host = pod.get('host');
 
         //Get link.
-        const link = this.getLink(identifier);
+        const link = this.getLink(pod.identifier);
         const { httpRelay, scpClient } = link;
 
         //Be ready to be confused 😈.
@@ -183,7 +187,7 @@ export default class Service extends EventEmitter {
     }
 
     public broadcast(operation: string, ...broadcast: Array<any>) {
-        this.scpServer.broadcast(operation, JSON.stringify(broadcast), { FORMAT: 'OBJECT' });
+        this.scpServer.broadcast(operation, JSON.stringify(broadcast), [['FORMAT', 'OBJECT']]);
         return this;
     }
 
@@ -198,7 +202,7 @@ export default class Service extends EventEmitter {
     public onBroadcast(identifier: string, operation: string, listener: (...broadcast: Array<any>) => void) {
         const { scpClient } = this.getLink(identifier);
         scpClient.on(operation, (data: string, params: Params) => {
-            if (params.FORMAT === 'OBJECT') return listener(...JSON.parse(data));
+            if (params.get('FORMAT') === 'OBJECT') return listener(...JSON.parse(data));
             listener(data, params);
         });
         return this;
@@ -207,10 +211,13 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(http: number, scp: number, sdp: number, multicast: string) {
+    public async start(http: number, scp: number, sdp: number, address: string) {
+        this.sdpServer.attrs.set('http', String(http));
+        this.sdpServer.attrs.set('scp', String(scp));
+
         await promisify(this.httpServer.listen).bind(this.httpServer)(http);
         await promisify(this.scpServer.listen).bind(this.scpServer)(scp);
-        await promisify(this.sdpServer.listen).bind(this.sdpServer)(sdp, multicast, { http: String(http), scp: String(scp) });
+        await promisify(this.sdpServer.listen).bind(this.sdpServer)(sdp, address);
         this.emit('start');
         return this;
     }

@@ -10,7 +10,7 @@ import { createString, createIdentifier, clientRequest } from './util';
 const httpPort = 3000;
 const scpPort = 6000;
 const sdpPort = 5000;
-const multicastAddress = '224.0.0.1';
+const address = '224.0.0.1';
 
 mocha.describe('Service Test', () => {
     mocha.describe('Constructor Test', () => {
@@ -34,7 +34,7 @@ mocha.describe('Service Test', () => {
             const service = new Service(createIdentifier());
             assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
             assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-            assert.deepStrictEqual(service.multicastAddress, null);
+            assert.deepStrictEqual(service.memberships, null);
             assert.deepStrictEqual(service.localAddress, null);
             service.on('start', () => {
                 start++;
@@ -42,19 +42,19 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.address().http.port, httpPort);
                 assert.deepStrictEqual(service.address().scp.port, scpPort);
                 assert.deepStrictEqual(service.address().sdp.port, sdpPort);
-                assert.deepStrictEqual(service.multicastAddress, multicastAddress);
+                assert.deepStrictEqual(service.memberships, [address]);
                 assert.notDeepStrictEqual(service.localAddress, null);
             });
             service.on('stop', () => {
                 stop++;
                 assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
                 assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-                assert.deepStrictEqual(service.multicastAddress, null);
+                assert.deepStrictEqual(service.memberships, []);
                 assert.deepStrictEqual(service.localAddress, null);
             });
             (async () => {
                 for (let i = 0; i < startCount; i++) {
-                    await service.start(httpPort, scpPort, sdpPort, multicastAddress);
+                    await service.start(httpPort, scpPort, sdpPort, address);
                     await service.stop(); //Calling End
                     assert.deepStrictEqual(start, stop);
                 }
@@ -68,7 +68,7 @@ mocha.describe('Service Test', () => {
 
         mocha.beforeEach(async () => {
             serviceA = new Service(createIdentifier());
-            await serviceA.start(httpPort, scpPort, sdpPort, multicastAddress);
+            await serviceA.start(httpPort, scpPort, sdpPort, address);
         });
 
         mocha.afterEach(async () => {
@@ -88,13 +88,13 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(link.identifier, serviceB.identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnect++;
-                if (reconnect === 0) await serviceB.start(3001, 6001, sdpPort, multicastAddress);
+                if (reconnect === 0) await serviceB.start(3001, 6001, sdpPort, address);
                 if (reconnect === 1) done();
             });
 
             //Service: 2nd
             const serviceB = new Service(createIdentifier());
-            serviceB.start(3001, 6001, sdpPort, multicastAddress);
+            serviceB.start(3001, 6001, sdpPort, address);
         });
 
         mocha.it('should emit connect & close events for multiple links', (done) => {
@@ -114,7 +114,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(link.identifier, services[d].identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnects[d]++;
-                if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, sdpPort, multicastAddress);
+                if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, sdpPort, address);
                 if (reconnects[d] === 1 && d + 1 === linkCount) done();
                 d++;
                 if (d === linkCount) d = 0; //Rest d
@@ -123,7 +123,7 @@ mocha.describe('Service Test', () => {
             //Service: 2nd
             const services = Array(linkCount).fill({}).map((_, i) => {
                 const service = new Service(createIdentifier());
-                service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, multicastAddress)
+                service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, address)
                 return service;
             });
         });
@@ -148,7 +148,7 @@ mocha.describe('Service Test', () => {
             serviceA.link('SVC_C');
             serviceA.proxy('/a/*', 'SVC_B');
             serviceA.proxy('/b/*', 'SVC_C');
-            await serviceA.start(httpPort, scpPort, sdpPort, multicastAddress);
+            await serviceA.start(httpPort, scpPort, sdpPort, address);
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
@@ -158,7 +158,7 @@ mocha.describe('Service Test', () => {
             serviceB.reply('B.echo', ((message) => message));
             serviceB.reply('B.spread', ((...message) => message));
             serviceB.reply('B.error', ((message) => { throw new Error(message); }));
-            await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, multicastAddress);
+            await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, address);
 
             //Wait for services to be connected to each other.
             await Promise.all([once(serviceA, 'connect'), once(serviceB, 'connect')]);

@@ -73,7 +73,7 @@ export default class HttpServer extends Server {
         if (method && path) {
             //Route found, lets extract params and execute the handler.
             const paramKeys = route.path.match(/:[^\s/]+/g)?.map((param) => param.slice(1)) || [];
-            request.params = paramKeys.reduce((params: { [key: string]: string }, param: string, index: number) => (params[param] = path[index + 1], params), {});
+            request.params = paramKeys.reduce((params: Record<string, string>, param: string, index: number) => (params[param] = path[index + 1], params), {});
             request.route = route;
 
             const next: NextFunction = () => this.dispatch(index, request, response);
@@ -174,7 +174,7 @@ export interface Request extends IncomingMessage {
     /**
      * Route parameters extracted from the URL.
      */
-    params: { [key: string]: string };
+    params: Record<string, string>;
 
     /**
      * The query parameters.

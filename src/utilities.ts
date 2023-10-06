@@ -1,5 +1,4 @@
 //Import Libs.
-import OS from 'os';
 import Stream from 'stream';
 import HTTP, { RequestOptions } from 'http';
 
@@ -10,22 +9,6 @@ import { RemoteFunctionHandler } from './scp.server';
 import ScpClient from './scp.client';
 
 namespace Utilities {
-    //////////////////////////////
-    //////Local Address
-    //////////////////////////////
-    /**
-     * Returns the first active IPv4 address reported by the Operating System.
-     */
-    export function localAddress() {
-        const interfaces = OS.networkInterfaces();
-        for (const name of Object.keys(interfaces)) {
-            const activeInterface = interfaces[name].find(({ family, internal }) => family === 'IPv4' && !internal);
-            if (activeInterface)
-                return activeInterface.address;
-        }
-        return undefined; // DAH!!
-    }
-
     //////////////////////////////
     //////HTTP: Proxy
     //////////////////////////////
@@ -81,7 +64,7 @@ namespace Utilities {
     export function reply<Reply>(replyFunction: ReplyFunction<Reply>): RemoteFunctionHandler {
         return async (incoming, outgoing, proceed) => {
             //Looks like the message is not an object, Consumer needs to handle it!
-            if (incoming.getParam('FORMAT') !== 'OBJECT') {
+            if (incoming.get('FORMAT') !== 'OBJECT') {
                 proceed();
                 return;
             }
@@ -99,11 +82,11 @@ namespace Utilities {
             try {
                 let returned = await replyFunction(...JSON.parse(data));
                 reply = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-                outgoing.setParam('STATUS', 'OK');
+                outgoing.set('STATUS', 'OK');
             } catch (error) {
                 delete error.stack; /* Delete stack from error because we dont need it. */
                 reply = JSON.stringify(error, Object.getOwnPropertyNames(error));
-                outgoing.setParam('STATUS', 'ERROR');
+                outgoing.set('STATUS', 'ERROR');
             }
 
             //Write: Outgoing stream.
@@ -132,10 +115,10 @@ namespace Utilities {
                         data += chunk;
                     }
 
-                    if (incoming.getParam('STATUS') === 'OK') {
+                    if (incoming.get('STATUS') === 'OK') {
                         resolve(JSON.parse(data));
                     }
-                    if (incoming.getParam('STATUS') === 'ERROR') {
+                    if (incoming.get('STATUS') === 'ERROR') {
                         const error = new Error();
                         Object.assign(error, JSON.parse(data));
                         reject(error);
@@ -147,7 +130,7 @@ namespace Utilities {
 
             //Write: Outgoing stream.
             Stream.finished(outgoing, (error) => error && reject(error));
-            outgoing.setParam('FORMAT', 'OBJECT');
+            outgoing.set('FORMAT', 'OBJECT');
             outgoing.end(JSON.stringify(message));
         });
     }
@@ -170,12 +153,12 @@ export class HttpRelay {
     /**
      * Set the remote address of the relay.
      */
-    private _remoteAddress: string;
+    public remoteAddress: string;
 
     /**
      * Set the remote port of the relay.
      */
-    private _remotePort: number;
+    public remotePort: number;
 
     /**
      * Creates an instance of HTTP relay.
@@ -184,23 +167,6 @@ export class HttpRelay {
      */
     constructor(identifier: string) {
         this.identifier = identifier;
-    }
-
-    //////////////////////////////
-    //////Gets/Sets
-    //////////////////////////////
-    /**
-     * The remote address of the relay.
-     */
-    public get remoteAddress() {
-        return this._remoteAddress;
-    }
-
-    /**
-     * The remote port of the relay.
-     */
-    public get remotePort() {
-        return this._remotePort;
     }
 
     //////////////////////////////
@@ -213,16 +179,11 @@ export class HttpRelay {
      * @param host the remote host.
      */
     public configure(port: number, host: string) {
-        this._remotePort = port;
-        this._remoteAddress = host;
+        this.remotePort = port;
+        this.remoteAddress = host;
         return this;
     }
 }
-
-/**
- * The HTTP method.
- */
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 //////////////////////////////
 //////Reply Function
