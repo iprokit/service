@@ -18,7 +18,7 @@ mocha.describe('Service Test', () => {
             const identifier = createIdentifier();
             const service = new Service(identifier);
             assert.deepStrictEqual(service.identifier, identifier);
-            assert.deepStrictEqual(service.links.length, 0);
+            assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
             assert.deepStrictEqual(service.remoteFunctions.length, 0);
             done();
@@ -80,12 +80,12 @@ mocha.describe('Service Test', () => {
 
             //Service: 1st
             serviceA.on('connect', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, serviceB.identifier);
+                assert.deepStrictEqual(link.scpClient.identifier, serviceB.identifier);
                 assert.deepStrictEqual(link.scpClient.connected, true);
                 await serviceB.stop(); //Calling End
             });
             serviceA.on('close', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, serviceB.identifier);
+                assert.deepStrictEqual(link.scpClient.identifier, serviceB.identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnect++;
                 if (reconnect === 0) await serviceB.start(3001, 6001, sdpPort, address);
@@ -104,14 +104,14 @@ mocha.describe('Service Test', () => {
 
             //Service: 1st
             serviceA.on('connect', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, services[c].identifier);
+                assert.deepStrictEqual(link.scpClient.identifier, services[c].identifier);
                 assert.deepStrictEqual(link.scpClient.connected, true);
                 await services[c].stop(); //Calling End
                 c++;
                 if (c === linkCount) c = 0; //Rest c
             });
             serviceA.on('close', async (link: Link) => {
-                assert.deepStrictEqual(link.identifier, services[d].identifier);
+                assert.deepStrictEqual(link.scpClient.identifier, services[d].identifier);
                 assert.deepStrictEqual(link.scpClient.connected, false);
                 reconnects[d]++;
                 if (reconnects[d] === 0) await services[d].start(httpPort + d + 1, scpPort + d + 1, sdpPort, address);
@@ -183,7 +183,7 @@ mocha.describe('Service Test', () => {
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/b/c2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.SERVICE_UNAVAILABLE);
-                assert.deepStrictEqual(responseBody, 'SVC_C is unavailable.');
+                assert.deepStrictEqual(responseBody, 'Service is unavailable.');
             });
         });
 

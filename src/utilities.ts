@@ -15,23 +15,25 @@ namespace Utilities {
     /**
      * Creates a request handler that acts as a proxy to forward incoming HTTP requests.
      * 
-     * @param relay the relay to which incoming requests will be forwarded.
+     * @param options the proxy options.
      */
-    export function proxy(relay: HttpRelay): RequestHandler {
+    export function proxy(options: ProxyOptions): RequestHandler {
         return (request, response, next) => {
+            const { host, port } = options;
+
             //Ohooomyyy 🤦.
-            if (!relay.remoteAddress || !relay.remotePort) {
+            if (!host || !port) {
                 response.writeHead(HttpStatusCode.SERVICE_UNAVAILABLE);
-                response.end(`${relay.identifier} is unavailable.`);
+                response.end('Service is unavailable.');
                 return;
             }
 
             const { method, url, headers, route } = request;
             const path = url.replace(new RegExp(`^${route.path.replace(/\/\*$/, '')}`), '');
-            const options: RequestOptions = { host: relay.remoteAddress, port: relay.remotePort, method, path, headers }
+            const requestOptions: RequestOptions = { host, port, method, path, headers }
 
             //Let's boogie 🕺💃 🎶.
-            const proxyRequest = HTTP.request(options, (proxyResponse) => {
+            const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
                 response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
                 Stream.pipeline(proxyResponse, response, (error: Error) => {
                     if (error) {
@@ -138,51 +140,18 @@ namespace Utilities {
 export default Utilities;
 
 //////////////////////////////
-//////Http Relay
+//////Proxy Options
 //////////////////////////////
-/**
- * This class implements a simple Http Relay.
- * A `HttpRelay` is responsible for managing connection configuration to the target server.
- */
-export class HttpRelay {
+export interface ProxyOptions {
     /**
-     * The unique identifier of the relay.
+     * The remote host of the proxy server.
      */
-    public readonly identifier: string;
+    host: string;
 
     /**
-     * Set the remote address of the relay.
+     * The remote port of the proxy server.
      */
-    public remoteAddress: string;
-
-    /**
-     * Set the remote port of the relay.
-     */
-    public remotePort: number;
-
-    /**
-     * Creates an instance of HTTP relay.
-     * 
-     * @param identifier the unique identifier of the relay.
-     */
-    constructor(identifier: string) {
-        this.identifier = identifier;
-    }
-
-    //////////////////////////////
-    //////Configure
-    //////////////////////////////
-    /**
-     * Configure the connection to the target server.
-     * 
-     * @param port the remote port.
-     * @param host the remote host.
-     */
-    public configure(port: number, host: string) {
-        this.remotePort = port;
-        this.remoteAddress = host;
-        return this;
-    }
+    port: number;
 }
 
 //////////////////////////////

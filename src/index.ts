@@ -12,7 +12,7 @@ export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprotechs/sdp';
 export { default as SdpServer } from './sdp.server';
 
 //Export Utilities.
-export { default as Utilities, HttpRelay, ReplyFunction } from './utilities';
+export { default as Utilities, ProxyOptions, ReplyFunction } from './utilities';
 
 //Export Service.
 export { default as Service, Link } from './service';
