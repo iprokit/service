@@ -61,29 +61,34 @@ mocha.describe('SDP Test', () => {
             serverA.attrs.set('A', 'a');
             const serverB = new SdpServer(createIdentifier());
             serverB.attrs.set('B', 'b');
+
+            //Start A
             await promisify(serverA.listen).bind(serverA)(port, address);
 
+            //Start B
             serverB.listen(port, address);
-            const [[discoverA], [discoverB]]: Array<Array<Pod>> = await Promise.all([once(serverA, 'discover'), once(serverB, 'discover')]);
-            assert.deepStrictEqual(discoverA.identifier, serverB.identifier);
-            assert.deepStrictEqual(discoverB.identifier, serverA.identifier);
-            assert.deepStrictEqual(discoverA.available, true);
-            assert.deepStrictEqual(discoverB.available, true);
-            assert.deepStrictEqual(discoverA.get('host'), serverB.localAddress);
-            assert.deepStrictEqual(discoverB.get('host'), serverA.localAddress);
-            assert.deepStrictEqual(discoverA.get('B'), 'b');
-            assert.deepStrictEqual(discoverB.get('A'), 'a');
-            assert.deepStrictEqual(discoverA.size, 2);
-            assert.deepStrictEqual(discoverB.size, 2);
+            const [[podA_D], [podB_D]] = await Promise.all([once(serverA, 'discover'), once(serverB, 'discover')]) as [[Pod], [Pod]];
+            assert.deepStrictEqual(podA_D.identifier, serverB.identifier);
+            assert.deepStrictEqual(podB_D.identifier, serverA.identifier);
+            assert.deepStrictEqual(podA_D.available, true);
+            assert.deepStrictEqual(podB_D.available, true);
+            assert.deepStrictEqual(podA_D.get('host'), serverB.localAddress);
+            assert.deepStrictEqual(podB_D.get('host'), serverA.localAddress);
+            assert.deepStrictEqual(podA_D.get('B'), 'b');
+            assert.deepStrictEqual(podB_D.get('A'), 'a');
+            assert.deepStrictEqual(podA_D.size, 2);
+            assert.deepStrictEqual(podB_D.size, 2);
 
-            serverB.close(); //Calling End
-            const [updateA] = await once(serverA, 'update') as [Pod];
-            assert.deepStrictEqual(updateA.identifier, serverB.identifier);
-            assert.deepStrictEqual(updateA.available, false);
-            assert.deepStrictEqual(updateA.get('host'), serverB.localAddress);
-            assert.deepStrictEqual(updateA.get('B'), 'b');
-            assert.deepStrictEqual(updateA.size, 2);
+            //Stop B
+            serverB.close();
+            const [podA_U] = await once(serverA, 'update') as [Pod];
+            assert.deepStrictEqual(podA_U.identifier, serverB.identifier);
+            assert.deepStrictEqual(podA_U.available, false);
+            assert.deepStrictEqual(podA_U.get('host'), serverB.localAddress);
+            assert.deepStrictEqual(podA_U.get('B'), 'b');
+            assert.deepStrictEqual(podA_U.size, 2);
 
+            //Stop A
             await promisify(serverA.close).bind(serverA)();
             assert.deepStrictEqual(serverA.pods.size, 1);
             assert.deepStrictEqual(serverB.pods.size, 1);
@@ -99,30 +104,34 @@ mocha.describe('SDP Test', () => {
             });
             let discovers = 0, updates = 0;
 
+            //Start A
             await promisify(serverA.listen).bind(serverA)(port, address);
 
+            //Start B
             serverB.forEach((server) => server.listen(port, address));
-            for await (const [discover] of (on(serverA, 'discover') as AsyncIterableIterator<[Pod]>)) {
-                assert.deepStrictEqual(discover.identifier, serverB[discovers].identifier);
-                assert.deepStrictEqual(discover.available, true);
-                assert.deepStrictEqual(discover.has('host'), true);
-                assert.deepStrictEqual(discover.has('B'), true);
-                assert.deepStrictEqual(discover.size, 2);
+            for await (const [pod] of on(serverA, 'discover') as AsyncIterableIterator<[Pod]>) {
+                assert.deepStrictEqual(pod.identifier, serverB[discovers].identifier);
+                assert.deepStrictEqual(pod.available, true);
+                assert.deepStrictEqual(pod.has('host'), true);
+                assert.deepStrictEqual(pod.has('B'), true);
+                assert.deepStrictEqual(pod.size, 2);
                 discovers++;
                 if (discovers === serverCount) break;
             }
 
-            serverB.forEach((server) => server.close()); //Calling End
-            for await (const [update] of (on(serverA, 'update') as AsyncIterableIterator<[Pod]>)) {
-                assert.deepStrictEqual(update.identifier, serverB[updates].identifier);
-                assert.deepStrictEqual(update.available, false);
-                assert.deepStrictEqual(update.has('host'), true);
-                assert.deepStrictEqual(update.has('B'), true);
-                assert.deepStrictEqual(update.size, 2);
+            //Stop B
+            serverB.forEach((server) => server.close());
+            for await (const [pod] of on(serverA, 'update') as AsyncIterableIterator<[Pod]>) {
+                assert.deepStrictEqual(pod.identifier, serverB[updates].identifier);
+                assert.deepStrictEqual(pod.available, false);
+                assert.deepStrictEqual(pod.has('host'), true);
+                assert.deepStrictEqual(pod.has('B'), true);
+                assert.deepStrictEqual(pod.size, 2);
                 updates++;
                 if (updates === serverCount) break;
             }
 
+            //Stop A
             await promisify(serverA.close).bind(serverA)();
             assert.deepStrictEqual(serverA.pods.size, serverCount);
         });
