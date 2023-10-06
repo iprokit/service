@@ -1,4 +1,5 @@
 //Import Libs.
+import { EventEmitter } from 'events';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
@@ -48,5 +49,19 @@ export function clientMessage(client: ScpClient, operation: string, data: string
             }
         });
         outgoing.end(data);
+    });
+}
+
+export function on<T>(emitter: EventEmitter, eventName: string, eventCount: number) {
+    return new Promise<Array<T>>((resolve, reject) => {
+        const events = new Array();
+        const listener = (...args: Array<any>) => {
+            events.push(args);
+            if (events.length === eventCount) {
+                emitter.removeListener(eventName, listener);
+                resolve(events);
+            }
+        };
+        emitter.on(eventName, listener);
     });
 }

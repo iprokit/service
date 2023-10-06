@@ -1,12 +1,12 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { on, once } from 'events';
+import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
 import { Pod, SdpServer } from '../lib';
-import { createIdentifier } from './util';
+import { createIdentifier, on } from './util';
 
 const address = '224.0.0.1';
 const port = 5000;
@@ -112,29 +112,30 @@ mocha.describe('SDP Test', () => {
 
             //Start
             serverB.forEach((server) => server.listen(port, address));
-            for await (const [pod] of on(serverA, 'discover') as AsyncIterableIterator<[Pod]>) {
+            const [discoverA] = await Promise.all([on<[Pod]>(serverA, 'discover', serverCount), ...serverB.map((server) => on<[Pod]>(server, 'discover', serverCount))]);
+            for (const [pod] of discoverA) {
                 assert.deepStrictEqual(pod.identifier, serverB[discovers].identifier);
                 assert.deepStrictEqual(pod.available, true);
                 assert.deepStrictEqual(pod.has('host'), true);
                 assert.deepStrictEqual(pod.has('B'), true);
                 assert.deepStrictEqual(pod.size, 2);
                 discovers++;
-                if (discovers === serverCount) break;
             }
 
             //Stop
             serverB.forEach((server) => server.close());
-            for await (const [pod] of on(serverA, 'update') as AsyncIterableIterator<[Pod]>) {
+            const updateA = await on<[Pod]>(serverA, 'update', serverCount);
+            for (const [pod] of updateA) {
                 assert.deepStrictEqual(pod.identifier, serverB[updates].identifier);
                 assert.deepStrictEqual(pod.available, false);
                 assert.deepStrictEqual(pod.has('host'), true);
                 assert.deepStrictEqual(pod.has('B'), true);
                 assert.deepStrictEqual(pod.size, 2);
                 updates++;
-                if (updates === serverCount) break;
             }
 
             assert.deepStrictEqual(serverA.pods.size, serverCount);
+            serverB.forEach((server) => assert.deepStrictEqual(server.pods.size, serverCount));
         });
     });
 });
