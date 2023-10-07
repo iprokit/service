@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
 
 /**
- * The `ScpServer` class is bound to a multicast address and port number.
+ * The `SdpServer` class is bound to a multicast address and port number.
  * It listens for pods on the network and multicasts to the received pods.
  * 
  * @emits `listening` when the server has been bound after calling `server.listen()`.
