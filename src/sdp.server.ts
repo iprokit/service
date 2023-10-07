@@ -9,8 +9,8 @@ import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
  * It listens for pods on the network and multicasts to the received pods.
  * 
  * @emits `listening` when the server has been bound after calling `server.listen()`.
- * @emits `discover` when a pod is discovered.
- * @emits `update` when a pod is updated.
+ * @emits `available` when a pod is available.
+ * @emits `unavailable` when a pod is unavailable.
  * @emits `error` when an error occurs.
  * @emits `close` when the server is fully closed.
  */
@@ -55,9 +55,14 @@ export default class SdpServer extends EventEmitter {
         this.attrs = new Attrs();
         this.pods = new Map();
         this._localAddress = null;
+        this._socket = new Socket();
 
         //Bind listeners.
         this.onPod = this.onPod.bind(this);
+
+        //Add listeners.
+        this._socket.addListener('pod', this.onPod);
+        this._socket.addListener('error', (error: Error) => this.emit('error', error));
     }
 
     //////////////////////////////
@@ -74,29 +79,29 @@ export default class SdpServer extends EventEmitter {
      * True when the server is listening for pods, false otherwise.
      */
     public get listening() {
-        return (this._socket) ? this._socket.bound : false;
+        return this._socket.bound;
     }
 
     /**
      * The multicast groups joined.
      */
     public get memberships() {
-        return (this._socket) ? this._socket.memberships : null;
+        return this._socket.memberships;
     }
 
     /**
      * The bound address, the address family name and port of the server as reported by the operating system.
      */
     public address() {
-        return (this._socket) ? this._socket.address() : null;
+        return this._socket.address();
     }
 
     //////////////////////////////
     //////Event Listeners
     //////////////////////////////
     /**
-     * @emits `discover` when a pod is discovered.
-     * @emits `update` when a pod is updated.
+     * @emits `available` when a pod is available.
+     * @emits `unavailable` when a pod is unavailable.
      */
     private onPod(pod: Pod, sender: Sender) {
         //Pod echo.
@@ -110,15 +115,24 @@ export default class SdpServer extends EventEmitter {
         pod.set('host', sender.address);
 
         const _pod = this.pods.get(pod.identifier);
-        if (!_pod) { /* DISCOVERED */
+        if (!_pod) { /* NEW */
             this.pods.set(pod.identifier, pod);
-            this.multicast(true, false, () => this.emit('discover', pod));
+            this.multicast(true, false, () => this.emit('available', pod));
+            return;
         }
-        if (_pod) { /* UPDATED */
-            if (_pod.available !== pod.available) {
+        if (_pod) { /* EXISTING */
+            if (pod.available && !_pod.available) { /* Server restarted. */
                 this.pods.set(pod.identifier, pod);
-                this.emit('update', pod);
+                this.multicast(true, false, () => this.emit('available', pod));
+                return;
             }
+            if (!pod.available && _pod.available) { /* Server shutting down. */
+                this.pods.set(pod.identifier, pod);
+                this.emit('unavailable', pod);
+                return;
+            }
+            if (!pod.available && !_pod.available) return;
+            if (pod.available && _pod.available) return;
         }
     }
 
@@ -157,10 +171,6 @@ export default class SdpServer extends EventEmitter {
     public listen(port: number, address: string, callback?: () => void) {
         callback && this.once('listening', callback);
 
-        //Setup Socket.
-        this._socket = new Socket();
-        this._socket.addListener('pod', this.onPod);
-        this._socket.addListener('error', (error: Error) => this.emit('error', error));
         this._socket.bind(port, () => {
             this._socket.addMembership(address);
             this.multicast(true, true, () => {
@@ -176,9 +186,8 @@ export default class SdpServer extends EventEmitter {
      * @param callback optional callback will be added as a listener for the `close` event once.
      */
     public close(callback?: () => void) {
-        if (!this._socket) return this;
-
         callback && this.once('close', callback);
+
         this.multicast(false, true, () => {
             this._socket.removeMemberships();
             this._socket.close(() => {
@@ -196,7 +205,7 @@ export default class SdpServer extends EventEmitter {
      * If the server is refed calling ref again will have no effect.
      */
     public ref() {
-        this._socket?.ref();
+        this._socket.ref();
         return this;
     }
 
@@ -205,7 +214,7 @@ export default class SdpServer extends EventEmitter {
      * If the server is unrefed calling unref again will have no effect.
      */
     public unref() {
-        this._socket?.unref();
+        this._socket.unref();
         return this;
     }
 }
