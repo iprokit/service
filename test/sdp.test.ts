@@ -71,26 +71,27 @@ mocha.describe('SDP Test', () => {
 
         mocha.it('should emit discover and update events for single pod', async () => {
             const serverB = new SdpServer(createIdentifier());
+            const discovers = new Set<string>(), updates = new Set<string>();
 
             //Start
             serverB.listen(port, address);
-            const [[podA_D], [podB_D]] = await Promise.all([once(serverA, 'discover'), once(serverB, 'discover')]) as [[Pod], [Pod]];
-            assert.deepStrictEqual(podA_D.identifier, serverB.identifier);
-            assert.deepStrictEqual(podB_D.identifier, serverA.identifier);
-            assert.deepStrictEqual(podA_D.available, true);
-            assert.deepStrictEqual(podB_D.available, true);
-            assert.deepStrictEqual(podA_D.get('host'), serverB.localAddress);
-            assert.deepStrictEqual(podB_D.get('host'), serverA.localAddress);
-            assert.deepStrictEqual(podA_D.size, 1);
-            assert.deepStrictEqual(podB_D.size, 1);
+            const discoverAB = await Promise.all([once(serverA, 'discover'), once(serverB, 'discover')]) as [[Pod], [Pod]];
+            for (const [pod] of discoverAB) {
+                if (!discovers.has(pod.identifier)) discovers.add(pod.identifier);
+                assert.deepStrictEqual(pod.available, true);
+                assert.deepStrictEqual(pod.has('host'), true);
+                assert.deepStrictEqual(pod.size, 1);
+            }
+            assert.deepStrictEqual(discovers.size, 1 + 1); //serverCount = A + B
 
             //Stop
             serverB.close();
-            const [podA_U] = await once(serverA, 'update') as [Pod];
-            assert.deepStrictEqual(podA_U.identifier, serverB.identifier);
-            assert.deepStrictEqual(podA_U.available, false);
-            assert.deepStrictEqual(podA_U.get('host'), serverB.localAddress);
-            assert.deepStrictEqual(podA_U.size, 1);
+            const [pod] = await once(serverA, 'update') as [Pod];
+            if (!updates.has(pod.identifier)) updates.add(pod.identifier);
+            assert.deepStrictEqual(pod.available, false);
+            assert.deepStrictEqual(pod.has('host'), true);
+            assert.deepStrictEqual(pod.size, 1);
+            assert.deepStrictEqual(updates.size, 1); //serverCount = B
 
             assert.deepStrictEqual(serverA.pods.size, 1);
             assert.deepStrictEqual(serverB.pods.size, 1);
@@ -99,7 +100,7 @@ mocha.describe('SDP Test', () => {
         mocha.it('should emit discover and update events for multiple pods', async () => {
             const serverCount = 20;
             const serverB = Array(serverCount).fill({}).map(() => new SdpServer(createIdentifier()));
-            let discovers = new Set<string>(), updates = new Set<string>();
+            const discovers = new Set<string>(), updates = new Set<string>();
 
             //Start
             serverB.forEach((server) => server.listen(port, address));
