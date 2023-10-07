@@ -104,8 +104,7 @@ export default class SdpServer extends EventEmitter {
      * @emits `unavailable` when a pod is unavailable.
      */
     private onPod(pod: Pod, sender: Sender) {
-        //Pod echo.
-        if (pod.identifier === this.identifier) {
+        if (pod.identifier === this.identifier) { /* ECHO */
             this._localAddress = pod.available ? sender.address : null;
             this._socket.emit('echo');
             return;
@@ -114,6 +113,7 @@ export default class SdpServer extends EventEmitter {
         //Copy address to pod.
         pod.set('host', sender.address);
 
+        //Be ready to be confused 😈.
         const _pod = this.pods.get(pod.identifier);
         if (!_pod) { /* NEW */
             this.pods.set(pod.identifier, pod);

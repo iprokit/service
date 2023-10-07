@@ -21,7 +21,7 @@ mocha.describe('SDP Test', () => {
     });
 
     mocha.describe('Connection Test', () => {
-        mocha.it('should emit listening and close events', (done) => {
+        mocha.it('should emit listening & close events', (done) => {
             let listening = 0, close = 0;
 
             const server = new SdpServer(createIdentifier());
@@ -65,7 +65,7 @@ mocha.describe('SDP Test', () => {
             await once(serverA, 'close');
         });
 
-        mocha.it('should emit available and unavailable events for multiple instances during start/stop/restart', async () => {
+        mocha.it('should emit available & unavailable events for multiple instances', async () => {
             const restartCount = 5;
             const serverCount = 20
             const identifierB = Array(serverCount).fill({}).map(() => createIdentifier());

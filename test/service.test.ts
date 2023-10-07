@@ -26,14 +26,13 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Start/Stop Test', () => {
-        mocha.it('should emit start & stop events multiple times', (done) => {
-            const startCount = 20;
+        mocha.it('should emit start & stop events', async () => {
             let start = 0, stop = 0;
 
             const service = new Service(createIdentifier());
             assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
             assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-            assert.deepStrictEqual(service.memberships, null);
+            assert.deepStrictEqual(service.memberships, []);
             assert.deepStrictEqual(service.localAddress, null);
             service.on('start', () => {
                 start++;
@@ -51,18 +50,13 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.memberships, []);
                 assert.deepStrictEqual(service.localAddress, null);
             });
-            (async () => {
-                for (let i = 0; i < startCount; i++) {
-                    await service.start(httpPort, scpPort, sdpPort, address);
-                    await service.stop(); //Calling End
-                    assert.deepStrictEqual(start, stop);
-                }
-                done();
-            })();
+            await service.start(httpPort, scpPort, sdpPort, address);
+            await service.stop(); //Calling End
+            assert.deepStrictEqual(start, stop);
         });
     });
 
-    mocha.describe('Connection Test', () => {
+    mocha.describe('Link/Unlink Test', () => {
         let serviceA: Service;
 
         mocha.beforeEach(async () => {
@@ -74,61 +68,44 @@ mocha.describe('Service Test', () => {
             await serviceA.stop();
         });
 
-        mocha.it('should emit connect & close events for single link', async () => {
-            const serviceB = new Service(createIdentifier());
-            const connects = new Set<string>(), closes = new Set<string>();
-
-            //Start
-            serviceB.start(httpPort + 1, scpPort + 1, sdpPort, address);
-            const connectAB = await Promise.all([once(serviceA, 'connect'), once(serviceB, 'connect')]) as [[Link], [Link]];
-            for (const [link] of connectAB) {
-                if (!connects.has(link.scpClient.identifier)) connects.add(link.scpClient.identifier);
-                assert.deepStrictEqual(link.scpClient.connected, true);
-            }
-            assert.deepStrictEqual(connects.size, 1 + 1); //servicesCount = A + B
-
-            //Stop
-            serviceB.stop();
-            const closeA = await Promise.all([once(serviceA, 'close')]) as [[Link]];
-            for (const [link] of closeA) {
-                if (!closes.has(link.scpClient.identifier)) closes.add(link.scpClient.identifier);
-                assert.deepStrictEqual(link.scpClient.connected, false);
-            }
-            assert.deepStrictEqual(closes.size, 1); //servicesCount = B
-
-            assert.deepStrictEqual(serviceA.links.size, 1);
-            assert.deepStrictEqual(serviceB.links.size, 1);
-        });
-
-        mocha.it('should emit connect & close events for multiple links', async () => {
+        mocha.it('should emit link & unlink events for multiple instances', async () => {
+            const restartCount = 5;
             const serviceCount = 20;
-            const serviceB = Array(serviceCount).fill({}).map(() => new Service(createIdentifier()));
-            const connects = new Set<string>(), closes = new Set<string>();
+            const identifierB = Array(serviceCount).fill({}).map(() => createIdentifier());
 
-            //Start
-            serviceB.forEach((service, i) => service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, address));
-            const connectAB = await Promise.all([on<[Link]>(serviceA, 'connect', serviceCount), ...serviceB.map((service) => on<[Link]>(service, 'connect', serviceCount))]);
-            for (const connect of connectAB) {
-                for (const [link] of connect) {
-                    if (!connects.has(link.scpClient.identifier)) connects.add(link.scpClient.identifier);
-                    assert.deepStrictEqual(link.scpClient.connected, true);
+            for (let i = 0; i < restartCount; i++) {
+                const serviceB = Array(serviceCount).fill({}).map((_, i) => new Service(identifierB[i]));
+                const _links = new Set<string>(), _unlinks = new Set<string>();
+
+                //Start
+                serviceB.forEach((service, i) => service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, address));
+                const linksAB = await Promise.all([on<[Link]>(serviceA, 'link', serviceCount), ...serviceB.map((service) => on<[Link]>(service, 'link', serviceCount))]);
+                for (const links of linksAB) {
+                    for (const [link] of links) {
+                        if (!_links.has(link.scpClient.identifier)) _links.add(link.scpClient.identifier);
+                        assert.deepStrictEqual(link.scpClient.connected, true);
+                        assert.notDeepStrictEqual(link.proxyOptions.host, undefined);
+                        assert.notDeepStrictEqual(link.proxyOptions.port, undefined);
+                    }
                 }
-            }
-            assert.deepStrictEqual(connects.size, 1 + serviceCount); //servicesCount = A + B
+                assert.deepStrictEqual(_links.size, 1 + serviceCount); //servicesCount = A + B
 
-            //Stop
-            serviceB.forEach((service) => service.stop());
-            const closeA = await Promise.all([on<[Link]>(serviceA, 'close', serviceCount)]);
-            for (const close of closeA) {
-                for (const [link] of close) {
-                    if (!closes.has(link.scpClient.identifier)) closes.add(link.scpClient.identifier);
-                    assert.deepStrictEqual(link.scpClient.connected, false);
+                //Stop
+                serviceB.forEach((service) => service.stop());
+                const unlinksA = await Promise.all([on<[Link]>(serviceA, 'unlink', serviceCount)]);
+                for (const unlinks of unlinksA) {
+                    for (const [link] of unlinks) {
+                        if (!_unlinks.has(link.scpClient.identifier)) _unlinks.add(link.scpClient.identifier);
+                        assert.deepStrictEqual(link.scpClient.connected, false);
+                        assert.notDeepStrictEqual(link.proxyOptions.host, undefined);
+                        assert.notDeepStrictEqual(link.proxyOptions.port, undefined);
+                    }
                 }
-            }
-            assert.deepStrictEqual(closes.size, serviceCount); //servicesCount = B
+                assert.deepStrictEqual(_unlinks.size, serviceCount); //servicesCount = B
 
-            assert.deepStrictEqual(serviceA.links.size, serviceCount);
-            serviceB.forEach((service) => assert.deepStrictEqual(service.links.size, serviceCount));
+                assert.deepStrictEqual(serviceA.links.size, serviceCount);
+                serviceB.forEach((service) => assert.deepStrictEqual(service.links.size, serviceCount));
+            }
         });
     });
 
@@ -163,8 +140,8 @@ mocha.describe('Service Test', () => {
             serviceB.reply('B.error', ((message) => { throw new Error(message); }));
             await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, address);
 
-            //Wait for services to be connected to each other.
-            await Promise.all([once(serviceA, 'connect'), once(serviceB, 'connect')]);
+            //Wait for services to be linked to each other.
+            await Promise.all([once(serviceA, 'link'), once(serviceB, 'link')]);
         });
 
         mocha.afterEach(async () => {
@@ -173,7 +150,7 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Proxy Test', () => {
-            mocha.it('should proxy a request and its response to the target service', async () => {
+            mocha.it('should proxy a request & response to the target service', async () => {
                 //Client
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/a/b2', requestBody);
@@ -193,19 +170,19 @@ mocha.describe('Service Test', () => {
         mocha.describe('Message/Reply Test', () => {
             const messages = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
-            mocha.it('should message(empty) and expect reply(empty)', async () => {
+            mocha.it('should message(empty) & expect reply(empty)', async () => {
                 //Client
                 const reply = await serviceA.message('SVC_B', 'B.echo');
                 assert.deepStrictEqual(reply, {});
             });
 
-            mocha.it('should message(...object) and expect reply(object)', async () => {
+            mocha.it('should message(...object) & expect reply(object)', async () => {
                 //Client
                 const reply = await serviceA.message('SVC_B', 'B.spread', ...messages);
                 assert.deepStrictEqual(reply, messages);
             });
 
-            mocha.it('should message(object) and expect reply(error)', async () => {
+            mocha.it('should message(object) & expect reply(error)', async () => {
                 //Client
                 try {
                     await serviceA.message('SVC_B', 'B.error', 'SCP Error');
@@ -214,7 +191,7 @@ mocha.describe('Service Test', () => {
                 }
             });
 
-            mocha.it('should message(object) and expect reply(object) in sequence', async () => {
+            mocha.it('should message(object) & expect reply(object) in sequence', async () => {
                 //Client
                 for await (const message of messages) {
                     const reply = await serviceA.message('SVC_B', 'B.echo', message);
@@ -222,7 +199,7 @@ mocha.describe('Service Test', () => {
                 }
             });
 
-            mocha.it('should message(object) and expect reply(object) in parallel', async () => {
+            mocha.it('should message(object) & expect reply(object) in parallel', async () => {
                 //Client
                 const reply = await Promise.all(messages.map((message) => serviceA.message('SVC_B', 'B.echo', message)));
                 assert.deepStrictEqual(reply, messages);

@@ -36,12 +36,12 @@ export default class Service extends EventEmitter {
         this.links = new Map();
 
         //Bind Listeners.
-        this.onDiscover = this.onDiscover.bind(this);
-        this.onUpdate = this.onUpdate.bind(this);
+        this.onAvailable = this.onAvailable.bind(this);
+        this.onUnavailable = this.onUnavailable.bind(this);
 
         //Add Listeners.
-        this.sdpServer.addListener('discover', this.onDiscover);
-        this.sdpServer.addListener('update', this.onUpdate);
+        this.sdpServer.addListener('available', this.onAvailable);
+        this.sdpServer.addListener('unavailable', this.onUnavailable);
     }
 
     //////////////////////////////
@@ -82,41 +82,24 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Event Listeners: SDP
     //////////////////////////////
-    private onDiscover(pod: Pod) {
-        const http = pod.get('http');
-        const scp = pod.get('scp');
-        const host = pod.get('host');
-
+    private onAvailable(pod: Pod) {
         //Create/Get link.
         const link = this.link(pod.identifier);
-        const { proxyOptions, scpClient } = link;
 
-        //Establish connection.
-        proxyOptions.port = Number(http), proxyOptions.host = host;
-        scpClient.connect(Number(scp), host, () => this.emit('connect', link));
-    }
-
-    private onUpdate(pod: Pod) {
+        //Connection variables.
         const http = pod.get('http');
         const scp = pod.get('scp');
         const host = pod.get('host');
 
+        //Establish connection.
+        link.proxyOptions.port = Number(http), link.proxyOptions.host = host;
+        link.scpClient.connect(Number(scp), host, () => this.emit('link', link));
+    }
+
+    private onUnavailable(pod: Pod) {
         //Get link.
         const link = this.links.get(pod.identifier);
-        const { proxyOptions, scpClient } = link;
-
-        //Be ready to be confused 😈.
-        if (!pod.available && !scpClient.connected) { /* Closed. */
-            this.emit('close', link);
-            return;
-        }
-        if (pod.available && !scpClient.connected) { /* Reconnected. */
-            proxyOptions.port = Number(http), proxyOptions.host = host;
-            scpClient.connect(Number(scp), host, () => this.emit('connect', link));
-            return;
-        }
-        if (!pod.available && scpClient.connected) return; /* Closing. */
-        if (pod.available && scpClient.connected) return; /* Wont happen. */
+        this.emit('unlink', link);
     }
 
     //////////////////////////////
