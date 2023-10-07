@@ -86,11 +86,13 @@ mocha.describe('SDP Test', () => {
 
             //Stop
             serverB.close();
-            const [pod] = await once(serverA, 'update') as [Pod];
-            if (!updates.has(pod.identifier)) updates.add(pod.identifier);
-            assert.deepStrictEqual(pod.available, false);
-            assert.deepStrictEqual(pod.has('host'), true);
-            assert.deepStrictEqual(pod.size, 1);
+            const updateA = await Promise.all([once(serverA, 'update')]) as [[Pod]];
+            for (const [pod] of updateA) {
+                if (!updates.has(pod.identifier)) updates.add(pod.identifier);
+                assert.deepStrictEqual(pod.available, false);
+                assert.deepStrictEqual(pod.has('host'), true);
+                assert.deepStrictEqual(pod.size, 1);
+            }
             assert.deepStrictEqual(updates.size, 1); //serverCount = B
 
             assert.deepStrictEqual(serverA.pods.size, 1);
@@ -117,12 +119,14 @@ mocha.describe('SDP Test', () => {
 
             //Stop
             serverB.forEach((server) => server.close());
-            const updateA = await on<[Pod]>(serverA, 'update', serverCount);
-            for (const [pod] of updateA) {
-                if (!updates.has(pod.identifier)) updates.add(pod.identifier);
-                assert.deepStrictEqual(pod.available, false);
-                assert.deepStrictEqual(pod.has('host'), true);
-                assert.deepStrictEqual(pod.size, 1);
+            const updateA = await Promise.all([on<[Pod]>(serverA, 'update', serverCount)]);
+            for (const update of updateA) {
+                for (const [pod] of update) {
+                    if (!updates.has(pod.identifier)) updates.add(pod.identifier);
+                    assert.deepStrictEqual(pod.available, false);
+                    assert.deepStrictEqual(pod.has('host'), true);
+                    assert.deepStrictEqual(pod.size, 1);
+                }
             }
             assert.deepStrictEqual(updates.size, serverCount); //serverCount = B
 
