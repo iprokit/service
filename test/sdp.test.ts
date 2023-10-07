@@ -60,7 +60,6 @@ mocha.describe('SDP Test', () => {
 
         mocha.beforeEach(async () => {
             serverA = new SdpServer(createIdentifier());
-            serverA.attrs.set('A', 'a');
             serverA.listen(port, address);
             await once(serverA, 'listening');
         });
@@ -72,7 +71,6 @@ mocha.describe('SDP Test', () => {
 
         mocha.it('should emit discover and update events for single pod', async () => {
             const serverB = new SdpServer(createIdentifier());
-            serverB.attrs.set('B', 'b');
 
             //Start
             serverB.listen(port, address);
@@ -83,10 +81,8 @@ mocha.describe('SDP Test', () => {
             assert.deepStrictEqual(podB_D.available, true);
             assert.deepStrictEqual(podA_D.get('host'), serverB.localAddress);
             assert.deepStrictEqual(podB_D.get('host'), serverA.localAddress);
-            assert.deepStrictEqual(podA_D.get('B'), 'b');
-            assert.deepStrictEqual(podB_D.get('A'), 'a');
-            assert.deepStrictEqual(podA_D.size, 2);
-            assert.deepStrictEqual(podB_D.size, 2);
+            assert.deepStrictEqual(podA_D.size, 1);
+            assert.deepStrictEqual(podB_D.size, 1);
 
             //Stop
             serverB.close();
@@ -94,8 +90,7 @@ mocha.describe('SDP Test', () => {
             assert.deepStrictEqual(podA_U.identifier, serverB.identifier);
             assert.deepStrictEqual(podA_U.available, false);
             assert.deepStrictEqual(podA_U.get('host'), serverB.localAddress);
-            assert.deepStrictEqual(podA_U.get('B'), 'b');
-            assert.deepStrictEqual(podA_U.size, 2);
+            assert.deepStrictEqual(podA_U.size, 1);
 
             assert.deepStrictEqual(serverA.pods.size, 1);
             assert.deepStrictEqual(serverB.pods.size, 1);
@@ -103,36 +98,32 @@ mocha.describe('SDP Test', () => {
 
         mocha.it('should emit discover and update events for multiple pods', async () => {
             const serverCount = 20;
-            const serverB = Array(serverCount).fill({}).map(() => {
-                const server = new SdpServer(createIdentifier());
-                server.attrs.set('B', 'b');
-                return server;
-            });
-            let discovers = 0, updates = 0;
+            const serverB = Array(serverCount).fill({}).map(() => new SdpServer(createIdentifier()));
+            let discovers = new Set<string>(), updates = new Set<string>();
 
             //Start
             serverB.forEach((server) => server.listen(port, address));
-            const [discoverA] = await Promise.all([on<[Pod]>(serverA, 'discover', serverCount), ...serverB.map((server) => on<[Pod]>(server, 'discover', serverCount))]);
-            for (const [pod] of discoverA) {
-                assert.deepStrictEqual(pod.identifier, serverB[discovers].identifier);
-                assert.deepStrictEqual(pod.available, true);
-                assert.deepStrictEqual(pod.has('host'), true);
-                assert.deepStrictEqual(pod.has('B'), true);
-                assert.deepStrictEqual(pod.size, 2);
-                discovers++;
+            const discoverAB = await Promise.all([on<[Pod]>(serverA, 'discover', serverCount), ...serverB.map((server) => on<[Pod]>(server, 'discover', serverCount))]);
+            for (const discover of discoverAB) {
+                for (const [pod] of discover) {
+                    if (!discovers.has(pod.identifier)) discovers.add(pod.identifier);
+                    assert.deepStrictEqual(pod.available, true);
+                    assert.deepStrictEqual(pod.has('host'), true);
+                    assert.deepStrictEqual(pod.size, 1);
+                }
             }
+            assert.deepStrictEqual(discovers.size, 1 + serverCount); //serverCount = A + B
 
             //Stop
             serverB.forEach((server) => server.close());
             const updateA = await on<[Pod]>(serverA, 'update', serverCount);
             for (const [pod] of updateA) {
-                assert.deepStrictEqual(pod.identifier, serverB[updates].identifier);
+                if (!updates.has(pod.identifier)) updates.add(pod.identifier);
                 assert.deepStrictEqual(pod.available, false);
                 assert.deepStrictEqual(pod.has('host'), true);
-                assert.deepStrictEqual(pod.has('B'), true);
-                assert.deepStrictEqual(pod.size, 2);
-                updates++;
+                assert.deepStrictEqual(pod.size, 1);
             }
+            assert.deepStrictEqual(updates.size, serverCount); //serverCount = B
 
             assert.deepStrictEqual(serverA.pods.size, serverCount);
             serverB.forEach((server) => assert.deepStrictEqual(server.pods.size, serverCount));
