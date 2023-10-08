@@ -150,7 +150,7 @@ export default class SdpServer extends EventEmitter {
         const pod = new Pod(this.identifier, available, this.attrs);
 
         //If you can spare a moment to notice, there's just one membership here 🙃
-        this._socket.send(pod, this._socket.address().port, this._socket.memberships[0], (error: Error) => {
+        this._socket.send(pod, this._socket.address().port, [...this._socket.memberships][0], (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
             //To be or not to be - Shakespeare 🤔

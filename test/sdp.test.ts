@@ -25,20 +25,20 @@ mocha.describe('SDP Test', () => {
             let listening = 0, close = 0;
 
             const server = new SdpServer(createIdentifier());
-            assert.deepStrictEqual(server.memberships, []);
+            assert.deepStrictEqual(server.memberships.size, 0);
             assert.deepStrictEqual(server.localAddress, null);
             assert.deepStrictEqual(server.address(), null);
             server.on('listening', () => {
                 listening++;
                 assert.deepStrictEqual(server.listening, true);
-                assert.deepStrictEqual(server.memberships, [address]);
+                assert.deepStrictEqual(server.memberships.has(address), true);
                 assert.notDeepStrictEqual(server.localAddress, null);
                 assert.deepStrictEqual(server.address().port, port);
             });
             server.on('close', () => {
                 close++;
                 assert.deepStrictEqual(server.listening, false);
-                assert.deepStrictEqual(server.memberships, []);
+                assert.deepStrictEqual(server.memberships.size, 0);
                 assert.deepStrictEqual(server.localAddress, null);
                 assert.deepStrictEqual(server.address(), null);
             });

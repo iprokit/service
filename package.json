@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@iprotechs/scp": "3.8.2",
-    "@iprotechs/sdp": "2.2.1"
+    "@iprotechs/sdp": "2.3.0"
   },
   "devDependencies": {
     "typescript": "5.0.4",
