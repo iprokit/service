@@ -25,7 +25,7 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Start/Stop Test', () => {
+    mocha.describe('Connection Test', () => {
         mocha.it('should emit start & stop events', async () => {
             let start = 0, stop = 0;
 
@@ -54,30 +54,21 @@ mocha.describe('Service Test', () => {
             await service.stop(); //Calling End
             assert.deepStrictEqual(start, stop);
         });
-    });
-
-    mocha.describe('Link/Unlink Test', () => {
-        let serviceA: Service;
-
-        mocha.beforeEach(async () => {
-            serviceA = new Service(createIdentifier());
-            await serviceA.start(httpPort, scpPort, sdpPort, address);
-        });
-
-        mocha.afterEach(async () => {
-            await serviceA.stop();
-        });
 
         mocha.it('should emit link & unlink events for multiple instances', async () => {
             const restartCount = 5;
             const serviceCount = 20;
+            const serviceA = new Service(createIdentifier())
             const identifierB = Array(serviceCount).fill({}).map(() => createIdentifier());
+
+            //Start A
+            await serviceA.start(httpPort, scpPort, sdpPort, address);
 
             for (let i = 0; i < restartCount; i++) {
                 const serviceB = Array(serviceCount).fill({}).map((_, i) => new Service(identifierB[i]));
                 const _links = new Set<string>(), _unlinks = new Set<string>();
 
-                //Start
+                //Start B
                 serviceB.forEach((service, i) => service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, address));
                 const linksAB = await Promise.all([on<[Link]>(serviceA, 'link', serviceCount), ...serviceB.map((service) => on<[Link]>(service, 'link', serviceCount))]);
                 for (const links of linksAB) {
@@ -90,7 +81,7 @@ mocha.describe('Service Test', () => {
                 }
                 assert.deepStrictEqual(_links.size, 1 + serviceCount); //servicesCount = A + B
 
-                //Stop
+                //Stop B
                 serviceB.forEach((service) => service.stop());
                 const unlinksA = await Promise.all([on<[Link]>(serviceA, 'unlink', serviceCount)]);
                 for (const unlinks of unlinksA) {
@@ -106,6 +97,9 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(serviceA.links.size, serviceCount);
                 serviceB.forEach((service) => assert.deepStrictEqual(service.links.size, serviceCount));
             }
+
+            //Stop A
+            await serviceA.stop();
         });
     });
 
