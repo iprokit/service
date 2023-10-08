@@ -50,7 +50,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.memberships, []);
                 assert.deepStrictEqual(service.localAddress, null);
             });
-            await service.start({ http, scp, sdp, address });
+            await service.start(http, scp, sdp, address);
             await service.stop(); //Calling End
             assert.deepStrictEqual(start, stop);
         });
@@ -62,14 +62,14 @@ mocha.describe('Service Test', () => {
             const identifierB = Array(serviceCount).fill({}).map(() => createIdentifier());
 
             //Start A
-            await serviceA.start({ http, scp, sdp, address });
+            await serviceA.start(http, scp, sdp, address);
 
             for (let i = 0; i < restartCount; i++) {
                 const serviceB = Array(serviceCount).fill({}).map((_, i) => new Service(identifierB[i]));
                 const _links = new Set<string>(), _unlinks = new Set<string>();
 
                 //Start B
-                serviceB.forEach((service, i) => service.start({ http: http + i + 1, scp: scp + i + 1, sdp, address }));
+                serviceB.forEach((service, i) => service.start(http + i + 1, scp + i + 1, sdp, address));
                 const linksAB = await Promise.all([on<[Link]>(serviceA, 'link', serviceCount), ...serviceB.map((service) => on<[Link]>(service, 'link', serviceCount))]);
                 for (const links of linksAB) {
                     for (const [link] of links) {
@@ -122,7 +122,7 @@ mocha.describe('Service Test', () => {
             serviceA.link('SVC_C');
             serviceA.proxy('/a/*', 'SVC_B');
             serviceA.proxy('/b/*', 'SVC_C');
-            await serviceA.start({ http, scp, sdp, address });
+            await serviceA.start(http, scp, sdp, address);
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
@@ -132,7 +132,7 @@ mocha.describe('Service Test', () => {
             serviceB.reply('B.echo', ((message) => message));
             serviceB.reply('B.spread', ((...message) => message));
             serviceB.reply('B.error', ((message) => { throw new Error(message); }));
-            await serviceB.start({ http: http + 1, scp: scp + 1, sdp, address });
+            await serviceB.start(http + 1, scp + 1, sdp, address);
 
             //Wait for services to be linked to each other.
             await Promise.all([once(serviceA, 'link'), once(serviceB, 'link')]);

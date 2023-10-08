@@ -189,9 +189,7 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(options: StartOptions) {
-        const { http, scp, sdp, address } = options;
-
+    public async start(http: number, scp: number, sdp: number, address: string) {
         //HTTP
         this.httpServer.listen(http);
         await once(this.httpServer, 'listening');
@@ -227,16 +225,6 @@ export default class Service extends EventEmitter {
         this.emit('stop');
         return this;
     }
-}
-
-//////////////////////////////
-//////Start Options
-//////////////////////////////
-export interface StartOptions {
-    http: number;
-    scp: number;
-    sdp: number;
-    address: string;
 }
 
 //////////////////////////////

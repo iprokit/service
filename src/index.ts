@@ -15,4 +15,4 @@ export { default as SdpServer } from './sdp.server';
 export { default as Utilities, ProxyOptions, ReplyFunction } from './utilities';
 
 //Export Service.
-export { default as Service, StartOptions, Link } from './service';
+export { default as Service, Link } from './service';
