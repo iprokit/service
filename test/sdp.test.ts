@@ -7,8 +7,8 @@ import { once } from 'events';
 import { Pod, SdpServer } from '../lib';
 import { createIdentifier, on } from './util';
 
-const address = '224.0.0.1';
 const port = 5000;
+const address = '224.0.0.1';
 
 mocha.describe('SDP Test', () => {
     mocha.describe('Constructor Test', () => {

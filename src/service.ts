@@ -1,7 +1,6 @@
 //Import Libs.
-import { EventEmitter } from 'events';
+import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
-import { promisify } from 'util';
 
 //Import @iprotechs Libs.
 import { Params } from '@iprotechs/scp';
@@ -190,26 +189,56 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(http: number, scp: number, sdp: number, address: string) {
+    public async start(options: StartOptions) {
+        const { http, scp, sdp, address } = options;
+
+        //HTTP
+        this.httpServer.listen(http);
+        await once(this.httpServer, 'listening');
+
+        //SCP
+        this.scpServer.listen(scp);
+        await once(this.scpServer, 'listening');
+
+        //SDP
         this.sdpServer.attrs.set('http', String(http));
         this.sdpServer.attrs.set('scp', String(scp));
+        this.sdpServer.listen(sdp, address);
+        await once(this.sdpServer, 'listening');
 
-        await promisify(this.httpServer.listen).bind(this.httpServer)(http);
-        await promisify(this.scpServer.listen).bind(this.scpServer)(scp);
-        await promisify(this.sdpServer.listen).bind(this.sdpServer)(sdp, address);
         this.emit('start');
         return this;
     }
 
     public async stop() {
-        await promisify(this.httpServer.close).bind(this.httpServer)();
-        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && promisify(scpClient.close).bind(scpClient)()));
-        await promisify(this.scpServer.close).bind(this.scpServer)();
-        await promisify(this.sdpServer.close).bind(this.sdpServer)();
+        //HTTP
+        this.httpServer.close();
+        await once(this.httpServer, 'close');
+
+        //SCP
+        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient.close(), 'close')));
+        this.scpServer.close();
+        await once(this.scpServer, 'close');
+
+        //SDP
+        this.sdpServer.close();
+        await once(this.sdpServer, 'close');
+
         this.emit('stop');
         return this;
     }
 }
+
+//////////////////////////////
+//////Start Options
+//////////////////////////////
+export interface StartOptions {
+    http: number;
+    scp: number;
+    sdp: number;
+    address: string;
+}
+
 //////////////////////////////
 //////Link
 //////////////////////////////

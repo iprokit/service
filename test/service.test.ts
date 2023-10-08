@@ -7,9 +7,9 @@ import { once } from 'events';
 import { RequestHandler, HttpStatusCode, Service, Link } from '../lib';
 import { createString, createIdentifier, clientRequest, on } from './util';
 
-const httpPort = 3000;
-const scpPort = 6000;
-const sdpPort = 5000;
+const http = 3000;
+const scp = 6000;
+const sdp = 5000;
 const address = '224.0.0.1';
 
 mocha.describe('Service Test', () => {
@@ -37,9 +37,9 @@ mocha.describe('Service Test', () => {
             service.on('start', () => {
                 start++;
                 assert.deepStrictEqual(service.listening, { http: true, scp: true, sdp: true });
-                assert.deepStrictEqual(service.address().http.port, httpPort);
-                assert.deepStrictEqual(service.address().scp.port, scpPort);
-                assert.deepStrictEqual(service.address().sdp.port, sdpPort);
+                assert.deepStrictEqual(service.address().http.port, http);
+                assert.deepStrictEqual(service.address().scp.port, scp);
+                assert.deepStrictEqual(service.address().sdp.port, sdp);
                 assert.deepStrictEqual(service.memberships, [address]);
                 assert.notDeepStrictEqual(service.localAddress, null);
             });
@@ -50,7 +50,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.memberships, []);
                 assert.deepStrictEqual(service.localAddress, null);
             });
-            await service.start(httpPort, scpPort, sdpPort, address);
+            await service.start({ http, scp, sdp, address });
             await service.stop(); //Calling End
             assert.deepStrictEqual(start, stop);
         });
@@ -62,14 +62,14 @@ mocha.describe('Service Test', () => {
             const identifierB = Array(serviceCount).fill({}).map(() => createIdentifier());
 
             //Start A
-            await serviceA.start(httpPort, scpPort, sdpPort, address);
+            await serviceA.start({ http, scp, sdp, address });
 
             for (let i = 0; i < restartCount; i++) {
                 const serviceB = Array(serviceCount).fill({}).map((_, i) => new Service(identifierB[i]));
                 const _links = new Set<string>(), _unlinks = new Set<string>();
 
                 //Start B
-                serviceB.forEach((service, i) => service.start(httpPort + i + 1, scpPort + i + 1, sdpPort, address));
+                serviceB.forEach((service, i) => service.start({ http: http + i + 1, scp: scp + i + 1, sdp, address }));
                 const linksAB = await Promise.all([on<[Link]>(serviceA, 'link', serviceCount), ...serviceB.map((service) => on<[Link]>(service, 'link', serviceCount))]);
                 for (const links of linksAB) {
                     for (const [link] of links) {
@@ -122,7 +122,7 @@ mocha.describe('Service Test', () => {
             serviceA.link('SVC_C');
             serviceA.proxy('/a/*', 'SVC_B');
             serviceA.proxy('/b/*', 'SVC_C');
-            await serviceA.start(httpPort, scpPort, sdpPort, address);
+            await serviceA.start({ http, scp, sdp, address });
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
@@ -132,7 +132,7 @@ mocha.describe('Service Test', () => {
             serviceB.reply('B.echo', ((message) => message));
             serviceB.reply('B.spread', ((...message) => message));
             serviceB.reply('B.error', ((message) => { throw new Error(message); }));
-            await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, address);
+            await serviceB.start({ http: http + 1, scp: scp + 1, sdp, address });
 
             //Wait for services to be linked to each other.
             await Promise.all([once(serviceA, 'link'), once(serviceB, 'link')]);
@@ -147,7 +147,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should proxy a request & response to the target service', async () => {
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/a/b2', requestBody);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, http, '/a/b2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
                 assert.deepStrictEqual(responseBody, `${requestBody}-b2`);
             });
@@ -155,7 +155,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should handle proxy request to an unavailable target service', async () => {
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/b/c2', requestBody);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, http, '/b/c2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.SERVICE_UNAVAILABLE);
                 assert.deepStrictEqual(responseBody, 'Service is unavailable.');
             });
