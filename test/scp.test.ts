@@ -62,8 +62,10 @@ mocha.describe('SCP Test', () => {
             });
             (async () => {
                 for (let i = 0; i < connectCount; i++) {
-                    await promisify(client.connect).bind(client)(port, host);
-                    await promisify(client.close).bind(client)(); //Calling End
+                    client.connect(port, host);
+                    await once(client, 'connect');
+                    client.close();//Calling End
+                    await once(client, 'close');
                     assert.deepStrictEqual(connect, close);
                 }
                 done();
@@ -77,9 +79,11 @@ mocha.describe('SCP Test', () => {
                 done();
             });
             (async () => {
-                await promisify(client.connect).bind(client)(port, host);
+                client.connect(port, host);
+                await once(client, 'connect');
                 await promisify(setTimeout)(1);//Delay for server to establish connection.
-                await promisify(server.close).bind(server)(); //Calling End
+                server.close();
+                await once(server, 'close'); //Calling End
             })();
         });
     });
