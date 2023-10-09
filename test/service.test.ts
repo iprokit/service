@@ -150,6 +150,15 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);
                 assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
             });
+
+            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', () => {
+                //Server
+                try {
+                    serviceA.proxy('/b/*', 'SVC_C');
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+                }
+            });
         });
 
         mocha.describe('Message/Reply Test', () => {
@@ -170,7 +179,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should message(object) & expect reply(error)', async () => {
                 //Client
                 try {
-                    await serviceA.message('SVC_B', 'B.error', 'SCP Error');
+                    const reply = await serviceA.message('SVC_B', 'B.error', 'SCP Error');
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SCP Error');
                 }
@@ -188,6 +197,15 @@ mocha.describe('Service Test', () => {
                 //Client
                 const reply = await Promise.all(messages.map((message) => serviceA.message('SVC_B', 'B.echo', message)));
                 assert.deepStrictEqual(reply, messages);
+            });
+
+            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
+                //Client
+                try {
+                    const reply = await serviceA.message('SVC_C', 'C.echo');
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+                }
             });
         });
 
@@ -230,6 +248,16 @@ mocha.describe('Service Test', () => {
                     assert.deepStrictEqual(broadcast, broadcasts[broadcastCount]);
                     if (broadcastCount + 1 === broadcasts.length) done();
                 });
+            });
+
+            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', (done) => {
+                //Client
+                try {
+                    serviceB.onBroadcast('SVC_C', 'B.broadcast', (broadcast) => { });
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+                    done();
+                }
             });
         });
     });

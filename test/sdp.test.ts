@@ -79,7 +79,7 @@ mocha.describe('SDP Test', () => {
             await once(serverA, 'close');
         });
 
-        mocha.it('should emit available & unavailable events for multiple instances', async () => {
+        mocha.it('should emit available & unavailable events', async () => {
             const restartCount = 5;
             const serverCount = 20
             const identifierB = Array(serverCount).fill({}).map(() => createIdentifier());
