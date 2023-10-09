@@ -153,7 +153,7 @@ export default class Service extends EventEmitter {
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
 
         //Proxy(📬)
-        this.all(path, Utilities.proxy(link.proxyOptions));
+        this.httpServer.all(path, Utilities.proxy(link.proxyOptions));
         return this;
     }
 

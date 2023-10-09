@@ -1,7 +1,6 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { once } from 'events';
 
 //Import Local.
 import { RequestHandler, HttpStatusCode, Service } from '../lib';
@@ -25,8 +24,8 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Connection Test', () => {
-        mocha.it('should emit start & stop events for single instance', async () => {
+    mocha.describe('Start/Stop Test', () => {
+        mocha.it('should emit start & stop events', async () => {
             let start = 0, stop = 0;
 
             const service = new Service(createIdentifier());
@@ -54,45 +53,74 @@ mocha.describe('Service Test', () => {
             await service.stop(); //Calling End
             assert.deepStrictEqual(start, stop);
         });
+    });
 
-        mocha.it('should emit start & stop events for multiple instances', async () => {
-            const serviceCount = 40;
+    mocha.describe('Connection Test', () => {
+        const validate = (services: Array<Service>, status: boolean, count: number) => {
+            for (const service of services) {
+                assert.deepStrictEqual(service.listening, { http: status, scp: status, sdp: status });
+                assert.deepStrictEqual(service.links.size, count - 1);
+                service.links.forEach((link) => {
+                    assert.deepStrictEqual(link.scpClient.connected, status);
+                    if (status) {
+                        assert.notDeepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
+                    } else {
+                        assert.deepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
+                    }
+                });
+            }
+        }
+
+        mocha.it('should link to other services', async () => {
+            const serviceCount = 20;
             const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
 
             //Initialize
             const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j)));
-            for (const service of services) {
-                assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
-                assert.deepStrictEqual(service.links.size, serviceCount - 1);
-                service.links.forEach((link) => {
-                    assert.deepStrictEqual(link.scpClient.connected, false);
-                    assert.deepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
-                });
-            }
+            validate(services, false, serviceCount);
 
             //Start
-            services.forEach((service, i) => service.start(http + i, scp + i, sdp, address));
-            await Promise.all([...services.map((service) => once(service, 'start'))]);
-            for (const service of services) {
-                assert.deepStrictEqual(service.listening, { http: true, scp: true, sdp: true });
-                assert.deepStrictEqual(service.links.size, serviceCount - 1);
-                service.links.forEach((link) => {
-                    assert.deepStrictEqual(link.scpClient.connected, true);
-                    assert.notDeepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
-                });
-            }
+            await Promise.all([...services.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
+            validate(services, true, serviceCount);
 
             //Stop
-            services.forEach((service, i) => service.stop());
-            await Promise.all([...services.map((service) => once(service, 'stop'))]);
-            for (const service of services) {
-                assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
-                assert.deepStrictEqual(service.links.size, serviceCount - 1);
-                service.links.forEach((link) => {
-                    assert.deepStrictEqual(link.scpClient.connected, false);
-                    assert.deepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
-                });
+            await Promise.all([...services.map((service) => service.stop())]);
+            validate(services, false, serviceCount);
+        });
+
+        mocha.it('should link to other services on restart', async () => {
+            const serviceCount = 20, halfCount = serviceCount / 2;
+            const restartCount = 5;
+            const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
+
+            //Initialize
+            let half: Array<Service>;
+            const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j)));
+            validate(services, false, serviceCount);
+
+            //Start(All)
+            await Promise.all([...services.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
+            validate(services, true, serviceCount);
+
+            for (let i = 0; i < restartCount; i++) {
+                //Stop(Half)
+                half = services.slice(0, halfCount);
+                await Promise.all([...half.map((service) => service.stop())]);
+                validate(half, false, serviceCount);
+
+                //Re-Initialize(Half)
+                for (let i = 0; i < halfCount; i++) services[i] = new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j));
+                validate(half, false, serviceCount);
+
+                //Start(Half)
+                half = services.slice(0, halfCount);
+                await Promise.all([...half.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
+                validate(half, true, serviceCount);
             }
+
+            //Stop(All)
+            await Promise.all([...services.map((service) => service.stop())]);
+            validate(services, false, serviceCount);
         });
     });
 
