@@ -110,23 +110,23 @@ export default class SdpServer extends EventEmitter {
             return;
         }
 
-        //Copy address to pod.
-        pod.set('host', sender.address);
-
         //Be ready to be confused 😈.
         const _pod = this.pods.get(pod.identifier);
         if (!_pod) { /* NEW */
+            pod.set('host', sender.address);
             this.pods.set(pod.identifier, pod);
             this.multicast(true, false, () => this.emit('available', pod));
             return;
         }
         if (_pod) { /* EXISTING */
             if (pod.available && !_pod.available) { /* Server restarted. */
+                pod.set('host', sender.address);
                 this.pods.set(pod.identifier, pod);
                 this.multicast(true, false, () => this.emit('available', pod));
                 return;
             }
             if (!pod.available && _pod.available) { /* Server shutting down. */
+                pod.delete('host');
                 this.pods.set(pod.identifier, pod);
                 this.emit('unavailable', pod);
                 return;

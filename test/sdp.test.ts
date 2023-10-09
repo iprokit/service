@@ -108,8 +108,8 @@ mocha.describe('SDP Test', () => {
                     for (const pod of unavailable) {
                         if (!unavailables.has(pod.identifier)) unavailables.add(pod.identifier);
                         assert.deepStrictEqual(pod.available, false);
-                        assert.deepStrictEqual(pod.has('host'), true);
-                        assert.deepStrictEqual(pod.size, 1);
+                        assert.deepStrictEqual(pod.has('host'), false);
+                        assert.deepStrictEqual(pod.size, 0);
                     }
                 }
                 assert.deepStrictEqual(unavailables.size, serverCount); //serverCount = B
