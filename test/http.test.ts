@@ -52,14 +52,14 @@ mocha.describe('HTTP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should receive response to GET request', async () => {
+        mocha.it('should receive GET request & respond', async () => {
             //Client
             const { response, body: responseBody } = await clientRequest('GET', host, port, '/a/1/b/2/c?x=1&y=1', '');
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(responseBody, `-a1a2-11`);
         });
 
-        mocha.it('should receive response to POST request', async () => {
+        mocha.it('should receive POST request & respond', async () => {
             //Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest('POST', host, port, '/a?x=2&y=2', requestBody);
@@ -67,7 +67,7 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(responseBody, `${requestBody}-a-22`);
         });
 
-        mocha.it('should receive response to PUT request', async () => {
+        mocha.it('should receive PUT request & respond', async () => {
             //Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest('PUT', host, port, '/b?x=3&y=3', requestBody);
@@ -75,7 +75,7 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(responseBody, `${requestBody}-b-33`);
         });
 
-        mocha.it('should receive response to PATCH request', async () => {
+        mocha.it('should receive PATCH request & respond', async () => {
             //Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest('PATCH', host, port, '/c?x=4&y=4', requestBody);
@@ -83,7 +83,7 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(responseBody, `${requestBody}-c-44`);
         });
 
-        mocha.it('should receive response to DELETE request', async () => {
+        mocha.it('should receive DELETE request & respond', async () => {
             //Client
             const { response, body: responseBody } = await clientRequest('DELETE', host, port, '/d?x=5&y=5', '');
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);

@@ -240,7 +240,7 @@ mocha.describe('Service Test', () => {
         mocha.describe('Broadcast Test', () => {
             const broadcasts = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
 
-            mocha.it('should receive broadcast(empty)', (done) => {
+            mocha.it('should send & receive broadcast(empty)', (done) => {
                 //Server
                 serviceA.broadcast('B.broadcast');
 
@@ -251,7 +251,7 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should receive broadcast(...object)', (done) => {
+            mocha.it('should send & receive broadcast(...object)', (done) => {
                 //Server
                 serviceA.broadcast('B.broadcast', ...broadcasts);
 
@@ -262,7 +262,7 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should receive broadcast(object) in sequence', (done) => {
+            mocha.it('should send & receive broadcast(object) in sequence', (done) => {
                 let broadcastCount = -1;
 
                 //Server
