@@ -82,36 +82,34 @@ export default class Service extends EventEmitter {
     //////Event Listeners: SDP
     //////////////////////////////
     private onAvailable(pod: Pod) {
-        //Create/Get link.
-        const link = this.link(pod.identifier);
-
-        //Connection variables.
-        const http = pod.get('http');
-        const scp = pod.get('scp');
-        const host = pod.get('host');
+        const link = this.links.get(pod.identifier);
+        if (!link) return;
 
         //Establish connection.
-        link.proxyOptions.port = Number(http), link.proxyOptions.host = host;
-        link.scpClient.connect(Number(scp), host, () => this.emit('link', link));
+        link.proxyOptions.port = Number(pod.get('http')), link.proxyOptions.host = pod.get('host');
+        link.scpClient.connect(Number(pod.get('scp')), pod.get('host'));
+        this.emit('link', link);
     }
 
     private onUnavailable(pod: Pod) {
-        //Get link.
         const link = this.links.get(pod.identifier);
+        if (!link) return;
+
+        //Terminate connection.
+        link.proxyOptions.port = undefined, link.proxyOptions.host = undefined;
+        link.scpClient.connected && link.scpClient.close();
         this.emit('unlink', link);
     }
 
     //////////////////////////////
     //////Link
     //////////////////////////////
-    public link(identifier: string) {
-        let link = this.links.get(identifier);
-        if (link) return link;
-
-        //Forging a new link 🚀🎉.
-        link = { proxyOptions: { host: undefined, port: undefined }, scpClient: new ScpClient(identifier) }
-        this.links.set(identifier, link);
-        return link;
+    public link(...identifiers: Array<string>) {
+        //Forging new links 🚀🎉.
+        for (const identifier of identifiers) {
+            this.links.set(identifier, { proxyOptions: { host: undefined, port: undefined }, scpClient: new ScpClient(identifier) });
+        }
+        return this;
     }
 
     //////////////////////////////
@@ -151,8 +149,11 @@ export default class Service extends EventEmitter {
     //////HTTP: Proxy
     //////////////////////////////
     public proxy(path: string, identifier: string) {
-        const { proxyOptions } = this.links.get(identifier);
-        this.all(path, Utilities.proxy(proxyOptions));
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Proxy(📬)
+        this.all(path, Utilities.proxy(link.proxyOptions));
         return this;
     }
 
@@ -173,13 +174,19 @@ export default class Service extends EventEmitter {
     //////SCP: Client
     //////////////////////////////
     public async message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
-        const { scpClient } = this.links.get(identifier);
-        return await Utilities.message<Reply>(scpClient, operation, ...message);
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Message(📩)
+        return await Utilities.message<Reply>(link.scpClient, operation, ...message);
     }
 
     public onBroadcast(identifier: string, operation: string, listener: (...broadcast: Array<any>) => void) {
-        const { scpClient } = this.links.get(identifier);
-        scpClient.on(operation, (data: string, params: Params) => {
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Broadcast(📢)
+        link.scpClient.on(operation, (data: string, params: Params) => {
             if (params.get('FORMAT') === 'OBJECT') return listener(...JSON.parse(data));
             listener(data, params);
         });
@@ -204,6 +211,9 @@ export default class Service extends EventEmitter {
         this.sdpServer.listen(sdp, address);
         await once(this.sdpServer, 'listening');
 
+        //Link
+        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => !scpClient.connected && once(scpClient, 'connect')));
+
         this.emit('start');
         return this;
     }
@@ -213,8 +223,14 @@ export default class Service extends EventEmitter {
         this.httpServer.close();
         await once(this.httpServer, 'close');
 
+        //Link
+        for (const { proxyOptions, scpClient } of this.links.values()) {
+            proxyOptions.port = undefined, proxyOptions.host = undefined;
+            scpClient.connected && scpClient.close();
+        }
+        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient, 'close')));
+
         //SCP
-        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient.close(), 'close')));
         this.scpServer.close();
         await once(this.scpServer, 'close');
 

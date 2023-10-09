@@ -5,7 +5,7 @@ import { once } from 'events';
 
 //Import Local.
 import { Pod, SdpServer } from '../lib';
-import { createIdentifier, on } from './util';
+import { createIdentifier } from './util';
 
 const port = 5000;
 const address = '224.0.0.1';
@@ -54,6 +54,20 @@ mocha.describe('SDP Test', () => {
     mocha.describe('Available/Unavailable Test', () => {
         let serverA: SdpServer;
 
+        const on = (server: SdpServer, eventName: string, eventCount: number) => {
+            return new Promise<Array<Pod>>((resolve, reject) => {
+                const pods = new Array<Pod>();
+                const listener = (pod: Pod) => {
+                    pods.push(pod);
+                    if (pods.length === eventCount) {
+                        server.removeListener(eventName, listener);
+                        resolve(pods);
+                    }
+                };
+                server.on(eventName, listener);
+            });
+        }
+
         mocha.beforeEach(async () => {
             serverA = new SdpServer(createIdentifier());
             serverA.listen(port, address);
@@ -76,9 +90,9 @@ mocha.describe('SDP Test', () => {
 
                 //Start
                 serverB.forEach((server) => server.listen(port, address));
-                const availableAB = await Promise.all([on<[Pod]>(serverA, 'available', serverCount), ...serverB.map((server) => on<[Pod]>(server, 'available', serverCount))]);
+                const availableAB = await Promise.all([on(serverA, 'available', serverCount), ...serverB.map((server) => on(server, 'available', serverCount))]);
                 for (const available of availableAB) {
-                    for (const [pod] of available) {
+                    for (const pod of available) {
                         if (!availables.has(pod.identifier)) availables.add(pod.identifier);
                         assert.deepStrictEqual(pod.available, true);
                         assert.deepStrictEqual(pod.has('host'), true);
@@ -89,9 +103,9 @@ mocha.describe('SDP Test', () => {
 
                 //Stop
                 serverB.forEach((server) => server.close());
-                const unavailableA = await Promise.all([on<[Pod]>(serverA, 'unavailable', serverCount)]);
+                const unavailableA = await Promise.all([on(serverA, 'unavailable', serverCount)]);
                 for (const unavailable of unavailableA) {
-                    for (const [pod] of unavailable) {
+                    for (const pod of unavailable) {
                         if (!unavailables.has(pod.identifier)) unavailables.add(pod.identifier);
                         assert.deepStrictEqual(pod.available, false);
                         assert.deepStrictEqual(pod.has('host'), true);
