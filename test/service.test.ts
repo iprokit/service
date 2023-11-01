@@ -89,7 +89,7 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should link to other services on start/restart', async () => {
-            const serviceCount = 20, halfCount = serviceCount / 2;
+            const serviceCount = 20, halfCount = 10;
             const restartCount = 5;
             const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
 

@@ -4,7 +4,7 @@ import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
 import { Params } from '@iprotechs/scp';
-import { Pod } from '@iprotechs/sdp';
+import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { RequestHandler } from './http.server';
@@ -81,18 +81,18 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Event Listeners: SDP
     //////////////////////////////
-    private onAvailable(pod: Pod) {
-        const link = this.links.get(pod.identifier);
+    private onAvailable(identifier: string, attrs: Attrs, host: string) {
+        const link = this.links.get(identifier);
         if (!link) return;
 
         //Establish connection.
-        link.proxyOptions.port = Number(pod.get('http')), link.proxyOptions.host = pod.get('host');
-        link.scpClient.connect(Number(pod.get('scp')), pod.get('host'));
+        link.proxyOptions.port = Number(attrs.get('http')), link.proxyOptions.host = host;
+        link.scpClient.connect(Number(attrs.get('scp')), host);
         this.emit('link', link);
     }
 
-    private onUnavailable(pod: Pod) {
-        const link = this.links.get(pod.identifier);
+    private onUnavailable(identifier: string, attrs: Attrs, host: string) {
+        const link = this.links.get(identifier);
         if (!link) return;
 
         //Terminate connection.

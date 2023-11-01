@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 //Import Local.
-import { Pod, SdpServer } from '../lib';
+import { Attrs, SdpServer } from '../lib';
 import { createIdentifier } from './util';
 
 const port = 5000;
@@ -55,12 +55,12 @@ mocha.describe('SDP Test', () => {
         let serverA: SdpServer;
 
         const on = (server: SdpServer, eventName: string, eventCount: number) => {
-            return new Promise<Array<Pod>>((resolve, reject) => {
-                const pods = new Array<Pod>();
-                const listener = (pod: Pod) => {
-                    pods.push(pod);
+            return new Promise<Array<{ identifier: string, attrs: Attrs, host: string }>>((resolve, reject) => {
+                const pods = new Array<{ identifier: string, attrs: Attrs, host: string }>();
+                const listener = (identifier: string, attrs: Attrs, host: string) => {
+                    pods.push({ identifier, attrs, host });
                     if (pods.length === eventCount) {
-                        server.removeListener(eventName, listener);
+                        server.off(eventName, listener);
                         resolve(pods);
                     }
                 };
@@ -81,7 +81,7 @@ mocha.describe('SDP Test', () => {
 
         mocha.it('should emit available & unavailable events', async () => {
             const restartCount = 5;
-            const serverCount = 20
+            const serverCount = 20;
             const identifierB = Array(serverCount).fill({}).map(() => createIdentifier());
 
             for (let i = 0; i < restartCount; i++) {
@@ -92,11 +92,10 @@ mocha.describe('SDP Test', () => {
                 serverB.forEach((server) => server.listen(port, address));
                 const availableAB = await Promise.all([on(serverA, 'available', serverCount), ...serverB.map((server) => on(server, 'available', serverCount))]);
                 for (const available of availableAB) {
-                    for (const pod of available) {
-                        if (!availables.has(pod.identifier)) availables.add(pod.identifier);
-                        assert.deepStrictEqual(pod.available, true);
-                        assert.deepStrictEqual(pod.has('host'), true);
-                        assert.deepStrictEqual(pod.size, 1);
+                    for (const { identifier, attrs, host } of available) {
+                        if (!availables.has(identifier)) availables.add(identifier);
+                        assert.deepStrictEqual(attrs.size, 0);
+                        assert.notDeepStrictEqual(host, null);
                     }
                 }
                 assert.deepStrictEqual(availables.size, 1 + serverCount); //serverCount = A + B
@@ -105,11 +104,10 @@ mocha.describe('SDP Test', () => {
                 serverB.forEach((server) => server.close());
                 const unavailableA = await Promise.all([on(serverA, 'unavailable', serverCount)]);
                 for (const unavailable of unavailableA) {
-                    for (const pod of unavailable) {
-                        if (!unavailables.has(pod.identifier)) unavailables.add(pod.identifier);
-                        assert.deepStrictEqual(pod.available, false);
-                        assert.deepStrictEqual(pod.has('host'), false);
-                        assert.deepStrictEqual(pod.size, 0);
+                    for (const { identifier, attrs, host } of unavailable) {
+                        if (!unavailables.has(identifier)) unavailables.add(identifier);
+                        assert.deepStrictEqual(attrs, undefined);
+                        assert.deepStrictEqual(host, undefined);
                     }
                 }
                 assert.deepStrictEqual(unavailables.size, serverCount); //serverCount = B

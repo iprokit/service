@@ -9,7 +9,7 @@ export { default as ScpClient } from './scp.client';
 
 //Export SDP.
 export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprotechs/sdp';
-export { default as SdpServer } from './sdp.server';
+export { default as SdpServer, IPod } from './sdp.server';
 
 //Export Utilities.
 export { default as Utilities, ProxyOptions, ReplyFunction } from './utilities';

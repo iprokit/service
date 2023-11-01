@@ -21,14 +21,14 @@ export default class SdpServer extends EventEmitter {
     public readonly identifier: string;
 
     /**
-     * The attributes to multicast.
+     * The attributes of the server.
      */
     public readonly attrs: Attrs;
 
     /**
      * The pods discovered.
      */
-    public readonly pods: Map<string, Pod>;
+    public readonly pods: Map<string, IPod>;
 
     /**
      * The local address of the server.
@@ -104,58 +104,69 @@ export default class SdpServer extends EventEmitter {
      * @emits `unavailable` when a pod is unavailable.
      */
     private onPod(pod: Pod, sender: Sender) {
-        if (pod.identifier === this.identifier) { /* ECHO */
-            this._localAddress = pod.available ? sender.address : null;
-            this._socket.emit('echo');
+        const { identifier, available, attrs } = pod;
+        const { address: host } = sender;
+
+        if (identifier === this.identifier) { /* ECHO */
+            this._socket.emit('echo', host);
             return;
         }
 
         //Be ready to be confused 😈.
-        const _pod = this.pods.get(pod.identifier);
-        if (!_pod) { /* NEW */
-            pod.set('host', sender.address);
-            this.pods.set(pod.identifier, pod);
-            this.multicast(true, false, () => this.emit('available', pod));
+        const foundPod = this.pods.get(identifier);
+        if (!foundPod) { /* NEW */
+            this.pods.set(identifier, { available: true, attrs, host });
+            this.send(true, () => this.emit('available', identifier, attrs, host));
             return;
         }
-        if (_pod) { /* EXISTING */
-            if (pod.available && !_pod.available) { /* Server restarted. */
-                pod.set('host', sender.address);
-                this.pods.set(pod.identifier, pod);
-                this.multicast(true, false, () => this.emit('available', pod));
+        if (foundPod) { /* EXISTING */
+            if (available && !foundPod.available) { /* Server restarted. */
+                this.pods.set(identifier, { available: true, attrs, host });
+                this.send(true, () => this.emit('available', identifier, attrs, host));
                 return;
             }
-            if (!pod.available && _pod.available) { /* Server shutting down. */
-                pod.delete('host');
-                this.pods.set(pod.identifier, pod);
-                this.emit('unavailable', pod);
+            if (!available && foundPod.available) { /* Server shutting down. */
+                this.pods.set(identifier, { available: false, attrs: null, host: null });
+                this.emit('unavailable', identifier);
                 return;
             }
-            if (!pod.available && !_pod.available) return;
-            if (pod.available && _pod.available) return;
+            if (!available && !foundPod.available) return;
+            if (available && foundPod.available) return;
         }
     }
 
     //////////////////////////////
-    //////Multicast
+    //////Send/Echo
     //////////////////////////////
     /**
      * Encodes and multicasts a pod on the network.
      * 
      * @param available set true for an available pod, false otherwise.
-     * @param echo set true to wait for echo event, false otherwise.
      * @param callback called once the pod is multicasted.
      */
-    private multicast(available: boolean, echo: boolean, callback: () => void) {
+    private send(available: boolean, callback?: () => void) {
         const pod = new Pod(this.identifier, available, this.attrs);
 
         //If you can spare a moment to notice, there's just one membership here 🙃
         this._socket.send(pod, this._socket.address().port, [...this._socket.memberships][0], (error: Error) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
-            //To be or not to be - Shakespeare 🤔
-            echo ? this._socket.once('echo', callback) : callback();
+            callback && callback();
         });
+    }
+
+    /**
+     * Encodes and multicasts a pod on the network, then waits for an echo.
+     * 
+     * @param available set true for an available pod, false otherwise.
+     * @param callback called once the echo is received.
+     */
+    private echo(available: boolean, callback: (address: string) => void) {
+        //Read
+        this._socket.once('echo', (address: string) => callback(address));
+
+        //Write
+        this.send(available);
     }
 
     //////////////////////////////
@@ -173,7 +184,8 @@ export default class SdpServer extends EventEmitter {
 
         this._socket.bind(port, () => {
             this._socket.addMembership(address);
-            this.multicast(true, true, () => {
+            this.echo(true, (localAddress: string) => {
+                this._localAddress = localAddress;
                 this.emit('listening');
             });
         });
@@ -188,7 +200,8 @@ export default class SdpServer extends EventEmitter {
     public close(callback?: () => void) {
         callback && this.once('close', callback);
 
-        this.multicast(false, true, () => {
+        this.echo(false, (localAddress: string) => {
+            this._localAddress = null;
             this._socket.removeMemberships();
             this._socket.close(() => {
                 this.emit('close');
@@ -217,4 +230,27 @@ export default class SdpServer extends EventEmitter {
         this._socket.unref();
         return this;
     }
+}
+
+//////////////////////////////
+//////IPod
+//////////////////////////////
+/**
+ * Interface of `Pod`.
+ */
+export interface IPod {
+    /**
+     * True if the entity is available, false otherwise.
+     */
+    available: boolean;
+
+    /**
+     * The attributes of entity.
+     */
+    attrs: Attrs;
+
+    /**
+     * The host address of entity.
+     */
+    host: string;
 }
