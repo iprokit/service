@@ -9,7 +9,7 @@ import { createString, createIdentifier, clientRequest } from './util';
 const http = 3000;
 const scp = 6000;
 const sdp = 5000;
-const address = '224.0.0.1';
+const address = '224.0.0.2';
 
 mocha.describe('Service Test', () => {
     mocha.describe('Constructor Test', () => {
@@ -71,24 +71,7 @@ mocha.describe('Service Test', () => {
             }
         }
 
-        mocha.it('should link to other services on start/stop', async () => {
-            const serviceCount = 20;
-            const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
-
-            //Initialize
-            const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j)));
-            validate(services, false, serviceCount);
-
-            //Start
-            await Promise.all([...services.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
-            validate(services, true, serviceCount);
-
-            //Stop
-            await Promise.all([...services.map((service) => service.stop())]);
-            validate(services, false, serviceCount);
-        });
-
-        mocha.it('should link to other services on start/restart', async () => {
+        mocha.it('should link to other services on start/stop/restart', async () => {
             const serviceCount = 20, halfCount = 10;
             const restartCount = 5;
             const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
@@ -204,6 +187,14 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(reply, messages);
             });
 
+            mocha.it('should message(object) & expect reply(object)', async () => {
+                //Client
+                for (const message of messages) {
+                    const reply = await serviceA.message('SVC_B', 'B.echo', message);
+                    assert.deepStrictEqual(reply, message);
+                }
+            });
+
             mocha.it('should message(object) & expect reply(error)', async () => {
                 //Client
                 try {
@@ -211,20 +202,6 @@ mocha.describe('Service Test', () => {
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SCP Error');
                 }
-            });
-
-            mocha.it('should message(object) & expect reply(object) in sequence', async () => {
-                //Client
-                for await (const message of messages) {
-                    const reply = await serviceA.message('SVC_B', 'B.echo', message);
-                    assert.deepStrictEqual(reply, message);
-                }
-            });
-
-            mocha.it('should message(object) & expect reply(object) in parallel', async () => {
-                //Client
-                const reply = await Promise.all(messages.map((message) => serviceA.message('SVC_B', 'B.echo', message)));
-                assert.deepStrictEqual(reply, messages);
             });
 
             mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
@@ -262,7 +239,7 @@ mocha.describe('Service Test', () => {
                 });
             });
 
-            mocha.it('should send & receive broadcast(object) in sequence', (done) => {
+            mocha.it('should send & receive broadcast(object)', (done) => {
                 let broadcastCount = -1;
 
                 //Server

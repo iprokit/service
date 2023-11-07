@@ -79,7 +79,7 @@ export default class SdpServer extends EventEmitter {
      * True when the server is listening for pods, false otherwise.
      */
     public get listening() {
-        return this._socket.bound;
+        return this._socket.listening;
     }
 
     /**
