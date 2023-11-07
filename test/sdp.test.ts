@@ -67,8 +67,8 @@ mocha.describe('SDP Test', () => {
         }
 
         mocha.it('should emit available & unavailable events', async () => {
-            const restartCount = 5;
             const serverCount = 20;
+            const restartCount = 5;
             const identifierB = Array(serverCount).fill({}).map(() => createIdentifier());
 
             //Start A
