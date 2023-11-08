@@ -5,8 +5,8 @@ import { EventEmitter } from 'events';
 import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
 
 /**
- * The `SdpServer` class is bound to a multicast address and port number.
- * It listens for pods on the network and multicasts to the received pods.
+ * This class is used to create a SDP server.
+ * A `SdpServer` is bound to a multicast address, port number and listens for pods on the network.
  * 
  * @emits `listening` when the server has been bound after calling `server.listen()`.
  * @emits `available` when a pod is available.
@@ -173,7 +173,7 @@ export default class SdpServer extends EventEmitter {
     //////Connection Management
     //////////////////////////////
     /**
-     * Starts listening for pods on the network and multicast to received pods, the `listening` event will be emitted.
+     * Starts listening for pods on the network, the `listening` event will be emitted.
      * 
      * @param port the local port.
      * @param address the address of the multicast group.

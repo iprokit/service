@@ -6,10 +6,10 @@ import assert from 'assert';
 import { RequestHandler, HttpStatusCode, Service } from '../lib';
 import { createString, createIdentifier, clientRequest } from './util';
 
-const http = 3000;
-const scp = 6000;
-const sdp = 5000;
-const address = '224.0.0.2';
+const httpPort = 3000;
+const scpPort = 6000;
+const sdpPort = 5000;
+const sdpAddress = '224.0.0.2';
 
 mocha.describe('Service Test', () => {
     mocha.describe('Constructor Test', () => {
@@ -36,10 +36,10 @@ mocha.describe('Service Test', () => {
             service.on('start', () => {
                 start++;
                 assert.deepStrictEqual(service.listening, { http: true, scp: true, sdp: true });
-                assert.deepStrictEqual(service.address().http.port, http);
-                assert.deepStrictEqual(service.address().scp.port, scp);
-                assert.deepStrictEqual(service.address().sdp.port, sdp);
-                assert.deepStrictEqual(service.memberships.has(address), true);
+                assert.deepStrictEqual(service.address().http.port, httpPort);
+                assert.deepStrictEqual(service.address().scp.port, scpPort);
+                assert.deepStrictEqual(service.address().sdp.port, sdpPort);
+                assert.deepStrictEqual(service.memberships.has(sdpAddress), true);
                 assert.notDeepStrictEqual(service.localAddress, null);
             });
             service.on('stop', () => {
@@ -49,7 +49,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.memberships.size, 0);
                 assert.deepStrictEqual(service.localAddress, null);
             });
-            await service.start(http, scp, sdp, address);
+            await service.start(httpPort, scpPort, sdpPort, sdpAddress);
             await service.stop(); //Calling End
             assert.deepStrictEqual(start, stop);
         });
@@ -82,7 +82,7 @@ mocha.describe('Service Test', () => {
             validate(services, false, serviceCount);
 
             //Start(All)
-            await Promise.all([...services.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
+            await Promise.all([...services.map((service, i) => service.start(httpPort + i, scpPort + i, sdpPort, sdpAddress))]);
             validate(services, true, serviceCount);
 
             for (let i = 0; i < restartCount; i++) {
@@ -97,7 +97,7 @@ mocha.describe('Service Test', () => {
 
                 //Start(Half)
                 half = services.slice(0, halfCount);
-                await Promise.all([...half.map((service, i) => service.start(http + i, scp + i, sdp, address))]);
+                await Promise.all([...half.map((service, i) => service.start(httpPort + i, scpPort + i, sdpPort, sdpAddress))]);
                 validate(half, true, serviceCount);
             }
 
@@ -134,7 +134,7 @@ mocha.describe('Service Test', () => {
             serviceB.reply('B.spread', ((...message) => message));
             serviceB.reply('B.error', ((message) => { throw new Error(message); }));
 
-            await Promise.all([serviceA.start(http, scp, sdp, address), serviceB.start(http + 1, scp + 1, sdp, address)]);
+            await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
 
         mocha.afterEach(async () => {
@@ -145,7 +145,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should proxy a request & response to the target service', async () => {
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, http, '/a/b2', requestBody);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/a/b2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
                 assert.deepStrictEqual(responseBody, `${requestBody}-b2`);
             });
@@ -157,7 +157,7 @@ mocha.describe('Service Test', () => {
 
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, http, '/b/c2', requestBody);
+                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/b/c2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);
                 assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
             });

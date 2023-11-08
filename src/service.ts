@@ -13,15 +13,49 @@ import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions, ReplyFunction } from './utilities';
 
+/**
+ * This class represents a unified service architecture, encapsulating lightweight HTTP, SCP, and SDP servers. 
+ * It facilitates the creation of HTTP endpoints, enables the invocation of SCP remote functions, and handles 
+ * the discovery and management of links to remote services.
+ * 
+ * This setup allows for seamless communication and coordination across different protocols and remote services.
+ * 
+ * @emits `start` when the service starts.
+ * @emits `link` when a link is established.
+ * @emits `unlink` when a link is terminated.
+ * @emits `stop` when the service stops.
+ */
 export default class Service extends EventEmitter {
+    /**
+     * The unique identifier of the service.
+     */
     public readonly identifier: string;
 
+    /**
+     * The HTTP server instance.
+     */
     public readonly httpServer: HttpServer;
+
+    /**
+     * The SCP server instance.
+     */
     public readonly scpServer: ScpServer;
+
+    /**
+     * The SDP server instance.
+     */
     public readonly sdpServer: SdpServer;
 
+    /**
+     * Links to remote services.
+     */
     public readonly links: Map<string, Link>;
 
+    /**
+     * Creates an instance of service.
+     * 
+     * @param identifier the unique identifier of the service.
+     */
     constructor(identifier: string) {
         super();
 
@@ -46,14 +80,23 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
+    /**
+     * The HTTP server routes.
+     */
     public get routes() {
         return this.httpServer.routes;
     }
 
+    /**
+     * The SCP remote functions.
+     */
     public get remoteFunctions() {
         return this.scpServer.remoteFunctions;
     }
 
+    /**
+     * True when the servers are listening for connections, false otherwise.
+     */
     public get listening() {
         return {
             http: this.httpServer.listening,
@@ -62,6 +105,9 @@ export default class Service extends EventEmitter {
         }
     }
 
+    /**
+     * The bound address, the address family name and port of the servers as reported by the operating system.
+     */
     public address() {
         return {
             http: this.httpServer.address() as AddressInfo,
@@ -70,10 +116,16 @@ export default class Service extends EventEmitter {
         }
     }
 
+    /**
+     * The multicast groups joined.
+     */
     public get memberships() {
         return this.sdpServer.memberships;
     }
 
+    /**
+     * The local address of the service.
+     */
     public get localAddress() {
         return this.sdpServer.localAddress;
     }
@@ -81,6 +133,9 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Event Listeners: SDP
     //////////////////////////////
+    /**
+     * @emits `link` when a link is established.
+     */
     private onAvailable(identifier: string, attrs: Attrs, host: string) {
         const link = this.links.get(identifier);
         if (!link) return;
@@ -91,6 +146,9 @@ export default class Service extends EventEmitter {
         this.emit('link', link);
     }
 
+    /**
+     * @emits `unlink` when a link is terminated.
+     */
     private onUnavailable(identifier: string, attrs: Attrs, host: string) {
         const link = this.links.get(identifier);
         if (!link) return;
@@ -104,6 +162,11 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Link
     //////////////////////////////
+    /**
+     * Links the service to the remote services.
+     * 
+     * @param identifiers the unique identifiers of the remote services.
+     */
     public link(...identifiers: Array<string>) {
         //Forging new links 🚀🎉.
         for (const identifier of identifiers) {
@@ -115,31 +178,67 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////HTTP
     //////////////////////////////
+    /**
+     * Registers a HTTP route for handling GET requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public get(path: string, handler: RequestHandler) {
         this.httpServer.get(path, handler);
         return this;
     }
 
+    /**
+     * Registers a HTTP route for handling POST requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public post(path: string, handler: RequestHandler) {
         this.httpServer.post(path, handler);
         return this;
     }
 
+    /**
+     * Registers a HTTP route for handling PUT requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public put(path: string, handler: RequestHandler) {
         this.httpServer.put(path, handler);
         return this;
     }
 
+    /**
+     * Registers a HTTP route for handling PATCH requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public patch(path: string, handler: RequestHandler) {
         this.httpServer.patch(path, handler);
         return this;
     }
 
+    /**
+     * Registers a HTTP route for handling DELETE requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public delete(path: string, handler: RequestHandler) {
         this.httpServer.delete(path, handler);
         return this;
     }
 
+    /**
+     * Registers a HTTP route for handling all requests.
+     * 
+     * @param path the route path.
+     * @param handler the request handler function.
+     */
     public all(path: string, handler: RequestHandler) {
         this.httpServer.all(path, handler);
         return this;
@@ -148,6 +247,12 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////HTTP: Proxy
     //////////////////////////////
+    /**
+     * Proxies HTTP requests to the linked remote service.
+     * 
+     * @param path the path to match for the requests to be proxied.
+     * @param identifier the unique identifier of the linked remote service.
+     */
     public proxy(path: string, identifier: string) {
         const link = this.links.get(identifier);
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
@@ -160,11 +265,23 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////SCP
     //////////////////////////////
+    /**
+     * Registers a SCP remote function for handling REPLY.
+     * 
+     * @param operation the operation of the remote function.
+     * @param replyFunction the reply function.
+     */
     public reply<Reply>(operation: string, replyFunction: ReplyFunction<Reply>) {
         this.scpServer.reply(operation, Utilities.reply(replyFunction));
         return this;
     }
 
+    /**
+     * Broadcasts the supplied to all remote services.
+     * 
+     * @param operation the operation of the broadcast.
+     * @param broadcast the data to broadcast.
+     */
     public broadcast(operation: string, ...broadcast: Array<any>) {
         this.scpServer.broadcast(operation, JSON.stringify(broadcast), [['FORMAT', 'OBJECT']]);
         return this;
@@ -173,6 +290,13 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////SCP: Client
     //////////////////////////////
+    /**
+     * Sends a message to the remote function of the linked remote service and returns a promise that resolves to the received reply.
+     * 
+     * @param identifier the unique identifier of the linked remote service.
+     * @param operation the operation of the remote function.
+     * @param message the message to send.
+     */
     public async message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
         const link = this.links.get(identifier);
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
@@ -181,6 +305,13 @@ export default class Service extends EventEmitter {
         return await Utilities.message<Reply>(link.scpClient, operation, ...message);
     }
 
+    /**
+     * Registers a listener for broadcast events for the linked remote service.
+     * 
+     * @param identifier the unique identifier of the linked remote service.
+     * @param operation the operation of the broadcast.
+     * @param listener the listener called when a broadcast is received.
+     */
     public onBroadcast(identifier: string, operation: string, listener: (...broadcast: Array<any>) => void) {
         const link = this.links.get(identifier);
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
@@ -196,19 +327,28 @@ export default class Service extends EventEmitter {
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
-    public async start(http: number, scp: number, sdp: number, address: string) {
+    /**
+     * Starts the service by listening on the HTTP, SCP, SDP servers and connecting to the linked remote services.
+     * 
+     * @param httpPort the HTTP port.
+     * @param scpPort the SCP port.
+     * @param sdpPort the SDP port.
+     * @param sdpAddress the SDP address of the multicast group.
+     * @emits `start` when the service starts.
+     */
+    public async start(httpPort: number, scpPort: number, sdpPort: number, sdpAddress: string) {
         //HTTP
-        this.httpServer.listen(http);
+        this.httpServer.listen(httpPort);
         await once(this.httpServer, 'listening');
 
         //SCP
-        this.scpServer.listen(scp);
+        this.scpServer.listen(scpPort);
         await once(this.scpServer, 'listening');
 
         //SDP
-        this.sdpServer.attrs.set('http', String(http));
-        this.sdpServer.attrs.set('scp', String(scp));
-        this.sdpServer.listen(sdp, address);
+        this.sdpServer.attrs.set('http', String(httpPort));
+        this.sdpServer.attrs.set('scp', String(scpPort));
+        this.sdpServer.listen(sdpPort, sdpAddress);
         await once(this.sdpServer, 'listening');
 
         //Link
@@ -218,6 +358,11 @@ export default class Service extends EventEmitter {
         return this;
     }
 
+    /**
+     * Stops the service by closing all the servers and disconnecting from the linked remote services.
+     * 
+     * @emits `stop` when the service stops.
+     */
     public async stop() {
         //HTTP
         this.httpServer.close();
@@ -246,7 +391,17 @@ export default class Service extends EventEmitter {
 //////////////////////////////
 //////Link
 //////////////////////////////
+/**
+ * Represents a link to a remote service.
+ */
 export interface Link {
+    /**
+     * Configuration options for establishing a HTTP proxy connection to the remote service.
+     */
     proxyOptions: ProxyOptions;
+
+    /**
+     * The ScpClient instance used to communicate with the remote service.
+     */
     scpClient: ScpClient;
 }
