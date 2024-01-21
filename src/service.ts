@@ -14,18 +14,14 @@ import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions, ReplyFunction } from './utilities';
 
 /**
- * This class represents a unified service architecture, encapsulating lightweight HTTP, SCP, and SDP servers. 
- * It facilitates the creation of HTTP endpoints, enables the invocation of SCP remote functions, and handles 
- * the discovery and management of links to remote services.
- * 
- * This setup allows for seamless communication and coordination across different protocols and remote services.
+ * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
  * 
  * @emits `start` when the service starts.
  * @emits `link` when a link is established.
  * @emits `unlink` when a link is terminated.
  * @emits `stop` when the service stops.
  */
-export default class Service extends EventEmitter {
+export class Service extends EventEmitter {
     /**
      * The unique identifier of the service.
      */
@@ -404,4 +400,157 @@ export interface Link {
      * The ScpClient instance used to communicate with the remote service.
      */
     scpClient: ScpClient;
+}
+
+//////////////////////////////
+//////Singleton
+//////////////////////////////
+let _service: Service;
+
+/**
+ * A lightweight, singleton instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
+ * 
+ * @param identifier the unique identifier of the service.
+ */
+function service(identifier: string) {
+    return _service ?? (_service = new Service(identifier));
+}
+
+namespace service {
+    /**
+     * Sends a message to the remote function of the linked service and returns a promise that resolves to the received reply.
+     * 
+     * @param identifier the unique identifier of the linked remote service.
+     * @param operation the operation of the remote function.
+     * @param message the message to send.
+     */
+    export async function message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
+        return await _service.message<Reply>(identifier, operation, ...message);
+    }
+
+    /**
+     * Broadcasts the supplied to all remote services.
+     * 
+     * @param operation the operation of the broadcast.
+     * @param broadcast the data to broadcast.
+     */
+    export function broadcast(operation: string, ...broadcast: Array<any>) {
+        _service.broadcast(operation, ...broadcast);
+        return service;
+    }
+}
+export default service;
+
+//////////////////////////////
+//////Decorators: HTTP
+//////////////////////////////
+/**
+ * Decorators for registering HTTP routes.
+ */
+export namespace HTTP {
+    /**
+     * Decorator for registering an HTTP route for handling GET requests.
+     * 
+     * @param path the route path.
+     */
+    export function Get(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.get(path, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering an HTTP route for handling POST requests.
+     * 
+     * @param path the route path.
+     */
+    export function Post(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.post(path, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering an HTTP route for handling PUT requests.
+     * 
+     * @param path the route path.
+     */
+    export function Put(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.put(path, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering an HTTP route for handling PATCH requests.
+     * 
+     * @param path the route path.
+     */
+    export function Patch(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.patch(path, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering an HTTP route for handling DELETE requests.
+     * 
+     * @param path the route path.
+     */
+    export function Delete(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.delete(path, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering an HTTP route for handling all requests.
+     * 
+     * @param path the route path.
+     */
+    export function All(path: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.all(path, descriptor.value);
+            return descriptor;
+        }
+    }
+}
+
+//////////////////////////////
+//////Decorators: SCP
+//////////////////////////////
+/**
+ * Decorators for registering SCP remote functions.
+ */
+export namespace SCP {
+    /**
+     * Decorator for registering an SCP remote function for handling REPLY.
+     * 
+     * @param operation the operation of the remote function.
+     */
+    export function Reply(operation: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.reply(operation, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    /**
+     * Decorator for registering a listener for broadcast events for the linked remote service.
+     * 
+     * @param identifier the unique identifier of the linked remote service.
+     * @param operation the operation of the broadcast.
+     */
+    export function OnBroadcast(identifier: string, operation: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            _service.onBroadcast(identifier, operation, descriptor.value);
+            return descriptor;
+        }
+    }
 }
