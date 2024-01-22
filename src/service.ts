@@ -13,6 +13,24 @@ import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions, ReplyFunction } from './utilities';
 
+//////////////////////////////
+//////Singleton
+//////////////////////////////
+/**
+ * The singleton instance of `Service`.
+ */
+export let service: Service;
+
+/**
+ * Creates a lightweight, singleton instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
+ * 
+ * @param identifier the unique identifier of the service.
+ */
+export default function (identifier: string) {
+    return service ?? (service = new Service(identifier));
+}
+
 /**
  * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
  * 
@@ -403,46 +421,6 @@ export interface Link {
 }
 
 //////////////////////////////
-//////Singleton
-//////////////////////////////
-let _service: Service;
-
-/**
- * A lightweight, singleton instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
- * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
- * 
- * @param identifier the unique identifier of the service.
- */
-function service(identifier: string) {
-    return _service ?? (_service = new Service(identifier));
-}
-
-namespace service {
-    /**
-     * Sends a message to the remote function of the linked service and returns a promise that resolves to the received reply.
-     * 
-     * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation of the remote function.
-     * @param message the message to send.
-     */
-    export async function message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
-        return await _service.message<Reply>(identifier, operation, ...message);
-    }
-
-    /**
-     * Broadcasts the supplied to all remote services.
-     * 
-     * @param operation the operation of the broadcast.
-     * @param broadcast the data to broadcast.
-     */
-    export function broadcast(operation: string, ...broadcast: Array<any>) {
-        _service.broadcast(operation, ...broadcast);
-        return service;
-    }
-}
-export default service;
-
-//////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
 /**
@@ -456,7 +434,7 @@ export namespace HTTP {
      */
     export function Get(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.get(path, descriptor.value);
+            service.get(path, descriptor.value);
             return descriptor;
         }
     }
@@ -468,7 +446,7 @@ export namespace HTTP {
      */
     export function Post(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.post(path, descriptor.value);
+            service.post(path, descriptor.value);
             return descriptor;
         }
     }
@@ -480,7 +458,7 @@ export namespace HTTP {
      */
     export function Put(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.put(path, descriptor.value);
+            service.put(path, descriptor.value);
             return descriptor;
         }
     }
@@ -492,7 +470,7 @@ export namespace HTTP {
      */
     export function Patch(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.patch(path, descriptor.value);
+            service.patch(path, descriptor.value);
             return descriptor;
         }
     }
@@ -504,7 +482,7 @@ export namespace HTTP {
      */
     export function Delete(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.delete(path, descriptor.value);
+            service.delete(path, descriptor.value);
             return descriptor;
         }
     }
@@ -516,7 +494,7 @@ export namespace HTTP {
      */
     export function All(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.all(path, descriptor.value);
+            service.all(path, descriptor.value);
             return descriptor;
         }
     }
@@ -536,7 +514,7 @@ export namespace SCP {
      */
     export function Reply(operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.reply(operation, descriptor.value);
+            service.reply(operation, descriptor.value);
             return descriptor;
         }
     }
@@ -549,7 +527,7 @@ export namespace SCP {
      */
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            _service.onBroadcast(identifier, operation, descriptor.value);
+            service.onBroadcast(identifier, operation, descriptor.value);
             return descriptor;
         }
     }
