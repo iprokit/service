@@ -31,13 +31,11 @@ export default micro;
 //////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
-const routes = new Map<string, Array<Route>>();
+const routes = new Map<string, { basePath: string, stack: Array<Route> }>();
 
 function HTTP(basePath: string) {
     return (target: any) => {
-        for (const { method, path, handler } of routes.get(target.name)) {
-            (service as any)[method.toLowerCase()](`${basePath}${path}`, handler);
-        }
+        routes.get(target.name) && (routes.get(target.name).basePath = basePath ?? '');
     }
 }
 
@@ -46,8 +44,8 @@ namespace HTTP {
         return (path: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
                 const targetName = target.name ?? target.constructor.name;
-                const targetRoutes = routes.get(targetName) || [];
-                targetRoutes.push({ method, path, handler: descriptor.value });
+                const targetRoutes = routes.get(targetName) || { basePath: '', stack: [] };
+                targetRoutes.stack.push({ method, path, handler: descriptor.value });
                 routes.set(targetName, targetRoutes);
                 return descriptor;
             }
@@ -71,9 +69,7 @@ const remoteFunctions = new Map<string, Array<RemoteFunction>>();
 
 function SCP(className: string) {
     return (target: any) => {
-        for (const { mode, functionName, handler } of remoteFunctions.get(target.name)) {
-            (service as any)[mode.toLowerCase()](`${className}${RemoteFunction.CLASS_BREAK}${functionName}`, handler);
-        }
+        remoteFunctions.get(target.name)?.forEach((remoteFunction) => remoteFunction.className = className ?? '');
     }
 }
 
