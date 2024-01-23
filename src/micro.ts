@@ -33,7 +33,7 @@ export default micro;
 //////////////////////////////
 const routes = new Map<string, { basePath: string, stack: Array<Route> }>();
 
-function HTTP(basePath: string) {
+function HTTP(basePath?: string) {
     return (target: any) => {
         routes.get(target.name) && (routes.get(target.name).basePath = basePath ?? '');
     }
@@ -67,9 +67,9 @@ export { HTTP }
 //////////////////////////////
 const remoteFunctions = new Map<string, Array<RemoteFunction>>();
 
-function SCP(className: string) {
+function SCP(className?: string) {
     return (target: any) => {
-        remoteFunctions.get(target.name)?.forEach((remoteFunction) => remoteFunction.className = className ?? '');
+        remoteFunctions.get(target.name)?.forEach((remoteFunction) => remoteFunction.className = className ?? target.name);
     }
 }
 
