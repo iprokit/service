@@ -1,7 +1,7 @@
 //Import Local.
 import Service from './service';
-import { Route } from './http.server';
-import { RemoteFunction } from './scp.server';
+import { Route, HttpMethod } from './http.server';
+import { RemoteFunction, Mode } from './scp.server';
 
 //////////////////////////////
 //////Global Variables
@@ -31,57 +31,35 @@ export default micro;
 //////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
+const routes = new Map<string, Array<Route>>();
+
 function HTTP(basePath: string) {
     return (target: any) => {
-        target.prototype.basePath = basePath;
-        for (const { method, path, handler } of target.prototype.routes as Array<Route>) {
-            (service as any)[method.toLowerCase()](basePath + path, handler);
+        for (const { method, path, handler } of routes.get(target.name)) {
+            (service as any)[method.toLowerCase()](`${basePath}${path}`, handler);
         }
     }
 }
 
 namespace HTTP {
-    export function Get(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'GET', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
+    function RouteDecorator(method: HttpMethod) {
+        return (path: string) => {
+            return (target: any, key: string, descriptor: PropertyDescriptor) => {
+                const targetName = target.name ?? target.constructor.name;
+                const targetRoutes = routes.get(targetName) || [];
+                targetRoutes.push({ method, path, handler: descriptor.value });
+                routes.set(targetName, targetRoutes);
+                return descriptor;
+            }
         }
     }
 
-    export function Post(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'POST', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
-        }
-    }
-
-    export function Put(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'PUT', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
-        }
-    }
-
-    export function Patch(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'PATCH', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
-        }
-    }
-
-    export function Delete(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'DELETE', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
-        }
-    }
-
-    export function All(path: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            target.routes = [{ method: 'ALL', path, handler: descriptor.value } as Route, ...(target.routes || [])];
-            return descriptor;
-        }
-    }
+    export const Get = RouteDecorator('GET');
+    export const Post = RouteDecorator('POST');
+    export const Put = RouteDecorator('PUT');
+    export const Patch = RouteDecorator('PATCH');
+    export const Delete = RouteDecorator('DELETE');
+    export const All = RouteDecorator('ALL');
 }
 
 export { HTTP }
@@ -89,23 +67,30 @@ export { HTTP }
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
+const remoteFunctions = new Map<string, Array<RemoteFunction>>();
+
 function SCP(className: string) {
     return (target: any) => {
-        target.className = className;
-        for (const { mode, functionName, handler } of target.remoteFunctions as Array<RemoteFunction>) {
+        for (const { mode, functionName, handler } of remoteFunctions.get(target.name)) {
             (service as any)[mode.toLowerCase()](`${className}${RemoteFunction.CLASS_BREAK}${functionName}`, handler);
         }
     }
 }
 
 namespace SCP {
-    export function Reply(functionName?: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            functionName = functionName ?? key;
-            target.remoteFunctions = [{ mode: 'REPLY', functionName, handler: descriptor.value } as RemoteFunction, ...(target.remoteFunctions || [])];
-            return descriptor;
+    function RemoteFunctionDecorator(mode: Mode) {
+        return (functionName?: string) => {
+            return (target: any, key: string, descriptor: PropertyDescriptor) => {
+                const targetName = target.name ?? target.constructor.name;
+                const targetRemoteFunctions = remoteFunctions.get(targetName) || [];
+                targetRemoteFunctions.push({ mode, functionName: functionName ?? key, handler: descriptor.value } as RemoteFunction);
+                remoteFunctions.set(targetName, targetRemoteFunctions);
+                return descriptor;
+            }
         }
     }
+
+    export const Reply = RemoteFunctionDecorator('REPLY');
 
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
