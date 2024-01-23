@@ -1,5 +1,7 @@
 //Import Local.
 import Service from './service';
+import { Route } from './http.server';
+import { RemoteFunction } from './scp.server';
 
 //////////////////////////////
 //////Global Variables
@@ -10,7 +12,7 @@ import Service from './service';
 export let service: Service;
 
 //////////////////////////////
-//////Micro Service
+//////Micro:Service
 //////////////////////////////
 /**
  * Creates a lightweight, singleton instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
@@ -29,108 +31,82 @@ export default micro;
 //////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
-/**
- * Decorators for registering HTTP routes.
- */
-export namespace HTTP {
-    /**
-     * Decorator for registering an HTTP route for handling GET requests.
-     * 
-     * @param path the route path.
-     */
+function HTTP(basePath: string) {
+    return (target: any) => {
+        target.prototype.basePath = basePath;
+        for (const { method, path, handler } of target.prototype.routes as Array<Route>) {
+            (service as any)[method.toLowerCase()](basePath + path, handler);
+        }
+    }
+}
+
+namespace HTTP {
     export function Get(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.get(path, descriptor.value);
+            target.routes = [{ method: 'GET', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering an HTTP route for handling POST requests.
-     * 
-     * @param path the route path.
-     */
     export function Post(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.post(path, descriptor.value);
+            target.routes = [{ method: 'POST', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering an HTTP route for handling PUT requests.
-     * 
-     * @param path the route path.
-     */
     export function Put(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.put(path, descriptor.value);
+            target.routes = [{ method: 'PUT', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering an HTTP route for handling PATCH requests.
-     * 
-     * @param path the route path.
-     */
     export function Patch(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.patch(path, descriptor.value);
+            target.routes = [{ method: 'PATCH', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering an HTTP route for handling DELETE requests.
-     * 
-     * @param path the route path.
-     */
     export function Delete(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.delete(path, descriptor.value);
+            target.routes = [{ method: 'DELETE', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering an HTTP route for handling all requests.
-     * 
-     * @param path the route path.
-     */
     export function All(path: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.all(path, descriptor.value);
+            target.routes = [{ method: 'ALL', path, handler: descriptor.value } as Route, ...(target.routes || [])];
             return descriptor;
         }
     }
 }
 
+export { HTTP }
+
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
-/**
- * Decorators for registering SCP remote functions.
- */
-export namespace SCP {
-    /**
-     * Decorator for registering an SCP remote function for handling REPLY.
-     * 
-     * @param operation the operation of the remote function.
-     */
-    export function Reply(operation: string) {
+function SCP(className: string) {
+    return (target: any) => {
+        target.className = className;
+        for (const { mode, functionName, handler } of target.remoteFunctions as Array<RemoteFunction>) {
+            (service as any)[mode.toLowerCase()](`${className}${RemoteFunction.CLASS_BREAK}${functionName}`, handler);
+        }
+    }
+}
+
+namespace SCP {
+    export function Reply(functionName?: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.reply(operation, descriptor.value);
+            functionName = functionName ?? key;
+            target.remoteFunctions = [{ mode: 'REPLY', functionName, handler: descriptor.value } as RemoteFunction, ...(target.remoteFunctions || [])];
             return descriptor;
         }
     }
 
-    /**
-     * Decorator for registering a listener for broadcast events for the linked remote service.
-     * 
-     * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation of the broadcast.
-     */
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
             service.onBroadcast(identifier, operation, descriptor.value);
@@ -138,3 +114,5 @@ export namespace SCP {
         }
     }
 }
+
+export { SCP }
