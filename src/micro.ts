@@ -40,7 +40,7 @@ function HTTP(basePath?: string) {
 }
 
 namespace HTTP {
-    function RouteDecorator(method: HttpMethod) {
+    function routeDecorator(method: HttpMethod) {
         return (path: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
                 const targetName = target.name ?? target.constructor.name;
@@ -52,12 +52,12 @@ namespace HTTP {
         }
     }
 
-    export const Get = RouteDecorator('GET');
-    export const Post = RouteDecorator('POST');
-    export const Put = RouteDecorator('PUT');
-    export const Patch = RouteDecorator('PATCH');
-    export const Delete = RouteDecorator('DELETE');
-    export const All = RouteDecorator('ALL');
+    export const Get = routeDecorator('GET');
+    export const Post = routeDecorator('POST');
+    export const Put = routeDecorator('PUT');
+    export const Patch = routeDecorator('PATCH');
+    export const Delete = routeDecorator('DELETE');
+    export const All = routeDecorator('ALL');
 }
 
 export { HTTP }
@@ -74,7 +74,7 @@ function SCP(className?: string) {
 }
 
 namespace SCP {
-    function RemoteFunctionDecorator(mode: Mode) {
+    function remoteFunctionDecorator(mode: Mode) {
         return (functionName?: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
                 const targetName = target.name ?? target.constructor.name;
@@ -86,7 +86,7 @@ namespace SCP {
         }
     }
 
-    export const Reply = RemoteFunctionDecorator('REPLY');
+    export const Reply = remoteFunctionDecorator('REPLY');
 
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
