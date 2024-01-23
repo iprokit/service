@@ -15,4 +15,7 @@ export { default as SdpServer, IPod } from './sdp.server';
 export { default as Utilities, ProxyOptions, ReplyFunction } from './utilities';
 
 //Export Service.
-export { default, service, Service, Link, HTTP, SCP } from './service';
+export { default as Service, Link } from './service';
+
+//Export Micro.
+export { default, service, HTTP, SCP } from './micro';
