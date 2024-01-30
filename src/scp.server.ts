@@ -26,7 +26,7 @@ export default class ScpServer extends Server {
     public readonly connections: Array<ScpConnection>;
 
     /**
-     * The remote functions on the server.
+     * The remote functions registered on the server.
      */
     public readonly remoteFunctions: Array<RemoteFunction>;
 

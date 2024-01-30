@@ -61,7 +61,7 @@ mocha.describe('SDP Test', () => {
                         server.off(eventName, listener);
                         resolve(pods);
                     }
-                };
+                }
                 server.on(eventName, listener);
             });
         }

@@ -1,5 +1,5 @@
 //Export HTTP.
-export { default as HttpServer, Request, Response, Route, HttpMethod, RequestHandler, NextFunction } from './http.server';
+export { default as HttpServer, Request, Response, Router, Route, Stack, Endpoint, HttpMethod, RequestHandler, NextFunction } from './http.server';
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export SCP.
