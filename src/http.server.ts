@@ -76,13 +76,14 @@ export default class HttpServer extends Server implements Router {
         //Shits about to go down! 😎
         if ('routes' in route) {
             const stack = route as Stack;
-            const pathMatches = request.path.startsWith(stack.path);
+            const pathMatches = request.path.match(stack.regExp);
             const stackMatchs = stackIndex < stack.routes.length;
 
             if (pathMatches && stackMatchs) {
                 //Stack found, Save path and process the nested stacks.
                 const unwindPath = request.path;
-                request.path = request.path.substring(stack.path.length);
+                const nestedPath = request.path.substring(stack.path.length);
+                request.path = nestedPath.startsWith('/') ? nestedPath : `/${nestedPath}`;
 
                 //🎢
                 const unwindFunction = () => {
@@ -134,25 +135,28 @@ export default class HttpServer extends Server implements Router {
      * @param instance the instance to which the `Router` properties are applied.
      */
     private applyRouterProperties<I extends Router>(instance: I) {
-        /**
-         * Factory for registering a `Endpoint`.
-         */
+        //Factory for handling path transformations.
+        const handleTrailingSlash = (path: string) => path.replace(/\/$/, '');
+        const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
+        const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
+        const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
+
+        //Factory for registering a `Endpoint`.
         const endpoint = (method: HttpMethod) => {
             return (path: string, ...handlers: Array<RequestHandler>) => {
-                const regExp = new RegExp(`^${path.replace(/:[^\s/]+/g, '([^/]+)').replace(/\*$/, '.*')}$`);
-                const paramKeys = path.match(/:[^\s/]+/g)?.map(param => param.slice(1)) || [];
+                const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
+                const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
                 instance.routes.push({ method, path, regExp, paramKeys, handlers });
                 return instance;
             }
         }
 
-        /**
-         * Factory for registering a `Stack`.
-         */
+        //Factory for registering a `Stack`.
         const stack = () => {
             return (path: string, ...routers: Array<Router>) => {
+                const regExp = new RegExp(`^${handleTrailingSlash(path)}`);
                 const routes = routers.map((router) => router.routes);
-                instance.routes.push({ path, routes });
+                instance.routes.push({ path, regExp, routes });
                 return instance;
             }
         }
@@ -295,6 +299,11 @@ export interface Stack {
      * The path pattern of the stack.
      */
     path: string;
+
+    /**
+     * The compiled regular expression to match the path pattern of the stack.
+     */
+    regExp: RegExp;
 
     /**
      * The routes registered in the stack.
