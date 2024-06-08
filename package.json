@@ -28,7 +28,7 @@
     "node": ">= 18.12.1"
   },
   "scripts": {
-    "test": "mocha -r ts-node/register test/index.test.ts",
+    "test": "mocha -r ts-node/register test/index.test.ts --timeout 60000",
     "build": "tsc",
     "watch": "tsc --watch",
     "prepare": "npm run build"

@@ -102,6 +102,7 @@ export default class HttpServer extends Server implements Router {
             if (methodMatches && pathMatches && handlerMatches) {
                 //Endpoint found, Extract params and execute the handler.
                 request.params = endpoint.paramKeys.reduce((params: Record<string, string>, param: string, index: number) => (params[param] = pathMatches[index + 1], params), {});
+                request.endpoint = endpoint;
 
                 //🎉
                 const nextFunction = () => this.dispatch(routeIndex, stackIndex, handlerIndex + 1, routes, request, response, unwind);
@@ -207,6 +208,11 @@ export interface Request extends IncomingMessage {
      * The query parameters.
      */
     query: ParsedUrlQuery;
+
+    /**
+     * The matched endpoint.
+     */
+    endpoint: Endpoint;
 }
 
 /**

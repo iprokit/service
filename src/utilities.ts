@@ -20,8 +20,8 @@ namespace Utilities {
     export function proxy(options: ProxyOptions): RequestHandler {
         return (request, response, next) => {
             const { host, port } = options;
-            const { method, url, headers, route } = request;
-            const path = url.replace(new RegExp(`^${route.path.replace(/\/\*$/, '')}`), '');
+            const { method, url, headers, endpoint } = request;
+            const path = url.replace(new RegExp(`^${endpoint.path.replace(/\/\*$/, '')}`), '');
             const requestOptions: RequestOptions = { host, port, method, path, headers }
 
             //Let's boogie 🕺💃 🎶.

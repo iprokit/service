@@ -7,7 +7,7 @@ import { Params } from '@iprotechs/scp';
 import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
-import HttpServer, { RequestHandler } from './http.server';
+import HttpServer, { Router, RequestHandler } from './http.server';
 import ScpServer from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
@@ -21,7 +21,7 @@ import Utilities, { ProxyOptions, ReplyFunction } from './utilities';
  * @emits `unlink` when a link is terminated.
  * @emits `stop` when the service stops.
  */
-export default class Service extends EventEmitter {
+export default class Service extends EventEmitter implements Router {
     /**
      * The unique identifier of the service.
      */
@@ -177,67 +177,85 @@ export default class Service extends EventEmitter {
     /**
      * Registers a HTTP route for handling GET requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public get(path: string, handler: RequestHandler) {
-        this.httpServer.get(path, handler);
+    public get(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.get(path, ...handlers);
         return this;
     }
 
     /**
      * Registers a HTTP route for handling POST requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public post(path: string, handler: RequestHandler) {
-        this.httpServer.post(path, handler);
+    public post(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.post(path, ...handlers);
         return this;
     }
 
     /**
      * Registers a HTTP route for handling PUT requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public put(path: string, handler: RequestHandler) {
-        this.httpServer.put(path, handler);
+    public put(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.put(path, ...handlers);
         return this;
     }
 
     /**
      * Registers a HTTP route for handling PATCH requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public patch(path: string, handler: RequestHandler) {
-        this.httpServer.patch(path, handler);
+    public patch(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.patch(path, ...handlers);
         return this;
     }
 
     /**
      * Registers a HTTP route for handling DELETE requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public delete(path: string, handler: RequestHandler) {
-        this.httpServer.delete(path, handler);
+    public delete(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.delete(path, ...handlers);
         return this;
     }
 
     /**
      * Registers a HTTP route for handling all requests.
      * 
-     * @param path the route path.
-     * @param handler the request handler function.
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
      */
-    public all(path: string, handler: RequestHandler) {
-        this.httpServer.all(path, handler);
+    public all(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.all(path, ...handlers);
         return this;
+    }
+
+    /**
+     * Mounts multiple HTTP routers.
+     * 
+     * @param path the path pattern.
+     * @param routers the routers to mount.
+     */
+    public mount(path: string, ...routers: Array<Router>) {
+        this.httpServer.mount(path, ...routers);
+        return this;
+    }
+
+    /**
+     * Returns a `Router` to group HTTP routes that share related functionality.
+     */
+    public Route() {
+        return this.httpServer.Route();
     }
 
     //////////////////////////////
