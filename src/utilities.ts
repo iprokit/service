@@ -5,7 +5,7 @@ import HTTP, { RequestOptions } from 'http';
 //Import Local.
 import { RequestHandler } from './http.server';
 import HttpStatusCode from './http.statusCode';
-import { RemoteFunctionHandler } from './scp.server';
+import { IncomingHandler } from './scp.server';
 import ScpClient from './scp.client';
 
 namespace Utilities {
@@ -51,11 +51,11 @@ namespace Utilities {
     //////SCP: Reply
     //////////////////////////////
     /**
-     * Creates a remote function handler that processes incoming message and outgoing reply using the provided reply function.
+     * Creates a incoming handler that processes incoming message and outgoing reply using the provided reply function.
      * 
      * @param replyFunction the reply function.
      */
-    export function reply<Reply>(replyFunction: ReplyFunction<Reply>): RemoteFunctionHandler {
+    export function reply<Reply>(replyFunction: ReplyFunction<Reply>): IncomingHandler {
         return async (incoming, outgoing, proceed) => {
             //Looks like the message is not an object, Consumer needs to handle it!
             if (incoming.get('FORMAT') !== 'OBJECT') {
@@ -93,9 +93,9 @@ namespace Utilities {
     //////SCP: Message
     //////////////////////////////
     /**
-     * Sends a message to the remote function and returns a promise that resolves to the received reply.
+     * Sends a message to the server and returns a promise that resolves to the received reply.
      * 
-     * @param client the client to which the message is sent.
+     * @param client the client to send the message from.
      * @param operation the operation of the remote function.
      * @param message the message to send.
      */

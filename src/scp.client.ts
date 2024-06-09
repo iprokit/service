@@ -182,7 +182,7 @@ export default class ScpClient extends EventEmitter {
     //////Message
     //////////////////////////////
     /**
-     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from remote function.
+     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the server.
      * 
      * @param operation the operation of the remote function.
      * @param callback called when the reply is available on the `Incoming` stream.

@@ -130,9 +130,9 @@ export default class ScpServer extends Server {
      * Registers a remote function for handling REPLY.
      * 
      * @param operation the operation of the remote function.
-     * @param handler the handler of the remote function.
+     * @param handler the incoming handler function of the remote function.
      */
-    public reply(operation: string, handler: RemoteFunctionHandler) {
+    public reply(operation: string, handler: IncomingHandler) {
         this.remoteFunctions.push(new RemoteFunction('REPLY', operation, handler));
         return this;
     }
@@ -176,22 +176,22 @@ export interface ScpConnection extends Connection {
 //////Remote Function
 //////////////////////////////
 /**
- * `RemoteFunction` represents a function that can be executed by a client.
+ * `RemoteFunction` handles incoming messages from clients.
  */
 export class RemoteFunction extends RFI {
     /**
-     * The handler of remote function.
+     * The incoming handler function of the remote function.
      */
-    public readonly handler: RemoteFunctionHandler;
+    public readonly handler: IncomingHandler;
 
     /**
      * Creates an instances of `RemoteFunction`.
      * 
      * @param mode the mode of remote function.
      * @param operation the operation of remote function.
-     * @param handler the handler of remote function.
+     * @param handler the incoming handler function of the remote function.
      */
-    constructor(mode: Mode, operation: string, handler: RemoteFunctionHandler) {
+    constructor(mode: Mode, operation: string, handler: IncomingHandler) {
         super(mode, operation);
 
         //Initialize Options.
@@ -200,14 +200,14 @@ export class RemoteFunction extends RFI {
 }
 
 /**
- * The remote function mode.
+ * The SCP mode.
  */
 export type Mode = 'REPLY';
 
 /**
- * The remote function handler.
+ * The incoming handler.
  */
-export type RemoteFunctionHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
+export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
 
 /**
  * The proceed function.

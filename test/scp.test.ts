@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { Params, Args, ScpClient, ScpServer, RemoteFunctionHandler } from '../lib';
+import { Params, Args, ScpClient, ScpServer, IncomingHandler } from '../lib';
 import { createString, createIdentifier, clientMessage } from './util';
 
 const host = '127.0.0.1';
@@ -92,14 +92,14 @@ mocha.describe('SCP Test', () => {
         let server: ScpServer;
         let client: ScpClient;
 
-        const proceedHandler = (key: string): RemoteFunctionHandler => {
+        const proceedHandler = (key: string): IncomingHandler => {
             return (incoming, outgoing, proceed) => {
                 outgoing.set(key, '1');
                 proceed();
             }
         }
 
-        const replyHandler = (): RemoteFunctionHandler => {
+        const incomingHandler = (): IncomingHandler => {
             return (incoming, outgoing, proceed) => {
                 incoming.pipe(outgoing);
                 incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
@@ -111,12 +111,12 @@ mocha.describe('SCP Test', () => {
             server.reply('*.a', proceedHandler('*.a'));
             server.reply('*.b', proceedHandler('*.b'));
             server.reply('A.*', proceedHandler('A.*'));
-            server.reply('A.a', replyHandler());
-            server.reply('A.b', replyHandler());
+            server.reply('A.a', incomingHandler());
+            server.reply('A.b', incomingHandler());
             server.reply('B.*', proceedHandler('B.*'));
-            server.reply('B.a', replyHandler());
-            server.reply('B.b', replyHandler());
-            server.reply('*.*', replyHandler());
+            server.reply('B.a', incomingHandler());
+            server.reply('B.b', incomingHandler());
+            server.reply('*.*', incomingHandler());
             server.listen(port);
             await once(server, 'listening');
 
