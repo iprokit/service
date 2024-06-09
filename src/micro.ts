@@ -1,6 +1,6 @@
 //Import Local.
 import Service from './service';
-import { Route, HttpMethod } from './http.server';
+import { Router } from './http.server';
 import { RemoteFunction, Mode } from './scp.server';
 
 //////////////////////////////
@@ -31,33 +31,34 @@ export default micro;
 //////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
-const routes = new Map<string, { basePath: string, stack: Array<Route> }>();
+const routers = new Map<string, Router>();
 
-function HTTP(basePath?: string) {
+function HTTP(path?: string) {
     return (target: any) => {
-        routes.get(target.name) && (routes.get(target.name).basePath = basePath ?? '');
+        const router = routers.get(target.name);
+        service.mount(path || '/', router);
     }
 }
 
 namespace HTTP {
-    function routeDecorator(method: HttpMethod) {
+    function routeDecorator(method: 'get' | 'post' | 'put' | 'patch' | 'delete' | 'all') {
         return (path: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
-                const targetName = target.name ?? target.constructor.name;
-                const targetRoutes = routes.get(targetName) || { basePath: '', stack: [] };
-                targetRoutes.stack.push({ method, path, handler: descriptor.value });
-                routes.set(targetName, targetRoutes);
+                const name = target.name ?? target.constructor.name;
+                const router = routers.get(name) || service.Route();
+                routers.set(name, router);
+                router[method](path, descriptor.value);
                 return descriptor;
             }
         }
     }
 
-    export const Get = routeDecorator('GET');
-    export const Post = routeDecorator('POST');
-    export const Put = routeDecorator('PUT');
-    export const Patch = routeDecorator('PATCH');
-    export const Delete = routeDecorator('DELETE');
-    export const All = routeDecorator('ALL');
+    export const Get = routeDecorator('get');
+    export const Post = routeDecorator('post');
+    export const Put = routeDecorator('put');
+    export const Patch = routeDecorator('patch');
+    export const Delete = routeDecorator('delete');
+    export const All = routeDecorator('all');
 }
 
 export { HTTP }
