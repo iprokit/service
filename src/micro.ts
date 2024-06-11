@@ -1,7 +1,7 @@
 //Import Local.
 import Service from './service';
 import { Router } from './http.server';
-import { RemoteFunction, Mode } from './scp.server';
+import { Receiver } from './scp.server';
 
 //////////////////////////////
 //////Global Variables
@@ -33,10 +33,10 @@ export default micro;
 //////////////////////////////
 const routers = new Map<string, Router>();
 
-function HTTP(path?: string) {
+function HTTP(path: string) {
     return (target: any) => {
         const router = routers.get(target.name);
-        service.mount(path || '/', router);
+        service.mount(path, router);
     }
 }
 
@@ -66,28 +66,29 @@ export { HTTP }
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
-const remoteFunctions = new Map<string, Array<RemoteFunction>>();
+const receivers = new Map<string, Receiver>();
 
 function SCP(className?: string) {
     return (target: any) => {
-        remoteFunctions.get(target.name)?.forEach((remoteFunction) => remoteFunction.className = className ?? target.name);
+        const receiver = receivers.get(target.name);
+        service.attach(className || target.name, receiver);
     }
 }
 
 namespace SCP {
-    function remoteFunctionDecorator(mode: Mode) {
+    function remoteFunctionDecorator(mode: 'reply') {
         return (functionName?: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
-                const targetName = target.name ?? target.constructor.name;
-                const targetRemoteFunctions = remoteFunctions.get(targetName) || [];
-                targetRemoteFunctions.push({ mode, functionName: functionName ?? key, handler: descriptor.value } as RemoteFunction);
-                remoteFunctions.set(targetName, targetRemoteFunctions);
+                const name = target.name ?? target.constructor.name;
+                const receiver = receivers.get(name) || service.RemoteClass();
+                receivers.set(name, receiver);
+                receiver[mode](functionName || key, descriptor.value);
                 return descriptor;
             }
         }
     }
 
-    export const Reply = remoteFunctionDecorator('REPLY');
+    export const Reply = remoteFunctionDecorator('reply');
 
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {

@@ -88,35 +88,81 @@ mocha.describe('SCP Test', () => {
         });
     });
 
+    mocha.describe('Register Test', () => {
+        let server: ScpServer;
+
+        const incomingHandler: IncomingHandler = (incoming, outgoing, proceed) => { }
+
+        mocha.beforeEach((done) => {
+            server = new ScpServer(createIdentifier());
+            done();
+        });
+
+        mocha.it('should register REPLY I/O', (done) => {
+            const receiver1 = server.RemoteClass();
+            const receiver2 = server.RemoteClass();
+            receiver2.reply('', incomingHandler);
+            receiver2.reply('reply1', incomingHandler);
+            receiver2.reply('*', incomingHandler);
+            const receiver3 = server.RemoteClass();
+            server.attach('', receiver1);
+            server.attach('Class1', receiver2);
+            server.attach('*', receiver3);
+            assert.deepStrictEqual(server.remoteClasses[0].name, '');
+            assert.deepStrictEqual(server.remoteClasses[0].remoteFunctions.length, 0);
+            assert.deepStrictEqual(server.remoteClasses[1].name, 'Class1');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[0].name, '');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[0].mode, 'REPLY');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[0].handler, incomingHandler);
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[1].name, 'reply1');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[1].mode, 'REPLY');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[1].handler, incomingHandler);
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[2].name, '*');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[2].mode, 'REPLY');
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions[2].handler, incomingHandler);
+            assert.deepStrictEqual(server.remoteClasses[1].remoteFunctions.length, 3);
+            assert.deepStrictEqual(server.remoteClasses[2].name, '*');
+            assert.deepStrictEqual(server.remoteClasses[2].remoteFunctions.length, 0);
+            assert.deepStrictEqual(server.remoteClasses.length, 3);
+            done();
+        });
+    });
+
     mocha.describe('Remote Function Test', () => {
+        let proceedCalled: number;
         let server: ScpServer;
         let client: ScpClient;
 
-        const proceedHandler = (key: string): IncomingHandler => {
-            return (incoming, outgoing, proceed) => {
-                outgoing.set(key, '1');
-                proceed();
-            }
+        const proceedHandler: IncomingHandler = (incoming, outgoing, proceed) => {
+            proceedCalled++;
+            proceed();
         }
 
-        const incomingHandler = (): IncomingHandler => {
-            return (incoming, outgoing, proceed) => {
-                incoming.pipe(outgoing);
-                incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
-            }
+        const incomingHandler: IncomingHandler = (incoming, outgoing, proceed) => {
+            incoming.pipe(outgoing);
+            incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
         }
 
         mocha.beforeEach(async () => {
+            proceedCalled = 0;
             server = new ScpServer(createIdentifier());
-            server.reply('*.a', proceedHandler('*.a'));
-            server.reply('*.b', proceedHandler('*.b'));
-            server.reply('A.*', proceedHandler('A.*'));
-            server.reply('A.a', incomingHandler());
-            server.reply('A.b', incomingHandler());
-            server.reply('B.*', proceedHandler('B.*'));
-            server.reply('B.a', incomingHandler());
-            server.reply('B.b', incomingHandler());
-            server.reply('*.*', incomingHandler());
+            const receiver1 = server.RemoteClass();
+            receiver1.reply('a', proceedHandler);
+            receiver1.reply('b', proceedHandler);
+            const receiver2 = server.RemoteClass();
+            receiver2.reply('*', proceedHandler);
+            receiver2.reply('a', incomingHandler);
+            receiver2.reply('b', incomingHandler);
+            const receiver3 = server.RemoteClass();
+            receiver3.reply('*', proceedHandler);
+            receiver3.reply('a', incomingHandler);
+            receiver3.reply('b', incomingHandler);
+            const receiver4 = server.RemoteClass();
+            receiver4.reply('*', incomingHandler);
+            server.attach('*', receiver1);
+            server.attach('A', receiver2);
+            server.attach('B', receiver3);
+            server.attach('*', receiver4);
             server.listen(port);
             await once(server, 'listening');
 
@@ -135,13 +181,10 @@ mocha.describe('SCP Test', () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'A.c', outgoingData);
+                assert.deepStrictEqual(proceedCalled, 1);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'A.c');
                 assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.has('*.a'), false);
-                assert.deepStrictEqual(incoming.has('*.b'), false);
-                assert.deepStrictEqual(incoming.get('A.*'), '1');
-                assert.deepStrictEqual(incoming.has('B.*'), false);
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
@@ -149,13 +192,10 @@ mocha.describe('SCP Test', () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'C.a', outgoingData);
+                assert.deepStrictEqual(proceedCalled, 1);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'C.a');
                 assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.get('*.a'), '1');
-                assert.deepStrictEqual(incoming.has('*.b'), false);
-                assert.deepStrictEqual(incoming.has('A.*'), false);
-                assert.deepStrictEqual(incoming.has('B.*'), false);
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 
@@ -163,13 +203,10 @@ mocha.describe('SCP Test', () => {
                 //Client
                 const outgoingData = createString(1000);
                 const { incoming, data: incomingData } = await clientMessage(client, 'B.b', outgoingData);
+                assert.deepStrictEqual(proceedCalled, 2);
                 assert.deepStrictEqual(incoming.mode, 'REPLY');
                 assert.deepStrictEqual(incoming.operation, 'B.b');
                 assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-                assert.deepStrictEqual(incoming.has('*.a'), false);
-                assert.deepStrictEqual(incoming.get('*.b'), '1');
-                assert.deepStrictEqual(incoming.has('A.*'), false);
-                assert.deepStrictEqual(incoming.get('B.*'), '1');
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
 

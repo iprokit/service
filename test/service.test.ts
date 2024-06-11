@@ -3,8 +3,8 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { RequestHandler, HttpStatusCode, Service } from '../lib';
-import { createString, createIdentifier, clientRequest } from './util';
+import { RequestHandler, HttpStatusCode, Params, Args, IncomingHandler, Service } from '../lib';
+import { createString, createIdentifier, clientRequest, serviceMessage } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -19,7 +19,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.identifier, identifier);
             assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
-            assert.deepStrictEqual(service.remoteFunctions.length, 0);
+            assert.deepStrictEqual(service.remoteClasses.length, 0);
             done();
         });
     });
@@ -120,6 +120,11 @@ mocha.describe('Service Test', () => {
             }
         }
 
+        const incomingHandler: IncomingHandler = (incoming, outgoing, proceed) => {
+            incoming.pipe(outgoing);
+            incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
+        }
+
         mocha.beforeEach(async () => {
             serviceA = new Service('SVC_A');
             serviceA.link('SVC_B');
@@ -130,9 +135,9 @@ mocha.describe('Service Test', () => {
             serviceB.post('/b1', requestHandler('b1'));
             serviceB.post('/b2', requestHandler('b2'));
             serviceB.post('/b3', requestHandler('b3'));
-            serviceB.reply('B.echo', ((message) => message));
-            serviceB.reply('B.spread', ((...message) => message));
-            serviceB.reply('B.error', ((message) => { throw new Error(message); }));
+            const receiver = serviceB.RemoteClass();
+            receiver.reply('echo', incomingHandler);
+            serviceB.attach('B', receiver);
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -173,41 +178,18 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Message/Reply Test', () => {
-            const messages = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
-
-            mocha.it('should message(empty) & expect reply(empty)', async () => {
+            mocha.it('should receive reply to message', async () => {
                 //Client
-                const reply = await serviceA.message('SVC_B', 'B.echo');
-                assert.deepStrictEqual(reply, {});
-            });
-
-            mocha.it('should message(...object) & expect reply(object)', async () => {
-                //Client
-                const reply = await serviceA.message('SVC_B', 'B.spread', ...messages);
-                assert.deepStrictEqual(reply, messages);
-            });
-
-            mocha.it('should message(object) & expect reply(object)', async () => {
-                //Client
-                for (const message of messages) {
-                    const reply = await serviceA.message('SVC_B', 'B.echo', message);
-                    assert.deepStrictEqual(reply, message);
-                }
-            });
-
-            mocha.it('should message(object) & expect reply(error)', async () => {
-                //Client
-                try {
-                    const reply = await serviceA.message('SVC_B', 'B.error', 'SCP Error');
-                } catch (error) {
-                    assert.deepStrictEqual(error.message, 'SCP Error');
-                }
+                const message = createString(1000);
+                const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_B', 'B.echo', message);
+                assert.deepStrictEqual(reply, message);
             });
 
             mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
                 //Client
                 try {
-                    const reply = await serviceA.message('SVC_C', 'C.echo');
+                    const message = createString(1000);
+                    const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_C', 'B.echo', message);
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
                 }
@@ -215,50 +197,24 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Broadcast Test', () => {
-            const broadcasts = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { msg: createString(1000) }, createString(1000).split('')];
-
-            mocha.it('should send & receive broadcast(empty)', (done) => {
+            mocha.it('should receive broadcast', (done) => {
                 //Server
-                serviceA.broadcast('B.broadcast');
+                const outgoingData = createString(1000);
+                serviceA.broadcast('A.a', outgoingData, [['A', 'a']]);
 
                 //Client
-                serviceB.onBroadcast('SVC_A', 'B.broadcast', (...broadcast) => {
-                    assert.deepStrictEqual(broadcast, []);
+                serviceB.onBroadcast('SVC_A', 'A.a', (data: string, params: Params) => {
+                    assert.deepStrictEqual(data, outgoingData);
+                    assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
+                    assert.deepStrictEqual(params.get('A'), 'a');
                     done();
-                });
-            });
-
-            mocha.it('should send & receive broadcast(...object)', (done) => {
-                //Server
-                serviceA.broadcast('B.broadcast', ...broadcasts);
-
-                //Client
-                serviceB.onBroadcast('SVC_A', 'B.broadcast', (...broadcast) => {
-                    assert.deepStrictEqual(broadcast, broadcasts);
-                    done();
-                });
-            });
-
-            mocha.it('should send & receive broadcast(object)', (done) => {
-                let broadcastCount = -1;
-
-                //Server
-                for (const broadcast of broadcasts) {
-                    serviceA.broadcast('B.broadcast', broadcast);
-                }
-
-                //Client
-                serviceB.onBroadcast('SVC_A', 'B.broadcast', (broadcast) => {
-                    broadcastCount++;
-                    assert.deepStrictEqual(broadcast, broadcasts[broadcastCount]);
-                    if (broadcastCount + 1 === broadcasts.length) done();
                 });
             });
 
             mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', (done) => {
                 //Client
                 try {
-                    serviceB.onBroadcast('SVC_C', 'B.broadcast', (broadcast) => { });
+                    serviceB.onBroadcast('SVC_C', 'A.a', (data: string, params: Params) => { });
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
                     done();

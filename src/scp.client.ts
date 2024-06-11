@@ -212,7 +212,7 @@ export default class ScpClient extends EventEmitter {
     //////Broadcast
     //////////////////////////////
     /**
-     * Process the incoming broadcast stream.
+     * Process the `Incoming` broadcast stream.
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.

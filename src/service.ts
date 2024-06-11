@@ -3,15 +3,15 @@ import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
-import { Params } from '@iprotechs/scp';
+import { Params, Incoming } from '@iprotechs/scp';
 import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { Router, RequestHandler } from './http.server';
-import ScpServer from './scp.server';
+import ScpServer, { Receiver } from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
-import Utilities, { ProxyOptions, ReplyFunction } from './utilities';
+import Utilities, { ProxyOptions } from './utilities';
 
 /**
  * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
@@ -84,10 +84,10 @@ export default class Service extends EventEmitter implements Router {
     }
 
     /**
-     * The SCP remote functions.
+     * The SCP remote classes.
      */
-    public get remoteFunctions() {
-        return this.scpServer.remoteFunctions;
+    public get remoteClasses() {
+        return this.scpServer.remoteClasses;
     }
 
     /**
@@ -280,43 +280,51 @@ export default class Service extends EventEmitter implements Router {
     //////SCP
     //////////////////////////////
     /**
-     * Registers a SCP remote function for handling REPLY.
+     * Broadcasts the supplied to all remote services.
      * 
-     * @param operation the operation of the remote function.
-     * @param replyFunction the reply function.
+     * @param operation the operation of the broadcast.
+     * @param data the data to broadcast.
+     * @param params the optional input/output parameters of the broadcast.
      */
-    public reply<Reply>(operation: string, replyFunction: ReplyFunction<Reply>) {
-        this.scpServer.reply(operation, Utilities.reply(replyFunction));
+    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
+        this.scpServer.broadcast(operation, data, params);
         return this;
     }
 
     /**
-     * Broadcasts the supplied to all remote services.
+     * Attaches a SCP receiver.
      * 
-     * @param operation the operation of the broadcast.
-     * @param broadcast the data to broadcast.
+     * @param name the remote class name.
+     * @param receiver the receiver to attach.
      */
-    public broadcast(operation: string, ...broadcast: Array<any>) {
-        this.scpServer.broadcast(operation, JSON.stringify(broadcast), [['FORMAT', 'OBJECT']]);
+    public attach(name: string, receiver: Receiver) {
+        this.scpServer.attach(name, receiver);
         return this;
+    }
+
+    /**
+     * Returns a `Receiver` to group SCP remote functions that share related functionality.
+     */
+    public RemoteClass() {
+        return this.scpServer.RemoteClass();
     }
 
     //////////////////////////////
     //////SCP: Client
     //////////////////////////////
     /**
-     * Sends a message to the remote function of the linked remote service and returns a promise that resolves to the received reply.
+     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the linked remote service.
      * 
      * @param identifier the unique identifier of the linked remote service.
      * @param operation the operation of the remote function.
-     * @param message the message to send.
+     * @param callback called when the reply is available on the `Incoming` stream.
      */
-    public async message<Reply>(identifier: string, operation: string, ...message: Array<any>) {
+    public message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
         const link = this.links.get(identifier);
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
 
         //Message(📩)
-        return await Utilities.message<Reply>(link.scpClient, operation, ...message);
+        return link.scpClient.message(operation, callback);
     }
 
     /**
@@ -326,15 +334,12 @@ export default class Service extends EventEmitter implements Router {
      * @param operation the operation of the broadcast.
      * @param listener the listener called when a broadcast is received.
      */
-    public onBroadcast(identifier: string, operation: string, listener: (...broadcast: Array<any>) => void) {
+    public onBroadcast(identifier: string, operation: string, listener: (data: string, params: Params) => void) {
         const link = this.links.get(identifier);
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
 
         //Broadcast(📢)
-        link.scpClient.on(operation, (data: string, params: Params) => {
-            if (params.get('FORMAT') === 'OBJECT') return listener(...JSON.parse(data));
-            listener(data, params);
-        });
+        link.scpClient.on(operation, listener);
         return this;
     }
 

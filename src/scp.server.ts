@@ -26,9 +26,9 @@ export default class ScpServer extends Server {
     public readonly connections: Array<ScpConnection>;
 
     /**
-     * The remote functions registered on the server.
+     * The remote classes registered on the server.
      */
-    public readonly remoteFunctions: Array<RemoteFunction>;
+    public readonly remoteClasses: Array<RemoteClass>;
 
     /**
      * Creates an instance of SCP server.
@@ -42,7 +42,7 @@ export default class ScpServer extends Server {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.remoteFunctions = new Array();
+        this.remoteClasses = new Array();
 
         //Bind listeners.
         this.onIncoming = this.onIncoming.bind(this);
@@ -69,37 +69,45 @@ export default class ScpServer extends Server {
         }
 
         //Below line will blow your mind! 🤯
-        this.transport(0, incoming, outgoing);
+        this.transport(0, 0, incoming, outgoing);
     }
 
     //////////////////////////////
     //////Transport
     //////////////////////////////
     /**
-     * Recursively loop through the remote functions to find and execute its handler.
+     * Recursively loop through the remote classes to find and execute its handler.
      * 
-     * @param index the iteration of the loop.
+     * @param classIndex the index of the current remote class being processed.
+     * @param functionIndex the index of the current remote function being processed.
      * @param incoming the incoming stream.
      * @param outgoing the outgoing stream.
      */
-    private transport(index: number, incoming: Incoming, outgoing: Outgoing) {
-        const remoteFunction = this.remoteFunctions[index++];
-
+    private transport(classIndex: number, functionIndex: number, incoming: Incoming, outgoing: Outgoing) {
         //Need I say more.
-        if (!remoteFunction) return;
+        if (classIndex >= this.remoteClasses.length) return;
+
+        const remoteClass = this.remoteClasses[classIndex];
+        const remoteFunction = remoteClass.remoteFunctions[functionIndex++];
+
+        if (!remoteFunction) {
+            //Class not found, process the next class.
+            this.transport(classIndex + 1, 0, incoming, outgoing);
+            return;
+        }
 
         //Shits about to go down! 😎
-        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === '*') ? true : false;
-        const className = (remoteFunction.className === incoming.rfi.className || remoteFunction.className === '*') ? true : false;
-        const functionName = (remoteFunction.functionName === incoming.rfi.functionName || remoteFunction.functionName === '*') ? true : false;
+        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === 'ALL') ? true : false;
+        const className = (remoteClass.name === incoming.rfi.className || remoteClass.name === '*') ? true : false;
+        const functionName = (remoteFunction.name === incoming.rfi.functionName || remoteFunction.name === '*') ? true : false;
 
         if (mode && className && functionName) {
-            //Remote function found, lets execute the handler.
-            const proceed: ProceedFunction = () => this.transport(index, incoming, outgoing);
+            //Function found, lets execute the handler.
+            const proceed: ProceedFunction = () => this.transport(classIndex, functionIndex, incoming, outgoing);
             remoteFunction.handler(incoming, outgoing, proceed);
         } else {
-            //Remote function not found, lets keep going though the loop.
-            this.transport(index, incoming, outgoing);
+            //Function not found, process the next function.
+            this.transport(classIndex, functionIndex, incoming, outgoing);
         }
     }
 
@@ -121,20 +129,6 @@ export default class ScpServer extends Server {
         //Write: Outgoing stream.
         Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
         outgoing.end('');
-    }
-
-    //////////////////////////////
-    //////Reply
-    //////////////////////////////
-    /**
-     * Registers a remote function for handling REPLY.
-     * 
-     * @param operation the operation of the remote function.
-     * @param handler the incoming handler function of the remote function.
-     */
-    public reply(operation: string, handler: IncomingHandler) {
-        this.remoteFunctions.push(new RemoteFunction('REPLY', operation, handler));
-        return this;
     }
 
     //////////////////////////////
@@ -160,6 +154,37 @@ export default class ScpServer extends Server {
         }
         return this;
     }
+
+    //////////////////////////////
+    //////Attach
+    //////////////////////////////
+    /**
+     * Attaches a receiver.
+     * 
+     * @param name the remote class name.
+     * @param receiver the receiver to attach.
+     */
+    public attach(name: string, receiver: Receiver) {
+        this.remoteClasses.push({ name, remoteFunctions: receiver.remoteFunctions });
+        return this;
+    }
+
+    //////////////////////////////
+    //////RemoteClass
+    //////////////////////////////
+    /**
+     * Returns a `Receiver` to group remote functions that share related functionality.
+     */
+    public RemoteClass() {
+        const receiver = { remoteFunctions: new Array<RemoteFunction>() } as Receiver;
+
+        //Apply `Receiver` properties 👻.
+        receiver.reply = (name: string, handler: IncomingHandler) => {
+            receiver.remoteFunctions.push({ mode: 'REPLY', name, handler });
+            return receiver;
+        }
+        return receiver;
+    }
 }
 
 //////////////////////////////
@@ -173,36 +198,68 @@ export interface ScpConnection extends Connection {
 }
 
 //////////////////////////////
-//////Remote Function
+//////Receiver
 //////////////////////////////
 /**
- * `RemoteFunction` handles incoming messages from clients.
+ * Interface for handling SCP I/O and registering remote functions.
  */
-export class RemoteFunction extends RFI {
+export interface Receiver {
     /**
-     * The incoming handler function of the remote function.
+     * The remote functions registered.
      */
-    public readonly handler: IncomingHandler;
+    remoteFunctions: Array<RemoteFunction>;
 
     /**
-     * Creates an instances of `RemoteFunction`.
+     * Registers a remote function for handling REPLY I/O.
      * 
-     * @param mode the mode of remote function.
-     * @param operation the operation of remote function.
-     * @param handler the incoming handler function of the remote function.
+     * @param name the remote function name.
+     * @param handler the incoming handler of the remote function.
      */
-    constructor(mode: Mode, operation: string, handler: IncomingHandler) {
-        super(mode, operation);
+    reply: (name: string, handler: IncomingHandler) => this;
+}
 
-        //Initialize Options.
-        this.handler = handler;
-    }
+//////////////////////////////
+//////Class/Function
+//////////////////////////////
+/**
+ * Represents a group of remote functions that share related functionality.
+ */
+export interface RemoteClass {
+    /**
+     * The remote class name.
+     */
+    name: string;
+
+    /**
+     * The remote functions registered in the class.
+     */
+    remoteFunctions: Array<RemoteFunction>;
+}
+
+/**
+ * Represents a remote function that handles I/O from clients.
+ */
+export interface RemoteFunction {
+    /**
+     * The remote function name.
+     */
+    name: string;
+
+    /**
+     * The mode of the remote function.
+     */
+    mode: Mode;
+
+    /**
+     * The incoming handler of the remote function.
+     */
+    handler: IncomingHandler;
 }
 
 /**
  * The SCP mode.
  */
-export type Mode = 'REPLY';
+export type Mode = 'REPLY' | 'ALL';
 
 /**
  * The incoming handler.

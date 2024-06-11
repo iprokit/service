@@ -2,7 +2,7 @@
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpServer, HttpMethod, Incoming, ScpClient } from '../lib';
+import { HttpServer, HttpMethod, Incoming, ScpClient, Service } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -43,6 +43,23 @@ export function clientRequest(method: HttpMethod, host: string, port: number, pa
 export function clientMessage(client: ScpClient, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.message(operation, async (incoming) => {
+            try {
+                let data = '';
+                for await (const chunk of incoming) {
+                    data += chunk;
+                }
+                resolve({ incoming, data });
+            } catch (error) {
+                reject(error);
+            }
+        });
+        outgoing.end(data);
+    });
+}
+
+export function serviceMessage(service: Service, identifier: string, operation: string, data: string) {
+    return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
+        const outgoing = service.message(identifier, operation, async (incoming) => {
             try {
                 let data = '';
                 for await (const chunk of incoming) {
