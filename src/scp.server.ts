@@ -14,7 +14,7 @@ import { RFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
  * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
  * @emits `close` when the server is fully closed.
  */
-export default class ScpServer extends Server {
+export default class ScpServer extends Server implements IScpServer {
     /**
      * The unique identifier of the server.
      */
@@ -26,9 +26,9 @@ export default class ScpServer extends Server {
     public readonly connections: Array<ScpConnection>;
 
     /**
-     * The remote classes registered on the server.
+     * The remotes registered on the server.
      */
-    public readonly remoteClasses: Array<RemoteClass>;
+    public readonly remotes: Array<Remote>;
 
     /**
      * Creates an instance of SCP server.
@@ -42,13 +42,16 @@ export default class ScpServer extends Server {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.remoteClasses = new Array();
+        this.remotes = new Array();
 
         //Bind listeners.
         this.onIncoming = this.onIncoming.bind(this);
 
         //Add listeners.
         this.addListener('incoming', this.onIncoming);
+
+        //Apply `Receiver` properties 👻.
+        this.applyReceiverProperties(this);
     }
 
     //////////////////////////////
@@ -59,56 +62,67 @@ export default class ScpServer extends Server {
      * - [Mode?] is handled by `transport` function.
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
-        //Set: Outgoing params.
+        //Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
         //Handle Subscribe.
-        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'SCP.subscribe') {
+        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
             this.subscribe(incoming, outgoing);
             return;
         }
 
         //Below line will blow your mind! 🤯
-        this.transport(0, 0, incoming, outgoing);
+        this.dispatch(0, false, this.remotes, incoming, outgoing, () => { });
     }
 
     //////////////////////////////
-    //////Transport
+    //////Dispatch
     //////////////////////////////
     /**
-     * Recursively loop through the remote classes to find and execute its handler.
+     * Recursively loop through the remotes to find and execute its handler.
      * 
-     * @param classIndex the index of the current remote class being processed.
-     * @param functionIndex the index of the current remote function being processed.
+     * @param remoteIndex the index of the current remote being processed.
+     * @param classMatched set to true if the class matched, false otherwise.
+     * @param remotes the remotes to be processed.
      * @param incoming the incoming stream.
      * @param outgoing the outgoing stream.
+     * @param unwind function called once the processed remotes unwind.
      */
-    private transport(classIndex: number, functionIndex: number, incoming: Incoming, outgoing: Outgoing) {
+    private dispatch(remoteIndex: number, classMatched: boolean, remotes: Array<Remote>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
         //Need I say more.
-        if (classIndex >= this.remoteClasses.length) return;
+        if (remoteIndex >= remotes.length) return unwind();
 
-        const remoteClass = this.remoteClasses[classIndex];
-        const remoteFunction = remoteClass.remoteFunctions[functionIndex++];
-
-        if (!remoteFunction) {
-            //Class not found, process the next class.
-            this.transport(classIndex + 1, 0, incoming, outgoing);
-            return;
-        }
+        const remote = remotes[remoteIndex];
+        const regExp = new RegExp(/^(?:(?<className>[^.]+)\.)?(?<functionName>[^.]+)$/);
+        const { className, functionName } = regExp.exec(incoming.operation).groups;
 
         //Shits about to go down! 😎
-        const mode = (remoteFunction.mode === incoming.mode || remoteFunction.mode === 'ALL') ? true : false;
-        const className = (remoteClass.name === incoming.rfi.className || remoteClass.name === '*') ? true : false;
-        const functionName = (remoteFunction.name === incoming.rfi.functionName || remoteFunction.name === '*') ? true : false;
+        if ('functions' in remote) {
+            const remoteClass = remote as RemoteClass;
+            const operationMatches = className.match(remoteClass.regExp);
 
-        if (mode && className && functionName) {
-            //Function found, lets execute the handler.
-            const proceed: ProceedFunction = () => this.transport(classIndex, functionIndex, incoming, outgoing);
-            remoteFunction.handler(incoming, outgoing, proceed);
+            if (operationMatches) {
+                //Remote class found, process the class. 🎢
+                const unwindFunction = () => this.dispatch(remoteIndex + 1, false, this.remotes, incoming, outgoing, unwind);
+                this.dispatch(0, true, remoteClass.functions, incoming, outgoing, unwindFunction);
+                return;
+            }
         } else {
-            //Function not found, process the next function.
-            this.transport(classIndex, functionIndex, incoming, outgoing);
+            const remoteFunction = remote as RemoteFunction;
+            const modeMatches = incoming.mode === remoteFunction.mode || 'ALL' === remoteFunction.mode;
+            const classMatches = (className && classMatched) || (!className && !classMatched);
+            const operationMatches = functionName.match(remoteFunction.regExp);
+
+            if (modeMatches && classMatches && operationMatches) {
+                //Remote function found, execute the handler. 🎉
+                const proceedFunction = () => this.dispatch(remoteIndex + 1, classMatched, remotes, incoming, outgoing, unwind);
+                remoteFunction.handler(incoming, outgoing, proceedFunction);
+                return;
+            }
         }
+
+        //Remote not found, lets keep going though the loop.
+        this.dispatch(remoteIndex + 1, classMatched, remotes, incoming, outgoing, unwind);
     }
 
     //////////////////////////////
@@ -132,15 +146,8 @@ export default class ScpServer extends Server {
     }
 
     //////////////////////////////
-    //////Broadcast
+    //////Interface: ScpServer
     //////////////////////////////
-    /**
-     * Broadcasts the supplied to all the subscribed client socket connections.
-     * 
-     * @param operation the operation of the broadcast.
-     * @param data the data to broadcast.
-     * @param params the optional input/output parameters of the broadcast.
-     */
     public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
         for (const connection of this.connections) {
             if (!connection.identifier) continue;
@@ -155,100 +162,147 @@ export default class ScpServer extends Server {
         return this;
     }
 
-    //////////////////////////////
-    //////Attach
-    //////////////////////////////
-    /**
-     * Attaches a receiver.
-     * 
-     * @param name the remote class name.
-     * @param receiver the receiver to attach.
-     */
-    public attach(name: string, receiver: Receiver) {
-        this.remoteClasses.push({ name, remoteFunctions: receiver.remoteFunctions });
+    public Remote() {
+        const receiver = { remotes: new Array<Remote>() } as Receiver;
+
+        //Apply `Receiver` properties 👻.
+        this.applyReceiverProperties(receiver);
+        return receiver;
+    }
+
+    public attach(operation: string, receiver: Receiver) {
+        const { remotes: functions } = receiver;
+        const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+        this.remotes.push({ operation, regExp, functions } as RemoteClass);
         return this;
     }
 
     //////////////////////////////
-    //////RemoteClass
+    //////Interface: Receiver
+    //////////////////////////////
+    public reply: (operation: string, handler: IncomingHandler) => this;
+
+    //////////////////////////////
+    //////Factory: Receiver
     //////////////////////////////
     /**
-     * Returns a `Receiver` to group remote functions that share related functionality.
+     * Applies properties of the `Receiver` interface to the provided instance,
+     * enabling the registration of remotes.
+     * 
+     * @param instance the instance to which the `Receiver` properties are applied.
      */
-    public RemoteClass() {
-        const receiver = { remoteFunctions: new Array<RemoteFunction>() } as Receiver;
-
-        //Apply `Receiver` properties 👻.
-        receiver.reply = (name: string, handler: IncomingHandler) => {
-            receiver.remoteFunctions.push({ mode: 'REPLY', name, handler });
-            return receiver;
+    private applyReceiverProperties<I extends Receiver>(instance: I) {
+        //Factory for registering a `RemoteFunction`.
+        const remoteFunction = (mode: ScpMode) => {
+            return (operation: string, handler: IncomingHandler) => {
+                const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+                instance.remotes.push({ mode, operation, regExp, handler } as RemoteFunction);
+                return instance;
+            }
         }
-        return receiver;
+
+        //`Receiver` properties 😈.
+        instance.reply = remoteFunction('REPLY');
     }
 }
 
 //////////////////////////////
-//////Connection
+/////IScpServer
 //////////////////////////////
-export interface ScpConnection extends Connection {
+/**
+ * Interface of `ScpServer`.
+ */
+export interface IScpServer extends Receiver {
     /**
-     * The unique identifier of the client socket connection.
+     * Broadcasts the supplied to all the subscribed client socket connections.
+     * 
+     * @param operation the operation pattern.
+     * @param data the data to broadcast.
+     * @param params the optional input/output parameters of the broadcast.
      */
-    identifier: string;
+    broadcast: (operation: string, data: string, params?: Iterable<readonly [string, string]>) => this;
+
+    /**
+     * Returns a `Receiver` to group remote functions that share related functionality.
+     */
+    Remote: () => Receiver;
+
+    /**
+     * Attaches a receiver.
+     * 
+     * @param operation the operation pattern.
+     * @param receiver the receiver to attach.
+     */
+    attach: (operation: string, receiver: Receiver) => this;
 }
 
 //////////////////////////////
 //////Receiver
 //////////////////////////////
 /**
- * Interface for handling SCP I/O and registering remote functions.
+ * Interface for handling SCP I/O and registering remotes.
  */
 export interface Receiver {
     /**
-     * The remote functions registered.
+     * The remotes registered.
      */
-    remoteFunctions: Array<RemoteFunction>;
+    remotes: Array<Remote>;
 
     /**
      * Registers a remote function for handling REPLY I/O.
      * 
-     * @param name the remote function name.
-     * @param handler the incoming handler of the remote function.
+     * @param operation the operation pattern.
+     * @param handler the incoming handler function.
      */
-    reply: (name: string, handler: IncomingHandler) => this;
+    reply: (operation: string, handler: IncomingHandler) => this;
 }
 
 //////////////////////////////
-//////Class/Function
+//////Remote
 //////////////////////////////
+/**
+ * The union of an `RemoteClass`/`RemoteFunction`.
+ */
+export type Remote = RemoteClass | RemoteFunction;
+
 /**
  * Represents a group of remote functions that share related functionality.
  */
 export interface RemoteClass {
     /**
-     * The remote class name.
+     * The operation pattern of the remote class.
      */
-    name: string;
+    operation: string;
 
     /**
-     * The remote functions registered in the class.
+     * The compiled regular expression to match the operation of the remote class.
      */
-    remoteFunctions: Array<RemoteFunction>;
+    regExp: RegExp;
+
+    /**
+     * The remote functions registered.
+     */
+    functions: Array<RemoteFunction>;
 }
 
 /**
- * Represents a remote function that handles I/O from clients.
+ * Represents a remote function.
  */
 export interface RemoteFunction {
     /**
-     * The remote function name.
+     * The SCP mode of the remote function.
      */
-    name: string;
+    mode: ScpMode;
 
     /**
-     * The mode of the remote function.
+     * The operation pattern of the remote function.
      */
-    mode: Mode;
+    operation: string;
+
+    /**
+     * The compiled regular expression to match the operation of the remote function.
+     */
+    regExp: RegExp;
 
     /**
      * The incoming handler of the remote function.
@@ -259,7 +313,7 @@ export interface RemoteFunction {
 /**
  * The SCP mode.
  */
-export type Mode = 'REPLY' | 'ALL';
+export type ScpMode = 'REPLY' | 'ALL';
 
 /**
  * The incoming handler.
@@ -270,3 +324,13 @@ export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: 
  * The proceed function.
  */
 export type ProceedFunction = () => void;
+
+//////////////////////////////
+//////Connection
+//////////////////////////////
+export interface ScpConnection extends Connection {
+    /**
+     * The unique identifier of the client socket connection.
+     */
+    identifier: string;
+}

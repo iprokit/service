@@ -2,7 +2,7 @@
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpServer, HttpMethod, Incoming, ScpClient, Service } from '../lib';
+import { HttpMethod, Incoming, ScpClient, Service } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -17,13 +17,7 @@ export function createIdentifier() {
     return createString(10);
 }
 
-export function simulateRequest(server: HttpServer, method: HttpMethod, url: string) {
-    const request = { url, method }
-    const response = {}
-    server.emit('request', request, response);
-}
-
-export function clientRequest(method: HttpMethod, host: string, port: number, path: string, body: string) {
+export function clientRequest(host: string, port: number, method: HttpMethod, path: string, body: string) {
     return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
         const request = http.request({ host, port, method, path }, async (response) => {
             try {

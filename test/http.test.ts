@@ -1,10 +1,14 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
+import { once } from 'events';
 
 //Import Local.
 import { HttpServer, Router, Stack, Endpoint, HttpMethod, RequestHandler } from '../lib';
-import { simulateRequest } from './util';
+import { clientRequest } from './util';
+
+const host = '127.0.0.1';
+const port = 3000;
 
 mocha.describe('HTTP Test', () => {
     let server: HttpServer;
@@ -187,12 +191,18 @@ mocha.describe('HTTP Test', () => {
             throw new Error('Should not be called');
         }
 
-        mocha.beforeEach((done) => {
+        mocha.beforeEach(async () => {
             nextCalled = 0;
-            done();
+            server.listen(port);
+            await once(server, 'listening');
         });
 
-        mocha.it('should dispatch request to GET route', (done) => {
+        mocha.afterEach(async () => {
+            server.close();
+            await once(server, 'close');
+        });
+
+        mocha.it('should dispatch request to GET route', async () => {
             //Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', (request, response, next) => {
@@ -200,7 +210,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                done();
+                response.end('END');
             });
             server.post('/endpoint/:param1', errorHandler);
             server.put('/endpoint/:param1', errorHandler);
@@ -208,10 +218,11 @@ mocha.describe('HTTP Test', () => {
             server.delete('/endpoint/:param1', errorHandler);
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/1?query1=1');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/1?query1=1', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to POST route', (done) => {
+        mocha.it('should dispatch request to POST route', async () => {
             //Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
@@ -220,17 +231,18 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                done();
+                response.end('END');
             });
             server.put('/endpoint/:param1', errorHandler);
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
 
             //Client
-            simulateRequest(server, 'POST', '/endpoint/1?query1=1');
+            const { response, body } = await clientRequest(host, port, 'POST', '/endpoint/1?query1=1', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to PUT route', (done) => {
+        mocha.it('should dispatch request to PUT route', async () => {
             //Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
@@ -240,16 +252,17 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                done();
+                response.end('END');
             });
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
 
             //Client
-            simulateRequest(server, 'PUT', '/endpoint/1?query1=1');
+            const { response, body } = await clientRequest(host, port, 'PUT', '/endpoint/1?query1=1', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to PATCH route', (done) => {
+        mocha.it('should dispatch request to PATCH route', async () => {
             //Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
@@ -260,15 +273,16 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                done();
+                response.end('END');
             });
             server.delete('/endpoint/:param1', errorHandler);
 
             //Client
-            simulateRequest(server, 'PATCH', '/endpoint/1?query1=1');
+            const { response, body } = await clientRequest(host, port, 'PATCH', '/endpoint/1?query1=1', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to DELETE route', (done) => {
+        mocha.it('should dispatch request to DELETE route', async () => {
             //Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
@@ -280,92 +294,108 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'DELETE', '/endpoint/1?query1=1');
+            const { response, body } = await clientRequest(host, port, 'DELETE', '/endpoint/1?query1=1', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with required parameters', (done) => {
+        mocha.it('should dispatch request to route with required parameters', async () => {
             //Server
             server.get('/endpoint/:param1/:param2/:param3/:param4', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/1/22/333/4444');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with optional parameters(provided)', (done) => {
+        mocha.it('should dispatch request to route with optional parameters(provided)', async () => {
             //Server
             server.get('/endpoint/:param1?/:param2?/:param3?/:param4?', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/1/22/333/4444');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with optional parameters(missing)', (done) => {
+        mocha.it('should dispatch request to route with optional parameters(missing)', async () => {
             //Server
             server.get('/endpoint/:param1?/:param2?/:param3?/:param4?', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1//333/');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: undefined, param3: '333', param4: undefined });
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/1//333/');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/1//333/', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with query parameters(provided)', (done) => {
+        mocha.it('should dispatch request to route with query parameters(provided)', async () => {
             //Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, { query1: '1', query2: '22', query3: '333', query4: '4444' });
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint?query1=1&query2=22&query3=333&query4=4444');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint?query1=1&query2=22&query3=333&query4=4444', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with query parameters(missing)', (done) => {
+        mocha.it('should dispatch request to route with query parameters(missing)', async () => {
             //Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, { query1: '', query2: '', query3: '', query4: '' });
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint?query1=&query2=&query3=&query4=');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint?query1=&query2=&query3=&query4=', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with wildcard path', (done) => {
+        mocha.it('should dispatch request to route with wildcard path', async () => {
             //Server
-            server.get('/endpoint/*', (request, response, next) => {
+            server.get('/e*/*/2*/3*/4*', nextHandler);
+            server.get('/*t/*/*2/*3/*4', nextHandler);
+            server.get('/endpoint/1/22/333/*4', nextHandler);
+            server.get('/endpoint/1/22/3*4', nextHandler);
+            server.get('/endpoint/1/2*4', nextHandler);
+            server.get('/endpoint/1*4', nextHandler);
+            server.get('/endpoint/*4', nextHandler);
+            server.get('/e*4', nextHandler);
+            server.get('/*', (request, response, next) => {
+                assert.deepStrictEqual(nextCalled, 8);
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/1/22/333/4444');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with long path', (done) => {
+        mocha.it('should dispatch request to route with long path', async () => {
             const longPath = '/endpoint'.repeat(1000);
 
             //Server
@@ -373,91 +403,97 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, longPath);
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', longPath);
+            const { response, body } = await clientRequest(host, port, 'GET', longPath, '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with trailing slashes in path', (done) => {
+        mocha.it('should dispatch request to route with trailing slashes in path', async () => {
             //Server
             server.get('/endpoint/', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with special characters in path', (done) => {
+        mocha.it('should dispatch request to route with special characters in path', async () => {
             //Server
             server.get('/endpoint/:param1', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/special!@$%*([');
                 assert.deepStrictEqual(request.params, { param1: 'special!@$%*([' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/special!@$%*([');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/special!@$%*([', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with case sensitivity in path', (done) => {
+        mocha.it('should dispatch request to route with case sensitivity in path', async () => {
             //Server
             server.get('/EndPoint', errorHandler);
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with multiple middleware in order', (done) => {
+        mocha.it('should dispatch request to route with multiple middleware in order', async () => {
             //Server
             const nextHandlers = Array();
             const firstMiddleware: RequestHandler = (request, response, next) => {
                 nextHandlers.push('First');
                 next();
-            };
+            }
             const secondMiddleware: RequestHandler = (request, response, next) => {
                 nextHandlers.push('Second');
                 next();
-            };
+            }
             server.get('/endpoint', firstMiddleware, secondMiddleware, (request, response, next) => {
                 assert.deepStrictEqual(nextHandlers, ['First', 'Second']);
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to route with registration order', (done) => {
+        mocha.it('should dispatch request to route with registration order', async () => {
             //Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
             server.get('/endpoint/:param1', errorHandler);
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to overlapping routes', (done) => {
+        mocha.it('should dispatch request to overlapping routes', async () => {
             //Server
             server.get('/endpoint/:param1', (request, response, next) => {
                 nextCalled++;
@@ -471,14 +507,15 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/123');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint/123');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint/123', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to duplicate routes', (done) => {
+        mocha.it('should dispatch request to duplicate routes', async () => {
             //Server
             server.get('/endpoint', (request, response, next) => {
                 nextCalled++;
@@ -492,29 +529,31 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
 
             //Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to router mounted on root path', (done) => {
+        mocha.it('should dispatch request to router mounted on root path', async () => {
             //Server
             const router = server.Route();
             router.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
             server.mount('/', router);
 
             // Client
-            simulateRequest(server, 'GET', '/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
 
-        mocha.it('should dispatch request to router mounted on single path', (done) => {
+        mocha.it('should dispatch request to router mounted on single path', async () => {
             //Server
             const router1 = server.Route();
             const router2 = server.Route();
@@ -524,7 +563,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                done();
+                response.end('END');
             });
             server.mount('/', router1);
             router1.mount('/a', router2);
@@ -532,7 +571,35 @@ mocha.describe('HTTP Test', () => {
             router3.mount('/b', router4);
 
             // Client
-            simulateRequest(server, 'GET', '/a/b/endpoint');
+            const { response, body } = await clientRequest(host, port, 'GET', '/a/b/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
+        });
+
+        mocha.it('should dispatch request through routes & routers', async () => {
+            //Server
+            server.all('/a/e*t', nextHandler, nextHandler);
+            server.post('/a/endpoint', errorHandler);
+            server.get('/a/endpoint', nextHandler);
+            const router1 = server.Route();
+            router1.all('/*/e*t', nextHandler, nextHandler);
+            server.post('/a/endpoint', errorHandler);
+            router1.get('/a/endpoint', nextHandler);
+            const router2 = server.Route();
+            server.post('/endpoint', errorHandler);
+            router2.all('/e*t', nextHandler, nextHandler);
+            router2.get('/endpoint', nextHandler, (request, response, next) => {
+                assert.deepStrictEqual(nextCalled, 9);
+                assert.deepStrictEqual(request.path, '/endpoint');
+                assert.deepStrictEqual(request.params, {});
+                assert.deepStrictEqual({ ...request.query }, {});
+                response.end('END');
+            });
+            server.mount('/', router1);
+            router1.mount('/a', router2);
+
+            // Client
+            const { response, body } = await clientRequest(host, port, 'GET', '/a/endpoint', '');
+            assert.deepStrictEqual(body, 'END');
         });
     });
 });

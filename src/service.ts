@@ -7,8 +7,8 @@ import { Params, Incoming } from '@iprotechs/scp';
 import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
-import HttpServer, { Router, RequestHandler } from './http.server';
-import ScpServer, { Receiver } from './scp.server';
+import HttpServer, { IHttpServer, Router, RequestHandler } from './http.server';
+import ScpServer, { IScpServer, Receiver, IncomingHandler } from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions } from './utilities';
@@ -21,7 +21,7 @@ import Utilities, { ProxyOptions } from './utilities';
  * @emits `unlink` when a link is terminated.
  * @emits `stop` when the service stops.
  */
-export default class Service extends EventEmitter implements Router {
+export default class Service extends EventEmitter implements IHttpServer, IScpServer {
     /**
      * The unique identifier of the service.
      */
@@ -77,17 +77,17 @@ export default class Service extends EventEmitter implements Router {
     //////Gets/Sets
     //////////////////////////////
     /**
-     * The HTTP server routes.
+     * The HTTP routes registered.
      */
     public get routes() {
         return this.httpServer.routes;
     }
 
     /**
-     * The SCP remote classes.
+     * The SCP remotes registered.
      */
-    public get remoteClasses() {
-        return this.scpServer.remoteClasses;
+    public get remotes() {
+        return this.scpServer.remotes;
     }
 
     /**
@@ -172,8 +172,15 @@ export default class Service extends EventEmitter implements Router {
     }
 
     //////////////////////////////
-    //////HTTP
+    //////Interface: IHttpServer
     //////////////////////////////
+    /**
+     * Returns a `Router` to group HTTP routes that share related functionality.
+     */
+    public Route() {
+        return this.httpServer.Route();
+    }
+
     /**
      * Registers a HTTP route for handling GET requests.
      * 
@@ -251,13 +258,6 @@ export default class Service extends EventEmitter implements Router {
         return this;
     }
 
-    /**
-     * Returns a `Router` to group HTTP routes that share related functionality.
-     */
-    public Route() {
-        return this.httpServer.Route();
-    }
-
     //////////////////////////////
     //////HTTP: Proxy
     //////////////////////////////
@@ -277,12 +277,12 @@ export default class Service extends EventEmitter implements Router {
     }
 
     //////////////////////////////
-    //////SCP
+    //////Interface: IScpServer
     //////////////////////////////
     /**
      * Broadcasts the supplied to all remote services.
      * 
-     * @param operation the operation of the broadcast.
+     * @param operation the operation pattern.
      * @param data the data to broadcast.
      * @param params the optional input/output parameters of the broadcast.
      */
@@ -292,9 +292,16 @@ export default class Service extends EventEmitter implements Router {
     }
 
     /**
-     * Attaches a SCP receiver.
+     * Returns a `Receiver` to group remote functions that share related functionality.
+     */
+    public Remote() {
+        return this.scpServer.Remote();
+    }
+
+    /**
+     * Attaches a receiver.
      * 
-     * @param name the remote class name.
+     * @param operation the operation pattern.
      * @param receiver the receiver to attach.
      */
     public attach(name: string, receiver: Receiver) {
@@ -303,10 +310,14 @@ export default class Service extends EventEmitter implements Router {
     }
 
     /**
-     * Returns a `Receiver` to group SCP remote functions that share related functionality.
+     * Registers a remote function for handling REPLY I/O.
+     * 
+     * @param operation the operation pattern.
+     * @param handler the incoming handler function.
      */
-    public RemoteClass() {
-        return this.scpServer.RemoteClass();
+    public reply(operation: string, handler: IncomingHandler) {
+        this.scpServer.reply(operation, handler);
+        return this;
     }
 
     //////////////////////////////
@@ -316,7 +327,7 @@ export default class Service extends EventEmitter implements Router {
      * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the linked remote service.
      * 
      * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation of the remote function.
+     * @param operation the operation pattern.
      * @param callback called when the reply is available on the `Incoming` stream.
      */
     public message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
@@ -331,7 +342,7 @@ export default class Service extends EventEmitter implements Router {
      * Registers a listener for broadcast events for the linked remote service.
      * 
      * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation of the broadcast.
+     * @param operation the operation pattern.
      * @param listener the listener called when a broadcast is received.
      */
     public onBroadcast(identifier: string, operation: string, listener: (data: string, params: Params) => void) {

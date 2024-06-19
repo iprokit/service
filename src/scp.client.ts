@@ -124,7 +124,7 @@ export default class ScpClient extends EventEmitter {
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'SCP.subscribe') {
+        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
             this._socket.emit('subscribe', incoming);
         }
         if (incoming.mode === 'BROADCAST') {
@@ -172,7 +172,7 @@ export default class ScpClient extends EventEmitter {
         //Write: Outgoing stream.
         this._socket.createOutgoing((outgoing: Outgoing) => {
             Stream.finished(outgoing, (error) => error && callback(error));
-            outgoing.setRFI(new RFI('SUBSCRIBE', 'SCP.subscribe'));
+            outgoing.setRFI(new RFI('SUBSCRIBE', 'subscribe'));
             outgoing.set('CID', this.identifier);
             outgoing.end('');
         });
@@ -184,7 +184,7 @@ export default class ScpClient extends EventEmitter {
     /**
      * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the server.
      * 
-     * @param operation the operation of the remote function.
+     * @param operation the operation pattern.
      * @param callback called when the reply is available on the `Incoming` stream.
      */
     public message(operation: string, callback?: (incoming: Incoming) => void) {

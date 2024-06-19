@@ -19,7 +19,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.identifier, identifier);
             assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
-            assert.deepStrictEqual(service.remoteClasses.length, 0);
+            assert.deepStrictEqual(service.remotes.length, 0);
             done();
         });
     });
@@ -110,14 +110,12 @@ mocha.describe('Service Test', () => {
     mocha.describe('Link Test', () => {
         let serviceA: Service, serviceB: Service;
 
-        const requestHandler = (key: string): RequestHandler => {
-            return async (request, response, next) => {
-                let body = '';
-                for await (const chunk of request) {
-                    body += chunk;
-                }
-                response.writeHead(HttpStatusCode.OK).end(`${body}-${key}`);
+        const requestHandler: RequestHandler = async (request, response, next) => {
+            let body = '';
+            for await (const chunk of request) {
+                body += chunk;
             }
+            response.writeHead(HttpStatusCode.OK).end(body);
         }
 
         const incomingHandler: IncomingHandler = (incoming, outgoing, proceed) => {
@@ -132,12 +130,10 @@ mocha.describe('Service Test', () => {
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
-            serviceB.post('/b1', requestHandler('b1'));
-            serviceB.post('/b2', requestHandler('b2'));
-            serviceB.post('/b3', requestHandler('b3'));
-            const receiver = serviceB.RemoteClass();
-            receiver.reply('echo', incomingHandler);
-            serviceB.attach('B', receiver);
+            serviceB.post('/b1', requestHandler);
+            serviceB.post('/b2', requestHandler);
+            serviceB.post('/b3', requestHandler);
+            serviceB.reply('echo', incomingHandler);
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -150,9 +146,9 @@ mocha.describe('Service Test', () => {
             mocha.it('should proxy a request & response to the target service', async () => {
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/a/b2', requestBody);
+                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/a/b2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
-                assert.deepStrictEqual(responseBody, `${requestBody}-b2`);
+                assert.deepStrictEqual(responseBody, requestBody);
             });
 
             mocha.it('should handle proxy request to an unavailable target service', async () => {
@@ -162,7 +158,7 @@ mocha.describe('Service Test', () => {
 
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest('POST', serviceA.localAddress, httpPort, '/b/c2', requestBody);
+                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/b/c2', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);
                 assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
             });
@@ -181,7 +177,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should receive reply to message', async () => {
                 //Client
                 const message = createString(1000);
-                const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_B', 'B.echo', message);
+                const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_B', 'echo', message);
                 assert.deepStrictEqual(reply, message);
             });
 
@@ -189,7 +185,7 @@ mocha.describe('Service Test', () => {
                 //Client
                 try {
                     const message = createString(1000);
-                    const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_C', 'B.echo', message);
+                    const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_C', 'echo', message);
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
                 }
@@ -200,10 +196,10 @@ mocha.describe('Service Test', () => {
             mocha.it('should receive broadcast', (done) => {
                 //Server
                 const outgoingData = createString(1000);
-                serviceA.broadcast('A.a', outgoingData, [['A', 'a']]);
+                serviceA.broadcast('function1', outgoingData, [['A', 'a']]);
 
                 //Client
-                serviceB.onBroadcast('SVC_A', 'A.a', (data: string, params: Params) => {
+                serviceB.onBroadcast('SVC_A', 'function1', (data: string, params: Params) => {
                     assert.deepStrictEqual(data, outgoingData);
                     assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
                     assert.deepStrictEqual(params.get('A'), 'a');
@@ -214,7 +210,7 @@ mocha.describe('Service Test', () => {
             mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', (done) => {
                 //Client
                 try {
-                    serviceB.onBroadcast('SVC_C', 'A.a', (data: string, params: Params) => { });
+                    serviceB.onBroadcast('SVC_C', 'function1', (data: string, params: Params) => { });
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
                     done();

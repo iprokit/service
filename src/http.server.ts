@@ -12,7 +12,7 @@ import { ParsedUrlQuery } from 'querystring';
  * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
  * @emits `close` when the server is fully closed.
  */
-export default class HttpServer extends Server implements Router {
+export default class HttpServer extends Server implements IHttpServer {
     /**
      * The routes registered on the server.
      */
@@ -116,6 +116,17 @@ export default class HttpServer extends Server implements Router {
     }
 
     //////////////////////////////
+    //////Interface: HttpServer
+    //////////////////////////////
+    public Route() {
+        const router = { routes: new Array<Route>() } as Router;
+
+        //Apply `Router` properties 👻.
+        this.applyRouterProperties(router);
+        return router;
+    }
+
+    //////////////////////////////
     //////Interface: Router
     //////////////////////////////
     public get: (path: string, ...handlers: Array<RequestHandler>) => this;
@@ -171,54 +182,20 @@ export default class HttpServer extends Server implements Router {
         instance.all = endpoint('ALL');
         instance.mount = stack();
     }
+}
 
-    //////////////////////////////
-    //////Route
-    //////////////////////////////
+//////////////////////////////
+/////IHttpServer
+//////////////////////////////
+/**
+ * Interface of `HttpServer`.
+ */
+export interface IHttpServer extends Router {
     /**
      * Returns a `Router` to group routes that share related functionality.
      */
-    public Route() {
-        const router = { routes: new Array<Route>() } as Router;
-
-        //Apply `Router` properties 👻.
-        this.applyRouterProperties(router);
-        return router;
-    }
+    Route: () => Router;
 }
-
-//////////////////////////////
-/////Request/Response
-//////////////////////////////
-/**
- * Represents an incoming HTTP request.
- */
-export interface Request extends IncomingMessage {
-    /**
-     * The path portion of the URL.
-     */
-    path: string;
-
-    /**
-     * The parameters extracted from the URL.
-     */
-    params: Record<string, string>;
-
-    /**
-     * The query parameters.
-     */
-    query: ParsedUrlQuery;
-
-    /**
-     * The matched endpoint.
-     */
-    endpoint: Endpoint;
-}
-
-/**
- * Represents an outgoing HTTP response.
- */
-export interface Response extends ServerResponse { }
 
 //////////////////////////////
 /////Router
@@ -361,3 +338,36 @@ export type RequestHandler = (request: Request, response: Response, next: NextFu
  * The next function.
  */
 export type NextFunction = () => void;
+
+//////////////////////////////
+/////Request/Response
+//////////////////////////////
+/**
+ * Represents an incoming HTTP request.
+ */
+export interface Request extends IncomingMessage {
+    /**
+     * The path portion of the URL.
+     */
+    path: string;
+
+    /**
+     * The parameters extracted from the URL.
+     */
+    params: Record<string, string>;
+
+    /**
+     * The query parameters.
+     */
+    query: ParsedUrlQuery;
+
+    /**
+     * The matched endpoint.
+     */
+    endpoint: Endpoint;
+}
+
+/**
+ * Represents an outgoing HTTP response.
+ */
+export interface Response extends ServerResponse { }

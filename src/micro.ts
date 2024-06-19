@@ -68,21 +68,21 @@ export { HTTP }
 //////////////////////////////
 const receivers = new Map<string, Receiver>();
 
-function SCP(className?: string) {
+function SCP(operation?: string) {
     return (target: any) => {
         const receiver = receivers.get(target.name);
-        service.attach(className || target.name, receiver);
+        service.attach(operation || target.name, receiver);
     }
 }
 
 namespace SCP {
     function remoteFunctionDecorator(mode: 'reply') {
-        return (functionName?: string) => {
+        return (operation?: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
                 const name = target.name ?? target.constructor.name;
-                const receiver = receivers.get(name) || service.RemoteClass();
+                const receiver = receivers.get(name) || service.Remote();
                 receivers.set(name, receiver);
-                receiver[mode](functionName || key, descriptor.value);
+                receiver[mode](operation || key, descriptor.value);
                 return descriptor;
             }
         }
