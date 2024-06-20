@@ -1,3 +1,6 @@
+//Import @iprotechs Libs.
+import { Incoming } from '@iprotechs/scp';
+
 //Import Local.
 import Service from './service';
 import { Router } from './http.server';
@@ -9,7 +12,7 @@ import { Receiver } from './scp.server';
 /**
  * The singleton instance of `Service`.
  */
-export let service: Service;
+let service: Service;
 
 //////////////////////////////
 //////Micro:Service
@@ -76,6 +79,10 @@ function SCP(operation?: string) {
 }
 
 namespace SCP {
+    export function broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
+        service.broadcast(operation, data, params);
+    }
+
     function remoteFunctionDecorator(mode: 'reply') {
         return (operation?: string) => {
             return (target: any, key: string, descriptor: PropertyDescriptor) => {
@@ -90,11 +97,16 @@ namespace SCP {
 
     export const Reply = remoteFunctionDecorator('reply');
 
+    //Client
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
             service.onBroadcast(identifier, operation, descriptor.value);
             return descriptor;
         }
+    }
+
+    export function message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
+        return service.message(identifier, operation, callback);
     }
 }
 

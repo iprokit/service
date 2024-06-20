@@ -18,4 +18,4 @@ export { default as Utilities, ProxyOptions, ReplyFunction } from './utilities';
 export { default as Service, Link } from './service';
 
 //Export Micro.
-export { default, service, HTTP, SCP } from './micro';
+export { default, HTTP, SCP } from './micro';
