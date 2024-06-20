@@ -3,8 +3,8 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { RequestHandler, HttpStatusCode, Params, Args, IncomingHandler, Service } from '../lib';
-import { createString, createIdentifier, clientRequest, serviceMessage } from './util';
+import { RequestHandler, HttpStatusCode, Args, IncomingHandler, Service } from '../lib';
+import { createString, createIdentifier, clientRequest, serviceOnBroadcast, serviceMessage } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -172,6 +172,29 @@ mocha.describe('Service Test', () => {
             });
         });
 
+        mocha.describe('Broadcast Test', () => {
+            mocha.it('should receive broadcast', async () => {
+                //Server
+                const outgoingData = createString(1000);
+                serviceA.broadcast('function1', outgoingData, [['A', 'a']]);
+
+                //Client
+                const { data: incomingData, params } = await serviceOnBroadcast(serviceB, 'SVC_A', 'function1');
+                assert.deepStrictEqual(incomingData, outgoingData);
+                assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
+                assert.deepStrictEqual(params.get('A'), 'a');
+            });
+
+            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
+                //Client
+                try {
+                    const { data: incomingData, params } = await serviceOnBroadcast(serviceB, 'SVC_C', 'function1');
+                } catch (error) {
+                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+                }
+            });
+        });
+
         mocha.describe('Message/Reply Test', () => {
             mocha.it('should receive reply to message', async () => {
                 //Client
@@ -187,32 +210,6 @@ mocha.describe('Service Test', () => {
                     const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_C', 'echo', message);
                 } catch (error) {
                     assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-                }
-            });
-        });
-
-        mocha.describe('Broadcast Test', () => {
-            mocha.it('should receive broadcast', (done) => {
-                //Server
-                const outgoingData = createString(1000);
-                serviceA.broadcast('function1', outgoingData, [['A', 'a']]);
-
-                //Client
-                serviceB.onBroadcast('SVC_A', 'function1', (data: string, params: Params) => {
-                    assert.deepStrictEqual(data, outgoingData);
-                    assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
-                    assert.deepStrictEqual(params.get('A'), 'a');
-                    done();
-                });
-            });
-
-            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', (done) => {
-                //Client
-                try {
-                    serviceB.onBroadcast('SVC_C', 'function1', (data: string, params: Params) => { });
-                } catch (error) {
-                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-                    done();
                 }
             });
         });

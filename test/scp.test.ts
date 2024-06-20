@@ -5,8 +5,8 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { Params, ScpClient, ScpServer, RemoteClass, RemoteFunction, ScpMode, IncomingHandler } from '../lib';
-import { createString, createIdentifier, clientMessage } from './util';
+import { ScpClient, ScpServer, RemoteClass, RemoteFunction, ScpMode, IncomingHandler } from '../lib';
+import { createString, createIdentifier, clientOnBroadcast, clientMessage } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
@@ -83,6 +83,38 @@ mocha.describe('SCP Test', () => {
                 server.close();
                 await once(server, 'close'); //Calling End
             })();
+        });
+    });
+
+    mocha.describe('Broadcast Test', () => {
+        let server: ScpServer;
+        let client: ScpClient;
+
+        mocha.beforeEach(async () => {
+            server = new ScpServer(createIdentifier());
+            server.listen(port);
+            await once(server, 'listening');
+
+            client = new ScpClient(createIdentifier());
+            client.connect(port, host);
+            await once(client, 'connect');
+        });
+
+        mocha.afterEach(async () => {
+            server.close();
+            await once(server, 'close');
+        });
+
+        mocha.it('should receive broadcast', async () => {
+            //Server
+            const outgoingData = createString(1000);
+            server.broadcast('function1', outgoingData, [['A', 'a']]);
+
+            //Client
+            const { data: incomingData, params } = await clientOnBroadcast(client, 'function1');
+            assert.deepStrictEqual(incomingData, outgoingData);
+            assert.deepStrictEqual(params.get('SID'), server.identifier);
+            assert.deepStrictEqual(params.get('A'), 'a');
         });
     });
 
@@ -323,38 +355,6 @@ mocha.describe('SCP Test', () => {
             } catch (error) {
                 assert.deepStrictEqual(error.message, 'SCP_CLIENT_INVALID_CONNECTION');
             }
-        });
-    });
-
-    mocha.describe('Broadcast Test', () => {
-        let server: ScpServer;
-        let client: ScpClient;
-
-        mocha.beforeEach(async () => {
-            server = new ScpServer(createIdentifier());
-            server.listen(port);
-            await once(server, 'listening');
-
-            client = new ScpClient(createIdentifier());
-            client.connect(port, host);
-            await once(client, 'connect');
-        });
-
-        mocha.afterEach(async () => {
-            server.close();
-            await once(server, 'close');
-        });
-
-        mocha.it('should receive broadcast', async () => {
-            //Server
-            const outgoingData = createString(1000);
-            server.broadcast('function1', outgoingData, [['A', 'a']]);
-
-            //Client
-            const [incomingData, params] = await once(client, 'function1') as [string, Params];
-            assert.deepStrictEqual(incomingData, outgoingData);
-            assert.deepStrictEqual(params.get('SID'), server.identifier);
-            assert.deepStrictEqual(params.get('A'), 'a');
         });
     });
 });

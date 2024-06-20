@@ -11,7 +11,6 @@ import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
  * A `ScpClient` is responsible for managing connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
- * @emits `<broadcast>` when a broadcast is received, where `<broadcast>` is the operation pattern.
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
@@ -184,12 +183,10 @@ export default class ScpClient extends EventEmitter {
     //////////////////////////////
     /**
      * Process the `Incoming` broadcast stream.
-     * 
-     * @emits `<broadcast>` when a broadcast is received, where `<broadcast>` is the operation pattern.
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
-        if (this.listenerCount(incoming.operation) === 0) {
+        if (this._socket.listenerCount(incoming.operation) === 0) {
             Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
             incoming.resume();
             return;
@@ -202,9 +199,20 @@ export default class ScpClient extends EventEmitter {
                 for await (const chunk of incoming) {
                     data += chunk;
                 }
-                this.emit(incoming.operation, data, incoming.params);
+                this._socket.emit(incoming.operation, data, incoming.params);
             } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
+    }
+
+    /**
+     * Registers a listener for broadcast events from the server.
+     * 
+     * @param operation the operation pattern.
+     * @param listener the listener called when a broadcast is received.
+     */
+    public onBroadcast(operation: string, listener: (data: string, params: Params) => void) {
+        this._socket.addListener(operation, listener);
+        return this;
     }
 
     //////////////////////////////

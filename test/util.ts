@@ -2,7 +2,7 @@
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpMethod, Incoming, ScpClient, Service } from '../lib';
+import { HttpMethod, Params, Incoming, ScpClient, Service } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -34,6 +34,14 @@ export function clientRequest(host: string, port: number, method: HttpMethod, pa
     });
 }
 
+export function clientOnBroadcast(client: ScpClient, operation: string) {
+    return new Promise<{ data: string, params: Params }>((resolve, reject) => {
+        client.onBroadcast(operation, (data: string, params: Params) => {
+            resolve({ data, params });
+        });
+    });
+}
+
 export function clientMessage(client: ScpClient, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.message(operation, async (incoming) => {
@@ -48,6 +56,14 @@ export function clientMessage(client: ScpClient, operation: string, data: string
             }
         });
         outgoing.end(data);
+    });
+}
+
+export function serviceOnBroadcast(service: Service, identifier: string, operation: string) {
+    return new Promise<{ data: string, params: Params }>((resolve, reject) => {
+        service.onBroadcast(identifier, operation, (data: string, params: Params) => {
+            resolve({ data, params });
+        });
     });
 }
 

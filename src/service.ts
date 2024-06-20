@@ -172,7 +172,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Interface: IHttpServer
+    //////Interface: HttpServer
     //////////////////////////////
     /**
      * Returns a `Router` to group HTTP routes that share related functionality.
@@ -277,7 +277,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Interface: IScpServer
+    //////Interface: ScpServer
     //////////////////////////////
     /**
      * Broadcasts the supplied to all remote services.
@@ -324,7 +324,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////SCP: Client
     //////////////////////////////
     /**
-     * Registers a listener for broadcast events for the linked remote service.
+     * Registers a listener for broadcast events from the linked remote service.
      * 
      * @param identifier the unique identifier of the linked remote service.
      * @param operation the operation pattern.
@@ -335,7 +335,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
 
         //Broadcast(📢)
-        link.scpClient.on(operation, listener);
+        link.scpClient.onBroadcast(operation, listener);
         return this;
     }
 
