@@ -109,7 +109,7 @@ export default class ScpServer extends Server implements IScpServer {
             }
         } else {
             const remoteFunction = remote as RemoteFunction;
-            const modeMatches = incoming.mode === remoteFunction.mode || 'ALL' === remoteFunction.mode;
+            const modeMatches = incoming.mode === remoteFunction.mode || 'OMNI' === remoteFunction.mode;
             const classMatches = (className && classMatched) || (!className && !classMatched);
             const operationMatches = functionName.match(remoteFunction.regExp);
 
@@ -313,7 +313,7 @@ export interface RemoteFunction {
 /**
  * The SCP mode.
  */
-export type ScpMode = 'REPLY' | 'ALL';
+export type ScpMode = 'REPLY' | 'OMNI';
 
 /**
  * The incoming handler.
