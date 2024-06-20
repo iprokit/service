@@ -324,21 +324,6 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////SCP: Client
     //////////////////////////////
     /**
-     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the linked remote service.
-     * 
-     * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation pattern.
-     * @param callback called when the reply is available on the `Incoming` stream.
-     */
-    public message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
-        const link = this.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Message(📩)
-        return link.scpClient.message(operation, callback);
-    }
-
-    /**
      * Registers a listener for broadcast events for the linked remote service.
      * 
      * @param identifier the unique identifier of the linked remote service.
@@ -352,6 +337,21 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         //Broadcast(📢)
         link.scpClient.on(operation, listener);
         return this;
+    }
+
+    /**
+     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the linked remote service.
+     * 
+     * @param identifier the unique identifier of the linked remote service.
+     * @param operation the operation pattern.
+     * @param callback called when the reply is available on the `Incoming` stream.
+     */
+    public message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Message(📩)
+        return link.scpClient.message(operation, callback);
     }
 
     //////////////////////////////

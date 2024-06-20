@@ -11,6 +11,7 @@ import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
  * A `ScpClient` is responsible for managing connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
+ * @emits `<broadcast>` when a broadcast is received, where `<broadcast>` is the operation pattern.
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
@@ -183,6 +184,8 @@ export default class ScpClient extends EventEmitter {
     //////////////////////////////
     /**
      * Process the `Incoming` broadcast stream.
+     * 
+     * @emits `<broadcast>` when a broadcast is received, where `<broadcast>` is the operation pattern.
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
