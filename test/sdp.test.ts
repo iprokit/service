@@ -12,11 +12,10 @@ const address = '224.0.0.2';
 
 mocha.describe('SDP Test', () => {
     mocha.describe('Constructor Test', () => {
-        mocha.it('should construct server', (done) => {
+        mocha.it('should construct server', () => {
             const identifier = createIdentifier();
             const server = new SdpServer(identifier);
             assert.deepStrictEqual(server.identifier, identifier);
-            done();
         });
     });
 

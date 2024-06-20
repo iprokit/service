@@ -4,7 +4,7 @@ import Stream from 'stream';
 import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
-import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
+import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
 /**
  * This class implements a simple SCP Client.
@@ -179,6 +179,32 @@ export default class ScpClient extends EventEmitter {
     }
 
     //////////////////////////////
+    //////Broadcast
+    //////////////////////////////
+    /**
+     * Process the `Incoming` broadcast stream.
+     */
+    private broadcast(incoming: Incoming) {
+        //No listener was added to the broadcast, Drain the stream. Move on to the next one.
+        if (this.listenerCount(incoming.operation) === 0) {
+            Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
+            incoming.resume();
+            return;
+        }
+
+        //Read: Incoming stream.
+        (async () => {
+            try {
+                let data = '';
+                for await (const chunk of incoming) {
+                    data += chunk;
+                }
+                this.emit(incoming.operation, data, incoming.params);
+            } catch (error) { /* LIFE HAPPENS!!! */ }
+        })();
+    }
+
+    //////////////////////////////
     //////Message
     //////////////////////////////
     /**
@@ -206,32 +232,6 @@ export default class ScpClient extends EventEmitter {
         socket.outgoing.setRFI(new RFI('REPLY', operation));
         socket.outgoing.set('CID', this.identifier);
         return socket.outgoing;
-    }
-
-    //////////////////////////////
-    //////Broadcast
-    //////////////////////////////
-    /**
-     * Process the `Incoming` broadcast stream.
-     */
-    private broadcast(incoming: Incoming) {
-        //No listener was added to the broadcast, Drain the stream. Move on to the next one.
-        if (this.listenerCount(incoming.operation) === 0) {
-            Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
-            incoming.resume();
-            return;
-        }
-
-        //Read: Incoming stream.
-        (async () => {
-            try {
-                let data = '';
-                for await (const chunk of incoming) {
-                    data += chunk;
-                }
-                this.emit(incoming.operation, data, incoming.params);
-            } catch (error) { /* LIFE HAPPENS!!! */ }
-        })();
     }
 
     //////////////////////////////

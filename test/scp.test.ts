@@ -13,18 +13,16 @@ const port = 6000;
 
 mocha.describe('SCP Test', () => {
     mocha.describe('Constructor Test', () => {
-        mocha.it('should construct server', (done) => {
+        mocha.it('should construct server', () => {
             const identifier = createIdentifier();
             const server = new ScpServer(identifier);
             assert.deepStrictEqual(server.identifier, identifier);
-            done();
         });
 
-        mocha.it('should construct client', (done) => {
+        mocha.it('should construct client', () => {
             const identifier = createIdentifier();
             const client = new ScpClient(identifier);
             assert.deepStrictEqual(client.identifier, identifier);
-            done();
         });
     });
 
@@ -99,12 +97,11 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(remoteFunction.handler, handler);
         }
 
-        mocha.beforeEach((done) => {
+        mocha.beforeEach(() => {
             server = new ScpServer(createIdentifier());
-            done();
         });
 
-        mocha.it('should register REPLY remote', (done) => {
+        mocha.it('should register REPLY remote', () => {
             server.reply('', handler);
             server.reply('function', handler);
             server.reply('*', handler);
@@ -112,7 +109,6 @@ mocha.describe('SCP Test', () => {
             validateRemoteFunction(server.remotes[1] as RemoteFunction, 'REPLY', 'function', handler);
             validateRemoteFunction(server.remotes[2] as RemoteFunction, 'REPLY', '*', handler);
             assert.deepStrictEqual(server.remotes.length, 3);
-            done();
         });
     });
 
@@ -121,12 +117,11 @@ mocha.describe('SCP Test', () => {
 
         const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
 
-        mocha.beforeEach((done) => {
+        mocha.beforeEach(() => {
             server = new ScpServer(createIdentifier());
-            done();
         });
 
-        mocha.it('should attach remote', (done) => {
+        mocha.it('should attach remote', () => {
             const receiver1 = server.Remote();
             const receiver2 = server.Remote();
             receiver2.reply('', handler);
@@ -149,7 +144,6 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual((server.remotes[2] as RemoteClass).functions, receiver3.remotes);
             assert.deepStrictEqual((server.remotes[2] as RemoteClass).functions.length, 0);
             assert.deepStrictEqual(server.remotes.length, 3);
-            done();
         });
     });
 
@@ -321,7 +315,7 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(data2, 'END');
         });
 
-        mocha.it('should throw SCP_CLIENT_INVALID_CONNECTION', async () => {
+        mocha.it('should throw SCP_CLIENT_INVALID_CONNECTION', () => {
             //Client
             const scpClient = new ScpClient(createIdentifier());
             try {

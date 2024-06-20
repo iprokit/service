@@ -13,14 +13,13 @@ const sdpAddress = '224.0.0.2';
 
 mocha.describe('Service Test', () => {
     mocha.describe('Constructor Test', () => {
-        mocha.it('should construct service', (done) => {
+        mocha.it('should construct service', () => {
             const identifier = createIdentifier();
             const service = new Service(identifier);
             assert.deepStrictEqual(service.identifier, identifier);
             assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
             assert.deepStrictEqual(service.remotes.length, 0);
-            done();
         });
     });
 

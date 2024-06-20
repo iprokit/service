@@ -13,9 +13,8 @@ const port = 3000;
 mocha.describe('HTTP Test', () => {
     let server: HttpServer;
 
-    mocha.beforeEach((done) => {
+    mocha.beforeEach(() => {
         server = new HttpServer();
-        done();
     });
 
     mocha.describe('Register Test', () => {
@@ -28,7 +27,7 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(endpoint.handlers, handlers);
         }
 
-        mocha.it('should register GET route', (done) => {
+        mocha.it('should register GET route', () => {
             server.get('');
             server.get('/', handlers[0]);
             server.get('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -36,10 +35,9 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'GET', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'GET', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
 
-        mocha.it('should register POST route', (done) => {
+        mocha.it('should register POST route', () => {
             server.post('');
             server.post('/', handlers[0]);
             server.post('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -47,10 +45,9 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'POST', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'POST', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
 
-        mocha.it('should register PUT route', (done) => {
+        mocha.it('should register PUT route', () => {
             server.put('');
             server.put('/', handlers[0]);
             server.put('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -58,10 +55,9 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'PUT', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'PUT', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
 
-        mocha.it('should register PATCH route', (done) => {
+        mocha.it('should register PATCH route', () => {
             server.patch('');
             server.patch('/', handlers[0]);
             server.patch('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -69,10 +65,9 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'PATCH', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'PATCH', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
 
-        mocha.it('should register DELETE route', (done) => {
+        mocha.it('should register DELETE route', () => {
             server.delete('');
             server.delete('/', handlers[0]);
             server.delete('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -80,10 +75,9 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'DELETE', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'DELETE', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
 
-        mocha.it('should register ALL route', (done) => {
+        mocha.it('should register ALL route', () => {
             server.all('');
             server.all('/', handlers[0]);
             server.all('/*/:a1/b/:b1/c/:c1/*/:d1', ...handlers);
@@ -91,7 +85,6 @@ mocha.describe('HTTP Test', () => {
             validateEndpoint(server.routes[1] as Endpoint, 'ALL', '/', [], [handlers[0]]);
             validateEndpoint(server.routes[2] as Endpoint, 'ALL', '/*/:a1/b/:b1/c/:c1/*/:d1', ['a1', 'b1', 'c1', 'd1'], handlers);
             assert.deepStrictEqual(server.routes.length, 3);
-            done();
         });
     });
 
@@ -106,16 +99,15 @@ mocha.describe('HTTP Test', () => {
             router.all('/*', ...handlers);
         }
 
-        mocha.it('should mount no router on empty path', (done) => {
+        mocha.it('should mount no router on empty path', () => {
             server.mount('');
             assert.deepStrictEqual((server.routes[0] as Stack).path, '');
             assert.notDeepStrictEqual((server.routes[0] as Stack).regExp, undefined);
             assert.deepStrictEqual((server.routes[0] as Stack).routes, []);
             assert.deepStrictEqual(server.routes.length, 1);
-            done();
         });
 
-        mocha.it('should mount single router on root path', (done) => {
+        mocha.it('should mount single router on root path', () => {
             const router1 = server.Route();
             server.mount('/', router1);
             assert.deepStrictEqual((server.routes[0] as Stack).path, '/');
@@ -123,10 +115,9 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual((server.routes[0] as Stack).routes[0], router1.routes);
             assert.deepStrictEqual((server.routes[0] as Stack).routes[0].length, 0);
             assert.deepStrictEqual(server.routes.length, 1);
-            done();
         });
 
-        mocha.it('should mount single router on single path', (done) => {
+        mocha.it('should mount single router on single path', () => {
             const router1 = server.Route();
             registerEndpoints(router1);
             const router2 = server.Route();
@@ -141,10 +132,9 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual((server.routes[1] as Stack).routes[0], router2.routes);
             assert.deepStrictEqual((server.routes[1] as Stack).routes[0].length, 0);
             assert.deepStrictEqual(server.routes.length, 2);
-            done();
         });
 
-        mocha.it('should mount multiple routers on single path', (done) => {
+        mocha.it('should mount multiple routers on single path', () => {
             const router1 = server.Route();
             registerEndpoints(router1);
             const router2 = server.Route();
@@ -157,10 +147,9 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual((server.routes[0] as Stack).routes[1].length, 0);
             assert.deepStrictEqual((server.routes[0] as Stack).routes.length, 2);
             assert.deepStrictEqual(server.routes.length, 1);
-            done();
         });
 
-        mocha.it('should mount nested routers on single path', (done) => {
+        mocha.it('should mount nested routers on single path', () => {
             const router1 = server.Route();
             registerEndpoints(router1);
             const router2 = server.Route();
@@ -175,7 +164,6 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(((server.routes[0] as Stack).routes[0][6] as Stack).routes[0], router2.routes);
             assert.deepStrictEqual(((server.routes[0] as Stack).routes[0][6] as Stack).routes[0].length, 0);
             assert.deepStrictEqual(server.routes.length, 1);
-            done();
         });
     });
 
