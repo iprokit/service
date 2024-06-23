@@ -59,7 +59,7 @@ export default class ScpServer extends Server implements IScpServer {
     //////////////////////////////
     /**
      * - Subscribe is handled by `subscribe` function.
-     * - [Mode?] is handled by `transport` function.
+     * - Reply is handled by `dispatch` function.
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
         //Set: Outgoing.
@@ -68,11 +68,11 @@ export default class ScpServer extends Server implements IScpServer {
         //Handle Subscribe.
         if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
             this.subscribe(incoming, outgoing);
-            return;
         }
-
-        //Below line will blow your mind! 🤯
-        this.dispatch(0, false, this.remotes, incoming, outgoing, () => { });
+        if (incoming.mode === 'REPLY') {
+            //Below line will blow your mind! 🤯
+            this.dispatch(0, false, this.remotes, incoming, outgoing, () => { });
+        }
     }
 
     //////////////////////////////
@@ -109,11 +109,10 @@ export default class ScpServer extends Server implements IScpServer {
             }
         } else {
             const remoteFunction = remote as RemoteFunction;
-            const modeMatches = incoming.mode === remoteFunction.mode || 'OMNI' === remoteFunction.mode;
             const classMatches = (className && classMatched) || (!className && !classMatched);
             const operationMatches = functionName.match(remoteFunction.regExp);
 
-            if (modeMatches && classMatches && operationMatches) {
+            if (classMatches && operationMatches) {
                 //Remote function found, execute the handler. 🎉
                 const proceedFunction = () => this.dispatch(remoteIndex + 1, classMatched, remotes, incoming, outgoing, unwind);
                 remoteFunction.handler(incoming, outgoing, proceedFunction);
@@ -192,17 +191,12 @@ export default class ScpServer extends Server implements IScpServer {
      * @param instance the instance to which the `Receiver` properties are applied.
      */
     private applyReceiverProperties<I extends Receiver>(instance: I) {
-        //Factory for registering a `RemoteFunction`.
-        const remoteFunction = (mode: ScpMode) => {
-            return (operation: string, handler: IncomingHandler) => {
-                const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-                instance.remotes.push({ mode, operation, regExp, handler } as RemoteFunction);
-                return instance;
-            }
-        }
-
         //`Receiver` properties 😈.
-        instance.reply = remoteFunction('REPLY');
+        instance.reply = (operation: string, handler: IncomingHandler) => {
+            const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+            instance.remotes.push({ operation, regExp, handler } as RemoteFunction);
+            return instance;
+        }
     }
 }
 
@@ -290,11 +284,6 @@ export interface RemoteClass {
  */
 export interface RemoteFunction {
     /**
-     * The SCP mode of the remote function.
-     */
-    mode: ScpMode;
-
-    /**
      * The operation pattern of the remote function.
      */
     operation: string;
@@ -309,11 +298,6 @@ export interface RemoteFunction {
      */
     handler: IncomingHandler;
 }
-
-/**
- * The SCP mode.
- */
-export type ScpMode = 'REPLY' | 'OMNI';
 
 /**
  * The incoming handler.

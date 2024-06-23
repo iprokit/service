@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { ScpClient, ScpServer, RemoteClass, RemoteFunction, ScpMode, IncomingHandler } from '../lib';
+import { ScpClient, ScpServer, RemoteClass, RemoteFunction, IncomingHandler } from '../lib';
 import { createString, createIdentifier, clientOnBroadcast, clientMessage } from './util';
 
 const host = '127.0.0.1';
@@ -122,8 +122,7 @@ mocha.describe('SCP Test', () => {
         let server: ScpServer;
 
         const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
-        const validateRemoteFunction = (remoteFunction: RemoteFunction, mode: ScpMode, operation: string, handler: IncomingHandler) => {
-            assert.deepStrictEqual(remoteFunction.mode, mode);
+        const validateRemoteFunction = (remoteFunction: RemoteFunction, operation: string, handler: IncomingHandler) => {
             assert.deepStrictEqual(remoteFunction.operation, operation);
             assert.notDeepStrictEqual(remoteFunction.regExp, undefined);
             assert.deepStrictEqual(remoteFunction.handler, handler);
@@ -137,9 +136,9 @@ mocha.describe('SCP Test', () => {
             server.reply('', handler);
             server.reply('function', handler);
             server.reply('*', handler);
-            validateRemoteFunction(server.remotes[0] as RemoteFunction, 'REPLY', '', handler);
-            validateRemoteFunction(server.remotes[1] as RemoteFunction, 'REPLY', 'function', handler);
-            validateRemoteFunction(server.remotes[2] as RemoteFunction, 'REPLY', '*', handler);
+            validateRemoteFunction(server.remotes[0] as RemoteFunction, '', handler);
+            validateRemoteFunction(server.remotes[1] as RemoteFunction, 'function', handler);
+            validateRemoteFunction(server.remotes[2] as RemoteFunction, '*', handler);
             assert.deepStrictEqual(server.remotes.length, 3);
         });
     });
