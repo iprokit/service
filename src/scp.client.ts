@@ -205,10 +205,10 @@ export default class ScpClient extends EventEmitter {
     }
 
     /**
-     * Registers a listener for broadcast events from the server.
+     * Registers a listener for broadcast from the server.
      * 
      * @param operation the operation pattern.
-     * @param listener the listener called when a broadcast is received.
+     * @param listener the listener called when broadcast data is received.
      */
     public onBroadcast(operation: string, listener: (data: string, params: Params) => void) {
         this._socket.addListener(operation, listener);
@@ -216,15 +216,15 @@ export default class ScpClient extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Message
+    //////Omni
     //////////////////////////////
     /**
-     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the server.
+     * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
      * 
      * @param operation the operation pattern.
-     * @param callback called when the reply is available on the `Incoming` stream.
+     * @param callback called when data is available on the `Incoming` stream.
      */
-    public message(operation: string, callback?: (incoming: Incoming) => void) {
+    public omni(operation: string, callback: (incoming: Incoming) => void) {
         //Ohooomyyy 🤦.
         if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
 
@@ -240,7 +240,7 @@ export default class ScpClient extends EventEmitter {
 
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
-        socket.outgoing.setRFI(new RFI('REPLY', operation));
+        socket.outgoing.setRFI(new RFI('OMNI', operation));
         socket.outgoing.set('CID', this.identifier);
         return socket.outgoing;
     }

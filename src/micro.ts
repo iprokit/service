@@ -4,7 +4,7 @@ import { Incoming } from '@iprotechs/scp';
 //Import Local.
 import Service from './service';
 import { Router } from './http.server';
-import { Receiver } from './scp.server';
+import { Coordinator } from './scp.server';
 
 //////////////////////////////
 //////Global Variables
@@ -69,12 +69,12 @@ export { HTTP }
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
-const receivers = new Map<string, Receiver>();
+const coordinators = new Map<string, Coordinator>();
 
 function SCP(operation?: string) {
     return (target: any) => {
-        const receiver = receivers.get(target.name);
-        service.attach(operation || target.name, receiver);
+        const coordinator = coordinators.get(target.name);
+        service.attach(operation || target.name, coordinator);
     }
 }
 
@@ -83,30 +83,26 @@ namespace SCP {
         service.broadcast(operation, data, params);
     }
 
-    function remoteFunctionDecorator(mode: 'reply') {
-        return (operation?: string) => {
-            return (target: any, key: string, descriptor: PropertyDescriptor) => {
-                const name = target.name ?? target.constructor.name;
-                const receiver = receivers.get(name) || service.Remote();
-                receivers.set(name, receiver);
-                receiver[mode](operation || key, descriptor.value);
-                return descriptor;
-            }
-        }
-    }
-
-    export const Reply = remoteFunctionDecorator('reply');
-
-    //Client
-    export function OnBroadcast(identifier: string, operation: string) {
+    export function Omni(operation?: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.onBroadcast(identifier, operation, descriptor.value);
+            const name = target.name ?? target.constructor.name;
+            const coordinator = coordinators.get(name) || service.Coordinate();
+            coordinators.set(name, coordinator);
+            coordinator.omni(operation || key, descriptor.value);
             return descriptor;
         }
     }
 
-    export function message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
-        return service.message(identifier, operation, callback);
+    //Client
+    export function OnBroadcast(identifier: string, operation: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            service.links.get(identifier)?.scpClient.onBroadcast(operation, descriptor.value);
+            return descriptor;
+        }
+    }
+
+    export function omni(identifier: string, operation: string, callback: (incoming: Incoming) => void) {
+        return service.links.get(identifier)?.scpClient.omni(operation, callback);
     }
 }
 

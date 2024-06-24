@@ -3,8 +3,8 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { RequestHandler, HttpStatusCode, Args, IncomingHandler, Service } from '../lib';
-import { createString, createIdentifier, clientRequest, serviceOnBroadcast, serviceMessage } from './util';
+import { RequestHandler, HttpStatusCode, Args, IncomingHandler, ScpClient, Service } from '../lib';
+import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -19,7 +19,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.identifier, identifier);
             assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
-            assert.deepStrictEqual(service.remotes.length, 0);
+            assert.deepStrictEqual(service.coordinates.length, 0);
         });
     });
 
@@ -132,7 +132,7 @@ mocha.describe('Service Test', () => {
             serviceB.post('/b1', requestHandler);
             serviceB.post('/b2', requestHandler);
             serviceB.post('/b3', requestHandler);
-            serviceB.reply('echo', incomingHandler);
+            serviceB.omni('nexus', incomingHandler);
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -173,44 +173,27 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.describe('Broadcast Test', () => {
-            mocha.it('should receive broadcast', async () => {
+            mocha.it('should receive data on BROADCAST', async () => {
                 //Server
                 const outgoingData = createString(1000);
-                serviceA.broadcast('function1', outgoingData, [['A', 'a']]);
+                serviceA.broadcast('nexus1', outgoingData, [['A', 'a']]);
 
                 //Client
-                const { data: incomingData, params } = await serviceOnBroadcast(serviceB, 'SVC_A', 'function1');
+                const scpClientA = serviceB.links.get('SVC_A')?.scpClient as ScpClient;
+                const { data: incomingData, params } = await clientOnBroadcast(scpClientA, 'nexus1');
                 assert.deepStrictEqual(incomingData, outgoingData);
                 assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
                 assert.deepStrictEqual(params.get('A'), 'a');
             });
-
-            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
-                //Client
-                try {
-                    const { data: incomingData, params } = await serviceOnBroadcast(serviceB, 'SVC_C', 'function1');
-                } catch (error) {
-                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-                }
-            });
         });
 
-        mocha.describe('Message/Reply Test', () => {
-            mocha.it('should receive reply to message', async () => {
+        mocha.describe('Omni Test', () => {
+            mocha.it('should receive data on OMNI', async () => {
                 //Client
-                const message = createString(1000);
-                const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_B', 'echo', message);
-                assert.deepStrictEqual(reply, message);
-            });
-
-            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
-                //Client
-                try {
-                    const message = createString(1000);
-                    const { incoming, data: reply } = await serviceMessage(serviceA, 'SVC_C', 'echo', message);
-                } catch (error) {
-                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-                }
+                const outgoingData = createString(1000);
+                const scpClientB = serviceA.links.get('SVC_B')?.scpClient as ScpClient;
+                const { incoming, data: incomingData } = await clientOmni(scpClientB, 'nexus', outgoingData);
+                assert.deepStrictEqual(incomingData, outgoingData);
             });
         });
     });

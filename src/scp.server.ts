@@ -26,9 +26,9 @@ export default class ScpServer extends Server implements IScpServer {
     public readonly connections: Array<ScpConnection>;
 
     /**
-     * The remotes registered on the server.
+     * The coordinates registered on the server.
      */
-    public readonly remotes: Array<Remote>;
+    public readonly coordinates: Array<Coordinate>;
 
     /**
      * Creates an instance of SCP server.
@@ -42,7 +42,7 @@ export default class ScpServer extends Server implements IScpServer {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.remotes = new Array();
+        this.coordinates = new Array();
 
         //Bind listeners.
         this.onIncoming = this.onIncoming.bind(this);
@@ -50,8 +50,8 @@ export default class ScpServer extends Server implements IScpServer {
         //Add listeners.
         this.addListener('incoming', this.onIncoming);
 
-        //Apply `Receiver` properties 👻.
-        this.applyReceiverProperties(this);
+        //Apply `Coordinator` properties 👻.
+        this.applyCoordinatorProperties(this);
     }
 
     //////////////////////////////
@@ -59,19 +59,18 @@ export default class ScpServer extends Server implements IScpServer {
     //////////////////////////////
     /**
      * - Subscribe is handled by `subscribe` function.
-     * - Reply is handled by `dispatch` function.
+     * - Omni is handled by `dispatch` function.
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
         //Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
-        //Handle Subscribe.
         if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
             this.subscribe(incoming, outgoing);
         }
-        if (incoming.mode === 'REPLY') {
+        if (incoming.mode === 'OMNI') {
             //Below line will blow your mind! 🤯
-            this.dispatch(0, false, this.remotes, incoming, outgoing, () => { });
+            this.dispatch(0, false, this.coordinates, incoming, outgoing, () => { });
         }
     }
 
@@ -79,49 +78,49 @@ export default class ScpServer extends Server implements IScpServer {
     //////Dispatch
     //////////////////////////////
     /**
-     * Recursively loop through the remotes to find and execute its handler.
+     * Recursively loop through the coordinates to find and execute its handler.
      * 
-     * @param remoteIndex the index of the current remote being processed.
-     * @param classMatched set to true if the class matched, false otherwise.
-     * @param remotes the remotes to be processed.
+     * @param coordinateIndex the index of the current coordinate being processed.
+     * @param gridMatched set to true if the grid matched, false otherwise.
+     * @param coordinates the coordinates to be processed.
      * @param incoming the incoming stream.
      * @param outgoing the outgoing stream.
-     * @param unwind function called once the processed remotes unwind.
+     * @param unwind function called once the processed coordinates unwind.
      */
-    private dispatch(remoteIndex: number, classMatched: boolean, remotes: Array<Remote>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
+    private dispatch(coordinateIndex: number, gridMatched: boolean, coordinates: Array<Coordinate>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
         //Need I say more.
-        if (remoteIndex >= remotes.length) return unwind();
+        if (coordinateIndex >= coordinates.length) return unwind();
 
-        const remote = remotes[remoteIndex];
-        const regExp = new RegExp(/^(?:(?<className>[^.]+)\.)?(?<functionName>[^.]+)$/);
-        const { className, functionName } = regExp.exec(incoming.operation).groups;
+        const coordinate = coordinates[coordinateIndex];
+        const regExp = new RegExp(/^(?:(?<gridName>[^.]+)\.)?(?<nexusName>[^.]+)$/);
+        const { gridName, nexusName } = regExp.exec(incoming.operation).groups;
 
         //Shits about to go down! 😎
-        if ('functions' in remote) {
-            const remoteClass = remote as RemoteClass;
-            const operationMatches = className.match(remoteClass.regExp);
+        if ('coordinates' in coordinate) {
+            const grid = coordinate as Grid;
+            const operationMatches = gridName.match(grid.regExp);
 
             if (operationMatches) {
-                //Remote class found, process the class. 🎢
-                const unwindFunction = () => this.dispatch(remoteIndex + 1, false, this.remotes, incoming, outgoing, unwind);
-                this.dispatch(0, true, remoteClass.functions, incoming, outgoing, unwindFunction);
+                //Grid found, process the grid. 🎢
+                const unwindFunction = () => this.dispatch(coordinateIndex + 1, false, this.coordinates, incoming, outgoing, unwind);
+                this.dispatch(0, true, grid.coordinates, incoming, outgoing, unwindFunction);
                 return;
             }
         } else {
-            const remoteFunction = remote as RemoteFunction;
-            const classMatches = (className && classMatched) || (!className && !classMatched);
-            const operationMatches = functionName.match(remoteFunction.regExp);
+            const nexus = coordinate as Nexus;
+            const gridMatches = (gridName && gridMatched) || (!gridName && !gridMatched);
+            const operationMatches = nexusName.match(nexus.regExp);
 
-            if (classMatches && operationMatches) {
-                //Remote function found, execute the handler. 🎉
-                const proceedFunction = () => this.dispatch(remoteIndex + 1, classMatched, remotes, incoming, outgoing, unwind);
-                remoteFunction.handler(incoming, outgoing, proceedFunction);
+            if (gridMatches && operationMatches) {
+                //Nexus found, execute the handler. 🎉
+                const proceedFunction = () => this.dispatch(coordinateIndex + 1, gridMatched, coordinates, incoming, outgoing, unwind);
+                nexus.handler(incoming, outgoing, proceedFunction);
                 return;
             }
         }
 
-        //Remote not found, lets keep going though the loop.
-        this.dispatch(remoteIndex + 1, classMatched, remotes, incoming, outgoing, unwind);
+        //Coordinate not found, lets keep going though the loop.
+        this.dispatch(coordinateIndex + 1, gridMatched, coordinates, incoming, outgoing, unwind);
     }
 
     //////////////////////////////
@@ -161,40 +160,40 @@ export default class ScpServer extends Server implements IScpServer {
         return this;
     }
 
-    public Remote() {
-        const receiver = { remotes: new Array<Remote>() } as Receiver;
+    public Coordinate() {
+        const coordinator = { coordinates: new Array<Coordinate>() } as Coordinator;
 
-        //Apply `Receiver` properties 👻.
-        this.applyReceiverProperties(receiver);
-        return receiver;
+        //Apply `Coordinator` properties 👻.
+        this.applyCoordinatorProperties(coordinator);
+        return coordinator;
     }
 
-    public attach(operation: string, receiver: Receiver) {
-        const { remotes: functions } = receiver;
+    public attach(operation: string, coordinator: Coordinator) {
+        const { coordinates } = coordinator;
         const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-        this.remotes.push({ operation, regExp, functions } as RemoteClass);
+        this.coordinates.push({ operation, regExp, coordinates } as Grid);
         return this;
     }
 
     //////////////////////////////
-    //////Interface: Receiver
+    //////Interface: Coordinator
     //////////////////////////////
-    public reply: (operation: string, handler: IncomingHandler) => this;
+    public omni: (operation: string, handler: IncomingHandler) => this;
 
     //////////////////////////////
-    //////Factory: Receiver
+    //////Factory: Coordinator
     //////////////////////////////
     /**
-     * Applies properties of the `Receiver` interface to the provided instance,
-     * enabling the registration of remotes.
+     * Applies properties of the `Coordinator` interface to the provided instance,
+     * enabling the registration of coordinates.
      * 
-     * @param instance the instance to which the `Receiver` properties are applied.
+     * @param instance the instance to which the `Coordinator` properties are applied.
      */
-    private applyReceiverProperties<I extends Receiver>(instance: I) {
-        //`Receiver` properties 😈.
-        instance.reply = (operation: string, handler: IncomingHandler) => {
+    private applyCoordinatorProperties<I extends Coordinator>(instance: I) {
+        //`Coordinator` properties 😈.
+        instance.omni = (operation: string, handler: IncomingHandler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-            instance.remotes.push({ operation, regExp, handler } as RemoteFunction);
+            instance.coordinates.push({ operation, regExp, handler } as Nexus);
             return instance;
         }
     }
@@ -206,9 +205,9 @@ export default class ScpServer extends Server implements IScpServer {
 /**
  * Interface of `ScpServer`.
  */
-export interface IScpServer extends Receiver {
+export interface IScpServer extends Coordinator {
     /**
-     * Broadcasts the supplied to all the subscribed client socket connections.
+     * Broadcasts data to all the subscribed client socket connections.
      * 
      * @param operation the operation pattern.
      * @param data the data to broadcast.
@@ -217,84 +216,84 @@ export interface IScpServer extends Receiver {
     broadcast: (operation: string, data: string, params?: Iterable<readonly [string, string]>) => this;
 
     /**
-     * Returns a `Receiver` to group remote functions that share related functionality.
+     * Returns a `Coordinator` to group coordinates that share related functionality.
      */
-    Remote: () => Receiver;
+    Coordinate: () => Coordinator;
 
     /**
-     * Attaches a receiver.
+     * Attaches a coordinator.
      * 
      * @param operation the operation pattern.
-     * @param receiver the receiver to attach.
+     * @param coordinator the coordinator to attach.
      */
-    attach: (operation: string, receiver: Receiver) => this;
+    attach: (operation: string, coordinator: Coordinator) => this;
 }
 
 //////////////////////////////
-//////Receiver
+//////Coordinator
 //////////////////////////////
 /**
- * Interface for handling SCP I/O and registering remotes.
+ * Interface for handling SCP I/O's and registering coordinates.
  */
-export interface Receiver {
+export interface Coordinator {
     /**
-     * The remotes registered.
+     * The coordinates registered.
      */
-    remotes: Array<Remote>;
+    coordinates: Array<Coordinate>;
 
     /**
-     * Registers a remote function for handling REPLY I/O.
+     * Registers a coordinate for handling OMNI I/O.
      * 
      * @param operation the operation pattern.
      * @param handler the incoming handler function.
      */
-    reply: (operation: string, handler: IncomingHandler) => this;
+    omni: (operation: string, handler: IncomingHandler) => this;
 }
 
 //////////////////////////////
-//////Remote
+//////Coordinate
 //////////////////////////////
 /**
- * The union of an `RemoteClass`/`RemoteFunction`.
+ * The union of an `Grid`/`Nexus`.
  */
-export type Remote = RemoteClass | RemoteFunction;
+export type Coordinate = Grid | Nexus;
 
 /**
- * Represents a group of remote functions that share related functionality.
+ * Represents a group of coordinates that share related functionality.
  */
-export interface RemoteClass {
+export interface Grid {
     /**
-     * The operation pattern of the remote class.
+     * The operation pattern of the grid.
      */
     operation: string;
 
     /**
-     * The compiled regular expression to match the operation of the remote class.
+     * The compiled regular expression to match the operation of the grid.
      */
     regExp: RegExp;
 
     /**
-     * The remote functions registered.
+     * The coordinates registered in the grid.
      */
-    functions: Array<RemoteFunction>;
+    coordinates: Array<Nexus>;
 }
 
 /**
- * Represents a remote function.
+ * Represents a nexus.
  */
-export interface RemoteFunction {
+export interface Nexus {
     /**
-     * The operation pattern of the remote function.
+     * The operation pattern of the nexus.
      */
     operation: string;
 
     /**
-     * The compiled regular expression to match the operation of the remote function.
+     * The compiled regular expression to match the operation of the nexus.
      */
     regExp: RegExp;
 
     /**
-     * The incoming handler of the remote function.
+     * The incoming handler function of the nexus.
      */
     handler: IncomingHandler;
 }

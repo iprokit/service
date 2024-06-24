@@ -2,7 +2,7 @@
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpMethod, Params, Incoming, ScpClient, Service } from '../lib';
+import { HttpMethod, Params, Incoming, ScpClient } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -42,34 +42,9 @@ export function clientOnBroadcast(client: ScpClient, operation: string) {
     });
 }
 
-export function clientMessage(client: ScpClient, operation: string, data: string) {
+export function clientOmni(client: ScpClient, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
-        const outgoing = client.message(operation, async (incoming) => {
-            try {
-                let data = '';
-                for await (const chunk of incoming) {
-                    data += chunk;
-                }
-                resolve({ incoming, data });
-            } catch (error) {
-                reject(error);
-            }
-        });
-        outgoing.end(data);
-    });
-}
-
-export function serviceOnBroadcast(service: Service, identifier: string, operation: string) {
-    return new Promise<{ data: string, params: Params }>((resolve, reject) => {
-        service.onBroadcast(identifier, operation, (data: string, params: Params) => {
-            resolve({ data, params });
-        });
-    });
-}
-
-export function serviceMessage(service: Service, identifier: string, operation: string, data: string) {
-    return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
-        const outgoing = service.message(identifier, operation, async (incoming) => {
+        const outgoing = client.omni(operation, async (incoming) => {
             try {
                 let data = '';
                 for await (const chunk of incoming) {

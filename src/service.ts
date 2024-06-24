@@ -3,12 +3,11 @@ import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
-import { Params, Incoming } from '@iprotechs/scp';
 import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { IHttpServer, Router, RequestHandler } from './http.server';
-import ScpServer, { IScpServer, Receiver, IncomingHandler } from './scp.server';
+import ScpServer, { IScpServer, Coordinator, IncomingHandler } from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions } from './utilities';
@@ -84,10 +83,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * The SCP remotes registered.
+     * The SCP coordinates registered.
      */
-    public get remotes() {
-        return this.scpServer.remotes;
+    public get coordinates() {
+        return this.scpServer.coordinates;
     }
 
     /**
@@ -259,6 +258,50 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
+    //////Interface: ScpServer
+    //////////////////////////////
+    /**
+     * Broadcasts data to all the remote services.
+     * 
+     * @param operation the operation pattern.
+     * @param data the data to broadcast.
+     * @param params the optional input/output parameters of the broadcast.
+     */
+    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
+        this.scpServer.broadcast(operation, data, params);
+        return this;
+    }
+
+    /**
+     * Returns a `Coordinator` to group SCP coordinates that share related functionality.
+     */
+    public Coordinate() {
+        return this.scpServer.Coordinate();
+    }
+
+    /**
+     * Attaches a SCP coordinator.
+     * 
+     * @param operation the operation pattern.
+     * @param coordinator the coordinator to attach.
+     */
+    public attach(name: string, coordinator: Coordinator) {
+        this.scpServer.attach(name, coordinator);
+        return this;
+    }
+
+    /**
+     * Registers a SCP coordinate for handling OMNI I/O.
+     * 
+     * @param operation the operation pattern.
+     * @param handler the incoming handler function.
+     */
+    public omni(operation: string, handler: IncomingHandler) {
+        this.scpServer.omni(operation, handler);
+        return this;
+    }
+
+    //////////////////////////////
     //////HTTP: Proxy
     //////////////////////////////
     /**
@@ -274,84 +317,6 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         //Proxy(📬)
         this.httpServer.all(path, Utilities.proxy(link.proxyOptions));
         return this;
-    }
-
-    //////////////////////////////
-    //////Interface: ScpServer
-    //////////////////////////////
-    /**
-     * Broadcasts the supplied to all remote services.
-     * 
-     * @param operation the operation pattern.
-     * @param data the data to broadcast.
-     * @param params the optional input/output parameters of the broadcast.
-     */
-    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
-        this.scpServer.broadcast(operation, data, params);
-        return this;
-    }
-
-    /**
-     * Returns a `Receiver` to group remote functions that share related functionality.
-     */
-    public Remote() {
-        return this.scpServer.Remote();
-    }
-
-    /**
-     * Attaches a receiver.
-     * 
-     * @param operation the operation pattern.
-     * @param receiver the receiver to attach.
-     */
-    public attach(name: string, receiver: Receiver) {
-        this.scpServer.attach(name, receiver);
-        return this;
-    }
-
-    /**
-     * Registers a remote function for handling REPLY I/O.
-     * 
-     * @param operation the operation pattern.
-     * @param handler the incoming handler function.
-     */
-    public reply(operation: string, handler: IncomingHandler) {
-        this.scpServer.reply(operation, handler);
-        return this;
-    }
-
-    //////////////////////////////
-    //////SCP: Client
-    //////////////////////////////
-    /**
-     * Registers a listener for broadcast events from the linked remote service.
-     * 
-     * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation pattern.
-     * @param listener the listener called when a broadcast is received.
-     */
-    public onBroadcast(identifier: string, operation: string, listener: (data: string, params: Params) => void) {
-        const link = this.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Broadcast(📢)
-        link.scpClient.onBroadcast(operation, listener);
-        return this;
-    }
-
-    /**
-     * Creates an `Outgoing` stream to send a message and an `Incoming` stream to receive a reply from the linked remote service.
-     * 
-     * @param identifier the unique identifier of the linked remote service.
-     * @param operation the operation pattern.
-     * @param callback called when the reply is available on the `Incoming` stream.
-     */
-    public message(identifier: string, operation: string, callback?: (incoming: Incoming) => void) {
-        const link = this.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Message(📩)
-        return link.scpClient.message(operation, callback);
     }
 
     //////////////////////////////
