@@ -34,7 +34,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "3.8.5",
+    "@iprotechs/scp": "3.8.6",
     "@iprotechs/sdp": "2.4.1"
   },
   "devDependencies": {
