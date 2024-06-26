@@ -97,24 +97,24 @@ export default class ScpServer extends Server implements IScpServer {
 
         //Shits about to go down! 😎
         if ('coordinates' in coordinate) {
-            const grid = coordinate as Grid;
-            const operationMatches = gridName.match(grid.regExp);
+            //Treat as `Grid`.
+            const operationMatches = gridName.match(coordinate.regExp);
 
             if (operationMatches) {
                 //Grid found, process the grid. 🎢
                 const unwindFunction = () => this.dispatch(coordinateIndex + 1, false, this.coordinates, incoming, outgoing, unwind);
-                this.dispatch(0, true, grid.coordinates, incoming, outgoing, unwindFunction);
+                this.dispatch(0, true, coordinate.coordinates, incoming, outgoing, unwindFunction);
                 return;
             }
         } else {
-            const nexus = coordinate as Nexus;
+            //Treat as `Nexus`.
             const gridMatches = (gridName && gridMatched) || (!gridName && !gridMatched);
-            const operationMatches = nexusName.match(nexus.regExp);
+            const operationMatches = nexusName.match(coordinate.regExp);
 
             if (gridMatches && operationMatches) {
                 //Nexus found, execute the handler. 🎉
                 const proceedFunction = () => this.dispatch(coordinateIndex + 1, gridMatched, coordinates, incoming, outgoing, unwind);
-                nexus.handler(incoming, outgoing, proceedFunction);
+                coordinate.handler(incoming, outgoing, proceedFunction);
                 return;
             }
         }

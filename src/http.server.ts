@@ -75,14 +75,14 @@ export default class HttpServer extends Server implements IHttpServer {
 
         //Shits about to go down! 😎
         if ('routes' in route) {
-            const stack = route as Stack;
-            const pathMatches = request.path.match(stack.regExp);
-            const stackMatchs = stackIndex < stack.routes.length;
+            //Treat as `Stack`.
+            const pathMatches = request.path.match(route.regExp);
+            const stackMatchs = stackIndex < route.routes.length;
 
             if (pathMatches && stackMatchs) {
                 //Stack found, Save path and process the nested stacks.
                 const unwindPath = request.path;
-                const nestedPath = request.path.substring(stack.path.length);
+                const nestedPath = request.path.substring(route.path.length);
                 request.path = nestedPath.startsWith('/') ? nestedPath : `/${nestedPath}`;
 
                 //🎢
@@ -90,23 +90,23 @@ export default class HttpServer extends Server implements IHttpServer {
                     request.path = unwindPath;
                     this.dispatch(routeIndex, stackIndex + 1, 0, routes, request, response, unwind);
                 }
-                this.dispatch(0, 0, 0, stack.routes[stackIndex], request, response, unwindFunction);
+                this.dispatch(0, 0, 0, route.routes[stackIndex], request, response, unwindFunction);
                 return;
             }
         } else {
-            const endpoint = route as Endpoint;
-            const methodMatches = request.method === endpoint.method || 'ALL' === endpoint.method;
-            const pathMatches = request.path.match(endpoint.regExp);
-            const handlerMatches = handlerIndex < endpoint.handlers.length;
+            //Treat as `Endpoint`.
+            const methodMatches = request.method === route.method || 'ALL' === route.method;
+            const pathMatches = request.path.match(route.regExp);
+            const handlerMatches = handlerIndex < route.handlers.length;
 
             if (methodMatches && pathMatches && handlerMatches) {
                 //Endpoint found, Extract params and execute the handler.
-                request.params = endpoint.paramKeys.reduce((params: Record<string, string>, param: string, index: number) => (params[param] = pathMatches[index + 1], params), {});
-                request.endpoint = endpoint;
+                request.params = route.paramKeys.reduce((params: Record<string, string>, param: string, index: number) => (params[param] = pathMatches[index + 1], params), {});
+                request.endpoint = route;
 
                 //🎉
                 const nextFunction = () => this.dispatch(routeIndex, stackIndex, handlerIndex + 1, routes, request, response, unwind);
-                endpoint.handlers[handlerIndex](request, response, nextFunction);
+                route.handlers[handlerIndex](request, response, nextFunction);
                 return;
             }
         }
