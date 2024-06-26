@@ -92,13 +92,13 @@ export default class ScpServer extends Server implements IScpServer {
         if (coordinateIndex >= coordinates.length) return unwind();
 
         const coordinate = coordinates[coordinateIndex];
-        const regExp = new RegExp(/^(?:(?<gridName>[^.]+)\.)?(?<nexusName>[^.]+)$/);
-        const { gridName, nexusName } = regExp.exec(incoming.operation).groups;
+        const regExp = new RegExp(/^(?:(?<grid>[^.]+)\.)?(?<nexus>[^.]+)$/);
+        const { grid, nexus } = regExp.exec(incoming.operation).groups;
 
         //Shits about to go down! 😎
         if ('coordinates' in coordinate) {
             //Treat as `Grid`.
-            const operationMatches = gridName.match(coordinate.regExp);
+            const operationMatches = grid.match(coordinate.regExp);
 
             if (operationMatches) {
                 //Grid found, process the grid. 🎢
@@ -108,8 +108,8 @@ export default class ScpServer extends Server implements IScpServer {
             }
         } else {
             //Treat as `Nexus`.
-            const gridMatches = (gridName && gridMatched) || (!gridName && !gridMatched);
-            const operationMatches = nexusName.match(coordinate.regExp);
+            const gridMatches = (grid && gridMatched) || (!grid && !gridMatched);
+            const operationMatches = nexus.match(coordinate.regExp);
 
             if (gridMatches && operationMatches) {
                 //Nexus found, execute the handler. 🎉
