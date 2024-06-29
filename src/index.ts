@@ -4,7 +4,7 @@ export { default as HttpStatusCode } from './http.statusCode';
 
 //Export SCP.
 export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprotechs/scp';
-export { default as ScpServer, IScpServer, Coordinator, Coordinate, Grid, Nexus, IncomingHandler, ProceedFunction, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
+export { default as ScpServer, IScpServer, Executor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
 export { default as ScpClient } from './scp.client';
 
 //Export SDP.

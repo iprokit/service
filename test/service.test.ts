@@ -19,7 +19,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(service.identifier, identifier);
             assert.deepStrictEqual(service.links.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
-            assert.deepStrictEqual(service.coordinates.length, 0);
+            assert.deepStrictEqual(service.executions.length, 0);
         });
     });
 

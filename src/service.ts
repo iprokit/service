@@ -7,7 +7,7 @@ import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { IHttpServer, Router, RequestHandler } from './http.server';
-import ScpServer, { IScpServer, Coordinator, IncomingHandler } from './scp.server';
+import ScpServer, { IScpServer, Executor, IncomingHandler } from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions } from './utilities';
@@ -83,10 +83,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * The SCP coordinates registered.
+     * The SCP executions registered.
      */
-    public get coordinates() {
-        return this.scpServer.coordinates;
+    public get executions() {
+        return this.scpServer.executions;
     }
 
     /**
@@ -273,25 +273,25 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Returns a `Coordinator` to group SCP coordinates that share related functionality.
+     * Returns a `Executor` to group SCP executions that share related functionality.
      */
-    public Coordinate() {
-        return this.scpServer.Coordinate();
+    public Execution() {
+        return this.scpServer.Execution();
     }
 
     /**
-     * Attaches a SCP coordinator.
+     * Attaches a SCP executor.
      * 
      * @param operation the operation pattern.
-     * @param coordinator the coordinator to attach.
+     * @param executor the executor to attach.
      */
-    public attach(name: string, coordinator: Coordinator) {
-        this.scpServer.attach(name, coordinator);
+    public attach(operation: string, executor: Executor) {
+        this.scpServer.attach(operation, executor);
         return this;
     }
 
     /**
-     * Registers a SCP coordinate for handling OMNI I/O.
+     * Registers a SCP execution for handling OMNI I/O.
      * 
      * @param operation the operation pattern.
      * @param handler the incoming handler function.

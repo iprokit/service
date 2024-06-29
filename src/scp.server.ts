@@ -26,9 +26,9 @@ export default class ScpServer extends Server implements IScpServer {
     public readonly connections: Array<Connection>;
 
     /**
-     * The coordinates registered on the server.
+     * The executions registered on the server.
      */
-    public readonly coordinates: Array<Coordinate>;
+    public readonly executions: Array<Execution>;
 
     /**
      * Creates an instance of SCP server.
@@ -42,7 +42,7 @@ export default class ScpServer extends Server implements IScpServer {
         this.identifier = identifier;
 
         //Initialize Variables.
-        this.coordinates = new Array();
+        this.executions = new Array();
 
         //Bind listeners.
         this.onIncoming = this.onIncoming.bind(this);
@@ -50,8 +50,8 @@ export default class ScpServer extends Server implements IScpServer {
         //Add listeners.
         this.addListener('incoming', this.onIncoming);
 
-        //Apply `Coordinator` properties 👻.
-        this.applyCoordinatorProperties(this);
+        //Apply `Executor` properties 👻.
+        this.applyExecutorProperties(this);
     }
 
     //////////////////////////////
@@ -70,14 +70,14 @@ export default class ScpServer extends Server implements IScpServer {
         }
         if (incoming.mode === 'OMNI') {
             //Set: Incoming.
-            const regExp = new RegExp(/^(?:(?<grid>[^.]+)\.)?(?<nexus>[^.]+)$/);
-            const { grid, nexus } = regExp.exec(incoming.operation).groups;
-            incoming.grid = grid;
+            const regExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
+            const { segment, nexus } = regExp.exec(incoming.operation).groups;
+            incoming.segment = segment;
             incoming.nexus = nexus;
             incoming.matched = false;
 
             //Below line will blow your mind! 🤯
-            this.dispatch(0, this.coordinates, incoming, outgoing, () => { });
+            this.dispatch(0, this.executions, incoming, outgoing, () => { });
         }
     }
 
@@ -85,52 +85,52 @@ export default class ScpServer extends Server implements IScpServer {
     //////Dispatch
     //////////////////////////////
     /**
-     * Recursively loop through the coordinates to find and execute its handler.
+     * Recursively loop through the executions to find and execute its handler.
      * 
-     * @param coordinateIndex the index of the current coordinate being processed.
-     * @param coordinates the coordinates to be processed.
+     * @param executionIndex the index of the current execution being processed.
+     * @param executions the executions to be processed.
      * @param incoming the incoming stream.
      * @param outgoing the outgoing stream.
-     * @param unwind function called once the processed coordinates unwind.
+     * @param unwind function called once the processed executions unwind.
      */
-    private dispatch(coordinateIndex: number, coordinates: Array<Coordinate>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
+    private dispatch(executionIndex: number, executions: Array<Execution>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
         //Need I say more.
-        if (coordinateIndex >= coordinates.length) return unwind();
+        if (executionIndex >= executions.length) return unwind();
 
-        const coordinate = coordinates[coordinateIndex];
+        const execution = executions[executionIndex];
 
         //Shits about to go down! 😎
-        if ('coordinates' in coordinate) {
-            //Treat as `Grid`.
-            const operationMatches = incoming.grid.match(coordinate.regExp);
+        if ('executions' in execution) {
+            //Treat as `Segment`.
+            const operationMatches = incoming.segment.match(execution.regExp);
 
             if (operationMatches) {
-                //Grid found, Save match and process the grid.
+                //Segment found, Save match and process the segment.
                 incoming.matched = true;
 
                 //🎢
                 const unwindFunction = () => {
                     incoming.matched = false;
-                    this.dispatch(coordinateIndex + 1, this.coordinates, incoming, outgoing, unwind);
+                    this.dispatch(executionIndex + 1, this.executions, incoming, outgoing, unwind);
                 }
-                this.dispatch(0, coordinate.coordinates, incoming, outgoing, unwindFunction);
+                this.dispatch(0, execution.executions, incoming, outgoing, unwindFunction);
                 return;
             }
         } else {
             //Treat as `Nexus`.
-            const gridMatches = (incoming.grid && incoming.matched) || (!incoming.grid && !incoming.matched);
-            const operationMatches = incoming.nexus.match(coordinate.regExp);
+            const segmentMatches = (incoming.segment && incoming.matched) || (!incoming.segment && !incoming.matched);
+            const operationMatches = incoming.nexus.match(execution.regExp);
 
-            if (gridMatches && operationMatches) {
+            if (segmentMatches && operationMatches) {
                 //Nexus found, execute the handler. 🎉
-                const proceedFunction = () => this.dispatch(coordinateIndex + 1, coordinates, incoming, outgoing, unwind);
-                coordinate.handler(incoming, outgoing, proceedFunction);
+                const proceedFunction = () => this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
+                execution.handler(incoming, outgoing, proceedFunction);
                 return;
             }
         }
 
-        //Coordinate not found, lets keep going though the loop.
-        this.dispatch(coordinateIndex + 1, coordinates, incoming, outgoing, unwind);
+        //Execution not found, lets keep going though the loop.
+        this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
     }
 
     //////////////////////////////
@@ -170,40 +170,40 @@ export default class ScpServer extends Server implements IScpServer {
         return this;
     }
 
-    public Coordinate() {
-        const coordinator = { coordinates: new Array<Coordinate>() } as Coordinator;
+    public Execution() {
+        const executor = { executions: new Array<Execution>() } as Executor;
 
-        //Apply `Coordinator` properties 👻.
-        this.applyCoordinatorProperties(coordinator);
-        return coordinator;
+        //Apply `Executor` properties 👻.
+        this.applyExecutorProperties(executor);
+        return executor;
     }
 
-    public attach(operation: string, coordinator: Coordinator) {
-        const { coordinates } = coordinator;
+    public attach(operation: string, executor: Executor) {
+        const { executions } = executor;
         const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-        this.coordinates.push({ operation, regExp, coordinates } as Grid);
+        this.executions.push({ operation, regExp, executions } as Segment);
         return this;
     }
 
     //////////////////////////////
-    //////Interface: Coordinator
+    //////Interface: Executor
     //////////////////////////////
     public omni: (operation: string, handler: IncomingHandler) => this;
 
     //////////////////////////////
-    //////Factory: Coordinator
+    //////Factory: Executor
     //////////////////////////////
     /**
-     * Applies properties of the `Coordinator` interface to the provided instance,
-     * enabling the registration of coordinates.
+     * Applies properties of the `Executor` interface to the provided instance,
+     * enabling the registration of executions.
      * 
-     * @param instance the instance to which the `Coordinator` properties are applied.
+     * @param instance the instance to which the `Executor` properties are applied.
      */
-    private applyCoordinatorProperties<I extends Coordinator>(instance: I) {
-        //`Coordinator` properties 😈.
+    private applyExecutorProperties<I extends Executor>(instance: I) {
+        //`Executor` properties 😈.
         instance.omni = (operation: string, handler: IncomingHandler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-            instance.coordinates.push({ operation, regExp, handler } as Nexus);
+            instance.executions.push({ operation, regExp, handler } as Nexus);
             return instance;
         }
     }
@@ -215,7 +215,7 @@ export default class ScpServer extends Server implements IScpServer {
 /**
  * Interface of `ScpServer`.
  */
-export interface IScpServer extends Coordinator {
+export interface IScpServer extends Executor {
     /**
      * Broadcasts data to all the subscribed client socket connections.
      * 
@@ -226,33 +226,33 @@ export interface IScpServer extends Coordinator {
     broadcast: (operation: string, data: string, params?: Iterable<readonly [string, string]>) => this;
 
     /**
-     * Returns a `Coordinator` to group coordinates that share related functionality.
+     * Returns a `Executor` to group executions that share related functionality.
      */
-    Coordinate: () => Coordinator;
+    Execution: () => Executor;
 
     /**
-     * Attaches a coordinator.
+     * Attaches a executor.
      * 
      * @param operation the operation pattern.
-     * @param coordinator the coordinator to attach.
+     * @param executor the executor to attach.
      */
-    attach: (operation: string, coordinator: Coordinator) => this;
+    attach: (operation: string, executor: Executor) => this;
 }
 
 //////////////////////////////
-//////Coordinator
+//////Executor
 //////////////////////////////
 /**
- * Interface for handling SCP I/O's and registering coordinates.
+ * Interface for handling SCP I/O's and registering executions.
  */
-export interface Coordinator {
+export interface Executor {
     /**
-     * The coordinates registered.
+     * The executions registered.
      */
-    coordinates: Array<Coordinate>;
+    executions: Array<Execution>;
 
     /**
-     * Registers a coordinate for handling OMNI I/O.
+     * Registers a execution for handling OMNI I/O.
      * 
      * @param operation the operation pattern.
      * @param handler the incoming handler function.
@@ -261,31 +261,31 @@ export interface Coordinator {
 }
 
 //////////////////////////////
-//////Coordinate
+//////Execution
 //////////////////////////////
 /**
- * The union of an `Grid`/`Nexus`.
+ * The union of an `Segment`/`Nexus`.
  */
-export type Coordinate = Grid | Nexus;
+export type Execution = Segment | Nexus;
 
 /**
- * Represents a group of coordinates that share related functionality.
+ * Represents a group of executions that share related functionality.
  */
-export interface Grid {
+export interface Segment {
     /**
-     * The operation pattern of the grid.
+     * The operation pattern of the segment.
      */
     operation: string;
 
     /**
-     * The compiled regular expression to match the operation of the grid.
+     * The compiled regular expression to match the operation of the segment.
      */
     regExp: RegExp;
 
     /**
-     * The coordinates registered in the grid.
+     * The executions registered in the segment.
      */
-    coordinates: Array<Nexus>;
+    executions: Array<Nexus>;
 }
 
 /**
@@ -351,9 +351,9 @@ export interface Incoming extends SCP.Incoming {
     socket: Connection;
 
     /**
-     * The grid portion of the operation pattern.
+     * The segment portion of the operation pattern.
      */
-    grid: string;
+    segment: string;
 
     /**
      * The nexus portion of the operation pattern.
@@ -361,7 +361,7 @@ export interface Incoming extends SCP.Incoming {
     nexus: string;
 
     /**
-     * Set to true if the grid matched, false otherwise.
+     * Set to true if the segment matched, false otherwise.
      */
     matched: boolean;
 }

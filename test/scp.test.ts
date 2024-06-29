@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { ScpClient, ScpServer, Grid, Nexus, IncomingHandler } from '../lib';
+import { ScpClient, ScpServer, Segment, Nexus, IncomingHandler } from '../lib';
 import { createString, createIdentifier, clientOnBroadcast, clientOmni } from './util';
 
 const host = '127.0.0.1';
@@ -132,14 +132,14 @@ mocha.describe('SCP Test', () => {
             server = new ScpServer(createIdentifier());
         });
 
-        mocha.it('should register OMNI coordinate', () => {
+        mocha.it('should register OMNI execution', () => {
             server.omni('', handler);
             server.omni('nexus', handler);
             server.omni('*', handler);
-            validateNexus(server.coordinates[0] as Nexus, '', handler);
-            validateNexus(server.coordinates[1] as Nexus, 'nexus', handler);
-            validateNexus(server.coordinates[2] as Nexus, '*', handler);
-            assert.deepStrictEqual(server.coordinates.length, 3);
+            validateNexus(server.executions[0] as Nexus, '', handler);
+            validateNexus(server.executions[1] as Nexus, 'nexus', handler);
+            validateNexus(server.executions[2] as Nexus, '*', handler);
+            assert.deepStrictEqual(server.executions.length, 3);
         });
     });
 
@@ -152,29 +152,29 @@ mocha.describe('SCP Test', () => {
             server = new ScpServer(createIdentifier());
         });
 
-        mocha.it('should attach coordinator', () => {
-            const coordinator1 = server.Coordinate();
-            const coordinator2 = server.Coordinate();
-            coordinator2.omni('', handler);
-            coordinator2.omni('nexus', handler);
-            coordinator2.omni('*', handler);
-            const coordinator3 = server.Coordinate();
-            server.attach('', coordinator1);
-            server.attach('Grid', coordinator2);
-            server.attach('*', coordinator3);
-            assert.deepStrictEqual((server.coordinates[0] as Grid).operation, '');
-            assert.notDeepStrictEqual((server.coordinates[0] as Grid).regExp, undefined);
-            assert.deepStrictEqual((server.coordinates[0] as Grid).coordinates, coordinator1.coordinates);
-            assert.deepStrictEqual((server.coordinates[0] as Grid).coordinates.length, 0);
-            assert.deepStrictEqual((server.coordinates[1] as Grid).operation, 'Grid');
-            assert.notDeepStrictEqual((server.coordinates[1] as Grid).regExp, undefined);
-            assert.deepStrictEqual((server.coordinates[1] as Grid).coordinates, coordinator2.coordinates);
-            assert.deepStrictEqual((server.coordinates[1] as Grid).coordinates.length, 3);
-            assert.deepStrictEqual((server.coordinates[2] as Grid).operation, '*');
-            assert.notDeepStrictEqual((server.coordinates[2] as Grid).regExp, undefined);
-            assert.deepStrictEqual((server.coordinates[2] as Grid).coordinates, coordinator3.coordinates);
-            assert.deepStrictEqual((server.coordinates[2] as Grid).coordinates.length, 0);
-            assert.deepStrictEqual(server.coordinates.length, 3);
+        mocha.it('should attach executor', () => {
+            const executor1 = server.Execution();
+            const executor2 = server.Execution();
+            executor2.omni('', handler);
+            executor2.omni('nexus', handler);
+            executor2.omni('*', handler);
+            const executor3 = server.Execution();
+            server.attach('', executor1);
+            server.attach('Segment', executor2);
+            server.attach('*', executor3);
+            assert.deepStrictEqual((server.executions[0] as Segment).operation, '');
+            assert.notDeepStrictEqual((server.executions[0] as Segment).regExp, undefined);
+            assert.deepStrictEqual((server.executions[0] as Segment).executions, executor1.executions);
+            assert.deepStrictEqual((server.executions[0] as Segment).executions.length, 0);
+            assert.deepStrictEqual((server.executions[1] as Segment).operation, 'Segment');
+            assert.notDeepStrictEqual((server.executions[1] as Segment).regExp, undefined);
+            assert.deepStrictEqual((server.executions[1] as Segment).executions, executor2.executions);
+            assert.deepStrictEqual((server.executions[1] as Segment).executions.length, 3);
+            assert.deepStrictEqual((server.executions[2] as Segment).operation, '*');
+            assert.notDeepStrictEqual((server.executions[2] as Segment).regExp, undefined);
+            assert.deepStrictEqual((server.executions[2] as Segment).executions, executor3.executions);
+            assert.deepStrictEqual((server.executions[2] as Segment).executions.length, 0);
+            assert.deepStrictEqual(server.executions.length, 3);
         });
     });
 
@@ -208,7 +208,7 @@ mocha.describe('SCP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should dispatch I/O to OMNI coordinate', async () => {
+        mocha.it('should dispatch I/O to OMNI execution', async () => {
             //Server
             server.omni('nexus1', errorHandler);
             server.omni('nexus2', (incoming, outgoing, proceed) => {
@@ -224,7 +224,7 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(data, 'END');
         });
 
-        mocha.it('should dispatch I/O to coordinate with wildcard operation', async () => {
+        mocha.it('should dispatch I/O to execution with wildcard operation', async () => {
             //Server
             server.omni('nex*1*3', proceedHandler);
             server.omni('nex*3', proceedHandler);
@@ -242,7 +242,7 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(data, 'END');
         });
 
-        mocha.it('should dispatch I/O to coordinate with case sensitivity in operation', async () => {
+        mocha.it('should dispatch I/O to execution with case sensitivity in operation', async () => {
             //Server
             server.omni('NEXUS', errorHandler);
             server.omni('nexus', (incoming, outgoing, proceed) => {
@@ -257,7 +257,7 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(data, 'END');
         });
 
-        mocha.it('should dispatch I/O to coordinate with registration order', async () => {
+        mocha.it('should dispatch I/O to execution with registration order', async () => {
             //Server
             server.omni('nexus', proceedHandler);
             server.omni('nexus', (incoming, outgoing, proceed) => {
@@ -274,45 +274,45 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(data, 'END');
         });
 
-        mocha.it('should dispatch I/O to coordinator attached', async () => {
+        mocha.it('should dispatch I/O to executor attached', async () => {
             //Server
-            const coordinator1 = server.Coordinate();
-            coordinator1.omni('*', proceedHandler);
-            const coordinator2 = server.Coordinate();
-            coordinator2.omni('*', errorHandler);
-            const coordinator3 = server.Coordinate();
-            coordinator3.omni('*', proceedHandler);
-            coordinator3.omni('nexus', (incoming, outgoing, proceed) => {
+            const executor1 = server.Execution();
+            executor1.omni('*', proceedHandler);
+            const executor2 = server.Execution();
+            executor2.omni('*', errorHandler);
+            const executor3 = server.Execution();
+            executor3.omni('*', proceedHandler);
+            executor3.omni('nexus', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 outgoing.end('END');
             });
-            const coordinator4 = server.Coordinate();
-            server.attach('*', coordinator1);
-            server.attach('Grid2', coordinator2);
-            server.attach('Grid3', coordinator3);
-            server.attach('Grid4', coordinator4);
+            const executor4 = server.Execution();
+            server.attach('*', executor1);
+            server.attach('Segment2', executor2);
+            server.attach('Segment3', executor3);
+            server.attach('Segment4', executor4);
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'Grid3.nexus', '');
+            const { incoming, data } = await clientOmni(client, 'Segment3.nexus', '');
             assert.deepStrictEqual(incoming.mode, 'OMNI');
-            assert.deepStrictEqual(incoming.operation, 'Grid3.nexus');
+            assert.deepStrictEqual(incoming.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
             assert.deepStrictEqual(data, 'END');
         });
 
-        mocha.it('should dispatch I/O through coordinates & coordinators', async () => {
+        mocha.it('should dispatch I/O through executions & executors', async () => {
             //Server
-            const coordinator1 = server.Coordinate();
-            coordinator1.omni('*', proceedHandler);
-            const coordinator2 = server.Coordinate();
-            coordinator2.omni('*', errorHandler);
-            const coordinator3 = server.Coordinate();
-            coordinator3.omni('*', proceedHandler);
-            coordinator3.omni('nexus', (incoming, outgoing, proceed) => {
+            const executor1 = server.Execution();
+            executor1.omni('*', proceedHandler);
+            const executor2 = server.Execution();
+            executor2.omni('*', errorHandler);
+            const executor3 = server.Execution();
+            executor3.omni('*', proceedHandler);
+            executor3.omni('nexus', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 outgoing.end('END');
             });
-            const coordinator4 = server.Coordinate();
+            const executor4 = server.Execution();
             server.omni('*', proceedHandler);
             server.omni('nexus1', errorHandler);
             server.omni('*1', errorHandler);
@@ -322,10 +322,10 @@ mocha.describe('SCP Test', () => {
                 outgoing.end('END');
             });
             server.omni('nexus3', errorHandler);
-            server.attach('*', coordinator1);
-            server.attach('Grid2', coordinator2);
-            server.attach('Grid3', coordinator3);
-            server.attach('Grid4', coordinator4);
+            server.attach('*', executor1);
+            server.attach('Segment2', executor2);
+            server.attach('Segment3', executor3);
+            server.attach('Segment4', executor4);
             server.omni('nexus3', errorHandler);
 
             //Client 1
@@ -339,9 +339,9 @@ mocha.describe('SCP Test', () => {
             proceedCalled = 0;
 
             //Client 2
-            const { incoming: incoming2, data: data2 } = await clientOmni(client, 'Grid3.nexus', '');
+            const { incoming: incoming2, data: data2 } = await clientOmni(client, 'Segment3.nexus', '');
             assert.deepStrictEqual(incoming2.mode, 'OMNI');
-            assert.deepStrictEqual(incoming2.operation, 'Grid3.nexus');
+            assert.deepStrictEqual(incoming2.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming2.get('SID'), server.identifier);
             assert.deepStrictEqual(data2, 'END');
         });

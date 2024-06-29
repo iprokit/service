@@ -4,7 +4,7 @@ import { Incoming } from '@iprotechs/scp';
 //Import Local.
 import Service from './service';
 import { Router } from './http.server';
-import { Coordinator } from './scp.server';
+import { Executor } from './scp.server';
 
 //////////////////////////////
 //////Global Variables
@@ -69,12 +69,12 @@ export { HTTP }
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
-const coordinators = new Map<string, Coordinator>();
+const executors = new Map<string, Executor>();
 
 function SCP(operation?: string) {
     return (target: any) => {
-        const coordinator = coordinators.get(target.name);
-        service.attach(operation || target.name, coordinator);
+        const executor = executors.get(target.name);
+        service.attach(operation || target.name, executor);
     }
 }
 
@@ -86,9 +86,9 @@ namespace SCP {
     export function Omni(operation?: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
             const name = target.name ?? target.constructor.name;
-            const coordinator = coordinators.get(name) || service.Coordinate();
-            coordinators.set(name, coordinator);
-            coordinator.omni(operation || key, descriptor.value);
+            const executor = executors.get(name) || service.Execution();
+            executors.set(name, executor);
+            executor.omni(operation || key, descriptor.value);
             return descriptor;
         }
     }
