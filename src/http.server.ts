@@ -1,5 +1,5 @@
 //Import Libs.
-import { Server, IncomingMessage, ServerResponse } from 'http';
+import HTTP, { Server } from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
@@ -345,7 +345,7 @@ export type NextFunction = () => void;
 /**
  * Represents an incoming HTTP request.
  */
-export interface Request extends IncomingMessage {
+export interface Request extends HTTP.IncomingMessage {
     /**
      * The path portion of the URL.
      */
@@ -370,4 +370,4 @@ export interface Request extends IncomingMessage {
 /**
  * Represents an outgoing HTTP response.
  */
-export interface Response extends ServerResponse { }
+export interface Response extends HTTP.ServerResponse { }

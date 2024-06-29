@@ -2,7 +2,7 @@
 import Stream from 'stream';
 
 //Import @iprotechs Libs.
-import SCP, { RFI, Server, Connection } from '@iprotechs/scp';
+import SCP, { RFI, Server } from '@iprotechs/scp';
 
 /**
  * This class is used to create a SCP server.
@@ -23,7 +23,7 @@ export default class ScpServer extends Server implements IScpServer {
     /**
      * The client socket connections.
      */
-    public readonly connections: Array<ScpConnection>;
+    public readonly connections: Array<Connection>;
 
     /**
      * The coordinates registered on the server.
@@ -146,7 +146,7 @@ export default class ScpServer extends Server implements IScpServer {
         incoming.resume();
 
         //Set: Connection properties.
-        (incoming.socket as ScpConnection).identifier = incoming.get('CID');
+        incoming.socket.identifier = incoming.get('CID');
 
         //Write: Outgoing stream.
         Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
@@ -321,11 +321,21 @@ export type ProceedFunction = () => void;
 //////////////////////////////
 //////Connection
 //////////////////////////////
-export interface ScpConnection extends Connection {
+export interface Connection extends SCP.Connection {
     /**
      * The unique identifier of the client socket connection.
      */
     identifier: string;
+
+    /**
+     * The current incoming stream.
+     */
+    incoming: Incoming;
+
+    /**
+     * The current outgoing stream.
+     */
+    outgoing: Outgoing;
 }
 
 //////////////////////////////
@@ -335,6 +345,11 @@ export interface ScpConnection extends Connection {
  * Represents an incoming SCP.
  */
 export interface Incoming extends SCP.Incoming {
+    /**
+     * The underlying SCP Socket.
+     */
+    socket: Connection;
+
     /**
      * The grid portion of the operation pattern.
      */
@@ -349,10 +364,14 @@ export interface Incoming extends SCP.Incoming {
      * Set to true if the grid matched, false otherwise.
      */
     matched: boolean;
-
 }
 
 /**
  * Represents an outgoing SCP.
  */
-export interface Outgoing extends SCP.Outgoing { }
+export interface Outgoing extends SCP.Outgoing {
+    /**
+     * The underlying SCP Socket.
+     */
+    socket: Connection;
+}
