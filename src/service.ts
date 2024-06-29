@@ -6,8 +6,8 @@ import { AddressInfo } from 'net';
 import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
-import HttpServer, { IHttpServer, Router, RequestHandler } from './http.server';
-import ScpServer, { IScpServer, Executor, IncomingHandler } from './scp.server';
+import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
+import ScpServer, { IServer as IScpServer, Executor, IncomingHandler } from './scp.server';
 import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
 import Utilities, { ProxyOptions } from './utilities';
@@ -171,7 +171,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Interface: HttpServer
+    //////Interface: IHttpServer
     //////////////////////////////
     /**
      * Returns a `Router` to group HTTP routes that share related functionality.
@@ -258,7 +258,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Interface: ScpServer
+    //////Interface: IScpServer
     //////////////////////////////
     /**
      * Broadcasts data to all the remote services.

@@ -2,11 +2,11 @@
 import Stream from 'stream';
 
 //Import @iprotechs Libs.
-import SCP, { RFI, Server } from '@iprotechs/scp';
+import SCP, { RFI, Server as ScpServer } from '@iprotechs/scp';
 
 /**
  * This class is used to create a SCP server.
- * A `ScpServer` is bound to an IP address and port number and listens for incoming SCP client connections.
+ * A `Server` is bound to an IP address and port number and listens for incoming SCP client connections.
  *
  * @emits `listening` when the server has been bound after calling `server.listen()`.
  * @emits `connection` when a client socket connection is received.
@@ -14,7 +14,7 @@ import SCP, { RFI, Server } from '@iprotechs/scp';
  * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
  * @emits `close` when the server is fully closed.
  */
-export default class ScpServer extends Server implements IScpServer {
+export default class Server extends ScpServer implements IServer {
     /**
      * The unique identifier of the server.
      */
@@ -154,7 +154,7 @@ export default class ScpServer extends Server implements IScpServer {
     }
 
     //////////////////////////////
-    //////Interface: ScpServer
+    //////Interface: IServer
     //////////////////////////////
     public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
         for (const connection of this.connections) {
@@ -210,12 +210,12 @@ export default class ScpServer extends Server implements IScpServer {
 }
 
 //////////////////////////////
-/////IScpServer
+/////IServer
 //////////////////////////////
 /**
- * Interface of `ScpServer`.
+ * Interface of SCP `Server`.
  */
-export interface IScpServer extends Executor {
+export interface IServer extends Executor {
     /**
      * Broadcasts data to all the subscribed client socket connections.
      * 

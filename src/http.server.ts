@@ -1,18 +1,18 @@
 //Import Libs.
-import HTTP, { Server } from 'http';
+import HTTP, { Server as HttpServer } from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
 /**
  * This class is used to create a HTTP server.
- * A `HttpServer` is bound to an IP address and port number and listens for incoming HTTP client connections.
+ * A `Server` is bound to an IP address and port number and listens for incoming HTTP client connections.
  *
  * @emits `listening` when the server has been bound after calling `server.listen()`.
  * @emits `error` when an error occurs.
  * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
  * @emits `close` when the server is fully closed.
  */
-export default class HttpServer extends Server implements IHttpServer {
+export default class Server extends HttpServer implements IServer {
     /**
      * The routes registered on the server.
      */
@@ -116,7 +116,7 @@ export default class HttpServer extends Server implements IHttpServer {
     }
 
     //////////////////////////////
-    //////Interface: HttpServer
+    //////Interface: IServer
     //////////////////////////////
     public Route() {
         const router = { routes: new Array<Route>() } as Router;
@@ -154,7 +154,7 @@ export default class HttpServer extends Server implements IHttpServer {
         const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
 
         //Factory for registering a `Endpoint`.
-        const endpoint = (method: HttpMethod) => {
+        const endpoint = (method: Method) => {
             return (path: string, ...handlers: Array<RequestHandler>) => {
                 const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
                 const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
@@ -185,12 +185,12 @@ export default class HttpServer extends Server implements IHttpServer {
 }
 
 //////////////////////////////
-/////IHttpServer
+/////IServer
 //////////////////////////////
 /**
- * Interface of `HttpServer`.
+ * Interface of HTTP `Server`.
  */
-export interface IHttpServer extends Router {
+export interface IServer extends Router {
     /**
      * Returns a `Router` to group routes that share related functionality.
      */
@@ -301,7 +301,7 @@ export interface Endpoint {
     /**
      * The HTTP method of the endpoint.
      */
-    method: HttpMethod;
+    method: Method;
 
     /**
      * The path pattern of the endpoint.
@@ -327,7 +327,7 @@ export interface Endpoint {
 /**
  * The HTTP method.
  */
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
 
 /**
  * The request handler.

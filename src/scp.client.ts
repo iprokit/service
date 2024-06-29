@@ -8,13 +8,13 @@ import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
 /**
  * This class implements a simple SCP Client.
- * A `ScpClient` is responsible for managing connection persistence to the server.
+ * A `Client` is responsible for managing connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
-export default class ScpClient extends EventEmitter {
+export default class Client extends EventEmitter {
     /**
      * The unique identifier of the client.
      */

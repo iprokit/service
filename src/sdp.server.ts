@@ -6,7 +6,7 @@ import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
 
 /**
  * This class is used to create a SDP server.
- * A `SdpServer` is bound to a multicast address, port number and listens for pods on the network.
+ * A `Server` is bound to a multicast address, port number and listens for pods on the network.
  * 
  * @emits `listening` when the server has been bound after calling `server.listen()`.
  * @emits `available` when a pod is available.
@@ -14,7 +14,7 @@ import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
  * @emits `error` when an error occurs.
  * @emits `close` when the server is fully closed.
  */
-export default class SdpServer extends EventEmitter {
+export default class Server extends EventEmitter {
     /**
      * The unique identifier of the server.
      */

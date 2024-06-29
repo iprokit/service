@@ -1,4 +1,4 @@
-namespace HttpStatusCode {
+namespace StatusCode {
     //////////////////////////////
     //////100x
     //////////////////////////////
@@ -326,4 +326,4 @@ namespace HttpStatusCode {
      */
     export const NETWORK_AUTHENTICATION_REQUIRED = 511;
 }
-export default HttpStatusCode;
+export default StatusCode;
