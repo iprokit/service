@@ -2,7 +2,7 @@
 import Stream from 'stream';
 
 //Import @iprotechs Libs.
-import { RFI, Incoming, Outgoing, Server, Connection } from '@iprotechs/scp';
+import SCP, { RFI, Server, Connection } from '@iprotechs/scp';
 
 /**
  * This class is used to create a SCP server.
@@ -69,8 +69,15 @@ export default class ScpServer extends Server implements IScpServer {
             this.subscribe(incoming, outgoing);
         }
         if (incoming.mode === 'OMNI') {
+            //Set: Incoming.
+            const regExp = new RegExp(/^(?:(?<grid>[^.]+)\.)?(?<nexus>[^.]+)$/);
+            const { grid, nexus } = regExp.exec(incoming.operation).groups;
+            incoming.grid = grid;
+            incoming.nexus = nexus;
+            incoming.matched = false;
+
             //Below line will blow your mind! 🤯
-            this.dispatch(0, false, this.coordinates, incoming, outgoing, () => { });
+            this.dispatch(0, this.coordinates, incoming, outgoing, () => { });
         }
     }
 
@@ -81,46 +88,49 @@ export default class ScpServer extends Server implements IScpServer {
      * Recursively loop through the coordinates to find and execute its handler.
      * 
      * @param coordinateIndex the index of the current coordinate being processed.
-     * @param gridMatched set to true if the grid matched, false otherwise.
      * @param coordinates the coordinates to be processed.
      * @param incoming the incoming stream.
      * @param outgoing the outgoing stream.
      * @param unwind function called once the processed coordinates unwind.
      */
-    private dispatch(coordinateIndex: number, gridMatched: boolean, coordinates: Array<Coordinate>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
+    private dispatch(coordinateIndex: number, coordinates: Array<Coordinate>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
         //Need I say more.
         if (coordinateIndex >= coordinates.length) return unwind();
 
         const coordinate = coordinates[coordinateIndex];
-        const regExp = new RegExp(/^(?:(?<grid>[^.]+)\.)?(?<nexus>[^.]+)$/);
-        const { grid, nexus } = regExp.exec(incoming.operation).groups;
 
         //Shits about to go down! 😎
         if ('coordinates' in coordinate) {
             //Treat as `Grid`.
-            const operationMatches = grid.match(coordinate.regExp);
+            const operationMatches = incoming.grid.match(coordinate.regExp);
 
             if (operationMatches) {
-                //Grid found, process the grid. 🎢
-                const unwindFunction = () => this.dispatch(coordinateIndex + 1, false, this.coordinates, incoming, outgoing, unwind);
-                this.dispatch(0, true, coordinate.coordinates, incoming, outgoing, unwindFunction);
+                //Grid found, Save match and process the grid.
+                incoming.matched = true;
+
+                //🎢
+                const unwindFunction = () => {
+                    incoming.matched = false;
+                    this.dispatch(coordinateIndex + 1, this.coordinates, incoming, outgoing, unwind);
+                }
+                this.dispatch(0, coordinate.coordinates, incoming, outgoing, unwindFunction);
                 return;
             }
         } else {
             //Treat as `Nexus`.
-            const gridMatches = (grid && gridMatched) || (!grid && !gridMatched);
-            const operationMatches = nexus.match(coordinate.regExp);
+            const gridMatches = (incoming.grid && incoming.matched) || (!incoming.grid && !incoming.matched);
+            const operationMatches = incoming.nexus.match(coordinate.regExp);
 
             if (gridMatches && operationMatches) {
                 //Nexus found, execute the handler. 🎉
-                const proceedFunction = () => this.dispatch(coordinateIndex + 1, gridMatched, coordinates, incoming, outgoing, unwind);
+                const proceedFunction = () => this.dispatch(coordinateIndex + 1, coordinates, incoming, outgoing, unwind);
                 coordinate.handler(incoming, outgoing, proceedFunction);
                 return;
             }
         }
 
         //Coordinate not found, lets keep going though the loop.
-        this.dispatch(coordinateIndex + 1, gridMatched, coordinates, incoming, outgoing, unwind);
+        this.dispatch(coordinateIndex + 1, coordinates, incoming, outgoing, unwind);
     }
 
     //////////////////////////////
@@ -317,3 +327,32 @@ export interface ScpConnection extends Connection {
      */
     identifier: string;
 }
+
+//////////////////////////////
+/////Incoming/Outgoing
+//////////////////////////////
+/**
+ * Represents an incoming SCP.
+ */
+export interface Incoming extends SCP.Incoming {
+    /**
+     * The grid portion of the operation pattern.
+     */
+    grid: string;
+
+    /**
+     * The nexus portion of the operation pattern.
+     */
+    nexus: string;
+
+    /**
+     * Set to true if the grid matched, false otherwise.
+     */
+    matched: boolean;
+
+}
+
+/**
+ * Represents an outgoing SCP.
+ */
+export interface Outgoing extends SCP.Outgoing { }
