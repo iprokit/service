@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { HttpProxy, HttpStatusCode, ScpClient, Service } from '../lib';
+import { HttpStatusCode, Service, Link } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -119,56 +119,52 @@ mocha.describe('Service Test', () => {
             await Promise.all([serviceA.stop(), serviceB.stop()]);
         });
 
-        mocha.describe('HTTP Proxy Test', () => {
-            mocha.it('should forward request to target service', async () => {
-                //Server
-                const httpProxyB = serviceA.links.get('SVC_B')?.httpProxy as HttpProxy;
-                serviceA.post('/endpoint', httpProxyB.forward());
+        mocha.it('should forward request to target service', async () => {
+            //Server
+            const { httpProxy: httpProxyB } = serviceA.links.get('SVC_B') as Link;
+            serviceA.post('/endpoint', httpProxyB.forward());
 
-                //Server Target
-                serviceB.post('/endpoint', async (request, response, next) => {
-                    assert.deepStrictEqual(request.method, 'POST');
-                    assert.deepStrictEqual(request.url, '/endpoint');
-                    request.pipe(response).writeHead(HttpStatusCode.OK);
-                });
-
-                //Client
-                const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/endpoint', requestBody);
-                assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
-                assert.deepStrictEqual(responseBody, requestBody);
+            //Server Target
+            serviceB.post('/endpoint', async (request, response, next) => {
+                assert.deepStrictEqual(request.method, 'POST');
+                assert.deepStrictEqual(request.url, '/endpoint');
+                request.pipe(response).writeHead(HttpStatusCode.OK);
             });
+
+            //Client
+            const requestBody = createString(1000);
+            const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/endpoint', requestBody);
+            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(responseBody, requestBody);
         });
 
-        mocha.describe('SCP Client Test', () => {
-            mocha.it('should receive data on BROADCAST', async () => {
-                //Server
-                const outgoingData = createString(1000);
-                serviceA.broadcast('nexus1', outgoingData, [['A', 'a']]);
+        mocha.it('should receive data on BROADCAST', async () => {
+            //Server
+            const outgoingData = createString(1000);
+            serviceA.broadcast('nexus1', outgoingData, [['A', 'a']]);
 
-                //Client
-                const scpClientA = serviceB.links.get('SVC_A')?.scpClient as ScpClient;
-                const { data: incomingData, params } = await clientOnBroadcast(scpClientA, 'nexus1');
-                assert.deepStrictEqual(incomingData, outgoingData);
-                assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
-                assert.deepStrictEqual(params.get('A'), 'a');
+            //Client
+            const { scpClient: scpClientA } = serviceB.links.get('SVC_A') as Link;
+            const { data: incomingData, params } = await clientOnBroadcast(scpClientA, 'nexus1');
+            assert.deepStrictEqual(incomingData, outgoingData);
+            assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
+            assert.deepStrictEqual(params.get('A'), 'a');
+        });
+
+        mocha.it('should receive data on OMNI', async () => {
+            //Server
+            serviceA.omni('nexus', async (incoming, outgoing, proceed) => {
+                incoming.pipe(outgoing);
             });
 
-            mocha.it('should receive data on OMNI', async () => {
-                //Server
-                serviceA.omni('nexus', async (incoming, outgoing, proceed) => {
-                    incoming.pipe(outgoing);
-                });
-
-                //Client
-                const outgoingData = createString(1000);
-                const scpClientA = serviceB.links.get('SVC_A')?.scpClient as ScpClient;
-                const { incoming, data: incomingData } = await clientOmni(scpClientA, 'nexus', outgoingData);
-                assert.deepStrictEqual(incoming.mode, 'OMNI');
-                assert.deepStrictEqual(incoming.operation, 'nexus');
-                assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
-                assert.deepStrictEqual(incomingData, outgoingData);
-            });
+            //Client
+            const outgoingData = createString(1000);
+            const { scpClient: scpClientA } = serviceB.links.get('SVC_A') as Link;
+            const { incoming, data: incomingData } = await clientOmni(scpClientA, 'nexus', outgoingData);
+            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            assert.deepStrictEqual(incoming.operation, 'nexus');
+            assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
     });
 });
