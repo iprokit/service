@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { RequestHandler, HttpStatusCode, Args, IncomingHandler, ScpClient, Service } from '../lib';
+import { HttpProxy, HttpStatusCode, ScpClient, Service } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -60,12 +60,8 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.listening, { http: status, scp: status, sdp: status });
                 assert.deepStrictEqual(service.links.size, count - 1);
                 service.links.forEach((link) => {
+                    assert.deepStrictEqual(link.httpProxy.configured, status);
                     assert.deepStrictEqual(link.scpClient.connected, status);
-                    if (status) {
-                        assert.notDeepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
-                    } else {
-                        assert.deepStrictEqual(link.proxyOptions, { host: undefined, port: undefined });
-                    }
                 });
             }
         }
@@ -109,30 +105,12 @@ mocha.describe('Service Test', () => {
     mocha.describe('Link Test', () => {
         let serviceA: Service, serviceB: Service;
 
-        const requestHandler: RequestHandler = async (request, response, next) => {
-            let body = '';
-            for await (const chunk of request) {
-                body += chunk;
-            }
-            response.writeHead(HttpStatusCode.OK).end(body);
-        }
-
-        const incomingHandler: IncomingHandler = (incoming, outgoing, proceed) => {
-            incoming.pipe(outgoing);
-            incoming.on('signal', (event: string, args: Args) => outgoing.signal(event, args));
-        }
-
         mocha.beforeEach(async () => {
             serviceA = new Service('SVC_A');
             serviceA.link('SVC_B');
-            serviceA.proxy('/a/*', 'SVC_B');
 
             serviceB = new Service('SVC_B');
             serviceB.link('SVC_A');
-            serviceB.post('/b1', requestHandler);
-            serviceB.post('/b2', requestHandler);
-            serviceB.post('/b3', requestHandler);
-            serviceB.omni('nexus', incomingHandler);
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -141,38 +119,28 @@ mocha.describe('Service Test', () => {
             await Promise.all([serviceA.stop(), serviceB.stop()]);
         });
 
-        mocha.describe('Proxy Test', () => {
-            mocha.it('should proxy a request & response to the target service', async () => {
+        mocha.describe('HTTP Proxy Test', () => {
+            mocha.it('should forward request to target service', async () => {
+                //Server
+                const httpProxyB = serviceA.links.get('SVC_B')?.httpProxy as HttpProxy;
+                serviceA.post('/endpoint', httpProxyB.forward());
+
+                //Server Target
+                serviceB.post('/endpoint', async (request, response, next) => {
+                    assert.deepStrictEqual(request.method, 'POST');
+                    assert.deepStrictEqual(request.url, '/endpoint');
+                    request.pipe(response).writeHead(HttpStatusCode.OK);
+                });
+
                 //Client
                 const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/a/b2', requestBody);
+                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/endpoint', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
                 assert.deepStrictEqual(responseBody, requestBody);
             });
-
-            mocha.it('should handle proxy request to an unavailable target service', async () => {
-                //Server
-                serviceA.link('SVC_C');
-                serviceA.proxy('/b/*', 'SVC_C');
-
-                //Client
-                const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/b/c2', requestBody);
-                assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);
-                assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
-            });
-
-            mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', () => {
-                //Server
-                try {
-                    serviceA.proxy('/b/*', 'SVC_C');
-                } catch (error) {
-                    assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-                }
-            });
         });
 
-        mocha.describe('Broadcast Test', () => {
+        mocha.describe('SCP Client Test', () => {
             mocha.it('should receive data on BROADCAST', async () => {
                 //Server
                 const outgoingData = createString(1000);
@@ -185,14 +153,20 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
                 assert.deepStrictEqual(params.get('A'), 'a');
             });
-        });
 
-        mocha.describe('Omni Test', () => {
             mocha.it('should receive data on OMNI', async () => {
+                //Server
+                serviceA.omni('nexus', async (incoming, outgoing, proceed) => {
+                    incoming.pipe(outgoing);
+                });
+
                 //Client
                 const outgoingData = createString(1000);
-                const scpClientB = serviceA.links.get('SVC_B')?.scpClient as ScpClient;
-                const { incoming, data: incomingData } = await clientOmni(scpClientB, 'nexus', outgoingData);
+                const scpClientA = serviceB.links.get('SVC_A')?.scpClient as ScpClient;
+                const { incoming, data: incomingData } = await clientOmni(scpClientA, 'nexus', outgoingData);
+                assert.deepStrictEqual(incoming.mode, 'OMNI');
+                assert.deepStrictEqual(incoming.operation, 'nexus');
+                assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
                 assert.deepStrictEqual(incomingData, outgoingData);
             });
         });

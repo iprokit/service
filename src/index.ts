@@ -1,5 +1,6 @@
 //Export HTTP.
 export { default as HttpServer, IServer as IHttpServer, Router, Route, Stack, Endpoint, Method as HttpMethod, RequestHandler, NextFunction, Request as ServerRequest, Response as ServerResponse } from './http.server';
+export { default as HttpProxy, ForwardOptions } from './http.proxy';
 export { default as HttpStatusCode } from './http.statusCode';
 
 //Export SCP.
@@ -10,9 +11,6 @@ export { default as ScpClient } from './scp.client';
 //Export SDP.
 export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprotechs/sdp';
 export { default as SdpServer, IPod } from './sdp.server';
-
-//Export Utilities.
-export { default as Utilities, ProxyOptions } from './utilities';
 
 //Export Service.
 export { default as Service, Link } from './service';

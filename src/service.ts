@@ -8,9 +8,9 @@ import { Attrs } from '@iprotechs/sdp';
 //Import Local.
 import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
 import ScpServer, { IServer as IScpServer, Executor, IncomingHandler } from './scp.server';
-import ScpClient from './scp.client';
 import SdpServer from './sdp.server';
-import Utilities, { ProxyOptions } from './utilities';
+import HttpProxy from './http.proxy';
+import ScpClient from './scp.client';
 
 /**
  * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
@@ -136,7 +136,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         if (!link) return;
 
         //Establish connection.
-        link.proxyOptions.port = Number(attrs.get('http')), link.proxyOptions.host = host;
+        link.httpProxy.configure(Number(attrs.get('http')), host);
         link.scpClient.connect(Number(attrs.get('scp')), host);
         this.emit('link', link);
     }
@@ -149,7 +149,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         if (!link) return;
 
         //Terminate connection.
-        link.proxyOptions.port = undefined, link.proxyOptions.host = undefined;
+        link.httpProxy.configured && link.httpProxy.deconfigure();
         link.scpClient.connected && link.scpClient.close();
         this.emit('unlink', link);
     }
@@ -165,7 +165,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     public link(...identifiers: Array<string>) {
         //Forging new links 🚀🎉.
         for (const identifier of identifiers) {
-            this.links.set(identifier, { proxyOptions: { host: undefined, port: undefined }, scpClient: new ScpClient(identifier) });
+            this.links.set(identifier, { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) });
         }
         return this;
     }
@@ -302,24 +302,6 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////HTTP: Proxy
-    //////////////////////////////
-    /**
-     * Proxies HTTP requests to the linked remote service.
-     * 
-     * @param path the path to match for the requests to be proxied.
-     * @param identifier the unique identifier of the linked remote service.
-     */
-    public proxy(path: string, identifier: string) {
-        const link = this.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Proxy(📬)
-        this.httpServer.all(path, Utilities.proxy(link.proxyOptions));
-        return this;
-    }
-
-    //////////////////////////////
     //////Start/Stop
     //////////////////////////////
     /**
@@ -364,8 +346,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         await once(this.httpServer, 'close');
 
         //Link
-        for (const { proxyOptions, scpClient } of this.links.values()) {
-            proxyOptions.port = undefined, proxyOptions.host = undefined;
+        for (const { httpProxy, scpClient } of this.links.values()) {
+            httpProxy.configured && httpProxy.deconfigure();
             scpClient.connected && scpClient.close();
         }
         await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient, 'close')));
@@ -391,12 +373,12 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
  */
 export interface Link {
     /**
-     * Configuration options for establishing a HTTP proxy connection to the remote service.
+     * The `HttpProxy` instance used to forward requests to the remote service.
      */
-    proxyOptions: ProxyOptions;
+    httpProxy: HttpProxy;
 
     /**
-     * The ScpClient instance used to communicate with the remote service.
+     * The `ScpClient` instance used to communicate with the remote service.
      */
     scpClient: ScpClient;
 }

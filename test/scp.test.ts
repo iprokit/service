@@ -211,17 +211,18 @@ mocha.describe('SCP Test', () => {
         mocha.it('should dispatch I/O to OMNI execution', async () => {
             //Server
             server.omni('nexus1', errorHandler);
-            server.omni('nexus2', (incoming, outgoing, proceed) => {
-                outgoing.end('END');
+            server.omni('nexus2', async (incoming, outgoing, proceed) => {
+                incoming.pipe(outgoing);
             });
             server.omni('nexus3', errorHandler);
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'nexus2', '');
+            const outgoingData = createString(1000);
+            const { incoming, data: incomingData } = await clientOmni(client, 'nexus2', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus2');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-            assert.deepStrictEqual(data, 'END');
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
 
         mocha.it('should dispatch I/O to execution with wildcard operation', async () => {
@@ -229,49 +230,52 @@ mocha.describe('SCP Test', () => {
             server.omni('nex*1*3', proceedHandler);
             server.omni('nex*3', proceedHandler);
             server.omni('n*3', proceedHandler);
-            server.omni('*', (incoming, outgoing, proceed) => {
+            server.omni('*', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 3);
-                outgoing.end('END');
+                incoming.pipe(outgoing);
             });
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'nexus123', '');
+            const outgoingData = createString(1000);
+            const { incoming, data: incomingData } = await clientOmni(client, 'nexus123', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus123');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-            assert.deepStrictEqual(data, 'END');
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
 
         mocha.it('should dispatch I/O to execution with case sensitivity in operation', async () => {
             //Server
             server.omni('NEXUS', errorHandler);
-            server.omni('nexus', (incoming, outgoing, proceed) => {
-                outgoing.end('END');
+            server.omni('nexus', async (incoming, outgoing, proceed) => {
+                incoming.pipe(outgoing);
             });
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'nexus', '');
+            const outgoingData = createString(1000);
+            const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-            assert.deepStrictEqual(data, 'END');
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
 
         mocha.it('should dispatch I/O to execution with registration order', async () => {
             //Server
             server.omni('nexus', proceedHandler);
-            server.omni('nexus', (incoming, outgoing, proceed) => {
+            server.omni('nexus', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 1);
-                outgoing.end('END');
+                incoming.pipe(outgoing);
             });
             server.omni('nexus', errorHandler);
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'nexus', '');
+            const outgoingData = createString(1000);
+            const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-            assert.deepStrictEqual(data, 'END');
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
 
         mocha.it('should dispatch I/O to executor attached', async () => {
@@ -282,9 +286,9 @@ mocha.describe('SCP Test', () => {
             executor2.omni('*', errorHandler);
             const executor3 = server.Execution();
             executor3.omni('*', proceedHandler);
-            executor3.omni('nexus', (incoming, outgoing, proceed) => {
+            executor3.omni('nexus', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
-                outgoing.end('END');
+                incoming.pipe(outgoing);
             });
             const executor4 = server.Execution();
             server.attach('*', executor1);
@@ -293,11 +297,12 @@ mocha.describe('SCP Test', () => {
             server.attach('Segment4', executor4);
 
             //Client
-            const { incoming, data } = await clientOmni(client, 'Segment3.nexus', '');
+            const outgoingData = createString(1000);
+            const { incoming, data: incomingData } = await clientOmni(client, 'Segment3.nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming.get('SID'), server.identifier);
-            assert.deepStrictEqual(data, 'END');
+            assert.deepStrictEqual(incomingData, outgoingData);
         });
 
         mocha.it('should dispatch I/O through executions & executors', async () => {
@@ -308,18 +313,18 @@ mocha.describe('SCP Test', () => {
             executor2.omni('*', errorHandler);
             const executor3 = server.Execution();
             executor3.omni('*', proceedHandler);
-            executor3.omni('nexus', (incoming, outgoing, proceed) => {
+            executor3.omni('nexus', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
-                outgoing.end('END');
+                incoming.pipe(outgoing);
             });
             const executor4 = server.Execution();
             server.omni('*', proceedHandler);
             server.omni('nexus1', errorHandler);
             server.omni('*1', errorHandler);
             server.omni('nex*', proceedHandler);
-            server.omni('nexus2', (incoming, outgoing, proceed) => {
+            server.omni('nexus2', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
-                outgoing.end('END');
+                incoming.pipe(outgoing);
             });
             server.omni('nexus3', errorHandler);
             server.attach('*', executor1);
@@ -329,21 +334,23 @@ mocha.describe('SCP Test', () => {
             server.omni('nexus3', errorHandler);
 
             //Client 1
-            const { incoming: incoming1, data: data1 } = await clientOmni(client, 'nexus2', '');
+            const outgoingData1 = createString(1000);
+            const { incoming: incoming1, data: incomingData1 } = await clientOmni(client, 'nexus2', outgoingData1);
             assert.deepStrictEqual(incoming1.mode, 'OMNI');
             assert.deepStrictEqual(incoming1.operation, 'nexus2');
             assert.deepStrictEqual(incoming1.get('SID'), server.identifier);
-            assert.deepStrictEqual(data1, 'END');
+            assert.deepStrictEqual(incomingData1, outgoingData1);
 
             //Rest
             proceedCalled = 0;
 
             //Client 2
-            const { incoming: incoming2, data: data2 } = await clientOmni(client, 'Segment3.nexus', '');
+            const outgoingData2 = createString(1000);
+            const { incoming: incoming2, data: incomingData2 } = await clientOmni(client, 'Segment3.nexus', outgoingData2);
             assert.deepStrictEqual(incoming2.mode, 'OMNI');
             assert.deepStrictEqual(incoming2.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming2.get('SID'), server.identifier);
-            assert.deepStrictEqual(data2, 'END');
+            assert.deepStrictEqual(incomingData2, outgoingData2);
         });
 
         mocha.it('should throw SCP_CLIENT_INVALID_CONNECTION', () => {

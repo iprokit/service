@@ -1,4 +1,5 @@
 //Import Libs.
+import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
@@ -17,14 +18,20 @@ export function createIdentifier() {
     return createString(10);
 }
 
+export async function read<R extends Readable>(readable: R) {
+    let chunks = '';
+    for await (const chunk of readable) {
+        chunks += chunk;
+    }
+    return chunks;
+}
+
 export function clientRequest(host: string, port: number, method: HttpMethod, path: string, body: string) {
     return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
-        const request = http.request({ host, port, method, path }, async (response) => {
+        const headers = { 'Content-Length': Buffer.byteLength(body) }
+        const request = http.request({ host, port, method, path, headers }, async (response) => {
             try {
-                let body = '';
-                for await (const chunk of response) {
-                    body += chunk;
-                }
+                const body = await read(response);
                 resolve({ response, body });
             } catch (error) {
                 reject(error);
@@ -46,10 +53,7 @@ export function clientOmni(client: ScpClient, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.omni(operation, async (incoming) => {
             try {
-                let data = '';
-                for await (const chunk of incoming) {
-                    data += chunk;
-                }
+                const data = await read(incoming);
                 resolve({ incoming, data });
             } catch (error) {
                 reject(error);

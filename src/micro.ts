@@ -5,6 +5,7 @@ import { Incoming } from '@iprotechs/scp';
 import Service from './service';
 import { Router } from './http.server';
 import { Executor } from './scp.server';
+import { ForwardOptions } from './http.proxy';
 
 //////////////////////////////
 //////Global Variables
@@ -62,6 +63,14 @@ namespace HTTP {
     export const Patch = routeDecorator('patch');
     export const Delete = routeDecorator('delete');
     export const All = routeDecorator('all');
+
+    export function forward(identifier: string, options: ForwardOptions) {
+        const link = service.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Forward(📬)
+        return link.httpProxy.forward(options);
+    }
 }
 
 export { HTTP }
@@ -93,16 +102,23 @@ namespace SCP {
         }
     }
 
-    //Client
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            service.links.get(identifier)?.scpClient.onBroadcast(operation, descriptor.value);
+            const link = service.links.get(identifier);
+            if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+            //Broadcast(📢)
+            link.scpClient.onBroadcast(operation, descriptor.value);
             return descriptor;
         }
     }
 
     export function omni(identifier: string, operation: string, callback: (incoming: Incoming) => void) {
-        return service.links.get(identifier)?.scpClient.omni(operation, callback);
+        const link = service.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+
+        //Omni(📩)
+        return link.scpClient.omni(operation, callback);
     }
 }
 
