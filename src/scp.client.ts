@@ -4,7 +4,7 @@ import Stream from 'stream';
 import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
-import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
+import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
 
 /**
  * This class implements a simple SCP Client.
@@ -199,6 +199,7 @@ export default class Client extends EventEmitter implements IClient {
                 for await (const chunk of incoming) {
                     data += chunk;
                 }
+                if (incoming.params.get('FORMAT') === 'OBJECT') return this._socket.emit(incoming.operation, ...JSON.parse(data));
                 this._socket.emit(incoming.operation, data, incoming.params);
             } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
@@ -207,7 +208,7 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     //////Interface: IClient
     //////////////////////////////
-    public onBroadcast(operation: string, listener: (data: string, params: Params) => void) {
+    public onBroadcast(operation: string, listener: (...args: Array<any>) => void) {
         this._socket.addListener(operation, listener);
         return this;
     }
@@ -334,9 +335,9 @@ export interface IClient {
      * Registers a listener for broadcast from the server.
      * 
      * @param operation the operation pattern.
-     * @param listener the listener called when broadcast data is received.
+     * @param listener the listener called when broadcast is received.
      */
-    onBroadcast: (operation: string, listener: (data: string, params: Params) => void) => this;
+    onBroadcast: (operation: string, listener: (...args: Array<any>) => void) => this;
 
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.

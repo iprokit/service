@@ -90,6 +90,8 @@ mocha.describe('SCP Test', () => {
         let server: ScpServer;
         let client: ScpClient;
 
+        const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
+
         mocha.beforeEach(async () => {
             server = new ScpServer(createIdentifier());
             server.listen(port);
@@ -105,16 +107,33 @@ mocha.describe('SCP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should receive data on BROADCAST', async () => {
+        mocha.it('should receive broadcast as empty', async () => {
             //Server
-            const outgoingData = createString(1000);
-            server.broadcast('nexus1', outgoingData, [['A', 'a']]);
+            server.broadcast('nexus1');
 
             //Client
-            const { data: incomingData, params } = await clientOnBroadcast(client, 'nexus1');
-            assert.deepStrictEqual(incomingData, outgoingData);
-            assert.deepStrictEqual(params.get('SID'), server.identifier);
-            assert.deepStrictEqual(params.get('A'), 'a');
+            const argsResolved = await clientOnBroadcast(client, 'nexus1', 1);
+            assert.deepStrictEqual(argsResolved, []);
+        });
+
+        mocha.it('should receive broadcast as object', async () => {
+            //Server
+            for (const arg of args) {
+                server.broadcast('nexus1', arg);
+            }
+
+            //Client
+            const argsResolved = await clientOnBroadcast(client, 'nexus1', args.length);
+            assert.deepStrictEqual(argsResolved, args);
+        });
+
+        mocha.it('should receive broadcast as ...object', async () => {
+            //Server
+            server.broadcast('nexus1', ...args);
+
+            //Client
+            const argsResolved = await clientOnBroadcast(client, 'nexus1', 1);
+            assert.deepStrictEqual(argsResolved, args);
         });
     });
 

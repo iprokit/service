@@ -156,15 +156,15 @@ export default class Server extends ScpServer implements IServer {
     //////////////////////////////
     //////Interface: IServer
     //////////////////////////////
-    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
+    public broadcast(operation: string, ...args: Array<any>) {
         for (const connection of this.connections) {
             if (!connection.identifier) continue;
 
             connection.createOutgoing((outgoing: Outgoing) => {
                 Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-                outgoing.setRFI(new RFI('BROADCAST', operation, params));
+                outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
                 outgoing.set('SID', this.identifier);
-                outgoing.end(data);
+                outgoing.end(JSON.stringify(args));
             });
         }
         return this;
@@ -249,13 +249,12 @@ export default class Server extends ScpServer implements IServer {
  */
 export interface IServer extends Executor {
     /**
-     * Broadcasts data to all the subscribed client socket connections.
+     * Broadcasts the supplied to all the subscribed client socket connections.
      * 
      * @param operation the operation pattern.
-     * @param data the data to broadcast.
-     * @param params the optional input/output parameters of the broadcast.
+     * @param args the arguments to broadcast.
      */
-    broadcast: (operation: string, data: string, params?: Iterable<readonly [string, string]>) => this;
+    broadcast: (operation: string, ...args: Array<any>) => this;
 
     /**
      * Returns a `Executor` to group executions that share related functionality.

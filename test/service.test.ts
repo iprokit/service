@@ -138,17 +138,15 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
-        mocha.it('should receive data(BROADCAST) from remote service', async () => {
+        mocha.it('should receive broadcast from remote service', async () => {
             //Server
-            const outgoingData = createString(1000);
-            serviceA.broadcast('nexus1', outgoingData, [['A', 'a']]);
+            const arg = createString(1000);
+            serviceA.broadcast('nexus1', arg);
 
             //Client
             const linkA = serviceB.linkOf('serviceA');
-            const { data: incomingData, params } = await clientOnBroadcast(linkA, 'nexus1');
-            assert.deepStrictEqual(incomingData, outgoingData);
-            assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
-            assert.deepStrictEqual(params.get('A'), 'a');
+            const argsResolved = await clientOnBroadcast(linkA, 'nexus1', 1);
+            assert.deepStrictEqual(argsResolved, [arg]);
         });
 
         mocha.it('should receive data(OMNI) from remote service', async () => {

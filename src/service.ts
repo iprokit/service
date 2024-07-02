@@ -289,14 +289,13 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////Interface: IScpServer
     //////////////////////////////
     /**
-     * Broadcasts data to all the remote services.
+     * Broadcasts the supplied to all the remote services.
      * 
      * @param operation the operation pattern.
-     * @param data the data to broadcast.
-     * @param params the optional input/output parameters of the broadcast.
+     * @param args the arguments to broadcast.
      */
-    public broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
-        this.scpServer.broadcast(operation, data, params);
+    public broadcast(operation: string, ...args: Array<any>) {
+        this.scpServer.broadcast(operation, ...args);
         return this;
     }
 

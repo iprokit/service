@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpMethod, Params, Incoming, IScpClient } from '../lib';
+import { HttpMethod, Incoming, IScpClient } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,10 +41,16 @@ export function clientRequest(host: string, port: number, method: HttpMethod, pa
     });
 }
 
-export function clientOnBroadcast<C extends IScpClient>(client: C, operation: string) {
-    return new Promise<{ data: string, params: Params }>((resolve, reject) => {
-        client.onBroadcast(operation, (data, params) => {
-            resolve({ data, params });
+export function clientOnBroadcast<C extends IScpClient, Args>(client: C, operation: string, count: number) {
+    return new Promise<Array<Array<Args>>>((resolve, reject) => {
+        let received = -1;
+        const argsResolved = new Array<Args>();
+        client.onBroadcast(operation, (...args) => {
+            received++;
+            argsResolved.push(...args);
+            if (received + 1 === count) {
+                resolve(argsResolved as Array<any>);
+            }
         });
     });
 }

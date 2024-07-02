@@ -85,8 +85,8 @@ function SCP(operation?: string) {
 }
 
 namespace SCP {
-    export function broadcast(operation: string, data: string, params?: Iterable<readonly [string, string]>) {
-        service.broadcast(operation, data, params);
+    export function broadcast(operation: string, ...args: Array<any>) {
+        service.broadcast(operation, ...args);
     }
 
     export function Omni(operation?: string) {
