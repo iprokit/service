@@ -363,4 +363,76 @@ mocha.describe('SCP Test', () => {
             }
         });
     });
+
+    mocha.describe('Remote Function Test', () => {
+        let server: ScpServer;
+        let client: ScpClient;
+
+        const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
+
+        mocha.beforeEach(async () => {
+            server = new ScpServer(createIdentifier());
+            server.listen(port);
+            await once(server, 'listening');
+
+            client = new ScpClient(createIdentifier());
+            client.connect(port, host);
+            await once(client, 'connect');
+        });
+
+        mocha.afterEach(async () => {
+            server.close();
+            await once(server, 'close');
+        });
+
+        mocha.it('should execute remote function as empty', async () => {
+            //Server
+            server.func('nexus', (arg) => {
+                assert.deepStrictEqual(arg, undefined);
+                return;
+            });
+
+            //Client
+            const returned = await client.execute('nexus');
+            assert.deepStrictEqual(returned, {});
+        });
+
+        mocha.it('should execute remote function as object', async () => {
+            //Server
+            server.func('nexus', (arg) => {
+                return arg;
+            });
+
+            //Client
+            for (const arg of args) {
+                const returned = await client.execute('nexus', arg);
+                assert.deepStrictEqual(returned, arg);
+            }
+        });
+
+        mocha.it('should execute remote function as ...object', async () => {
+            //Server
+            server.func('nexus', (...args) => {
+                return args;
+            });
+
+            //Client
+            const returned = await client.execute('nexus', ...args);
+            assert.deepStrictEqual(returned, args);
+        });
+
+        mocha.it('should execute remote function as error', async () => {
+            //Server
+            server.func('nexus', (arg) => {
+                throw new Error(arg);
+            });
+
+            //Client
+            try {
+                const returned = await client.execute('nexus', 'SCP Error');
+            } catch (error) {
+                assert.deepStrictEqual(error.message, 'SCP Error');
+            }
+        });
+    });
 });

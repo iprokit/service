@@ -189,6 +189,7 @@ export default class Server extends ScpServer implements IServer {
     //////Interface: Executor
     //////////////////////////////
     public omni: (operation: string, handler: IncomingHandler) => this;
+    public func: <Returned>(operation: string, func: Function<Returned>) => this;
 
     //////////////////////////////
     //////Factory: Executor
@@ -204,6 +205,37 @@ export default class Server extends ScpServer implements IServer {
         instance.omni = (operation, handler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
             instance.executions.push({ operation, regExp, handler } as Nexus);
+            return instance;
+        }
+        instance.func = (operation, func) => {
+            instance.omni(operation, async (incoming, outgoing, proceed) => {
+                //Consumer needs to handle it 🤦🏽‍♂️!
+                if (incoming.get('FORMAT') !== 'OBJECT') return proceed();
+
+                //Read: Incoming stream.
+                let incomingData = '';
+                try {
+                    for await (const chunk of incoming) {
+                        incomingData += chunk;
+                    }
+                } catch (error) { /* LIFE HAPPENS!!! */ }
+
+                //Execute: Function 🫡.
+                let outgoingData = '';
+                try {
+                    let returned = await func(...JSON.parse(incomingData));
+                    outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
+                    outgoing.set('STATUS', 'OK');
+                } catch (error) {
+                    delete error.stack; /* Delete stack from error because we dont need it. */
+                    outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
+                    outgoing.set('STATUS', 'ERROR');
+                }
+
+                //Write: Outgoing stream.
+                Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
+                outgoing.end(outgoingData);
+            });
             return instance;
         }
     }
@@ -258,6 +290,14 @@ export interface Executor {
      * @param handler the incoming handler function.
      */
     omni: (operation: string, handler: IncomingHandler) => this;
+
+    /**
+     * Registers a function for remote execution.
+     * 
+     * @param operation the operation pattern.
+     * @param func the function to be executed remotely.
+     */
+    func: <Returned>(operation: string, func: Function<Returned>) => this;
 }
 
 //////////////////////////////
@@ -317,6 +357,11 @@ export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: 
  * The proceed function.
  */
 export type ProceedFunction = () => void;
+
+/**
+ * The remote function.
+ */
+export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Returned;
 
 //////////////////////////////
 //////Connection

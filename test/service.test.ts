@@ -167,6 +167,19 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
+        mocha.it('should execute remote function from remote service', async () => {
+            //Server
+            serviceA.func('nexus', async (arg) => {
+                return arg;
+            });
+
+            //Client
+            const arg = createString(1000);
+            const linkA = serviceB.linkOf('serviceA');
+            const returned = await linkA.execute('nexus', arg);
+            assert.deepStrictEqual(returned, arg);
+        });
+
         mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
             //Client
             try {

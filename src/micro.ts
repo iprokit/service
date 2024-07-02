@@ -99,6 +99,16 @@ namespace SCP {
         }
     }
 
+    export function func(operation?: string) {
+        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+            const name = target.name ?? target.constructor.name;
+            const executor = executors.get(name) || service.Execution();
+            executors.set(name, executor);
+            executor.func(operation || key, descriptor.value);
+            return descriptor;
+        }
+    }
+
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
             const link = service.linkOf(identifier);
@@ -110,6 +120,11 @@ namespace SCP {
     export function omni(identifier: string, operation: string, callback: (incoming: Incoming) => void) {
         const link = service.linkOf(identifier);
         return link.omni(operation, callback);
+    }
+
+    export function execute<Returned>(identifier: string, operation: string, ...args: Array<any>) {
+        const link = service.linkOf(identifier);
+        return link.execute<Returned>(operation, ...args);
     }
 }
 

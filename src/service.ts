@@ -7,7 +7,7 @@ import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
 import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
-import ScpServer, { IServer as IScpServer, Executor, IncomingHandler } from './scp.server';
+import ScpServer, { IServer as IScpServer, Executor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
 import HttpProxy, { IProxy as IHttpProxy } from './http.proxy';
 import ScpClient, { IClient as IScpClient } from './scp.client';
@@ -177,6 +177,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
             link.omni = (operation, callback) => {
                 return link.scpClient.omni(operation, callback);
             }
+            link.execute = (operation, ...args) => {
+                return link.scpClient.execute(operation, ...args);
+            }
 
             //Forging a new link 🚀🎉.
             this.links.set(identifier, link);
@@ -323,6 +326,17 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      */
     public omni(operation: string, handler: IncomingHandler) {
         this.scpServer.omni(operation, handler);
+        return this;
+    }
+
+    /**
+     * Registers a SCP function for remote execution.
+     * 
+     * @param operation the operation pattern.
+     * @param func the function to be executed remotely.
+     */
+    public func<Returned>(operation: string, func: Function<Returned>) {
+        this.scpServer.func(operation, func);
         return this;
     }
 

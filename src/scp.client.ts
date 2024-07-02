@@ -233,6 +233,36 @@ export default class Client extends EventEmitter implements IClient {
         return socket.outgoing;
     }
 
+    public execute<Returned>(operation: string, ...args: Array<any>) {
+        return new Promise<Returned>((resolve, reject) => {
+            //Read: Incoming stream.
+            const outgoing = this.omni(operation, async (incoming) => {
+                try {
+                    let incomingData = '';
+                    for await (const chunk of incoming) {
+                        incomingData += chunk;
+                    }
+
+                    if (incoming.get('STATUS') === 'OK') {
+                        resolve(JSON.parse(incomingData));
+                    }
+                    if (incoming.get('STATUS') === 'ERROR') {
+                        const error = new Error();
+                        Object.assign(error, JSON.parse(incomingData));
+                        reject(error);
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            });
+
+            //Write: Outgoing stream.
+            Stream.finished(outgoing, (error) => error && reject(error));
+            outgoing.set('FORMAT', 'OBJECT');
+            outgoing.end(JSON.stringify(args));
+        });
+    }
+
     //////////////////////////////
     //////Connection Management
     //////////////////////////////
@@ -315,4 +345,12 @@ export interface IClient {
      * @param callback called when data is available on the `Incoming` stream.
      */
     omni: (operation: string, callback: (incoming: Incoming) => void) => Outgoing;
+
+    /**
+     * Executes a remote function on the server and returns a promise that resolves to the returned value.
+     * 
+     * @param operation the operation pattern.
+     * @param args the arguments to be passed to the remote function.
+     */
+    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
 }
