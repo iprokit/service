@@ -14,7 +14,7 @@ import { RFI, Params, Socket, Incoming, Outgoing } from '@iprotechs/scp';
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
-export default class Client extends EventEmitter {
+export default class Client extends EventEmitter implements IClient {
     /**
      * The unique identifier of the client.
      */
@@ -204,26 +204,14 @@ export default class Client extends EventEmitter {
         })();
     }
 
-    /**
-     * Registers a listener for broadcast from the server.
-     * 
-     * @param operation the operation pattern.
-     * @param listener the listener called when broadcast data is received.
-     */
+    //////////////////////////////
+    //////Interface: IClient
+    //////////////////////////////
     public onBroadcast(operation: string, listener: (data: string, params: Params) => void) {
         this._socket.addListener(operation, listener);
         return this;
     }
 
-    //////////////////////////////
-    //////Omni
-    //////////////////////////////
-    /**
-     * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
-     * 
-     * @param operation the operation pattern.
-     * @param callback called when data is available on the `Incoming` stream.
-     */
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         //Ohooomyyy 🤦.
         if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
@@ -303,4 +291,28 @@ export default class Client extends EventEmitter {
         this._socket?.unref();
         return this;
     }
+}
+
+//////////////////////////////
+/////IClient
+//////////////////////////////
+/**
+ * Interface of SCP `Client`.
+ */
+export interface IClient {
+    /**
+     * Registers a listener for broadcast from the server.
+     * 
+     * @param operation the operation pattern.
+     * @param listener the listener called when broadcast data is received.
+     */
+    onBroadcast: (operation: string, listener: (data: string, params: Params) => void) => this;
+
+    /**
+     * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
+     * 
+     * @param operation the operation pattern.
+     * @param callback called when data is available on the `Incoming` stream.
+     */
+    omni: (operation: string, callback: (incoming: Incoming) => void) => Outgoing;
 }

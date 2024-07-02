@@ -9,8 +9,8 @@ import { Attrs } from '@iprotechs/sdp';
 import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
 import ScpServer, { IServer as IScpServer, Executor, IncomingHandler } from './scp.server';
 import SdpServer from './sdp.server';
-import HttpProxy from './http.proxy';
-import ScpClient from './scp.client';
+import HttpProxy, { IProxy as IHttpProxy } from './http.proxy';
+import ScpClient, { IClient as IScpClient } from './scp.client';
 
 /**
  * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
@@ -162,12 +162,37 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * 
      * @param identifiers the unique identifiers of the remote services.
      */
-    public link(...identifiers: Array<string>) {
-        //Forging new links 🚀🎉.
+    public linkTo(...identifiers: Array<string>) {
         for (const identifier of identifiers) {
-            this.links.set(identifier, { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) });
+            const link: Link = { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) } as Link;
+
+            //Apply `Link` properties 👻.
+            link.forward = (options?) => {
+                return link.httpProxy.forward(options);
+            }
+            link.onBroadcast = (operation, listener) => {
+                link.scpClient.onBroadcast(operation, listener);
+                return link;
+            }
+            link.omni = (operation, callback) => {
+                return link.scpClient.omni(operation, callback);
+            }
+
+            //Forging a new link 🚀🎉.
+            this.links.set(identifier, link);
         }
         return this;
+    }
+
+    /**
+     * Returns the linked remote service.
+     * 
+     * @param identifier the unique identifier of the remote service.
+     */
+    public linkOf(identifier: string) {
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+        return link;
     }
 
     //////////////////////////////
@@ -371,14 +396,14 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 /**
  * Represents a link to a remote service.
  */
-export interface Link {
+export interface Link extends IHttpProxy, IScpClient {
     /**
-     * The `HttpProxy` instance used to forward requests to the remote service.
+     * The HTTP `Proxy` instance used to forward requests to the remote service.
      */
     httpProxy: HttpProxy;
 
     /**
-     * The `ScpClient` instance used to communicate with the remote service.
+     * The SCP `Client` instance used to communicate with the remote service.
      */
     scpClient: ScpClient;
 }

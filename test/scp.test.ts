@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { ScpClient, ScpServer, Segment, Nexus, IncomingHandler } from '../lib';
+import { ScpServer, Segment, Nexus, IncomingHandler, ScpClient } from '../lib';
 import { createString, createIdentifier, clientOnBroadcast, clientOmni } from './util';
 
 const host = '127.0.0.1';

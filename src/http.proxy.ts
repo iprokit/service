@@ -9,7 +9,7 @@ import { RequestHandler, Request, Response } from './http.server';
  * This class implements a simple HTTP Proxy.
  * A `Proxy` is responsible for managing connection persistence to the target server.
  */
-export default class Proxy {
+export default class Proxy implements IProxy {
     /**
      * The remote host.
      */
@@ -58,13 +58,8 @@ export default class Proxy {
     }
 
     //////////////////////////////
-    //////Forward
+    //////Interface: IProxy
     //////////////////////////////
-    /**
-     * Creates a request handler that forwards incoming requests to the target server.
-     * 
-     * @param options the optional options for forwarding requests.
-     */
     public forward(options?: ForwardOptions): RequestHandler {
         return (request, response, next) => {
             options = options ?? {};
@@ -113,6 +108,21 @@ export default class Proxy {
         this._configured = false;
         return this;
     }
+}
+
+//////////////////////////////
+/////IProxy
+//////////////////////////////
+/**
+ * Interface of HTTP `Proxy`.
+ */
+export interface IProxy {
+    /**
+     * Creates a request handler that forwards incoming requests to the target server.
+     * 
+     * @param options the optional options for forwarding requests.
+     */
+    forward: (options?: ForwardOptions) => RequestHandler;
 }
 
 //////////////////////////////

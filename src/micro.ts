@@ -65,11 +65,8 @@ namespace HTTP {
     export const All = routeDecorator('all');
 
     export function forward(identifier: string, options: ForwardOptions) {
-        const link = service.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Forward(📬)
-        return link.httpProxy.forward(options);
+        const link = service.linkOf(identifier);
+        return link.forward(options);
     }
 }
 
@@ -104,21 +101,15 @@ namespace SCP {
 
     export function OnBroadcast(identifier: string, operation: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            const link = service.links.get(identifier);
-            if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-            //Broadcast(📢)
-            link.scpClient.onBroadcast(operation, descriptor.value);
+            const link = service.linkOf(identifier);
+            link.onBroadcast(operation, descriptor.value);
             return descriptor;
         }
     }
 
     export function omni(identifier: string, operation: string, callback: (incoming: Incoming) => void) {
-        const link = service.links.get(identifier);
-        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
-
-        //Omni(📩)
-        return link.scpClient.omni(operation, callback);
+        const link = service.linkOf(identifier);
+        return link.omni(operation, callback);
     }
 }
 

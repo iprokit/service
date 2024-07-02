@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpMethod, Params, Incoming, ScpClient } from '../lib';
+import { HttpMethod, Params, Incoming, IScpClient } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -41,15 +41,15 @@ export function clientRequest(host: string, port: number, method: HttpMethod, pa
     });
 }
 
-export function clientOnBroadcast(client: ScpClient, operation: string) {
+export function clientOnBroadcast<C extends IScpClient>(client: C, operation: string) {
     return new Promise<{ data: string, params: Params }>((resolve, reject) => {
-        client.onBroadcast(operation, (data: string, params: Params) => {
+        client.onBroadcast(operation, (data, params) => {
             resolve({ data, params });
         });
     });
 }
 
-export function clientOmni(client: ScpClient, operation: string, data: string) {
+export function clientOmni<C extends IScpClient>(client: C, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.omni(operation, async (incoming) => {
             try {

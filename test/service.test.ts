@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { HttpStatusCode, Service, Link } from '../lib';
+import { HttpStatusCode, Service } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -73,7 +73,7 @@ mocha.describe('Service Test', () => {
 
             //Initialize
             let half: Array<Service>;
-            const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j)));
+            const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).linkTo(...identifiers.filter((_, j) => i !== j)));
             validate(services, false, serviceCount);
 
             //Start(All)
@@ -87,7 +87,7 @@ mocha.describe('Service Test', () => {
                 validate(half, false, serviceCount);
 
                 //Re-Initialize(Half)
-                for (let i = 0; i < halfCount; i++) services[i] = new Service(identifiers[i]).link(...identifiers.filter((_, j) => i !== j));
+                for (let i = 0; i < halfCount; i++) services[i] = new Service(identifiers[i]).linkTo(...identifiers.filter((_, j) => i !== j));
                 validate(half, false, serviceCount);
 
                 //Start(Half)
@@ -106,11 +106,11 @@ mocha.describe('Service Test', () => {
         let serviceA: Service, serviceB: Service;
 
         mocha.beforeEach(async () => {
-            serviceA = new Service('SVC_A');
-            serviceA.link('SVC_B');
+            serviceA = new Service('serviceA');
+            serviceA.linkTo('serviceB');
 
-            serviceB = new Service('SVC_B');
-            serviceB.link('SVC_A');
+            serviceB = new Service('serviceB');
+            serviceB.linkTo('serviceA');
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -119,10 +119,10 @@ mocha.describe('Service Test', () => {
             await Promise.all([serviceA.stop(), serviceB.stop()]);
         });
 
-        mocha.it('should forward request to target service', async () => {
+        mocha.it('should forward request to remote service', async () => {
             //Server
-            const { httpProxy: httpProxyB } = serviceA.links.get('SVC_B') as Link;
-            serviceA.post('/endpoint', httpProxyB.forward());
+            const linkB = serviceA.linkOf('serviceB');
+            serviceA.post('/endpoint', linkB.forward());
 
             //Server Target
             serviceB.post('/endpoint', async (request, response, next) => {
@@ -138,20 +138,20 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
-        mocha.it('should receive data on BROADCAST', async () => {
+        mocha.it('should receive data(BROADCAST) from remote service', async () => {
             //Server
             const outgoingData = createString(1000);
             serviceA.broadcast('nexus1', outgoingData, [['A', 'a']]);
 
             //Client
-            const { scpClient: scpClientA } = serviceB.links.get('SVC_A') as Link;
-            const { data: incomingData, params } = await clientOnBroadcast(scpClientA, 'nexus1');
+            const linkA = serviceB.linkOf('serviceA');
+            const { data: incomingData, params } = await clientOnBroadcast(linkA, 'nexus1');
             assert.deepStrictEqual(incomingData, outgoingData);
             assert.deepStrictEqual(params.get('SID'), serviceA.identifier);
             assert.deepStrictEqual(params.get('A'), 'a');
         });
 
-        mocha.it('should receive data on OMNI', async () => {
+        mocha.it('should receive data(OMNI) from remote service', async () => {
             //Server
             serviceA.omni('nexus', async (incoming, outgoing, proceed) => {
                 incoming.pipe(outgoing);
@@ -159,12 +159,21 @@ mocha.describe('Service Test', () => {
 
             //Client
             const outgoingData = createString(1000);
-            const { scpClient: scpClientA } = serviceB.links.get('SVC_A') as Link;
-            const { incoming, data: incomingData } = await clientOmni(scpClientA, 'nexus', outgoingData);
+            const linkA = serviceB.linkOf('serviceA');
+            const { incoming, data: incomingData } = await clientOmni(linkA, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
+        });
+
+        mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
+            //Client
+            try {
+                const linkC = serviceB.linkOf('serviceC');
+            } catch (error) {
+                assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+            }
         });
     });
 });

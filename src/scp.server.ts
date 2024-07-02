@@ -201,7 +201,7 @@ export default class Server extends ScpServer implements IServer {
      */
     private applyExecutorProperties<I extends Executor>(instance: I) {
         //`Executor` properties 😈.
-        instance.omni = (operation: string, handler: IncomingHandler) => {
+        instance.omni = (operation, handler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
             instance.executions.push({ operation, regExp, handler } as Nexus);
             return instance;
