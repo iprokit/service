@@ -16,4 +16,4 @@ export { default as SdpServer, IPod } from './sdp.server';
 export { default as Service, Link } from './service';
 
 //Export Micro.
-export { default, HTTP, SCP } from './micro';
+export { default, HTTP, RouterContext, SCP, ExecutorContext } from './micro';

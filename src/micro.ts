@@ -16,7 +16,7 @@ import { ForwardOptions } from './http.proxy';
 let service: Service;
 
 //////////////////////////////
-//////Micro:Service
+//////Micro: Service
 //////////////////////////////
 /**
  * Creates a lightweight, singleton instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
@@ -35,23 +35,25 @@ export default micro;
 //////////////////////////////
 //////Decorators: HTTP
 //////////////////////////////
-const routers = new Map<string, Router>();
+export interface RouterContext {
+    name: string;
+    path?: string;
+    router?: Router;
+}
 
 function HTTP(path: string) {
-    return (target: any) => {
-        const router = routers.get(target.name);
-        service.mount(path, router);
+    return (target: RouterContext) => {
+        target.path = path;
     }
 }
 
 namespace HTTP {
     function routeDecorator(method: 'get' | 'post' | 'put' | 'patch' | 'delete' | 'all') {
         return (path: string) => {
-            return (target: any, key: string, descriptor: PropertyDescriptor) => {
-                const name = target.name ?? target.constructor.name;
-                const router = routers.get(name) || service.Route();
-                routers.set(name, router);
-                router[method](path, descriptor.value);
+            return (target: RouterContext, key: string, descriptor: PropertyDescriptor) => {
+                const _target = resolveTarget<RouterContext>(target);
+                _target.router = _target.router || service.Route();
+                _target.router[method](path, descriptor.value);
                 return descriptor;
             }
         }
@@ -75,12 +77,15 @@ export { HTTP }
 //////////////////////////////
 //////Decorators: SCP
 //////////////////////////////
-const executors = new Map<string, Executor>();
+export interface ExecutorContext {
+    name: string;
+    operation?: string;
+    executor?: Executor;
+}
 
 function SCP(operation?: string) {
-    return (target: any) => {
-        const executor = executors.get(target.name);
-        service.attach(operation || target.name, executor);
+    return (target: ExecutorContext) => {
+        target.operation = operation || target.name;
     }
 }
 
@@ -90,27 +95,25 @@ namespace SCP {
     }
 
     export function Omni(operation?: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            const name = target.name ?? target.constructor.name;
-            const executor = executors.get(name) || service.Execution();
-            executors.set(name, executor);
-            executor.omni(operation || key, descriptor.value);
+        return (target: ExecutorContext, key: string, descriptor: PropertyDescriptor) => {
+            const _target = resolveTarget<ExecutorContext>(target);
+            _target.executor = _target.executor || service.Execution();
+            _target.executor.omni(operation || key, descriptor.value);
             return descriptor;
         }
     }
 
     export function Func(operation?: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
-            const name = target.name ?? target.constructor.name;
-            const executor = executors.get(name) || service.Execution();
-            executors.set(name, executor);
-            executor.func(operation || key, descriptor.value);
+        return (target: ExecutorContext, key: string, descriptor: PropertyDescriptor) => {
+            const _target = resolveTarget<ExecutorContext>(target);
+            _target.executor = _target.executor || service.Execution();
+            _target.executor.func(operation || key, descriptor.value);
             return descriptor;
         }
     }
 
     export function OnBroadcast(identifier: string, operation: string) {
-        return (target: any, key: string, descriptor: PropertyDescriptor) => {
+        return (target: ExecutorContext, key: string, descriptor: PropertyDescriptor) => {
             const link = service.linkOf(identifier);
             link.onBroadcast(operation, descriptor.value);
             return descriptor;
@@ -129,3 +132,10 @@ namespace SCP {
 }
 
 export { SCP }
+
+//////////////////////////////
+//////Helpers
+//////////////////////////////
+function resolveTarget<T>(target: T) {
+    return (typeof target === 'function') ? target as T : target.constructor as T;
+}
