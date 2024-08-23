@@ -99,7 +99,7 @@ namespace SCP {
         }
     }
 
-    export function func(operation?: string) {
+    export function Func(operation?: string) {
         return (target: any, key: string, descriptor: PropertyDescriptor) => {
             const name = target.name ?? target.constructor.name;
             const executor = executors.get(name) || service.Execution();
