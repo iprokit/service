@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "es6",
+    "target": "ES2023",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": true,
@@ -22,7 +22,7 @@
     "experimentalDecorators": true,
 
     /* Advanced Options */
-    // "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src"

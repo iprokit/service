@@ -1,24 +1,28 @@
 {
-  "name": "@iprotechs/micro",
-  "version": "1.2.0",
-  "description": "Powerful lightweight microservice framework.",
+  "name": "@iprotechs/service",
+  "version": "1.0.0",
+  "description": "Powerful lightweight service framework.",
   "repository": {
     "type": "git",
-    "url": "git+https://bitbucket.org/iprotechs/micro.git"
+    "url": "git+https://bitbucket.org/iprotechs/service.git"
   },
   "keywords": [
     "iprotechs",
-    "micro",
+    "lightweight",
     "service",
-    "microservice",
-    "scp"
+    "http",
+    "scp",
+    "sdp",
+    "proxy",
+    "server",
+    "client"
   ],
   "author": {
     "name": "Rutvik Katuri",
     "email": "rutvik.katuri@iprotechs.com"
   },
   "license": "UNLICENSED",
-  "homepage": "https://bitbucket.org/iprotechs/micro#readme",
+  "homepage": "https://bitbucket.org/iprotechs/service#readme",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
@@ -34,14 +38,14 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "3.8.6",
-    "@iprotechs/sdp": "2.4.1"
+    "@iprotechs/scp": "3.8.7",
+    "@iprotechs/sdp": "2.4.2"
   },
   "devDependencies": {
-    "typescript": "5.0.4",
-    "@types/node": "18.15.13",
-    "mocha": "10.2.0",
-    "@types/mocha": "10.0.1",
-    "ts-node": "10.9.1"
+    "typescript": "5.5.4",
+    "@types/node": "22.5.0",
+    "mocha": "10.7.3",
+    "@types/mocha": "10.0.7",
+    "ts-node": "10.9.2"
   }
 }
