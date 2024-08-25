@@ -1,1013 +1,423 @@
-//Import @iprotechs Libs.
-import Discovery, { Params as DiscoveryParams, Pod as DiscoveryPod } from '@iprotechs/discovery';
-import { Server as ScpServer, Mesh, Connection as ScpConnection, ReplyAsyncFunction } from '@iprotechs/scp';
-
 //Import Libs.
-import { EventEmitter } from 'events';
-import fs from 'fs';
-import express, { Express, Router, Request, Response, NextFunction, RouterOptions } from 'express';
-import { PathParams, RequestHandler } from 'express-serve-static-core';
-import { Server as HttpServer } from 'http';
-import cors from 'cors';
-import winston, { Logger } from 'winston';
-import morgan from 'morgan';
-import WinstonDailyRotateFile from 'winston-daily-rotate-file';
-import ip from 'ip';
+import { EventEmitter, once } from 'events';
+import { AddressInfo } from 'net';
+
+//Import @iprotechs Libs.
+import { Attrs } from '@iprotechs/sdp';
 
 //Import Local.
-import Default from './default';
-import Helper from './helper';
-import HttpStatusCodes from './http.statusCodes';
-import ServiceRoutes from './service.routes';
-import ServiceRegistry, { RemoteService } from './service.registry';
-import DBManager, { ConnectionOptions } from './db.manager';
-import Proxy from './proxy';
+import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
+import ScpServer, { IServer as IScpServer, Executor, IncomingHandler, Function } from './scp.server';
+import SdpServer from './sdp.server';
+import HttpProxy, { IProxy as IHttpProxy } from './http.proxy';
+import ScpClient, { IClient as IScpClient } from './scp.client';
 
 /**
- * This class is an implementation of a simple and lightweight service.
- * It can be used to implement a service/micro-service.
- * It can communicate with other `Service`'s using SCP(service communication protocol).
- * The HTTP Server is built on top of `Express` and its components.
- * Supports NoSQL(`Mongoose`)/RDB(`Sequelize`), i.e: `mongo`, `mysql`, `postgres`, `sqlite`, `mariadb` and `mssql` databases.
- * Creates default HTTP Endpoints.
+ * Creates a lightweight instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
  * 
- * Default HTTP Endpoints.
- * - /health - To validate if the service is healthy.
- * - /report - To get all the service reports.
- * 
- * @emits `starting` when the service is in the process of starting.
- * @emits `started` when the service is started.
- * @emits `available` when a remote service is available.
- * @emits `unavailable` when a remote service is unavailable.
- * @emits `stopping` when the service is in the process of stopping.
- * @emits `stopped` when the service is stopped.
+ * @emits `start` when the service starts.
+ * @emits `link` when a link is established.
+ * @emits `unlink` when a link is terminated.
+ * @emits `stop` when the service stops.
  */
-export default class Service extends EventEmitter {
+export default class Service extends EventEmitter implements IHttpServer, IScpServer {
     /**
-     * The name of the service.
+     * The unique identifier of the service.
      */
-    public readonly name: string;
+    public readonly identifier: string;
 
     /**
-     * The version of the service.
+     * The HTTP server instance.
      */
-    public readonly version: string;
+    public readonly httpServer: HttpServer;
 
     /**
-     * The environment of the service.
-     */
-    public readonly environment: string;
-
-    /**
-     * The HTTP Server port of the service.
-     */
-    public readonly httpPort: number;
-
-    /**
-     * The SCP Server port of the service.
-     */
-    public readonly scpPort: number;
-
-    /**
-     * The discovery port of the service.
-     */
-    public readonly discoveryPort: number;
-
-    /**
-     * The IP address of discovery, i.e the multicast address.
-     */
-    public readonly discoveryIp: string;
-
-    /**
-     * The path to log files of the service.
-     */
-    public readonly logPath: string;
-
-    /**
-     * The IP address of this service.
-     */
-    public readonly ip: string;
-
-    /**
-     * The functions called before and after each part of the service execution.
-     */
-    public readonly hooks: Hooks;
-
-    /**
-     * The logger instance.
-     */
-    public readonly logger: Logger;
-
-    /**
-     * Instance of `DBManager`.
-     */
-    public readonly dbManager: DBManager;
-
-    /**
-     * Instance of `ScpServer`.
+     * The SCP server instance.
      */
     public readonly scpServer: ScpServer;
 
     /**
-     * Instance of `Mesh`.
+     * The SDP server instance.
      */
-    public readonly mesh: Mesh;
+    public readonly sdpServer: SdpServer;
 
     /**
-     * Instance of `Proxy`.
+     * Links to remote services.
      */
-    public readonly proxy: Proxy;
+    public readonly links: Map<string, Link>;
 
     /**
-     * Instance of `Discovery`.
-     */
-    public readonly discovery: Discovery;
-
-    /**
-     * A registry of remote services.
-     */
-    public readonly serviceRegistry: ServiceRegistry;
-
-    /**
-     * Instance of `Express` application.
-     */
-    public readonly express: Express;
-
-    /**
-     * Instance of `HttpServer`.
-     */
-    private _httpServer: HttpServer;
-
-    /**
-     * The routers mounted on `Express`.
-     */
-    public readonly routers: Array<ExpressRouter>;
-
-    /**
-     * Creates an instance of a `Service`.
+     * Creates an instance of service.
      * 
-     * @param options the constructor options.
-     * 
-     * @throws `InvalidServiceOptions` when a service option is invalid.
+     * @param identifier the unique identifier of the service.
      */
-    constructor(options: Options) {
+    constructor(identifier: string) {
         super();
 
         //Initialize Options.
-        this.name = options.name;
-        this.version = options.version ?? Default.VERSION;
-        this.environment = options.environment ?? Default.ENVIRONMENT;
-        this.httpPort = options.httpPort ?? Default.HTTP_PORT;
-        this.scpPort = options.scpPort ?? Default.SCP_PORT;
-        this.discoveryPort = options.discoveryPort ?? Default.DISCOVERY_PORT;
-        this.discoveryIp = options.discoveryIp ?? Default.DISCOVERY_IP;
-        this.logPath = options.logPath;
-        this.mesh = options.mesh ?? new Mesh();
-        this.proxy = options.proxy ?? new Proxy();
+        this.identifier = identifier;
 
-        //Initialize IP.
-        this.ip = ip.address();
+        //Initialize Variables.
+        this.httpServer = new HttpServer();
+        this.scpServer = new ScpServer(this.identifier);
+        this.sdpServer = new SdpServer(this.identifier);
+        this.links = new Map();
 
-        //Initialize Hooks.
-        this.hooks = new Hooks();
+        //Bind Listeners.
+        this.onAvailable = this.onAvailable.bind(this);
+        this.onUnavailable = this.onUnavailable.bind(this);
 
-        //Initialize Logger.
-        this.logger = winston.createLogger();
-        this.configLogger();
-
-        //Initialize DB Manager
-        if (options.db) {
-            const dbLogger = this.logger.child({ component: 'DB' });
-            this.dbManager = new DBManager({ connection: options.db, logger: dbLogger });
-        }
-
-        //Initialize SCP Server.
-        this.scpServer = new ScpServer(this.name);
-        this.configSCP();
-
-        //Initialize Mesh.
-        (this.mesh as any).name = this.name;
-
-        //Initialize Discovery.
-        this.discovery = new Discovery(this.name, { scpPort: this.scpPort, httpPort: this.httpPort } as PodParams);
-
-        //Initialize ServiceRegistry.
-        this.serviceRegistry = new ServiceRegistry();
-        this.configServiceRegistry();
-
-        //Initialize Express.
-        this.express = express();
-        this.routers = new Array();
-        this.configExpress();
-
-        //Add Hooks.
-        this.addStartHooks();
-        this.addStopHooks();
+        //Add Listeners.
+        this.sdpServer.addListener('available', this.onAvailable);
+        this.sdpServer.addListener('unavailable', this.onUnavailable);
     }
 
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
     /**
-     * Instance of `HttpServer`.
+     * The HTTP routes registered.
      */
-    public get httpServer() {
-        return this._httpServer;
+    public get routes() {
+        return this.httpServer.routes;
     }
 
-    //////////////////////////////
-    //////Config
-    //////////////////////////////
     /**
-     * Configures logger by setting up winston.
-     * 
-     * @throws `InvalidServiceOptions` when a service option is invalid.
+     * The SCP executions registered.
      */
-    private configLogger() {
-        //Define _logger format.
-        const format = winston.format.combine(
-            winston.format.label(),
-            winston.format.timestamp(),
-            winston.format.printf((info) => {
-                //Set info variables
-                const component = info.component ? `${info.component}` : '-';
+    public get executions() {
+        return this.scpServer.executions;
+    }
 
-                //Return the log to stream.
-                return `${info.timestamp} | ${info.level.toUpperCase()} | ${component} | ${info.message}`;
-            })
-        )
-
-        //Add console transport.
-        this.logger.add(new winston.transports.Console({
-            level: 'debug',
-            format: format
-        }));
-
-        //Try, Add file transport.
-        if (this.environment !== 'development') {
-            //Try creating path if it does not exist.
-            if (!fs.existsSync(this.logPath)) {
-                try {
-                    fs.mkdirSync(this.logPath);
-                } catch (error) {
-                    throw new InvalidServiceOptions('Invalid logPath provided.');
-                }
-            }
-
-            //Add file transport.
-            this.logger.add(new WinstonDailyRotateFile({
-                level: 'info',
-                format: format,
-                filename: `${this.name}-%DATE%.log`,
-                datePattern: 'DD-MM-YY-HH',
-                dirname: this.logPath
-            }));
+    /**
+     * True when the servers are listening for connections, false otherwise.
+     */
+    public get listening() {
+        return {
+            http: this.httpServer.listening,
+            scp: this.scpServer.listening,
+            sdp: this.sdpServer.listening
         }
     }
 
     /**
-     * Configures SCP by setting up `ScpServer`.
+     * The bound address, the address family name and port of the servers as reported by the operating system.
      */
-    private configSCP() {
-        this.scpServer.on('connection', (connection: ScpConnection) => {
-            connection.on('error', (error: Error) => {
-                this.logger.error(error.stack, { component: `SCP:${connection.name}` });
-            });
-        });
-        this.scpServer.on('error', (error: Error) => {
-            this.logger.error(error.stack, { component: 'SCP' });
-        });
+    public address() {
+        return {
+            http: this.httpServer.address() as AddressInfo,
+            scp: this.scpServer.address() as AddressInfo,
+            sdp: this.sdpServer.address() as AddressInfo
+        }
     }
 
     /**
-     * Configures `ServiceRegistry` by setting up `Discovery`, `Node` and `ProxyHandler`.
+     * The multicast groups joined.
      */
-    private configServiceRegistry() {
-        this.discovery.on('available', (pod: Pod) => {
-            this.logger.info(`${pod.name}(${pod.id}) available on ${pod.address}`);
-
-            //Try finding the remoteService or create a new one and connect.
-            const remoteService = this.register(pod.name);
-            remoteService.connect(pod.address, pod.params.httpPort, pod.params.scpPort, () => {
-                this.logger.info(`Connected to remote service ${remoteService.name}`);
-                this.emit('available', remoteService);
-            });
-        });
-
-        this.discovery.on('unavailable', (pod: Pod) => {
-            this.logger.info(`${pod.name}(${pod.id}) unavailable.`);
-
-            //Try finding the remoteService and disconnect.
-            const remoteService = this.serviceRegistry.getByName(pod.name);
-            remoteService.disconnect(() => {
-                this.logger.info(`Disconnected from remote service ${remoteService.name}`);
-                this.emit('unavailable', remoteService);
-            });
-        });
-
-        this.discovery.on('error', (error: Error) => {
-            this.logger.error(error.stack, { component: 'DISCOVERY' });
-        });
+    public get memberships() {
+        return this.sdpServer.memberships;
     }
 
     /**
-     * Configures HTTP Server by setting up `Express`.
+     * The local address of the service.
+     */
+    public get localAddress() {
+        return this.sdpServer.localAddress;
+    }
+
+    //////////////////////////////
+    //////Event Listeners: SDP
+    //////////////////////////////
+    /**
+     * @emits `link` when a link is established.
+     */
+    private onAvailable(identifier: string, attrs: Attrs, host: string) {
+        const link = this.links.get(identifier);
+        if (!link) return;
+
+        //Establish connection.
+        link.httpProxy.configure(Number(attrs.get('http')), host);
+        link.scpClient.connect(Number(attrs.get('scp')), host);
+        this.emit('link', link);
+    }
+
+    /**
+     * @emits `unlink` when a link is terminated.
+     */
+    private onUnavailable(identifier: string, attrs: Attrs, host: string) {
+        const link = this.links.get(identifier);
+        if (!link) return;
+
+        //Terminate connection.
+        link.httpProxy.configured && link.httpProxy.deconfigure();
+        link.scpClient.connected && link.scpClient.close();
+        this.emit('unlink', link);
+    }
+
+    //////////////////////////////
+    //////Link
+    //////////////////////////////
+    /**
+     * Links the service to the remote services.
      * 
-     * Hooks:
-     * - Add preStart hooks for `Express`.
+     * @param identifiers the unique identifiers of the remote services.
      */
-    private configExpress() {
-        //Set environment.
-        this.express.set('env', this.environment);
+    public linkTo(...identifiers: Array<string>) {
+        for (const identifier of identifiers) {
+            const link: Link = { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) } as Link;
 
-        //Middleware: CORS.
-        this.express.use(cors());
-        this.express.options('*', cors());
-
-        // //Middleware: JSON.
-        // this.express.use(express.json());
-
-        //Setup child logger for HTTP.
-        const httpLogger = this.logger.child({ component: 'HTTP' });
-
-        //Middleware: Morgan, bind it with Winston.
-        this.express.use(morgan('(:remote-addr) :method :url :status - :response-time ms', {
-            stream: {
-                write: (log: string) => {
-                    httpLogger.info(`${log.trim()}`);
-                }
+            //Apply `Link` properties 👻.
+            link.forward = (options?) => {
+                return link.httpProxy.forward(options);
             }
-        }));
-
-        //Middleware: Generate proxy objects.
-        this.express.use(Helper.generateProxyObjects);
-
-        //Middleware: Service Unavailable.
-        this.express.use((request: Request, response: Response, next: NextFunction) => {
-            response.setTimeout(1000 * 60 * 2, () => {
-                response.status(HttpStatusCodes.SERVICE_UNAVAILABLE).send({ message: 'Service Unavailable' });
-            });
-
-            next();
-        });
-
-        //Add PreStart Hook[Bottom]: Add Service Routes.
-        this.hooks.preStart.addToBottom((done) => {
-            const serviceRoutes = new ServiceRoutes(this);
-
-            //Service routes.
-            const serviceRouter = this.createRouter('/');
-            serviceRouter.use(express.json())
-            serviceRouter.get('/health', Helper.bind(serviceRoutes.getHealth, serviceRoutes));
-            serviceRouter.get('/report', Helper.bind(serviceRoutes.getReport, serviceRoutes));
-
-            //Database routes.
-            if (this.dbManager) {
-                const databaseRouter = this.createRouter('/db');
-                databaseRouter.use(express.json())
-                databaseRouter.get('/sync', Helper.bind(serviceRoutes.syncDatabase, serviceRoutes));
+            link.onBroadcast = (operation, listener) => {
+                link.scpClient.onBroadcast(operation, listener);
+                return link;
+            }
+            link.omni = (operation, callback) => {
+                return link.scpClient.omni(operation, callback);
+            }
+            link.execute = (operation, ...args) => {
+                return link.scpClient.execute(operation, ...args);
             }
 
-            done();
-        });
-
-        //Add PreStart Hook[Bottom]: Middleware: Error handler for 404.
-        this.hooks.preStart.addToBottom((done) => {
-            this.express.use((request: Request, response: Response, next: NextFunction) => {
-                response.status(HttpStatusCodes.NOT_FOUND).send({ message: 'Not Found' });
-            });
-
-            done();
-        });
-    }
-
-    //////////////////////////////
-    //////Hooks
-    //////////////////////////////
-    /**
-     * Add start hooks.
-     */
-    private addStartHooks() {
-        this.dbManager && this.hooks.start.addToBottom((done) => {
-            this.dbManager.connect((error) => {
-                error || this.logger.info(`DB client connected to ${this.dbManager.type}://${this.dbManager.host}/${this.dbManager.name}`);
-                done(error);
-            });
-        });
-        this.hooks.start.addToBottom((done) => {
-            this.scpServer.listen(this.scpPort, () => {
-                this.logger.info(`SCP server running on ${this.ip}:${this.scpPort}`);
-                done();
-            });
-        });
-        this.hooks.start.addToBottom((done) => {
-            this.discovery.bind(this.discoveryPort, this.discoveryIp, (error: Error) => {
-                error || this.logger.info(`Discovery running on ${this.discoveryIp}:${this.discoveryPort}`);
-                done(error);
-            });
-        });
-        this.hooks.start.addToBottom((done) => {
-            this._httpServer = this.express.listen(this.httpPort, () => {
-                this.logger.info(`HTTP server running on ${this.ip}:${this.httpPort}`);
-                done();
-            });
-        });
+            //Forging a new link 🚀🎉.
+            this.links.set(identifier, link);
+        }
+        return this;
     }
 
     /**
-     * Add stop hooks.
+     * Returns the linked remote service.
+     * 
+     * @param identifier the unique identifier of the remote service.
      */
-    private addStopHooks() {
-        this.hooks.stop.addToBottom((done) => {
-            this._httpServer.close((error) => {
-                error || this.logger.info(`Stopped HTTP server.`);
-                done(error);
-            });
-        });
-        this.hooks.stop.addToBottom((done) => {
-            this.discovery.close((error) => {
-                error || this.logger.info(`Stopped Discovery.`);
-                done(error);
-            });
-        });
-        this.hooks.stop.addToBottom((done) => {
-            this.scpServer.close((error) => {
-                error || this.logger.info(`Stopped SCP Server.`);
-                done(error);
-            });
-        });
-        this.dbManager && this.hooks.stop.addToBottom((done) => {
-            this.dbManager.disconnect((error) => {
-                error || this.logger.info(`DB Disconnected.`);
-                done(error);
-            });
-        });
+    public linkOf(identifier: string) {
+        const link = this.links.get(identifier);
+        if (!link) throw new Error('SERVICE_LINK_INVALID_IDENTIFIER');
+        return link;
+    }
+
+    //////////////////////////////
+    //////Interface: IHttpServer
+    //////////////////////////////
+    /**
+     * Returns a `Router` to group HTTP routes that share related functionality.
+     */
+    public Route() {
+        return this.httpServer.Route();
+    }
+
+    /**
+     * Registers a HTTP route for handling GET requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public get(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.get(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Registers a HTTP route for handling POST requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public post(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.post(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Registers a HTTP route for handling PUT requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public put(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.put(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Registers a HTTP route for handling PATCH requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public patch(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.patch(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Registers a HTTP route for handling DELETE requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public delete(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.delete(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Registers a HTTP route for handling all requests.
+     * 
+     * @param path the path pattern.
+     * @param handlers the request handler functions.
+     */
+    public all(path: string, ...handlers: Array<RequestHandler>) {
+        this.httpServer.all(path, ...handlers);
+        return this;
+    }
+
+    /**
+     * Mounts multiple HTTP routers.
+     * 
+     * @param path the path pattern.
+     * @param routers the routers to mount.
+     */
+    public mount(path: string, ...routers: Array<Router>) {
+        this.httpServer.mount(path, ...routers);
+        return this;
+    }
+
+    //////////////////////////////
+    //////Interface: IScpServer
+    //////////////////////////////
+    /**
+     * Broadcasts the supplied to all the remote services.
+     * 
+     * @param operation the operation pattern.
+     * @param args the arguments to broadcast.
+     */
+    public broadcast(operation: string, ...args: Array<any>) {
+        this.scpServer.broadcast(operation, ...args);
+        return this;
+    }
+
+    /**
+     * Returns a `Executor` to group SCP executions that share related functionality.
+     */
+    public Execution() {
+        return this.scpServer.Execution();
+    }
+
+    /**
+     * Attaches a SCP executor.
+     * 
+     * @param operation the operation pattern.
+     * @param executor the executor to attach.
+     */
+    public attach(operation: string, executor: Executor) {
+        this.scpServer.attach(operation, executor);
+        return this;
+    }
+
+    /**
+     * Registers a SCP execution for handling OMNI I/O.
+     * 
+     * @param operation the operation pattern.
+     * @param handler the incoming handler function.
+     */
+    public omni(operation: string, handler: IncomingHandler) {
+        this.scpServer.omni(operation, handler);
+        return this;
+    }
+
+    /**
+     * Registers a SCP function for remote execution.
+     * 
+     * @param operation the operation pattern.
+     * @param func the function to be executed remotely.
+     */
+    public func<Returned>(operation: string, func: Function<Returned>) {
+        this.scpServer.func(operation, func);
+        return this;
     }
 
     //////////////////////////////
     //////Start/Stop
     //////////////////////////////
     /**
-     * Starts the service.
+     * Starts the service by listening on the HTTP, SCP, SDP servers and connecting to the linked remote services.
      * 
-     * @param callback optional callback, called when the service is started.
+     * @param httpPort the HTTP port.
+     * @param scpPort the SCP port.
+     * @param sdpPort the SDP port.
+     * @param sdpAddress the SDP address of the multicast group.
+     * @emits `start` when the service starts.
      */
-    public start(callback?: (error?: Error) => void) {
-        this.logger.info(`Starting ${this.name} v.${this.version} in ${this.environment} environment.`);
+    public async start(httpPort: number, scpPort: number, sdpPort: number, sdpAddress: string) {
+        //HTTP
+        this.httpServer.listen(httpPort);
+        await once(this.httpServer, 'listening');
 
-        this.emit('starting');
-        this.hooks.executeStart((error) => {
-            this.logger.info(`${this.name} started.`);
+        //SCP
+        this.scpServer.listen(scpPort);
+        await once(this.scpServer, 'listening');
 
-            this.emit('started');
+        //SDP
+        this.sdpServer.attrs.set('http', String(httpPort));
+        this.sdpServer.attrs.set('scp', String(scpPort));
+        this.sdpServer.listen(sdpPort, sdpAddress);
+        await once(this.sdpServer, 'listening');
 
-            callback && callback(error);
-        });
+        //Link
+        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => !scpClient.connected && once(scpClient, 'connect')));
+
+        this.emit('start');
         return this;
     }
 
     /**
-     * Stops the service.
+     * Stops the service by closing all the servers and disconnecting from the linked remote services.
      * 
-     * @param callback optional callback, called when the service is stopped.
+     * @emits `stop` when the service stops.
      */
-    public stop(callback?: (error?: Error) => void) {
-        this.logger.info(`Stopping ${this.name}...`);
+    public async stop() {
+        //HTTP
+        this.httpServer.close();
+        await once(this.httpServer, 'close');
 
-        this.emit('stopping');
-        this.hooks.executeStop((error) => {
-            this.logger.info(`${this.name} stopped.`);
-
-            this.emit('stopped');
-
-            callback && callback(error);
-        });
-        return this;
-    }
-
-    //////////////////////////////
-    //////HTTP Server
-    //////////////////////////////
-    /**
-     * Creates a new `ExpressRouter`.
-     * 
-     * @param mountPath the path this router should be mounted on.
-     * @param options the optional, router options.
-     * 
-     * @returns the created router.
-     */
-    public createRouter(mountPath: PathParams, options?: RouterOptions) {
-        const router = express.Router(options);
-        this.routers.push(new ExpressRouter(mountPath, router));
-        this.express.use(mountPath, router);
-        return router;
-    }
-
-    /**
-     * Mounts the middleware handlers on `Express` at the specified path.
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public use(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.use(path, ...handlers);
-        return this;
-    }
-
-    /**
-     * Creates `all` middlewear handlers on `Express` that works on all HTTP/HTTPs verbose, i.e `get`, `post`, `put`, `delete`, etc...
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public all(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.all(path, ...handlers);
-        return this;
-    }
-
-    /**
-     * Creates `get` middlewear handlers on `Express` that works on `get` HTTP/HTTPs verbose.
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public get(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.get(path, ...handlers);
-        return this;
-    }
-
-    /**
-     * Creates `post` middlewear handlers on `Express` that works on `post` HTTP/HTTPs verbose.
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public post(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.post(path, ...handlers);
-        return this;
-    }
-
-    /**
-     * Creates `put` middlewear handlers on `Express` that works on `put` HTTP/HTTPs verbose.
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public put(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.put(path, ...handlers);
-        return this;
-    }
-
-    /**
-     * Creates `delete` middlewear handlers on `Express` that works on `delete` HTTP/HTTPs verbose.
-     * 
-     * @param path the endpoint path.
-     * @param handlers the handlers to be called. The handlers will take request and response as parameters.
-     */
-    public delete(path: PathParams, ...handlers: RequestHandler[]) {
-        this.express.delete(path, ...handlers);
-        return this;
-    }
-
-    //////////////////////////////
-    //////SCP Server
-    //////////////////////////////
-    /**
-     * Creates asynchronous remote reply function that can be executed by all the client socket connections.
-     * 
-     * @param map the map of the remote reply function.
-     * @param replyFunction the reply function to execute.
-     */
-    public reply<Message, Reply>(map: string, replyFunction: ReplyAsyncFunction<Message, Reply>) {
-        this.scpServer.replyAsync(map, replyFunction);
-        return this;
-    }
-
-    /**
-     * Registers a broadcast.
-     * 
-     * @param map the map of the broadcast.
-     */
-    public registerBroadcast(map: string) {
-        this.scpServer.registerBroadcast(map);
-        return this;
-    }
-
-    /**
-     * Broadcasts the supplied body to all the client socket connections.
-     * 
-     * @param map the map of the broadcast.
-     * @param body the optional body to broadcast.
-     */
-    public broadcast<Body>(map: string, body?: Body) {
-        return this.scpServer.broadcast(map, body);
-    }
-
-    //////////////////////////////
-    //////ServiceRegistry
-    //////////////////////////////
-    /**
-     * Discovers the service.
-     * 
-     * @param name the name of the service.
-     * @param alias the optional, alias name of the service.
-     */
-    public discover(name: string, alias?: string) {
-        this.register(name, alias, true);
-        return this;
-    }
-
-    /**
-     * Registeres a new remote service.
-     * 
-     * Hooks:
-     * - Add preStop hooks for `ServiceRegistry`.
-     * 
-     * @param name the name of the service.
-     * @param alias the optional, alias name of the service.
-     * @param defined set to true if the service is defined by the consumer, false if auto discovered.
-     */
-    private register(name: string, alias?: string, defined?: boolean) {
-        //Try finding the remoteService by name.
-        let _remoteService = this.serviceRegistry.getByName(name);
-        if (_remoteService) {
-            return _remoteService;
+        //Link
+        for (const { httpProxy, scpClient } of this.links.values()) {
+            httpProxy.configured && httpProxy.deconfigure();
+            scpClient.connected && scpClient.close();
         }
+        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient, 'close')));
 
-        //Try finding the remoteService by alias.
-        _remoteService = this.serviceRegistry.getByAlias(alias);
-        if (_remoteService) {
-            return _remoteService;
-        }
+        //SCP
+        this.scpServer.close();
+        await once(this.scpServer, 'close');
 
-        //Initialize Defaults.
-        defined = defined ?? false;
-        const traceName = alias ?? name;
+        //SDP
+        this.sdpServer.close();
+        await once(this.sdpServer, 'close');
 
-        //Create a new `Node`.
-        const node = this.mesh.mount(traceName);
-        node.on('error', (error: Error) => {
-            this.logger.error(error.stack, { component: `NODE:${traceName}` });
-        });
-
-        //Create a new `ProxyHandler`.
-        const proxyHandler = this.proxy.mount(traceName);
-        proxyHandler.on('forward', (source, target) => {
-            this.logger.info(`${source.path} -> http://${target.host}:${target.port}${target.path}`, { component: 'Proxy' });
-        });
-
-        //Create a new `RemoteService` and push to `ServiceRegistry`.
-        const remoteService = new RemoteService(name, alias, defined, node, proxyHandler);
-        this.serviceRegistry.register(remoteService);
-
-        //Add preStop Hook[Bottom]: Disconnect.
-        this.hooks.preStop.addToBottom((done) => {
-            if (remoteService.connected) {
-                remoteService.disconnect(() => {
-                    this.logger.info(`Disconnected from remote service ${remoteService.name}`);
-
-                    done();
-                });
-            } else {
-                done();
-            }
-        });
-
-        return remoteService;
+        this.emit('stop');
+        return this;
     }
 }
 
 //////////////////////////////
-//////Constructor: Options
+//////Link
 //////////////////////////////
 /**
- * The constructor options for the service.
+ * Represents a link to a remote service.
  */
-export type Options = {
+export interface Link extends IHttpProxy, IScpClient {
     /**
-     * The name of the service.
+     * The HTTP `Proxy` instance used to forward requests to the remote service.
      */
-    name: string;
-
-    /**
-     * The version of the service.
-     */
-    version?: string;
+    httpProxy: HttpProxy;
 
     /**
-     * The environment of the service.
+     * The SCP `Client` instance used to communicate with the remote service.
      */
-    environment?: string;
-
-    /**
-     * The HTTP Server port of the service.
-     */
-    httpPort?: number;
-
-    /**
-     * The SCP Server port of the service.
-     */
-    scpPort?: number;
-
-    /**
-     * The discovery port of the service.
-     */
-    discoveryPort?: number;
-
-    /**
-     * The IP address of discovery, i.e the multicast address.
-     */
-    discoveryIp?: string;
-
-    /**
-     * The path to log files of the service.
-     */
-    logPath: string;
-
-    /**
-     * The database configuration options.
-     */
-    db?: ConnectionOptions;
-
-    /**
-     * Executes SCP remote functions.
-     */
-    mesh?: Mesh;
-
-    /**
-     * Forwards HTTP request/response.
-     */
-    proxy?: Proxy;
-}
-
-//////////////////////////////
-//////Hooks
-//////////////////////////////
-/**
- * The pre/post hooks of the service.
- */
-export class Hooks {
-    /**
-     * The functions called before the service starts.
-     */
-    public readonly preStart: Hook;
-
-    /**
-     * The functions called to start the service.
-     */
-    public readonly start: Hook;
-
-    /**
-     * The functions called after the service has started.
-     */
-    public readonly postStart: Hook;
-
-    /**
-     * The functions called before the service stops.
-     */
-    public readonly preStop: Hook;
-
-    /**
-     * The functions called to stop the service.
-     */
-    public readonly stop: Hook;
-
-    /**
-     * The functions called after the service has stopped.
-     */
-    public readonly postStop: Hook;
-
-    /**
-     * Creates an instance of `Hooks`.
-     */
-    constructor() {
-        this.preStart = new Hook();
-        this.start = new Hook();
-        this.postStart = new Hook();
-        this.preStop = new Hook();
-        this.stop = new Hook();
-        this.postStop = new Hook();
-    }
-
-    //////////////////////////////
-    //////Execute
-    //////////////////////////////
-    /**
-     * Execute start(preStart, start, postStart) sequence hooks.
-     * 
-     * @param callback optional callback, called when start sequence is complete.
-     */
-    public executeStart(callback?: (error?: Error) => void) {
-        let _error: Error;
-
-        this.preStart.execute((error) => {
-            _error = error ?? _error;
-            this.start.execute((error) => {
-                _error = error ?? _error;
-                this.postStart.execute((error) => {
-                    _error = error ?? _error;
-                    callback && callback(_error);
-                });
-            });
-        });
-    }
-
-    /**
-     * Execute stop(preStop, stop, postStop) sequence hooks.
-     * 
-     * @param callback optional callback, called when stop sequence is complete.
-     */
-    public executeStop(callback?: (error?: Error) => void) {
-        let _error: Error;
-
-        this.preStop.execute((error) => {
-            _error = error ?? _error;
-            this.stop.execute((error) => {
-                _error = error ?? _error;
-                this.postStop.execute((error) => {
-                    _error = error ?? _error;
-                    callback && callback(_error);
-                });
-            });
-        });
-    }
-}
-
-/**
- * A Hook is an array of handlers that will be executed in sequence.
- */
-export class Hook {
-    /**
-     * The handler stack.
-     */
-    public readonly stack: Array<HookHandler>;
-
-    /**
-     * Creates an instance of `Hook`.
-     */
-    constructor() {
-        this.stack = new Array();
-    }
-
-    //////////////////////////////
-    //////Add
-    //////////////////////////////
-    /**
-     * Add handlers at the start of Hook.
-     * 
-     * @param handlers the handlers to add.
-     */
-    public addToTop(...handlers: Array<HookHandler>) {
-        this.stack.unshift(...handlers);
-    }
-
-    /**
-     * Add handlers at the bottom of Hook.
-     * 
-     * @param handlers the handlers to add.
-     */
-    public addToBottom(...handlers: Array<HookHandler>) {
-        this.stack.push(...handlers);
-    }
-
-    //////////////////////////////
-    //////Execute
-    //////////////////////////////
-    /**
-     * Execute all the handlers.
-     * 
-     * @param callback optional callback, called when the handler executions are complete.
-     */
-    public execute(callback?: (error?: Error) => void) {
-        if (this.stack.length > 0) {
-            //Initialize the iterator.
-            let iterator = 0;
-
-            //Initialize the error.
-            let _error: Error;
-
-            /**
-             * The done handler.
-             * 
-             * @param error the error caught.
-             */
-            const done: DoneHandler = (error?: Error) => {
-                //Iterate to the next done.
-                iterator++;
-
-                //Pass the error to the next done.
-                _error = error ?? _error;
-
-                if (iterator < this.stack.length) {
-                    //CASE: More handlers.
-                    this.stack[iterator](done);
-                } else {
-                    //CASE: Last handler.
-                    callback && callback(_error);
-                }
-            }
-
-            //Start the handler call.
-            this.stack[iterator](done);
-        } else {
-            callback && callback();
-        }
-    }
-}
-
-/**
- * `HookHandler` definition.
- */
-export interface HookHandler {
-    (done: DoneHandler): void;
-}
-
-/**
- * `DoneHandler` definition.
- * 
- * @param error the error caught.
- */
-export interface DoneHandler {
-    (error?: Error): void;
-}
-
-//////////////////////////////
-//////ExpressRouter
-//////////////////////////////
-/**
- * `ExpressRouter` represents a pointer to the `Router` mounted on `Express`.
- */
-export class ExpressRouter {
-    /**
-     * The routing path.
-     */
-    public readonly path: PathParams;
-
-    /**
-     * Instance of `Router`.
-     */
-    public readonly router: Router;
-
-    /**
-     * Creates an instance of `ExpressRouter`.
-     * 
-     * @param path the routing path.
-     * @param router the `Router` instance.
-     */
-    constructor(path: PathParams, router: Router) {
-        this.path = path;
-        this.router = router;
-    }
-}
-
-//////////////////////////////
-//////Interfaces
-//////////////////////////////
-/**
- * Wrapper for `DiscoveryPod`.
- */
-export interface Pod extends DiscoveryPod {
-    /**
-     * The parameters of the service.
-     */
-    params: PodParams;
-}
-
-/**
- * Wrapper for `DiscoveryParams`.
- */
-export interface PodParams extends DiscoveryParams {
-    /**
-     * The HTTP port.
-     */
-    httpPort: number;
-
-    /**
-     * The SCP port.
-     */
-    scpPort: number;
-}
-
-//////////////////////////////
-//////InvalidServiceOptions
-//////////////////////////////
-/**
- * `InvalidServiceOptions` is an instance of Error.
- * Thrown when a service option is invalid.
- */
-export class InvalidServiceOptions extends Error {
-    /**
-     * Creates an instance of `InvalidServiceOptions`.
-     * 
-     * @param message the error message.
-     */
-    constructor(message: string) {
-        super(message);
-
-        // Saving class name in the property of our custom error as a shortcut.
-        this.name = this.constructor.name;
-
-        // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(this, this.constructor);
-    }
+    scpClient: ScpClient;
 }

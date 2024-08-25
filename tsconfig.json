@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "es6",
+    "target": "ES2022",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": true,
@@ -19,10 +19,10 @@
     "esModuleInterop": true,
 
     /* Experimental Options */
-    "experimentalDecorators": true,
+    // "experimentalDecorators": true,
 
     /* Advanced Options */
-    // "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src"

@@ -1,67 +1,51 @@
 {
-  "name": "@iprotechs/micro",
-  "version": "1.2.0",
-  "description": "Powerful lightweight microservice framework.",
+  "name": "@iprotechs/service",
+  "version": "1.0.0",
+  "description": "Powerful lightweight service framework.",
   "repository": {
     "type": "git",
-    "url": "git+https://bitbucket.org/iprotechs/micro.git"
+    "url": "git+https://bitbucket.org/iprotechs/service.git"
   },
   "keywords": [
-    "Micro Framework",
-    "CRUD",
-    "Boilerplate",
-    "scp",
-    "micro",
+    "iprotechs",
+    "lightweight",
     "service",
-    "microservice",
-    "iprotechs"
+    "http",
+    "scp",
+    "sdp",
+    "proxy",
+    "server",
+    "client"
   ],
   "author": {
     "name": "Rutvik Katuri",
     "email": "rutvik.katuri@iprotechs.com"
   },
   "license": "UNLICENSED",
-  "homepage": "https://bitbucket.org/iprotechs/micro#readme",
+  "homepage": "https://bitbucket.org/iprotechs/service#readme",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib/**/*"
   ],
   "engines": {
-    "node": ">= 12.18.3"
+    "node": ">= 18.12.1"
   },
   "scripts": {
-    "test": "mocha -r ts-node/register test/**/*.test.ts",
+    "test": "mocha -r ts-node/register test/index.test.ts",
     "build": "tsc",
     "watch": "tsc --watch",
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "2.2.1",
-    "@iprotechs/discovery": "2.0.1",
-    "express": "4.17.1",
-    "cors": "2.8.5",
-    "dotenv": "8.2.0",
-    "ip": "1.1.5",
-    "mongoose": "5.9.22",
-    "mysql2": "2.1.0",
-    "sequelize": "6.3.1",
-    "winston": "3.3.3",
-    "morgan": "1.10.0",
-    "winston-daily-rotate-file": "4.5.0"
+    "@iprotechs/scp": "3.8.8",
+    "@iprotechs/sdp": "2.4.3"
   },
   "devDependencies": {
-    "@types/bluebird": "3.5.32",
-    "@types/cors": "2.8.6",
-    "@types/express": "4.17.7",
-    "@types/ip": "1.1.0",
-    "@types/mocha": "7.0.2",
-    "@types/mongoose": "5.7.30",
-    "@types/morgan": "1.9.1",
-    "@types/node": "14.0.20",
-    "@types/validator": "13.1.0",
-    "mocha": "8.0.1",
-    "ts-node": "8.10.2",
-    "typescript": "3.9.6"
+    "typescript": "5.2.2",
+    "@types/node": "22.5.0",
+    "mocha": "10.7.3",
+    "@types/mocha": "10.0.7",
+    "ts-node": "10.9.2"
   }
 }
