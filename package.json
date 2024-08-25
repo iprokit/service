@@ -38,8 +38,8 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "3.8.7",
-    "@iprotechs/sdp": "2.4.2"
+    "@iprotechs/scp": "3.8.8",
+    "@iprotechs/sdp": "2.4.3"
   },
   "devDependencies": {
     "typescript": "5.2.2",

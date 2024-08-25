@@ -19,7 +19,7 @@
     "esModuleInterop": true,
 
     /* Experimental Options */
-    "experimentalDecorators": true,
+    // "experimentalDecorators": true,
 
     /* Advanced Options */
     "forceConsistentCasingInFileNames": true
