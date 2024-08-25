@@ -92,7 +92,6 @@ heroService.broadcast('Hero.created', ...args);
 ```
 
 # Sidekick Service
-### SCP
 ```javascript
 //Declare service
 const sidekickService = new Service('Sidekick');
