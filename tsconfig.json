@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "ES2023",
+    "target": "es6",
     "module": "commonjs",
     "declaration": true,
     "sourceMap": true,

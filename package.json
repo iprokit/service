@@ -42,10 +42,10 @@
     "@iprotechs/sdp": "2.4.2"
   },
   "devDependencies": {
-    "typescript": "5.5.4",
-    "@types/node": "22.5.0",
-    "mocha": "10.7.3",
-    "@types/mocha": "10.0.7",
-    "ts-node": "10.9.2"
+    "typescript": "5.0.4",
+    "@types/node": "18.15.13",
+    "mocha": "10.2.0",
+    "@types/mocha": "10.0.1",
+    "ts-node": "10.9.1"
   }
 }

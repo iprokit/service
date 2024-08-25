@@ -23,7 +23,7 @@ export default class Server extends ScpServer implements IServer {
     /**
      * The client socket connections.
      */
-    declare public readonly connections: Array<Connection>;
+    public readonly connections: Array<Connection>;
 
     /**
      * The executions registered on the server.
