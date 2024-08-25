@@ -13,4 +13,4 @@ export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprotechs/sdp';
 export { default as SdpServer, IPod } from './sdp.server';
 
 //Export Service.
-export { default, ILink } from './service';
+export { default, Link } from './service';

@@ -45,7 +45,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Links to remote services.
      */
-    public readonly links: Map<string, ILink>;
+    public readonly links: Map<string, Link>;
 
     /**
      * Creates an instance of service.
@@ -165,7 +165,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      */
     public linkTo(...identifiers: Array<string>) {
         for (const identifier of identifiers) {
-            const link: ILink = { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) } as ILink;
+            const link: Link = { httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) } as Link;
 
             //Apply `Link` properties 👻.
             link.forward = (options?) => {
@@ -405,12 +405,12 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 }
 
 //////////////////////////////
-//////ILink
+//////Link
 //////////////////////////////
 /**
- * Interface representing a link to a remote service.
+ * Represents a link to a remote service.
  */
-export interface ILink extends IHttpProxy, IScpClient {
+export interface Link extends IHttpProxy, IScpClient {
     /**
      * The HTTP `Proxy` instance used to forward requests to the remote service.
      */
