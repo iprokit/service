@@ -13,7 +13,8 @@ import HttpProxy, { IProxy as IHttpProxy } from './http.proxy';
 import ScpClient, { IClient as IScpClient } from './scp.client';
 
 /**
- * `Service` is as an encapsulation of HTTP, SCP, and SDP servers, along with their corresponding clients.
+ * Creates a lightweight instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
  * 
  * @emits `start` when the service starts.
  * @emits `link` when a link is established.

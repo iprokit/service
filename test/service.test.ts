@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import { HttpStatusCode, Service } from '../lib';
+import Service, { HttpStatusCode } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
