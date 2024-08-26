@@ -566,8 +566,8 @@ mocha.describe('HTTP Test', () => {
         mocha.it('should dispatch request to router mounted on root path', async () => {
             //Server
             const router = server.Route();
-            router.get('/endpoint', (request, response, next) => {
-                assert.deepStrictEqual(request.path, '/endpoint');
+            router.get('/', (request, response, next) => {
+                assert.deepStrictEqual(request.path, '/');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
                 request.pipe(response).writeHead(HttpStatusCode.OK);
@@ -576,7 +576,7 @@ mocha.describe('HTTP Test', () => {
 
             // Client
             const requestBody = createString(1000);
-            const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
+            const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });

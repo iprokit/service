@@ -29,7 +29,7 @@
     "lib/**/*"
   ],
   "engines": {
-    "node": ">= 18.12.1"
+    "node": ">= 20.17.0"
   },
   "scripts": {
     "test": "mocha -r ts-node/register test/index.test.ts",
@@ -38,14 +38,14 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "3.8.8",
-    "@iprotechs/sdp": "2.4.3"
+    "@iprotechs/scp": "3.8.9",
+    "@iprotechs/sdp": "2.4.4"
   },
   "devDependencies": {
-    "typescript": "5.2.2",
-    "@types/node": "22.5.0",
+    "typescript": "5.6.2",
+    "@types/node": "22.7.0",
     "mocha": "10.7.3",
-    "@types/mocha": "10.0.7",
+    "@types/mocha": "10.0.8",
     "ts-node": "10.9.2"
   }
 }

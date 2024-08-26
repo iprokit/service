@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     /* Basic Options */
-    "target": "ES2022",
-    "module": "commonjs",
+    "target": "ES2023",
+    "module": "CommonJS",
     "declaration": true,
     "sourceMap": true,
     "outDir": "lib",

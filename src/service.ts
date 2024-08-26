@@ -145,7 +145,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * @emits `unlink` when a link is terminated.
      */
-    private onUnavailable(identifier: string, attrs: Attrs, host: string) {
+    private onUnavailable(identifier: string) {
         const link = this.links.get(identifier);
         if (!link) return;
 

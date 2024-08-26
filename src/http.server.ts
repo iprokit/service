@@ -148,7 +148,7 @@ export default class Server extends HttpServer implements IServer {
      */
     private applyRouterProperties<I extends Router>(instance: I) {
         //Factory for handling path transformations.
-        const handleTrailingSlash = (path: string) => path.replace(/\/$/, '');
+        const handleTrailingSlash = (path: string) => path.replace(/\/$/, '') || '/';
         const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
         const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
         const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
