@@ -28,7 +28,7 @@ export default class Client extends EventEmitter implements IClient {
     /**
      * The underlying SCP Socket.
      */
-    private _socket: Socket;
+    private _socket!: Socket;
 
     /**
      * Creates an instance of SCP client.
@@ -111,7 +111,7 @@ export default class Client extends EventEmitter implements IClient {
      * @emits `connect` when the connection is successfully established.
      */
     private onConnect() {
-        this.subscribe((error?: Error) => {
+        this.subscribe((error?: Error | null) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
             this._connected = true;
@@ -162,7 +162,7 @@ export default class Client extends EventEmitter implements IClient {
      * 
      * @param callback called once the subscription is complete.
      */
-    private subscribe(callback: (error?: Error) => void) {
+    private subscribe(callback: (error?: Error | null) => void) {
         //Read: Incoming stream.
         this._socket.once('subscribe', (incoming: Incoming) => {
             Stream.finished(incoming, (error) => callback(error));
@@ -220,7 +220,7 @@ export default class Client extends EventEmitter implements IClient {
         //Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.on('end', () => socket.destroy());
-        socket.connect(this.remotePort, this.remoteAddress);
+        socket.connect(this.remotePort as number, this.remoteAddress as string);
 
         //Create incoming.
         (socket as any)._incoming = new Incoming(socket);

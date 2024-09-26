@@ -70,8 +70,9 @@ export default class Server extends ScpServer implements IServer {
         }
         if (incoming.mode === 'OMNI') {
             //Set: Incoming.
-            const regExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
-            const { segment, nexus } = regExp.exec(incoming.operation).groups;
+            const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
+            const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
+            const { segment, nexus } = groups as { segment: string, nexus: string };
             incoming.segment = segment;
             incoming.nexus = nexus;
             incoming.matched = false;
@@ -146,7 +147,7 @@ export default class Server extends ScpServer implements IServer {
         incoming.resume();
 
         //Set: Connection properties.
-        incoming.socket.identifier = incoming.get('CID');
+        incoming.socket.identifier = incoming.get('CID') as string;
 
         //Write: Outgoing stream.
         Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
@@ -160,7 +161,7 @@ export default class Server extends ScpServer implements IServer {
         for (const connection of this.connections) {
             if (!connection.identifier) continue;
 
-            connection.createOutgoing((outgoing: Outgoing) => {
+            connection.createOutgoing((outgoing: SCP.Outgoing) => {
                 Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
                 outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
                 outgoing.set('SID', this.identifier);
@@ -188,8 +189,8 @@ export default class Server extends ScpServer implements IServer {
     //////////////////////////////
     //////Interface: Executor
     //////////////////////////////
-    public omni: (operation: string, handler: IncomingHandler) => this;
-    public func: <Returned>(operation: string, func: Function<Returned>) => this;
+    public declare omni: (operation: string, handler: IncomingHandler) => this;
+    public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
 
     //////////////////////////////
     //////Factory: Executor
@@ -227,7 +228,7 @@ export default class Server extends ScpServer implements IServer {
                     outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
                     outgoing.set('STATUS', 'OK');
                 } catch (error) {
-                    delete error.stack; /* Delete stack from error because we dont need it. */
+                    error instanceof Error && delete error.stack; /* Delete stack from error because we dont need it. */
                     outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
                     outgoing.set('STATUS', 'ERROR');
                 }

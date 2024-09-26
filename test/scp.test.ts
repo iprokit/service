@@ -378,7 +378,7 @@ mocha.describe('SCP Test', () => {
             try {
                 const outgoing = scpClient.omni('nexus1', (incoming) => { });
             } catch (error) {
-                assert.deepStrictEqual(error.message, 'SCP_CLIENT_INVALID_CONNECTION');
+                assert.deepStrictEqual((error as Error).message, 'SCP_CLIENT_INVALID_CONNECTION');
             }
         });
     });
@@ -450,7 +450,7 @@ mocha.describe('SCP Test', () => {
             try {
                 const returned = await client.execute('nexus', 'SCP Error');
             } catch (error) {
-                assert.deepStrictEqual(error.message, 'SCP Error');
+                assert.deepStrictEqual((error as Error).message, 'SCP Error');
             }
         });
     });

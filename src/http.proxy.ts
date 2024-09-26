@@ -13,12 +13,12 @@ export default class Proxy implements IProxy {
     /**
      * The remote host.
      */
-    private _host: string;
+    private _host: string | undefined;
 
     /**
      * The remote port.
      */
-    private _port: number;
+    private _port: number | undefined;
 
     /**
      * Returns true when the proxy is configured, false otherwise.
@@ -70,15 +70,15 @@ export default class Proxy implements IProxy {
             //Let's boogie 🕺💃 🎶.
             if (options.onOptions) options.onOptions(requestOptions, request, response);
             const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
-                if (options.onResponse) options.onResponse(proxyResponse, request, response);
-                response.writeHead(proxyResponse.statusCode, proxyResponse.headers);
-                Stream.pipeline(proxyResponse, response, (error: Error) => {
-                    if (error && options.onError) options.onError(error, response);
+                if (options!.onResponse) options!.onResponse(proxyResponse, request, response);
+                response.writeHead(proxyResponse.statusCode as number, proxyResponse.headers);
+                Stream.pipeline(proxyResponse, response, (error: Error | null) => {
+                    if (error && options!.onError) options!.onError(error, response);
                 });
             });
             if (options.onRequest) options.onRequest(proxyRequest, request, response);
-            Stream.pipeline(request, proxyRequest, (error: Error) => {
-                if (error && options.onError) options.onError(error, response);
+            Stream.pipeline(request, proxyRequest, (error: Error | null) => {
+                if (error && options!.onError) options!.onError(error, response);
             });
         }
     }

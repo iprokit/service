@@ -133,7 +133,7 @@ mocha.describe('Service Test', () => {
 
             //Client
             const requestBody = createString(1000);
-            const { response, body: responseBody } = await clientRequest(serviceA.localAddress, httpPort, 'POST', '/endpoint', requestBody);
+            const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
@@ -183,7 +183,7 @@ mocha.describe('Service Test', () => {
             try {
                 const linkC = serviceB.linkOf('serviceC');
             } catch (error) {
-                assert.deepStrictEqual(error.message, 'SERVICE_LINK_INVALID_IDENTIFIER');
+                assert.deepStrictEqual((error as Error).message, 'SERVICE_LINK_INVALID_IDENTIFIER');
             }
         });
     });

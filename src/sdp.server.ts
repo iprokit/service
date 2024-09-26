@@ -1,5 +1,6 @@
 //Import Libs.
 import { EventEmitter } from 'events';
+import { AddressInfo } from 'net';
 
 //Import @iprotechs Libs.
 import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
@@ -33,7 +34,7 @@ export default class Server extends EventEmitter {
     /**
      * The local address of the server.
      */
-    private _localAddress: string;
+    private _localAddress: string | null;
 
     /**
      * The underlying SDP Socket.
@@ -146,9 +147,10 @@ export default class Server extends EventEmitter {
      */
     private send(available: boolean, callback?: () => void) {
         const pod = new Pod(this.identifier, available, this.attrs);
+        const address = this._socket.address() as AddressInfo;
 
         //If you can spare a moment to notice, there's just one membership here 🙃
-        this._socket.send(pod, this._socket.address().port, [...this._socket.memberships][0], (error: Error) => {
+        this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => {
             if (error) return; /* LIFE HAPPENS!!! */
 
             callback && callback();
@@ -247,10 +249,10 @@ export interface IPod {
     /**
      * The attributes of entity.
      */
-    attrs: Attrs;
+    attrs: Attrs | null;
 
     /**
      * The host address of entity.
      */
-    host: string;
+    host: string | null;
 }

@@ -32,7 +32,7 @@ mocha.describe('SDP Test', () => {
                 assert.deepStrictEqual(server.listening, true);
                 assert.deepStrictEqual(server.memberships.has(address), true);
                 assert.notDeepStrictEqual(server.localAddress, null);
-                assert.deepStrictEqual(server.address().port, port);
+                assert.deepStrictEqual(server.address()!.port, port);
             });
             server.on('close', () => {
                 close++;

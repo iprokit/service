@@ -45,8 +45,8 @@ export default class Server extends HttpServer implements IServer {
      */
     private onRequest(request: Request, response: Response) {
         //Set: Request.
-        const { pathname, query } = URL.parse(request.url, true);
-        request.path = pathname;
+        const { pathname, query } = URL.parse(request.url as string, true);
+        request.path = pathname as string;
         request.query = query;
 
         //Below line will blow your mind! 🤯
@@ -129,13 +129,13 @@ export default class Server extends HttpServer implements IServer {
     //////////////////////////////
     //////Interface: Router
     //////////////////////////////
-    public get: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public post: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public put: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public patch: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public delete: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public all: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public mount: (path: string, ...routers: Array<Router>) => this;
+    public declare get: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare post: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare put: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare patch: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare delete: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare all: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare mount: (path: string, ...routers: Array<Router>) => this;
 
     //////////////////////////////
     //////Factory: Router
