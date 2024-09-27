@@ -2,8 +2,8 @@
 import { EventEmitter } from 'events';
 import { AddressInfo } from 'net';
 
-//Import @iprotechs Libs.
-import { Pod, Attrs, Socket, Sender } from '@iprotechs/sdp';
+//Import @iprolab Libs.
+import { Pod, Attrs, Socket, Sender } from '@iprolab/sdp';
 
 /**
  * This class is used to create a SDP server.

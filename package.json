@@ -1,5 +1,5 @@
 {
-  "name": "@iprotechs/service",
+  "name": "@iprolab/service",
   "version": "1.0.0",
   "description": "Powerful lightweight service framework.",
   "repository": {
@@ -38,8 +38,8 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprotechs/scp": "../scp",
-    "@iprotechs/sdp": "../sdp"
+    "@iprolab/scp": "1.0.0",
+    "@iprolab/sdp": "1.0.0"
   },
   "devDependencies": {
     "typescript": "5.4.5",

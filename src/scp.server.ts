@@ -1,8 +1,8 @@
 //Import Libs.
 import Stream from 'stream';
 
-//Import @iprotechs Libs.
-import SCP, { RFI, Server as ScpServer } from '@iprotechs/scp';
+//Import @iprolab Libs.
+import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
 
 /**
  * This class is used to create a SCP server.

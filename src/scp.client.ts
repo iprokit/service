@@ -3,8 +3,8 @@ import { EventEmitter } from 'events';
 import Stream from 'stream';
 import { AddressInfo } from 'net';
 
-//Import @iprotechs Libs.
-import { RFI, Socket, Incoming, Outgoing } from '@iprotechs/scp';
+//Import @iprolab Libs.
+import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
 
 /**
  * This class implements a simple SCP Client.

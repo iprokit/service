@@ -2,8 +2,8 @@
 import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
-//Import @iprotechs Libs.
-import { Attrs } from '@iprotechs/sdp';
+//Import @iprolab Libs.
+import { Attrs } from '@iprolab/sdp';
 
 //Import Local.
 import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';

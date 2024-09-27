@@ -11,7 +11,7 @@
 
 # Installation
 ```sh
-npm install @iprotechs/service --save
+npm install @iprolab/service --save
 ```
 
 # User Service and Notification Service
@@ -20,7 +20,7 @@ Let's dive into an example where we build two microservices: `UserService` and `
 ## UserService
 `UserService` is responsible for managing users-handling user creation and listing users. It also broadcasts events whenever a new user is created.
 ```javascript
-import Service, { HttpStatusCode } from '@iprotechs/service';
+import Service, { HttpStatusCode } from '@iprolab/service';
 
 // Declare the service.
 const userService = new Service('User');
@@ -73,7 +73,7 @@ userService.on('start', () => {
 ## NotificationService
 `NotificationService` listens for user-related events broadcasted by `UserService` and handles them appropriately-such as logging user creation events or fetching the list of users.
 ```javascript
-import Service from '@iprotechs/service';
+import Service from '@iprolab/service';
 
 // Declare the service.
 const notificationService = new Service('Notification');
