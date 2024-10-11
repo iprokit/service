@@ -78,9 +78,8 @@ import Service from '@iprolab/service';
 // Declare the service.
 const notificationService = new Service('Notification');
 
-// Link Notification to UserService
-notificationService.linkTo('User');
-const userLink = notificationService.linkOf('User');
+// Link Notification to UserService.
+const userLink = notificationService.Link('User');
 
 // Start the service.
 notificationService.start(3001, 6001, 5000, '224.0.0.2');
@@ -102,12 +101,6 @@ notificationService.on('start', async () => {
 2. **Linking Services**: The service links to `UserService` to listen to its broadcasts and execute its remote functions.
 3. **Service Start**: The service starts on a different port and listens for user creation events (`created`). When a new user is created, it logs the information. It can also retrieve the list of users by executing the `User.list` function from `UserService`.
     * The start method for `NotificationService` is similar to `UserService`, with the SDP port and multicast address needing to be consistent across services to ensure proper service discovery.
-    
-# Running the Services
-To run both services, you would typically use the following command:
-```sh
-npm start
-```
 
 This setup allows you to see how the `UserService` and `NotificationService` interact within a microservices architecture, demonstrating the ease with which `Service` enables service discovery, communication, and event-driven interactions.
 

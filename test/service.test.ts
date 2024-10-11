@@ -3,7 +3,7 @@ import mocha from 'mocha';
 import assert from 'assert';
 
 //Import Local.
-import Service, { HttpStatusCode } from '../lib';
+import Service, { Link, HttpStatusCode } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -66,6 +66,12 @@ mocha.describe('Service Test', () => {
             }
         }
 
+        const initService = (identifiers: Array<string>, i: number) => {
+            const service = new Service(identifiers[i]);
+            identifiers.forEach((identifier, j) => (i !== j) && service.Link(identifier));
+            return service;
+        }
+
         mocha.it('should link to other services on start/stop', async () => {
             const serviceCount = 20, halfCount = 10;
             const restartCount = 5;
@@ -73,7 +79,8 @@ mocha.describe('Service Test', () => {
 
             //Initialize
             let half: Array<Service>;
-            const services = Array(serviceCount).fill({}).map((_, i) => new Service(identifiers[i]).linkTo(...identifiers.filter((_, j) => i !== j)));
+            const services = Array(serviceCount).fill({}).map((_, i) => initService(identifiers, i));
+
             validate(services, false, serviceCount);
 
             //Start(All)
@@ -87,7 +94,7 @@ mocha.describe('Service Test', () => {
                 validate(half, false, serviceCount);
 
                 //Re-Initialize(Half)
-                for (let i = 0; i < halfCount; i++) services[i] = new Service(identifiers[i]).linkTo(...identifiers.filter((_, j) => i !== j));
+                for (let i = 0; i < halfCount; i++) services[i] = initService(identifiers, i);
                 validate(half, false, serviceCount);
 
                 //Start(Half)
@@ -104,13 +111,14 @@ mocha.describe('Service Test', () => {
 
     mocha.describe('Link Test', () => {
         let serviceA: Service, serviceB: Service;
+        let linkA: Link, linkB: Link;
 
         mocha.beforeEach(async () => {
             serviceA = new Service('serviceA');
-            serviceA.linkTo('serviceB');
+            linkB = serviceA.Link('serviceB');
 
             serviceB = new Service('serviceB');
-            serviceB.linkTo('serviceA');
+            linkA = serviceB.Link('serviceA');
 
             await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
         });
@@ -119,9 +127,15 @@ mocha.describe('Service Test', () => {
             await Promise.all([serviceA.stop(), serviceB.stop()]);
         });
 
+        mocha.it('should not create duplicate link', () => {
+            const linkB1 = serviceA.Link('serviceB');
+
+            assert.deepStrictEqual(linkB, linkB1);
+            assert.deepStrictEqual(serviceA.links.size, 1);
+        });
+
         mocha.it('should forward request to remote service', async () => {
             //Server
-            const linkB = serviceA.linkOf('serviceB');
             serviceA.post('/endpoint', linkB.forward());
 
             //Server Target
@@ -144,7 +158,6 @@ mocha.describe('Service Test', () => {
             serviceA.broadcast('nexus1', arg);
 
             //Client
-            const linkA = serviceB.linkOf('serviceA');
             const argsResolved = await clientOnBroadcast(linkA, 'nexus1', 1);
             assert.deepStrictEqual(argsResolved, [arg]);
         });
@@ -157,7 +170,6 @@ mocha.describe('Service Test', () => {
 
             //Client
             const outgoingData = createString(1000);
-            const linkA = serviceB.linkOf('serviceA');
             const { incoming, data: incomingData } = await clientOmni(linkA, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
@@ -173,18 +185,8 @@ mocha.describe('Service Test', () => {
 
             //Client
             const arg = createString(1000);
-            const linkA = serviceB.linkOf('serviceA');
             const returned = await linkA.execute('nexus', arg);
             assert.deepStrictEqual(returned, arg);
-        });
-
-        mocha.it('should throw SERVICE_LINK_INVALID_IDENTIFIER', async () => {
-            //Client
-            try {
-                const linkC = serviceB.linkOf('serviceC');
-            } catch (error) {
-                assert.deepStrictEqual((error as Error).message, 'SERVICE_LINK_INVALID_IDENTIFIER');
-            }
         });
     });
 });
