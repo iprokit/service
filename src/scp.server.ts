@@ -158,17 +158,20 @@ export default class Server extends ScpServer implements IServer {
     //////Interface: IServer
     //////////////////////////////
     public broadcast(operation: string, ...args: Array<any>) {
-        for (const connection of this.connections) {
-            if (!connection.identifier) continue;
-
-            connection.createOutgoing((outgoing: SCP.Outgoing) => {
-                Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-                outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
-                outgoing.set('SID', this.identifier);
-                outgoing.end(JSON.stringify(args));
-            });
-        }
-        return this;
+        return Promise.all(
+            this.connections
+                .filter((connection) => !!connection.identifier)
+                .map((connection) =>
+                    new Promise<Broadcasted>((resolve) =>
+                        connection.createOutgoing((outgoing) => {
+                            outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
+                            outgoing.set('SID', this.identifier);
+                            outgoing.end(JSON.stringify(args));
+                            Stream.finished(outgoing, (error) => resolve({ identifier: connection.identifier, error: error || undefined }));
+                        })
+                    )
+                )
+        );
     }
 
     public Execution() {
@@ -255,7 +258,7 @@ export interface IServer extends Executor {
      * @param operation the operation pattern.
      * @param args the arguments to broadcast.
      */
-    broadcast: (operation: string, ...args: Array<any>) => this;
+    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<Broadcasted>>;
 
     /**
      * Returns a `Executor` to group executions that share related functionality.
@@ -419,4 +422,22 @@ export interface Outgoing extends SCP.Outgoing {
      * The underlying SCP Socket.
      */
     socket: Connection;
+}
+
+//////////////////////////////
+/////Broadcasted
+//////////////////////////////
+/**
+ * Represents a broadcasted SCP operation.
+ */
+export interface Broadcasted {
+    /**
+     * The unique identifier of the client socket connection to which the broadcast was sent.
+     */
+    identifier: string;
+
+    /**
+     * An optional error object that indicates if an error occurred during the broadcast.
+     */
+    error?: Error;
 }

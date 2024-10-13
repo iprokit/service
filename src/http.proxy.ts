@@ -11,6 +11,11 @@ import { RequestHandler, Request, Response } from './http.server';
  */
 export default class Proxy implements IProxy {
     /**
+     * The unique identifier of the proxy.
+     */
+    public readonly identifier: string;
+
+    /**
      * The remote host.
      */
     private _host: string | undefined;
@@ -27,10 +32,15 @@ export default class Proxy implements IProxy {
 
     /**
      * Creates an instance of HTTP proxy.
+     * 
+     * @param identifier the unique identifier of the proxy.
      */
-    constructor() {
+    constructor(identifier: string) {
         //Initialize Variables.
         this._configured = false;
+
+        //Initialize Options.
+        this.identifier = identifier;
     }
 
     //////////////////////////////
@@ -65,6 +75,7 @@ export default class Proxy implements IProxy {
             options = options ?? {};
             const { host, port } = this;
             const { method, url: path, headers } = request;
+            headers['x-proxy-identifier'] = this.identifier;
             const requestOptions: RequestOptions = { host, port, method, path, headers }
 
             //Let's boogie 🕺💃 🎶.

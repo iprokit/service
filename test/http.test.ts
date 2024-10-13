@@ -5,7 +5,7 @@ import { once } from 'events';
 
 //Import Local.
 import { HttpServer, Router, Stack, Endpoint, HttpMethod, RequestHandler, HttpProxy, ForwardOptions, HttpStatusCode } from '../lib';
-import { createString, clientRequest } from './util';
+import { createString, createIdentifier, clientRequest } from './util';
 
 const host = '127.0.0.1';
 const port = 3000;
@@ -644,7 +644,9 @@ mocha.describe('HTTP Test', () => {
             }
 
             mocha.it('should configure/deconfigure proxy', () => {
-                const proxy = new HttpProxy();
+                const identifier = createIdentifier();
+                const proxy = new HttpProxy(identifier);
+                assert.deepStrictEqual(proxy.identifier, identifier);
                 validateConfiguration(proxy, undefined, undefined, false);
                 proxy.configure(port, host);
                 validateConfiguration(proxy, host, port, true);
@@ -675,7 +677,7 @@ mocha.describe('HTTP Test', () => {
 
             mocha.it('should forward request to target server', async () => {
                 //Proxy
-                const proxy = new HttpProxy();
+                const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
                 //Server
@@ -685,6 +687,7 @@ mocha.describe('HTTP Test', () => {
                 targetServer.post('/endpoint', async (request, response, next) => {
                     assert.deepStrictEqual(request.method, 'POST');
                     assert.deepStrictEqual(request.url, '/endpoint');
+                    assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
                     request.pipe(response).writeHead(HttpStatusCode.OK);
                 });
 
@@ -697,7 +700,7 @@ mocha.describe('HTTP Test', () => {
 
             mocha.it('should forward request to target server with options', async () => {
                 //Proxy
-                const proxy = new HttpProxy();
+                const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
                 //Server
@@ -706,7 +709,7 @@ mocha.describe('HTTP Test', () => {
                         options.path = options.path?.replace(/^\/api/, '');
                     },
                     onRequest: (proxyRequest, request, response) => {
-                        proxyRequest.setHeader('proxy', '1');
+                        proxyRequest.setHeader('x-proxy', '1');
                     },
                     onResponse: (proxyResponse, request, response) => {
                         proxyResponse.statusCode = HttpStatusCode.OK;
@@ -718,7 +721,8 @@ mocha.describe('HTTP Test', () => {
                 targetServer.post('/endpoint', async (request, response, next) => {
                     assert.deepStrictEqual(request.method, 'POST');
                     assert.deepStrictEqual(request.url, '/endpoint');
-                    assert.deepStrictEqual(request.headers.proxy, '1');
+                    assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
+                    assert.deepStrictEqual(request.headers['x-proxy'], '1');
                     request.pipe(response).writeHead(HttpStatusCode.CREATED);
                 });
 
@@ -731,7 +735,7 @@ mocha.describe('HTTP Test', () => {
 
             mocha.it('should throw Error', async () => {
                 //Proxy
-                const proxy = new HttpProxy();
+                const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 10, host);
 
                 //Server

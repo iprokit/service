@@ -87,7 +87,7 @@ notificationService.on('start', async () => {
     console.log(`${notificationService.identifier} has started!`);
 
     // Listen to user creation events broadcasted by UserService.
-    userLink.onBroadcast('created', (user) => {
+    userLink.on('created', (user) => {
         console.log(`User created:`, user);
     });
 

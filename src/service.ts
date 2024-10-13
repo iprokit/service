@@ -4,12 +4,13 @@ import { AddressInfo } from 'net';
 
 //Import @iprolab Libs.
 import { Attrs } from '@iprolab/sdp';
+import { Incoming } from '@iprolab/scp';
 
 //Import Local.
 import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
 import ScpServer, { IServer as IScpServer, Executor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
-import HttpProxy, { IProxy as IHttpProxy } from './http.proxy';
+import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
 import ScpClient, { IClient as IScpClient } from './scp.client';
 
 /**
@@ -159,7 +160,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////Link
     //////////////////////////////
     /**
-     * Returns a `Link` to the remote service, enabling both HTTP and SCP interactions.
+     * Returns a `Link` to the remote service.
      * 
      * @param identifier the unique identifier of the remote service.
      */
@@ -167,24 +168,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         let link = this.links.get(identifier);
         if (link) return link;
 
-        link = { identifier, httpProxy: new HttpProxy(), scpClient: new ScpClient(identifier) } as Link;
-
-        //Apply `Link` properties 👻.
-        link.forward = (options?) => {
-            return link.httpProxy.forward(options);
-        }
-        link.onBroadcast = (operation, listener) => {
-            link.scpClient.onBroadcast(operation, listener);
-            return link;
-        }
-        link.omni = (operation, callback) => {
-            return link.scpClient.omni(operation, callback);
-        }
-        link.execute = (operation, ...args) => {
-            return link.scpClient.execute(operation, ...args);
-        }
-
         //Forging a new link 🚀🎉.
+        link = new Link(identifier, this.identifier);
         this.links.set(identifier, link);
         return link;
     }
@@ -286,8 +271,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * @param args the arguments to broadcast.
      */
     public broadcast(operation: string, ...args: Array<any>) {
-        this.scpServer.broadcast(operation, ...args);
-        return this;
+        return this.scpServer.broadcast(operation, ...args);
     }
 
     /**
@@ -398,21 +382,75 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 //////Link
 //////////////////////////////
 /**
- * Represents a link to a remote service, enabling both HTTP and SCP interactions.
+ * `Link` class manages both HTTP and SCP interactions with a remote service.
+ * It handles HTTP proxying and SCP function invocations.
  */
-export interface Link extends IHttpProxy, IScpClient {
+export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     /**
      * The unique identifier of the remote service.
      */
-    identifier: string;
+    public readonly identifier: string;
 
     /**
      * The HTTP `Proxy` instance used to forward requests to the remote service.
      */
-    httpProxy: HttpProxy;
+    public readonly httpProxy: HttpProxy;
 
     /**
      * The SCP `Client` instance used to communicate with the remote service.
      */
-    scpClient: ScpClient;
+    public readonly scpClient: ScpClient;
+
+    /**
+     * Creates an instance of link.
+     * 
+     * @param identifier the unique identifier of the remote service.
+     * @param serviceIdentifier the unique identifier of the current service.
+     */
+    constructor(identifier: string, serviceIdentifier: string) {
+        super();
+
+        //Initialize Options.
+        this.identifier = identifier;
+
+        //Initialize Variables.
+        this.httpProxy = new HttpProxy(serviceIdentifier);
+        this.scpClient = new ScpClient(serviceIdentifier);
+    }
+
+    //////////////////////////////
+    //////Interface: IProxy
+    //////////////////////////////
+    public forward(options?: ForwardOptions) {
+        return this.httpProxy.forward(options);
+    }
+
+    //////////////////////////////
+    //////Interface: IClient
+    //////////////////////////////
+    public omni(operation: string, callback: (incoming: Incoming) => void) {
+        return this.scpClient.omni(operation, callback);
+    }
+
+    public execute<Returned>(operation: string, ...args: Array<any>) {
+        return this.scpClient.execute<Returned>(operation, ...args);
+    }
+
+    //////////////////////////////
+    //////Inherited: Event
+    //////////////////////////////
+    public once(operation: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.once(operation, listener);
+        return this;
+    }
+
+    public on(operation: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.on(operation, listener);
+        return this;
+    }
+
+    public off(operation: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.off(operation, listener);
+        return this;
+    }
 }

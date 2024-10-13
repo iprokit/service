@@ -11,6 +11,7 @@ import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
  * A `Client` is responsible for managing connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
+ * @emits `<operation>` when a broadcast is received.
  * @emits `error` when an error occurs.
  * @emits `close` when the connection is closed.
  */
@@ -183,10 +184,12 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     /**
      * Process the `Incoming` broadcast stream.
+     * 
+     * @emits `<operation>` when a broadcast is received.
      */
     private broadcast(incoming: Incoming) {
         //No listener was added to the broadcast, Drain the stream. Move on to the next one.
-        if (this._socket.listenerCount(incoming.operation) === 0) {
+        if (this.listenerCount(incoming.operation) === 0) {
             Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
             incoming.resume();
             return;
@@ -199,8 +202,8 @@ export default class Client extends EventEmitter implements IClient {
                 for await (const chunk of incoming) {
                     data += chunk;
                 }
-                if (incoming.params.get('FORMAT') === 'OBJECT') return this._socket.emit(incoming.operation, ...JSON.parse(data));
-                this._socket.emit(incoming.operation, data, incoming.params);
+                if (incoming.params.get('FORMAT') === 'OBJECT') return this.emit(incoming.operation, ...JSON.parse(data));
+                this.emit(incoming.operation, data, incoming.params);
             } catch (error) { /* LIFE HAPPENS!!! */ }
         })();
     }
@@ -208,11 +211,6 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     //////Interface: IClient
     //////////////////////////////
-    public onBroadcast(operation: string, listener: (...args: Array<any>) => void) {
-        this._socket.addListener(operation, listener);
-        return this;
-    }
-
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         //Ohooomyyy 🤦.
         if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
@@ -331,14 +329,6 @@ export default class Client extends EventEmitter implements IClient {
  * Interface of SCP `Client`.
  */
 export interface IClient {
-    /**
-     * Registers a listener for broadcast from the server.
-     * 
-     * @param operation the operation pattern.
-     * @param listener the listener called when broadcast is received.
-     */
-    onBroadcast: (operation: string, listener: (...args: Array<any>) => void) => this;
-
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
      * 

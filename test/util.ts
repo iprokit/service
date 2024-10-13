@@ -41,20 +41,6 @@ export function clientRequest(host: string, port: number, method: HttpMethod, pa
     });
 }
 
-export function clientOnBroadcast<C extends IScpClient, Args>(client: C, operation: string, count: number) {
-    return new Promise<Array<Array<Args>>>((resolve, reject) => {
-        let received = -1;
-        const argsResolved = new Array<Args>();
-        client.onBroadcast(operation, (...args) => {
-            received++;
-            argsResolved.push(...args);
-            if (received + 1 === count) {
-                resolve(argsResolved as Array<any>);
-            }
-        });
-    });
-}
-
 export function clientOmni<C extends IScpClient>(client: C, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.omni(operation, async (incoming) => {

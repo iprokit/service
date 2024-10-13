@@ -1,10 +1,11 @@
 //Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
+import { once } from 'events';
 
 //Import Local.
 import Service, { Link, HttpStatusCode } from '../lib';
-import { createString, createIdentifier, clientRequest, clientOnBroadcast, clientOmni } from './util';
+import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -55,21 +56,24 @@ mocha.describe('Service Test', () => {
     });
 
     mocha.describe('Connection Test', () => {
+        const initService = (identifiers: Array<string>, i: number) => {
+            const service = new Service(identifiers[i]);
+            identifiers.forEach((identifier, j) => (i !== j) && service.Link(identifier));
+            return service;
+        }
+
         const validate = (services: Array<Service>, status: boolean, count: number) => {
             for (const service of services) {
                 assert.deepStrictEqual(service.listening, { http: status, scp: status, sdp: status });
                 assert.deepStrictEqual(service.links.size, count - 1);
                 service.links.forEach((link) => {
+                    assert.notDeepStrictEqual(link.identifier, service.identifier);
+                    assert.deepStrictEqual(link.httpProxy.identifier, service.identifier);
                     assert.deepStrictEqual(link.httpProxy.configured, status);
+                    assert.deepStrictEqual(link.scpClient.identifier, service.identifier);
                     assert.deepStrictEqual(link.scpClient.connected, status);
                 });
             }
-        }
-
-        const initService = (identifiers: Array<string>, i: number) => {
-            const service = new Service(identifiers[i]);
-            identifiers.forEach((identifier, j) => (i !== j) && service.Link(identifier));
-            return service;
         }
 
         mocha.it('should link to other services on start/stop', async () => {
@@ -139,9 +143,10 @@ mocha.describe('Service Test', () => {
             serviceA.post('/endpoint', linkB.forward());
 
             //Server Target
-            serviceB.post('/endpoint', async (request, response, next) => {
+            serviceB.post('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.method, 'POST');
                 assert.deepStrictEqual(request.url, '/endpoint');
+                assert.deepStrictEqual(request.headers['x-proxy-identifier'], serviceA.identifier);
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
@@ -155,10 +160,12 @@ mocha.describe('Service Test', () => {
         mocha.it('should receive broadcast from remote service', async () => {
             //Server
             const arg = createString(1000);
-            serviceA.broadcast('nexus1', arg);
+            const [broadcasted] = await serviceA.broadcast('nexus1', arg);
+            assert.deepStrictEqual(broadcasted.identifier, serviceB.identifier);
+            assert.deepStrictEqual(broadcasted.error, undefined);
 
             //Client
-            const argsResolved = await clientOnBroadcast(linkA, 'nexus1', 1);
+            const argsResolved = await once(linkA, 'nexus1');
             assert.deepStrictEqual(argsResolved, [arg]);
         });
 

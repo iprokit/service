@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 //Import Local.
 import { ScpServer, Segment, Nexus, IncomingHandler, ScpClient } from '../lib';
-import { createString, createIdentifier, clientOnBroadcast, clientOmni } from './util';
+import { createString, createIdentifier, clientOmni } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
@@ -109,30 +109,36 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should receive broadcast as empty', async () => {
             //Server
-            server.broadcast('nexus1');
+            const [broadcasted] = await server.broadcast('nexus1');
+            assert.deepStrictEqual(broadcasted.identifier, client.identifier);
+            assert.deepStrictEqual(broadcasted.error, undefined);
 
             //Client
-            const argsResolved = await clientOnBroadcast(client, 'nexus1', 1);
+            const argsResolved = await once(client, 'nexus1');
             assert.deepStrictEqual(argsResolved, []);
         });
 
         mocha.it('should receive broadcast as object', async () => {
-            //Server
-            for (const arg of args) {
-                server.broadcast('nexus1', arg);
-            }
+            for await (const arg of args) {
+                //Server
+                const [broadcasted] = await server.broadcast('nexus1', arg);
+                assert.deepStrictEqual(broadcasted.identifier, client.identifier);
+                assert.deepStrictEqual(broadcasted.error, undefined);
 
-            //Client
-            const argsResolved = await clientOnBroadcast(client, 'nexus1', args.length);
-            assert.deepStrictEqual(argsResolved, args);
+                //Client
+                const argsResolved = await once(client, 'nexus1');
+                assert.deepStrictEqual(argsResolved, [arg]);
+            }
         });
 
         mocha.it('should receive broadcast as ...object', async () => {
             //Server
-            server.broadcast('nexus1', ...args);
+            const [broadcasted] = await server.broadcast('nexus1', ...args);
+            assert.deepStrictEqual(broadcasted.identifier, client.identifier);
+            assert.deepStrictEqual(broadcasted.error, undefined);
 
             //Client
-            const argsResolved = await clientOnBroadcast(client, 'nexus1', 1);
+            const argsResolved = await once(client, 'nexus1');
             assert.deepStrictEqual(argsResolved, args);
         });
     });
