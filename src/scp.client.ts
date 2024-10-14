@@ -1,6 +1,6 @@
 //Import Libs.
-import { EventEmitter } from 'events';
-import Stream from 'stream';
+import { EventEmitter, once } from 'events';
+import { promises as Stream } from 'stream';
 import { AddressInfo } from 'net';
 
 //Import @iprolab Libs.
@@ -112,9 +112,7 @@ export default class Client extends EventEmitter implements IClient {
      * @emits `connect` when the connection is successfully established.
      */
     private onConnect() {
-        this.subscribe((error?: Error | null) => {
-            if (error) return; /* LIFE HAPPENS!!! */
-
+        this.subscribe().then(() => {
             this._connected = true;
             this.emit('connect');
         });
@@ -160,23 +158,21 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     /**
      * Subscribes to the server to receive broadcasts.
-     * 
-     * @param callback called once the subscription is complete.
      */
-    private subscribe(callback: (error?: Error | null) => void) {
-        //Read: Incoming stream.
-        this._socket.once('subscribe', (incoming: Incoming) => {
-            Stream.finished(incoming, (error) => callback(error));
-            incoming.resume();
-        });
-
-        //Write: Outgoing stream.
-        this._socket.createOutgoing((outgoing: Outgoing) => {
-            Stream.finished(outgoing, (error) => error && callback(error));
+    private async subscribe() {
+        try {
+            //Write: Outgoing stream.
+            const outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing))) as Outgoing;
             outgoing.setRFI(new RFI('SUBSCRIBE', 'subscribe'));
             outgoing.set('CID', this.identifier);
             outgoing.end('');
-        });
+            await Stream.finished(outgoing);
+
+            //Read: Incoming stream.
+            const [incoming] = await once(this._socket, 'subscribe') as [Incoming];
+            incoming.resume();
+            return await Stream.finished(incoming);
+        } catch (error) { /* LIFE HAPPENS!!! */ }
     }
 
     //////////////////////////////
@@ -187,79 +183,100 @@ export default class Client extends EventEmitter implements IClient {
      * 
      * @emits `<operation>` when a broadcast is received.
      */
-    private broadcast(incoming: Incoming) {
-        //No listener was added to the broadcast, Drain the stream. Move on to the next one.
-        if (this.listenerCount(incoming.operation) === 0) {
-            Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
-            incoming.resume();
-            return;
-        }
+    private async broadcast(incoming: Incoming) {
+        try {
+            //No listener was added to the broadcast, Drain the stream. Move on to the next one.
+            if (this.listenerCount(incoming.operation) === 0) {
+                incoming.resume();
+                await Stream.finished(incoming);
+                return;
+            }
 
-        //Read: Incoming stream.
-        (async () => {
-            try {
+            //✅
+            if (incoming.params.get('FORMAT') === 'OBJECT') {
+                //Read: Incoming stream.
                 let data = '';
                 for await (const chunk of incoming) {
                     data += chunk;
                 }
-                if (incoming.params.get('FORMAT') === 'OBJECT') return this.emit(incoming.operation, ...JSON.parse(data));
-                this.emit(incoming.operation, data, incoming.params);
-            } catch (error) { /* LIFE HAPPENS!!! */ }
-        })();
+                this.emit(incoming.operation, ...JSON.parse(data));
+                return;
+            }
+
+            //Nothing to see here! 🎤🎧
+            this.emit(incoming.operation, incoming);
+        } catch (error) { /* LIFE HAPPENS!!! */ }
     }
 
     //////////////////////////////
     //////Interface: IClient
     //////////////////////////////
     public omni(operation: string, callback: (incoming: Incoming) => void) {
+        const { incoming, outgoing } = this.io(operation);
+        incoming.once('rfi', () => callback(incoming));
+        return outgoing;
+    }
+
+    public async execute<Returned>(operation: string, ...args: Array<any>) {
+        const { incoming, outgoing } = this.io(operation);
+
+        //Write: Outgoing stream.
+        try {
+            outgoing.set('FORMAT', 'OBJECT');
+            outgoing.end(JSON.stringify(args));
+            await Stream.finished(outgoing);
+        } catch (error) { /* LIFE HAPPENS!!! */ }
+
+        //Read: Incoming stream.
+        let incomingData = '';
+        try {
+            for await (const chunk of incoming) {
+                incomingData += chunk;
+            }
+        } catch (error) { /* LIFE HAPPENS!!! */ }
+
+        //Return: 🤓
+        if (incoming.get('STATUS') === 'OK') {
+            return JSON.parse(incomingData) as Returned;
+        }
+        if (incoming.get('STATUS') === 'ERROR') {
+            const error = new Error();
+            Object.assign(error, JSON.parse(incomingData));
+            throw error;
+        }
+
+        //Return: 😎
+        return incomingData as string;
+    }
+
+    //////////////////////////////
+    //////I/O
+    //////////////////////////////
+    /**
+     * Returns the created socket and initializes the single-use `Incoming` and `Outgoing` streams.
+     * 
+     * @param operation the operation pattern.
+     */
+    private io(operation: string) {
         //Ohooomyyy 🤦.
         if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
 
         //Create socket.
         const socket = new Socket({ emitIncoming: false });
-        socket.on('end', () => socket.destroy());
+        socket.once('end', () => socket.destroy());
         socket.connect(this.remotePort as number, this.remoteAddress as string);
 
         //Create incoming.
         (socket as any)._incoming = new Incoming(socket);
-        socket.incoming.on('rfi', () => callback(socket.incoming));
-        socket.incoming.on('end', () => socket.destroy());
+        socket.incoming.once('end', () => socket.destroy());
 
         //Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
         socket.outgoing.setRFI(new RFI('OMNI', operation));
         socket.outgoing.set('CID', this.identifier);
-        return socket.outgoing;
-    }
 
-    public execute<Returned>(operation: string, ...args: Array<any>) {
-        return new Promise<Returned>((resolve, reject) => {
-            //Read: Incoming stream.
-            const outgoing = this.omni(operation, async (incoming) => {
-                try {
-                    let incomingData = '';
-                    for await (const chunk of incoming) {
-                        incomingData += chunk;
-                    }
-
-                    if (incoming.get('STATUS') === 'OK') {
-                        resolve(JSON.parse(incomingData));
-                    }
-                    if (incoming.get('STATUS') === 'ERROR') {
-                        const error = new Error();
-                        Object.assign(error, JSON.parse(incomingData));
-                        reject(error);
-                    }
-                } catch (error) {
-                    reject(error);
-                }
-            });
-
-            //Write: Outgoing stream.
-            Stream.finished(outgoing, (error) => error && reject(error));
-            outgoing.set('FORMAT', 'OBJECT');
-            outgoing.end(JSON.stringify(args));
-        });
+        //Connection. 🔌
+        return socket;
     }
 
     //////////////////////////////
@@ -343,5 +360,5 @@ export interface IClient {
      * @param operation the operation pattern.
      * @param args the arguments to be passed to the remote function.
      */
-    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
+    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned | string> | Returned;
 }

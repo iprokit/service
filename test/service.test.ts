@@ -184,7 +184,7 @@ mocha.describe('Service Test', () => {
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
-        mocha.it('should execute remote function from remote service', async () => {
+        mocha.it('should execute function on remote service', async () => {
             //Server
             serviceA.func('nexus', async (arg) => {
                 return arg;

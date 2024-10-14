@@ -1,5 +1,5 @@
 //Import Libs.
-import Stream from 'stream';
+import { promises as Stream } from 'stream';
 
 //Import @iprolab Libs.
 import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
@@ -141,17 +141,19 @@ export default class Server extends ScpServer implements IServer {
      * Registers the subscription from the client socket connection.
      * Broadcasts can only be sent to subscribed connections.
      */
-    private subscribe(incoming: Incoming, outgoing: Outgoing) {
-        //Read: Incoming stream.
-        Stream.finished(incoming, (error) => { /* LIFE HAPPENS!!! */ });
-        incoming.resume();
+    private async subscribe(incoming: Incoming, outgoing: Outgoing) {
+        try {
+            //Read: Incoming stream.
+            incoming.resume();
+            await Stream.finished(incoming);
 
-        //Set: Connection properties.
-        incoming.socket.identifier = incoming.get('CID') as string;
+            //Set: Connection properties.
+            incoming.socket.identifier = incoming.get('CID') as string;
 
-        //Write: Outgoing stream.
-        Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-        outgoing.end('');
+            //Write: Outgoing stream.
+            outgoing.end('');
+            await Stream.finished(outgoing);
+        } catch (error) { /* LIFE HAPPENS!!! */ }
     }
 
     //////////////////////////////
@@ -163,11 +165,16 @@ export default class Server extends ScpServer implements IServer {
                 .filter((connection) => !!connection.identifier)
                 .map((connection) =>
                     new Promise<Broadcasted>((resolve) =>
-                        connection.createOutgoing((outgoing) => {
-                            outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
-                            outgoing.set('SID', this.identifier);
-                            outgoing.end(JSON.stringify(args));
-                            Stream.finished(outgoing, (error) => resolve({ identifier: connection.identifier, error: error || undefined }));
+                        connection.createOutgoing(async (outgoing) => {
+                            try {
+                                outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
+                                outgoing.set('SID', this.identifier);
+                                outgoing.end(JSON.stringify(args));
+                                await Stream.finished(outgoing);
+                                resolve({ identifier: connection.identifier });
+                            } catch (error) {
+                                resolve({ identifier: connection.identifier, error: error as Error });
+                            }
                         })
                     )
                 )
@@ -237,8 +244,10 @@ export default class Server extends ScpServer implements IServer {
                 }
 
                 //Write: Outgoing stream.
-                Stream.finished(outgoing, (error) => { /* LIFE HAPPENS!!! */ });
-                outgoing.end(outgoingData);
+                try {
+                    outgoing.end(outgoingData);
+                    await Stream.finished(outgoing);
+                } catch (error) { /* LIFE HAPPENS!!! */ }
             });
             return instance;
         }

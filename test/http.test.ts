@@ -733,7 +733,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(responseBody, requestBody);
             });
 
-            mocha.it('should throw Error', async () => {
+            mocha.it('should forward Error', async () => {
                 //Proxy
                 const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 10, host);
