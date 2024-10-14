@@ -160,19 +160,24 @@ export default class Client extends EventEmitter implements IClient {
      * Subscribes to the server to receive broadcasts.
      */
     private async subscribe() {
+        let incoming!: Incoming;
+        let outgoing!: Outgoing;
+
         try {
             //Write: Outgoing stream.
-            const outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing))) as Outgoing;
+            outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing)));
             outgoing.setRFI(new RFI('SUBSCRIBE', 'subscribe'));
             outgoing.set('CID', this.identifier);
             outgoing.end('');
             await Stream.finished(outgoing);
 
             //Read: Incoming stream.
-            const [incoming] = await once(this._socket, 'subscribe') as [Incoming];
+            [incoming] = await once(this._socket, 'subscribe');
             incoming.resume();
-            return await Stream.finished(incoming);
-        } catch (error) { /* LIFE HAPPENS!!! */ }
+            await Stream.finished(incoming);
+        } catch (error) {
+            this.emit('error', error, { incoming, outgoing, context: 'subscribe' });
+        }
     }
 
     //////////////////////////////
@@ -205,7 +210,9 @@ export default class Client extends EventEmitter implements IClient {
 
             //Nothing to see here! 🎤🎧
             this.emit(incoming.operation, incoming);
-        } catch (error) { /* LIFE HAPPENS!!! */ }
+        } catch (error) {
+            this.emit('error', error, { incoming, context: 'broadcast' });
+        }
     }
 
     //////////////////////////////
@@ -221,19 +228,15 @@ export default class Client extends EventEmitter implements IClient {
         const { incoming, outgoing } = this.io(operation);
 
         //Write: Outgoing stream.
-        try {
-            outgoing.set('FORMAT', 'OBJECT');
-            outgoing.end(JSON.stringify(args));
-            await Stream.finished(outgoing);
-        } catch (error) { /* LIFE HAPPENS!!! */ }
+        outgoing.set('FORMAT', 'OBJECT');
+        outgoing.end(JSON.stringify(args));
+        await Stream.finished(outgoing);
 
         //Read: Incoming stream.
         let incomingData = '';
-        try {
-            for await (const chunk of incoming) {
-                incomingData += chunk;
-            }
-        } catch (error) { /* LIFE HAPPENS!!! */ }
+        for await (const chunk of incoming) {
+            incomingData += chunk;
+        }
 
         //Return: 🤓
         if (incoming.get('STATUS') === 'OK') {

@@ -150,11 +150,7 @@ export default class Server extends EventEmitter {
         const address = this._socket.address() as AddressInfo;
 
         //If you can spare a moment to notice, there's just one membership here 🙃
-        this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => {
-            if (error) return; /* LIFE HAPPENS!!! */
-
-            callback && callback();
-        });
+        this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => callback && callback());
     }
 
     /**

@@ -153,7 +153,9 @@ export default class Server extends ScpServer implements IServer {
             //Write: Outgoing stream.
             outgoing.end('');
             await Stream.finished(outgoing);
-        } catch (error) { /* LIFE HAPPENS!!! */ }
+        } catch (error) {
+            this.emit('error', error, { incoming, outgoing, context: 'subscribe' });
+        }
     }
 
     //////////////////////////////
@@ -220,34 +222,34 @@ export default class Server extends ScpServer implements IServer {
         }
         instance.func = (operation, func) => {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
-                //Consumer needs to handle it 🤦🏽‍♂️!
-                if (incoming.get('FORMAT') !== 'OBJECT') return proceed();
-
-                //Read: Incoming stream.
-                let incomingData = '';
                 try {
+                    //Consumer needs to handle it 🤦🏽‍♂️!
+                    if (incoming.get('FORMAT') !== 'OBJECT') return proceed();
+
+                    //Read: Incoming stream.
+                    let incomingData = '';
                     for await (const chunk of incoming) {
                         incomingData += chunk;
                     }
-                } catch (error) { /* LIFE HAPPENS!!! */ }
 
-                //Execute: Function 🫡.
-                let outgoingData = '';
-                try {
-                    let returned = await func(...JSON.parse(incomingData));
-                    outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-                    outgoing.set('STATUS', 'OK');
-                } catch (error) {
-                    error instanceof Error && delete error.stack; /* Delete stack from error because we dont need it. */
-                    outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
-                    outgoing.set('STATUS', 'ERROR');
-                }
+                    //Execute: Function 🫡.
+                    let outgoingData = '';
+                    try {
+                        let returned = await func(...JSON.parse(incomingData));
+                        outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
+                        outgoing.set('STATUS', 'OK');
+                    } catch (error) {
+                        error instanceof Error && delete error.stack; /* Delete stack from error because we dont need it. */
+                        outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
+                        outgoing.set('STATUS', 'ERROR');
+                    }
 
-                //Write: Outgoing stream.
-                try {
+                    //Write: Outgoing stream.
                     outgoing.end(outgoingData);
                     await Stream.finished(outgoing);
-                } catch (error) { /* LIFE HAPPENS!!! */ }
+                } catch (error) {
+                    proceed(); //❗️⚠️❗️
+                }
             });
             return instance;
         }
