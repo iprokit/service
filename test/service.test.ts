@@ -160,9 +160,8 @@ mocha.describe('Service Test', () => {
         mocha.it('should receive broadcast from remote service', async () => {
             //Server
             const arg = createString(1000);
-            const [broadcasted] = await serviceA.broadcast('nexus1', arg);
-            assert.deepStrictEqual(broadcasted.identifier, serviceB.identifier);
-            assert.deepStrictEqual(broadcasted.error, undefined);
+            const [identifier] = await serviceA.broadcast('nexus1', arg);
+            assert.deepStrictEqual(identifier, serviceB.identifier);
 
             //Client
             const argsResolved = await once(linkA, 'nexus1');

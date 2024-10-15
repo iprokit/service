@@ -109,9 +109,8 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should receive broadcast as empty', async () => {
             //Server
-            const [broadcasted] = await server.broadcast('nexus1');
-            assert.deepStrictEqual(broadcasted.identifier, client.identifier);
-            assert.deepStrictEqual(broadcasted.error, undefined);
+            const [identifier] = await server.broadcast('nexus1');
+            assert.deepStrictEqual(identifier, client.identifier);
 
             //Client
             const argsResolved = await once(client, 'nexus1');
@@ -121,9 +120,8 @@ mocha.describe('SCP Test', () => {
         mocha.it('should receive broadcast as object', async () => {
             for await (const arg of args) {
                 //Server
-                const [broadcasted] = await server.broadcast('nexus1', arg);
-                assert.deepStrictEqual(broadcasted.identifier, client.identifier);
-                assert.deepStrictEqual(broadcasted.error, undefined);
+                const [identifier] = await server.broadcast('nexus1', arg);
+                assert.deepStrictEqual(identifier, client.identifier);
 
                 //Client
                 const argsResolved = await once(client, 'nexus1');
@@ -133,9 +131,8 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should receive broadcast as ...object', async () => {
             //Server
-            const [broadcasted] = await server.broadcast('nexus1', ...args);
-            assert.deepStrictEqual(broadcasted.identifier, client.identifier);
-            assert.deepStrictEqual(broadcasted.error, undefined);
+            const [identifier] = await server.broadcast('nexus1', ...args);
+            assert.deepStrictEqual(identifier, client.identifier);
 
             //Client
             const argsResolved = await once(client, 'nexus1');

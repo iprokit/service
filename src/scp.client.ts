@@ -176,7 +176,10 @@ export default class Client extends EventEmitter implements IClient {
             incoming.resume();
             await Stream.finished(incoming);
         } catch (error) {
-            this.emit('error', error, { incoming, outgoing, context: 'subscribe' });
+            //❗️⚠️❗️
+            incoming?.destroy();
+            outgoing?.destroy();
+            (incoming || outgoing).socket.destroy(error as Error);
         }
     }
 
@@ -211,7 +214,9 @@ export default class Client extends EventEmitter implements IClient {
             //Nothing to see here! 🎤🎧
             this.emit(incoming.operation, incoming);
         } catch (error) {
-            this.emit('error', error, { incoming, context: 'broadcast' });
+            //❗️⚠️❗️
+            incoming.destroy();
+            incoming.socket.destroy(error as Error);
         }
     }
 
@@ -227,15 +232,22 @@ export default class Client extends EventEmitter implements IClient {
     public async execute<Returned>(operation: string, ...args: Array<any>) {
         const { incoming, outgoing } = this.io(operation);
 
-        //Write: Outgoing stream.
-        outgoing.set('FORMAT', 'OBJECT');
-        outgoing.end(JSON.stringify(args));
-        await Stream.finished(outgoing);
-
-        //Read: Incoming stream.
         let incomingData = '';
-        for await (const chunk of incoming) {
-            incomingData += chunk;
+        try {
+            //Write: Outgoing stream.
+            outgoing.set('FORMAT', 'OBJECT');
+            outgoing.end(JSON.stringify(args));
+            await Stream.finished(outgoing);
+
+            //Read: Incoming stream.
+            for await (const chunk of incoming) {
+                incomingData += chunk;
+            }
+        } catch (error) {
+            //❗️⚠️❗️
+            incoming.destroy();
+            outgoing.destroy();
+            outgoing.socket.destroy(error as Error);
         }
 
         //Return: 🤓

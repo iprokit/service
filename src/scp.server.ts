@@ -154,7 +154,10 @@ export default class Server extends ScpServer implements IServer {
             outgoing.end('');
             await Stream.finished(outgoing);
         } catch (error) {
-            this.emit('error', error, { incoming, outgoing, context: 'subscribe' });
+            //❗️⚠️❗️
+            incoming.destroy();
+            outgoing.destroy();
+            outgoing.socket.destroy(error as Error);
         }
     }
 
@@ -166,16 +169,19 @@ export default class Server extends ScpServer implements IServer {
             this.connections
                 .filter((connection) => !!connection.identifier)
                 .map((connection) =>
-                    new Promise<Broadcasted>((resolve) =>
+                    new Promise<string>((resolve, reject) =>
                         connection.createOutgoing(async (outgoing) => {
                             try {
                                 outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
                                 outgoing.set('SID', this.identifier);
                                 outgoing.end(JSON.stringify(args));
                                 await Stream.finished(outgoing);
-                                resolve({ identifier: connection.identifier });
+                                resolve(connection.identifier);
                             } catch (error) {
-                                resolve({ identifier: connection.identifier, error: error as Error });
+                                //❗️⚠️❗️
+                                outgoing.destroy();
+                                outgoing.socket.destroy(error as Error);
+                                reject(error);
                             }
                         })
                     )
@@ -248,7 +254,10 @@ export default class Server extends ScpServer implements IServer {
                     outgoing.end(outgoingData);
                     await Stream.finished(outgoing);
                 } catch (error) {
-                    proceed(); //❗️⚠️❗️
+                    //❗️⚠️❗️
+                    incoming.destroy();
+                    outgoing.destroy();
+                    outgoing.socket.destroy(error as Error);
                 }
             });
             return instance;
@@ -269,7 +278,7 @@ export interface IServer extends Executor {
      * @param operation the operation pattern.
      * @param args the arguments to broadcast.
      */
-    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<Broadcasted>>;
+    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
 
     /**
      * Returns a `Executor` to group executions that share related functionality.
@@ -433,22 +442,4 @@ export interface Outgoing extends SCP.Outgoing {
      * The underlying SCP Socket.
      */
     socket: Connection;
-}
-
-//////////////////////////////
-/////Broadcasted
-//////////////////////////////
-/**
- * Represents a broadcasted SCP operation.
- */
-export interface Broadcasted {
-    /**
-     * The unique identifier of the client socket connection to which the broadcast was sent.
-     */
-    identifier: string;
-
-    /**
-     * An optional error object that indicates if an error occurred during the broadcast.
-     */
-    error?: Error;
 }
