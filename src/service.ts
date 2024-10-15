@@ -428,6 +428,10 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     //////////////////////////////
     //////Interface: IClient
     //////////////////////////////
+    public Socket() {
+        return this.scpClient.Socket();
+    }
+
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         return this.scpClient.omni(operation, callback);
     }

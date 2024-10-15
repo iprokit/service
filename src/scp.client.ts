@@ -223,20 +223,45 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     //////Interface: IClient
     //////////////////////////////
+    public Socket() {
+        //Ohooomyyy 🤦.
+        if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
+
+        //Create socket.
+        const socket = new Socket({ emitIncoming: false });
+        socket.once('end', () => socket.destroy());
+        socket.connect(this.remotePort as number, this.remoteAddress as string);
+
+        //Create incoming.
+        (socket as any)._incoming = new Incoming(socket);
+        socket.incoming.once('end', () => socket.destroy());
+
+        //Create outgoing.
+        (socket as any)._outgoing = new Outgoing(socket);
+
+        //Connection. 🔌
+        return socket;
+    }
+
     public omni(operation: string, callback: (incoming: Incoming) => void) {
-        const { incoming, outgoing } = this.io(operation);
+        const { incoming, outgoing } = this.Socket();
+        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier]]));
         incoming.once('rfi', () => callback(incoming));
         return outgoing;
     }
 
     public async execute<Returned>(operation: string, ...args: Array<any>) {
-        const { incoming, outgoing } = this.io(operation);
+        const { incoming, outgoing } = this.Socket();
+        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
 
         let incomingData = '';
         try {
             //Write: Outgoing stream.
             outgoing.set('FORMAT', 'OBJECT');
-            outgoing.end(JSON.stringify(args));
+            if (!outgoing.write(JSON.stringify(args))) {
+                await once(outgoing, 'drain');
+            }
+            outgoing.end();
             await Stream.finished(outgoing);
 
             //Read: Incoming stream.
@@ -262,36 +287,6 @@ export default class Client extends EventEmitter implements IClient {
 
         //Return: 😎
         return incomingData as string;
-    }
-
-    //////////////////////////////
-    //////I/O
-    //////////////////////////////
-    /**
-     * Returns the created socket and initializes the single-use `Incoming` and `Outgoing` streams.
-     * 
-     * @param operation the operation pattern.
-     */
-    private io(operation: string) {
-        //Ohooomyyy 🤦.
-        if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
-
-        //Create socket.
-        const socket = new Socket({ emitIncoming: false });
-        socket.once('end', () => socket.destroy());
-        socket.connect(this.remotePort as number, this.remoteAddress as string);
-
-        //Create incoming.
-        (socket as any)._incoming = new Incoming(socket);
-        socket.incoming.once('end', () => socket.destroy());
-
-        //Create outgoing.
-        (socket as any)._outgoing = new Outgoing(socket);
-        socket.outgoing.setRFI(new RFI('OMNI', operation));
-        socket.outgoing.set('CID', this.identifier);
-
-        //Connection. 🔌
-        return socket;
     }
 
     //////////////////////////////
@@ -361,6 +356,11 @@ export default class Client extends EventEmitter implements IClient {
  * Interface of SCP `Client`.
  */
 export interface IClient {
+    /**
+     * Returns a `Socket` that is connected and configured with single-use `Incoming` and `Outgoing` streams.
+     */
+    Socket: () => Socket;
+
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
      * 
