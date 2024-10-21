@@ -6,6 +6,9 @@ import { AddressInfo } from 'net';
 //Import @iprolab Libs.
 import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
 
+//Import Local.
+import Conductor from './scp.conductor';
+
 /**
  * This class implements a simple SCP Client.
  * A `Client` is responsible for managing connection persistence to the server.
@@ -245,27 +248,27 @@ export default class Client extends EventEmitter implements IClient {
 
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         const { incoming, outgoing } = this.Socket();
-        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier]]));
         incoming.once('rfi', () => callback(incoming));
+        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier]]));
         return outgoing;
     }
 
     public async execute<Returned>(operation: string, ...args: Array<any>) {
-        const { incoming, outgoing } = this.Socket();
+        //Initialize 🎩🕒🚦.
+        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
+        const { incoming, outgoing } = conductor ?? this.Socket();
         outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
+        if (conductor) outgoing.set('SIGNAL', 'CONDUCTOR');
 
         let incomingData = '';
         try {
             //Write: Outgoing stream.
-            outgoing.set('FORMAT', 'OBJECT');
-            if (!outgoing.write(JSON.stringify(args))) {
-                await once(outgoing, 'drain');
-            }
-            outgoing.end();
-            await Stream.finished(outgoing);
+            const outgoingData = JSON.stringify(args);
+            await (conductor ? conductor.write(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
 
             //Read: Incoming stream.
-            for await (const chunk of incoming) {
+            await once(incoming, 'rfi');
+            for await (const chunk of (conductor ?? incoming)) {
                 incomingData += chunk;
             }
         } catch (error) {
@@ -273,20 +276,16 @@ export default class Client extends EventEmitter implements IClient {
             incoming.destroy();
             outgoing.destroy();
             outgoing.socket.destroy(error as Error);
-        }
-
-        //Return: 🤓
-        if (incoming.get('STATUS') === 'OK') {
-            return JSON.parse(incomingData) as Returned;
-        }
-        if (incoming.get('STATUS') === 'ERROR') {
-            const error = new Error();
-            Object.assign(error, JSON.parse(incomingData));
             throw error;
         }
 
-        //Return: 😎
-        return incomingData as string;
+        //ERROR 😡 
+        if (incoming.get('STATUS') === 'ERROR') {
+            throw Object.assign(new Error(), JSON.parse(incomingData)) as Error;
+        }
+
+        //OK 😊
+        return JSON.parse(incomingData) as Returned;
     }
 
     //////////////////////////////
@@ -375,5 +374,5 @@ export interface IClient {
      * @param operation the operation pattern.
      * @param args the arguments to be passed to the remote function.
      */
-    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned | string> | Returned;
+    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
 }

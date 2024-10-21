@@ -7,6 +7,7 @@ export { default as HttpStatusCode } from './http.statusCode';
 export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprolab/scp';
 export { default as ScpServer, IServer as IScpServer, Executor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Function, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
 export { default as ScpClient, IClient as IScpClient } from './scp.client';
+export { default as Conductor } from './scp.conductor';
 
 //Export SDP.
 export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprolab/sdp';

@@ -38,7 +38,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprolab/scp": "1.0.0",
+    "@iprolab/scp": "1.1.0",
     "@iprolab/sdp": "1.0.0"
   },
   "devDependencies": {

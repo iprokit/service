@@ -4,6 +4,9 @@ import { promises as Stream } from 'stream';
 //Import @iprolab Libs.
 import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
 
+//Import Local.
+import Conductor from './scp.conductor';
+
 /**
  * This class is used to create a SCP server.
  * A `Server` is bound to an IP address and port number and listens for incoming SCP client connections.
@@ -229,19 +232,23 @@ export default class Server extends ScpServer implements IServer {
         instance.func = (operation, func) => {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
                 try {
+                    //Initialize 🎩🕒🚦.
+                    const conductor = (incoming.get('SIGNAL') === 'CONDUCTOR') ? new Conductor(incoming, outgoing) : undefined;
+
                     //Consumer needs to handle it 🤦🏽‍♂️!
                     if (incoming.get('FORMAT') !== 'OBJECT') return proceed();
 
                     //Read: Incoming stream.
                     let incomingData = '';
-                    for await (const chunk of incoming) {
+                    for await (const chunk of (conductor ?? incoming)) {
                         incomingData += chunk;
                     }
 
                     //Execute: Function 🫡.
                     let outgoingData = '';
                     try {
-                        let returned = await func(...JSON.parse(incomingData));
+                        const args = conductor ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
+                        const returned = await func(...args);
                         outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
                         outgoing.set('STATUS', 'OK');
                     } catch (error) {
@@ -251,8 +258,7 @@ export default class Server extends ScpServer implements IServer {
                     }
 
                     //Write: Outgoing stream.
-                    outgoing.end(outgoingData);
-                    await Stream.finished(outgoing);
+                    await (conductor ? conductor.write(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
                 } catch (error) {
                     //❗️⚠️❗️
                     incoming.destroy();
