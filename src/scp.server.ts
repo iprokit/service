@@ -54,7 +54,7 @@ export default class Server extends ScpServer implements IServer {
         this.addListener('incoming', this.onIncoming);
 
         //Apply `Executor` properties 👻.
-        this.applyExecutorProperties(this);
+        Executor.applyProperties(this);
     }
 
     //////////////////////////////
@@ -192,15 +192,7 @@ export default class Server extends ScpServer implements IServer {
         );
     }
 
-    public Execution() {
-        const executor = { executions: new Array<Execution>() } as Executor;
-
-        //Apply `Executor` properties 👻.
-        this.applyExecutorProperties(executor);
-        return executor;
-    }
-
-    public attach(operation: string, executor: Executor) {
+    public attach(operation: string, executor: IExecutor) {
         const { executions } = executor;
         const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
         this.executions.push({ operation, regExp, executions } as Segment);
@@ -208,22 +200,77 @@ export default class Server extends ScpServer implements IServer {
     }
 
     //////////////////////////////
-    //////Interface: Executor
+    //////Interface: IExecutor
+    //////////////////////////////
+    public declare omni: (operation: string, handler: IncomingHandler) => this;
+    public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
+}
+
+//////////////////////////////
+/////IServer
+//////////////////////////////
+/**
+ * Interface for SCP `Server`.
+ */
+export interface IServer extends IExecutor {
+    /**
+     * Broadcasts the supplied to all the subscribed client socket connections.
+     * 
+     * @param operation the operation pattern.
+     * @param args the arguments to broadcast.
+     */
+    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
+
+    /**
+     * Attaches a executor.
+     * 
+     * @param operation the operation pattern.
+     * @param executor the executor to attach.
+     */
+    attach: (operation: string, executor: IExecutor) => this;
+}
+
+//////////////////////////////
+//////Executor
+//////////////////////////////
+/**
+ * This class is used to register executions that handle SCP I/O's.
+ * Once attached, SCP I/O's are dispatched to the appropriate registered executions.
+ */
+export class Executor implements IExecutor {
+    /**
+     * The executions registered.
+     */
+    public readonly executions: Array<Execution>;
+
+    /**
+     * Creates an instance of executor.
+     */
+    constructor() {
+        //Initialize Variables.
+        this.executions = new Array();
+
+        //Apply `Executor` properties 👻.
+        Executor.applyProperties(this);
+    }
+
+    //////////////////////////////
+    //////Interface: IExecutor
     //////////////////////////////
     public declare omni: (operation: string, handler: IncomingHandler) => this;
     public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
 
     //////////////////////////////
-    //////Factory: Executor
+    //////Factory
     //////////////////////////////
     /**
-     * Applies properties of the `Executor` interface to the provided instance,
+     * Applies properties of the `IExecutor` interface to the provided instance,
      * enabling the registration of executions.
      * 
-     * @param instance the instance to which the `Executor` properties are applied.
+     * @param instance the instance to which the `IExecutor` properties are applied.
      */
-    private applyExecutorProperties<I extends Executor>(instance: I) {
-        //`Executor` properties 😈.
+    public static applyProperties<I extends IExecutor>(instance: I) {
+        //`IExecutor` properties 😈.
         instance.omni = (operation, handler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
             instance.executions.push({ operation, regExp, handler } as Nexus);
@@ -272,41 +319,12 @@ export default class Server extends ScpServer implements IServer {
 }
 
 //////////////////////////////
-/////IServer
+//////IExecutor
 //////////////////////////////
 /**
- * Interface of SCP `Server`.
+ * Interface for `Executor`.
  */
-export interface IServer extends Executor {
-    /**
-     * Broadcasts the supplied to all the subscribed client socket connections.
-     * 
-     * @param operation the operation pattern.
-     * @param args the arguments to broadcast.
-     */
-    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
-
-    /**
-     * Returns a `Executor` to group executions that share related functionality.
-     */
-    Execution: () => Executor;
-
-    /**
-     * Attaches a executor.
-     * 
-     * @param operation the operation pattern.
-     * @param executor the executor to attach.
-     */
-    attach: (operation: string, executor: Executor) => this;
-}
-
-//////////////////////////////
-//////Executor
-//////////////////////////////
-/**
- * Interface for handling SCP I/O's and registering executions.
- */
-export interface Executor {
+export interface IExecutor {
     /**
      * The executions registered.
      */
@@ -338,7 +356,7 @@ export interface Executor {
 export type Execution = Segment | Nexus;
 
 /**
- * Represents a group of executions that share related functionality.
+ * Represents a group of executions.
  */
 export interface Segment {
     /**

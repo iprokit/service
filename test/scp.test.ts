@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { ScpServer, Segment, Nexus, IncomingHandler, ScpClient, Conductor } from '../lib';
+import { ScpServer, Executor, Segment, Nexus, IncomingHandler, ScpClient, Conductor } from '../lib';
 import { createString, createIdentifier, clientOmni } from './util';
 
 const host = '127.0.0.1';
@@ -175,12 +175,12 @@ mocha.describe('SCP Test', () => {
         });
 
         mocha.it('should attach executor', () => {
-            const executor1 = server.Execution();
-            const executor2 = server.Execution();
+            const executor1 = new Executor();
+            const executor2 = new Executor();
             executor2.omni('', handler);
             executor2.omni('nexus', handler);
             executor2.omni('*', handler);
-            const executor3 = server.Execution();
+            const executor3 = new Executor();
             server.attach('', executor1);
             server.attach('Segment', executor2);
             server.attach('*', executor3);
@@ -302,17 +302,17 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should dispatch I/O to executor attached', async () => {
             //Server
-            const executor1 = server.Execution();
+            const executor1 = new Executor();
             executor1.omni('*', proceedHandler);
-            const executor2 = server.Execution();
+            const executor2 = new Executor();
             executor2.omni('*', errorHandler);
-            const executor3 = server.Execution();
+            const executor3 = new Executor();
             executor3.omni('*', proceedHandler);
             executor3.omni('nexus', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 incoming.pipe(outgoing);
             });
-            const executor4 = server.Execution();
+            const executor4 = new Executor();
             server.attach('*', executor1);
             server.attach('Segment2', executor2);
             server.attach('Segment3', executor3);
@@ -329,17 +329,17 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should dispatch I/O through executions & executors', async () => {
             //Server
-            const executor1 = server.Execution();
+            const executor1 = new Executor();
             executor1.omni('*', proceedHandler);
-            const executor2 = server.Execution();
+            const executor2 = new Executor();
             executor2.omni('*', errorHandler);
-            const executor3 = server.Execution();
+            const executor3 = new Executor();
             executor3.omni('*', proceedHandler);
             executor3.omni('nexus', async (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 incoming.pipe(outgoing);
             });
-            const executor4 = server.Execution();
+            const executor4 = new Executor();
             server.omni('*', proceedHandler);
             server.omni('nexus1', errorHandler);
             server.omni('*1', errorHandler);

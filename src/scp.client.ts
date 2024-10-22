@@ -352,7 +352,7 @@ export default class Client extends EventEmitter implements IClient {
 /////IClient
 //////////////////////////////
 /**
- * Interface of SCP `Client`.
+ * Interface for SCP `Client`.
  */
 export interface IClient {
     /**

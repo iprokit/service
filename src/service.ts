@@ -8,7 +8,7 @@ import { Incoming } from '@iprolab/scp';
 
 //Import Local.
 import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
-import ScpServer, { IServer as IScpServer, Executor, IncomingHandler, Function } from './scp.server';
+import ScpServer, { IServer as IScpServer, IExecutor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
 import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
 import ScpClient, { IClient as IScpClient } from './scp.client';
@@ -233,7 +233,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Registers a HTTP route for handling all requests.
+     * Registers a HTTP route for handling ALL requests.
      * 
      * @param path the path pattern.
      * @param handlers the request handler functions.
@@ -268,19 +268,12 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Returns a `Executor` to group SCP executions that share related functionality.
-     */
-    public Execution() {
-        return this.scpServer.Execution();
-    }
-
-    /**
      * Attaches a SCP executor.
      * 
      * @param operation the operation pattern.
      * @param executor the executor to attach.
      */
-    public attach(operation: string, executor: Executor) {
+    public attach(operation: string, executor: IExecutor) {
         this.scpServer.attach(operation, executor);
         return this;
     }
