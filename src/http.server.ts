@@ -33,8 +33,8 @@ export default class Server extends HttpServer implements IServer {
         //Add listeners.
         this.addListener('request', this.onRequest);
 
-        //Apply `Router` properties 👻.
-        this.applyRouterProperties(this);
+        //Apply `IRouter` properties 👻.
+        applyRouterProperties(this);
     }
 
     //////////////////////////////
@@ -116,18 +116,7 @@ export default class Server extends HttpServer implements IServer {
     }
 
     //////////////////////////////
-    //////Interface: IServer
-    //////////////////////////////
-    public Route() {
-        const router = { routes: new Array<Route>() } as Router;
-
-        //Apply `Router` properties 👻.
-        this.applyRouterProperties(router);
-        return router;
-    }
-
-    //////////////////////////////
-    //////Interface: Router
+    //////Interface: IRouter
     //////////////////////////////
     public declare get: (path: string, ...handlers: Array<RequestHandler>) => this;
     public declare post: (path: string, ...handlers: Array<RequestHandler>) => this;
@@ -135,53 +124,7 @@ export default class Server extends HttpServer implements IServer {
     public declare patch: (path: string, ...handlers: Array<RequestHandler>) => this;
     public declare delete: (path: string, ...handlers: Array<RequestHandler>) => this;
     public declare all: (path: string, ...handlers: Array<RequestHandler>) => this;
-    public declare mount: (path: string, ...routers: Array<Router>) => this;
-
-    //////////////////////////////
-    //////Factory: Router
-    //////////////////////////////
-    /**
-     * Applies properties of the `Router` interface to the provided instance,
-     * enabling the registration of routes.
-     * 
-     * @param instance the instance to which the `Router` properties are applied.
-     */
-    private applyRouterProperties<I extends Router>(instance: I) {
-        //Factory for handling path transformations.
-        const handleTrailingSlash = (path: string) => path.replace(/\/$/, '') || '/';
-        const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
-        const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
-        const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
-
-        //Factory for registering a `Endpoint`.
-        const endpoint = (method: Method) => {
-            return (path: string, ...handlers: Array<RequestHandler>) => {
-                const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
-                const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
-                instance.routes.push({ method, path, regExp, paramKeys, handlers });
-                return instance;
-            }
-        }
-
-        //Factory for registering a `Stack`.
-        const stack = () => {
-            return (path: string, ...routers: Array<Router>) => {
-                const regExp = new RegExp(`^${handleTrailingSlash(path)}`);
-                const routes = routers.map((router) => router.routes);
-                instance.routes.push({ path, regExp, routes });
-                return instance;
-            }
-        }
-
-        //`Router` properties 😈.
-        instance.get = endpoint('GET');
-        instance.post = endpoint('POST');
-        instance.put = endpoint('PUT');
-        instance.patch = endpoint('PATCH');
-        instance.delete = endpoint('DELETE');
-        instance.all = endpoint('ALL');
-        instance.mount = stack();
-    }
+    public declare mount: (path: string, ...routers: Array<IRouter>) => this;
 }
 
 //////////////////////////////
@@ -190,20 +133,94 @@ export default class Server extends HttpServer implements IServer {
 /**
  * Interface of HTTP `Server`.
  */
-export interface IServer extends Router {
-    /**
-     * Returns a `Router` to group routes that share related functionality.
-     */
-    Route: () => Router;
-}
+export interface IServer extends IRouter { }
 
 //////////////////////////////
 /////Router
 //////////////////////////////
 /**
- * Interface for handling HTTP requests and registering routes.
+ * This class is used to register routes that handle HTTP requests.
+ * Once mounted, HTTP requests are dispatched to the appropriate registered routes.
  */
-export interface Router {
+export class Router implements IRouter {
+    /**
+     * The routes registered.
+     */
+    public readonly routes: Array<Route>;
+
+    /**
+     * Creates an instance of router.
+     */
+    constructor() {
+        //Initialize Variables.
+        this.routes = new Array();
+
+        //Apply `IRouter` properties 👻.
+        applyRouterProperties(this);
+    }
+
+    //////////////////////////////
+    //////Interface: IRouter
+    //////////////////////////////
+    public declare get: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare post: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare put: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare patch: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare delete: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare all: (path: string, ...handlers: Array<RequestHandler>) => this;
+    public declare mount: (path: string, ...routers: Array<IRouter>) => this;
+}
+
+/**
+ * Applies properties of the `IRouter` interface to the provided instance,
+ * enabling the registration of routes.
+ * 
+ * @param instance the instance to which the `IRouter` properties are applied.
+ */
+function applyRouterProperties<I extends IRouter>(instance: I) {
+    //Factory for handling path transformations.
+    const handleTrailingSlash = (path: string) => path.replace(/\/$/, '') || '/';
+    const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
+    const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
+    const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
+
+    //Factory for registering a `Endpoint`.
+    const endpoint = (method: Method) => {
+        return (path: string, ...handlers: Array<RequestHandler>) => {
+            const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
+            const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
+            instance.routes.push({ method, path, regExp, paramKeys, handlers });
+            return instance;
+        }
+    }
+
+    //Factory for registering a `Stack`.
+    const stack = () => {
+        return (path: string, ...routers: Array<IRouter>) => {
+            const regExp = new RegExp(`^${handleTrailingSlash(path)}`);
+            const routes = routers.map((router) => router.routes);
+            instance.routes.push({ path, regExp, routes });
+            return instance;
+        }
+    }
+
+    //`Router` properties 😈.
+    instance.get = endpoint('GET');
+    instance.post = endpoint('POST');
+    instance.put = endpoint('PUT');
+    instance.patch = endpoint('PATCH');
+    instance.delete = endpoint('DELETE');
+    instance.all = endpoint('ALL');
+    instance.mount = stack();
+}
+
+//////////////////////////////
+/////IRouter
+//////////////////////////////
+/**
+ * Interface of `Router`.
+ */
+export interface IRouter {
     /**
      * The routes registered.
      */
@@ -263,7 +280,7 @@ export interface Router {
      * @param path the path pattern.
      * @param routers the routers to mount.
      */
-    mount: (path: string, ...routers: Array<Router>) => this;
+    mount: (path: string, ...routers: Array<IRouter>) => this;
 }
 
 //////////////////////////////
@@ -275,7 +292,7 @@ export interface Router {
 export type Route = Stack | Endpoint;
 
 /**
- * Represents a group of routes that share related functionality.
+ * Represents a group of routes.
  */
 export interface Stack {
     /**

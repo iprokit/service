@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 //Import Local.
-import { HttpServer, Router, Stack, Endpoint, HttpMethod, RequestHandler, HttpProxy, ForwardOptions, HttpStatusCode } from '../lib';
+import { HttpServer, Router, IRouter, Stack, Endpoint, HttpMethod, RequestHandler, HttpProxy, ForwardOptions, HttpStatusCode } from '../lib';
 import { createString, createIdentifier, clientRequest } from './util';
 
 const host = '127.0.0.1';
@@ -89,7 +89,7 @@ mocha.describe('HTTP Test', () => {
     });
 
     mocha.describe('Mount Test', () => {
-        const registerEndpoints = <R extends Router>(router: R) => {
+        const registerEndpoints = <R extends IRouter>(router: R) => {
             const handlers = Array<RequestHandler>(3).fill((request, response, next) => { });
             router.get('/endpoint1', ...handlers);
             router.post('/endpoint2', ...handlers);
@@ -108,7 +108,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should mount single router on root path', () => {
-            const router1 = server.Route();
+            const router1 = new Router();
             server.mount('/', router1);
             assert.deepStrictEqual((server.routes[0] as Stack).path, '/');
             assert.notDeepStrictEqual((server.routes[0] as Stack).regExp, undefined);
@@ -118,9 +118,9 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should mount single router on single path', () => {
-            const router1 = server.Route();
+            const router1 = new Router();
             registerEndpoints(router1);
-            const router2 = server.Route();
+            const router2 = new Router();
             server.mount('/path1', router1);
             server.mount('/path2', router2);
             assert.deepStrictEqual((server.routes[0] as Stack).path, '/path1');
@@ -135,9 +135,9 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should mount multiple routers on single path', () => {
-            const router1 = server.Route();
+            const router1 = new Router();
             registerEndpoints(router1);
-            const router2 = server.Route();
+            const router2 = new Router();
             server.mount('/path1', router1, router2);
             assert.deepStrictEqual((server.routes[0] as Stack).path, '/path1');
             assert.notDeepStrictEqual((server.routes[0] as Stack).regExp, undefined);
@@ -150,9 +150,9 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should mount nested routers on single path', () => {
-            const router1 = server.Route();
+            const router1 = new Router();
             registerEndpoints(router1);
-            const router2 = server.Route();
+            const router2 = new Router();
             server.mount('/path1', router1);
             router1.mount('/path2', router2);
             assert.deepStrictEqual((server.routes[0] as Stack).path, '/path1');
@@ -565,7 +565,7 @@ mocha.describe('HTTP Test', () => {
 
         mocha.it('should dispatch request to router mounted on root path', async () => {
             //Server
-            const router = server.Route();
+            const router = new Router();
             router.get('/', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/');
                 assert.deepStrictEqual(request.params, {});
@@ -583,10 +583,10 @@ mocha.describe('HTTP Test', () => {
 
         mocha.it('should dispatch request to router mounted on single path', async () => {
             //Server
-            const router1 = server.Route();
-            const router2 = server.Route();
-            const router3 = server.Route();
-            const router4 = server.Route();
+            const router1 = new Router();
+            const router2 = new Router();
+            const router3 = new Router();
+            const router4 = new Router();
             router4.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
@@ -610,11 +610,11 @@ mocha.describe('HTTP Test', () => {
             server.all('/a/e*t', nextHandler, nextHandler);
             server.post('/a/endpoint', errorHandler);
             server.get('/a/endpoint', nextHandler);
-            const router1 = server.Route();
+            const router1 = new Router();
             router1.all('/*/e*t', nextHandler, nextHandler);
             server.post('/a/endpoint', errorHandler);
             router1.get('/a/endpoint', nextHandler);
-            const router2 = server.Route();
+            const router2 = new Router();
             server.post('/endpoint', errorHandler);
             router2.all('/e*t', nextHandler, nextHandler);
             router2.get('/endpoint', nextHandler, (request, response, next) => {

@@ -7,7 +7,7 @@ import { Attrs } from '@iprolab/sdp';
 import { Incoming } from '@iprolab/scp';
 
 //Import Local.
-import HttpServer, { IServer as IHttpServer, Router, RequestHandler } from './http.server';
+import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
 import ScpServer, { IServer as IScpServer, Executor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
 import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
@@ -178,13 +178,6 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////Interface: IHttpServer
     //////////////////////////////
     /**
-     * Returns a `Router` to group HTTP routes that share related functionality.
-     */
-    public Route() {
-        return this.httpServer.Route();
-    }
-
-    /**
      * Registers a HTTP route for handling GET requests.
      * 
      * @param path the path pattern.
@@ -256,7 +249,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * @param path the path pattern.
      * @param routers the routers to mount.
      */
-    public mount(path: string, ...routers: Array<Router>) {
+    public mount(path: string, ...routers: Array<IRouter>) {
         this.httpServer.mount(path, ...routers);
         return this;
     }
