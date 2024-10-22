@@ -125,7 +125,7 @@ export default class Proxy implements IProxy {
 /////IProxy
 //////////////////////////////
 /**
- * Interface for HTTP `Proxy`.
+ * Interface of HTTP `Proxy`.
  */
 export interface IProxy {
     /**

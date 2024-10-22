@@ -210,11 +210,12 @@ export default class Server extends ScpServer implements IServer {
 /////IServer
 //////////////////////////////
 /**
- * Interface for SCP `Server`.
+ * Interface of SCP `Server`.
  */
 export interface IServer extends IExecutor {
     /**
-     * Broadcasts the supplied to all the subscribed client socket connections.
+     * Broadcasts the supplied to all subscribed client socket connections.
+     * Returns the identifiers of the client sockets that successfully received the broadcast.
      * 
      * @param operation the operation pattern.
      * @param args the arguments to broadcast.
@@ -322,7 +323,7 @@ export class Executor implements IExecutor {
 //////IExecutor
 //////////////////////////////
 /**
- * Interface for `Executor`.
+ * Interface of `Executor`.
  */
 export interface IExecutor {
     /**
@@ -339,10 +340,10 @@ export interface IExecutor {
     omni: (operation: string, handler: IncomingHandler) => this;
 
     /**
-     * Registers a function for remote execution.
+     * Registers a function for execution through a client socket connection.
      * 
      * @param operation the operation pattern.
-     * @param func the function to be executed remotely.
+     * @param func the function to be executed.
      */
     func: <Returned>(operation: string, func: Function<Returned>) => this;
 }

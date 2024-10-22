@@ -258,7 +258,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////Interface: IScpServer
     //////////////////////////////
     /**
-     * Broadcasts the supplied to all the remote services.
+     * Broadcasts the supplied to all remote services.
+     * Returns the identifiers of the remote services that successfully received the broadcast.
      * 
      * @param operation the operation pattern.
      * @param args the arguments to broadcast.
@@ -290,10 +291,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Registers a SCP function for remote execution.
+     * Registers a SCP function for execution through a remote service.
      * 
      * @param operation the operation pattern.
-     * @param func the function to be executed remotely.
+     * @param func the function to be executed.
      */
     public func<Returned>(operation: string, func: Function<Returned>) {
         this.scpServer.func(operation, func);

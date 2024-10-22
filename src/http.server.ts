@@ -131,7 +131,7 @@ export default class Server extends HttpServer implements IServer {
 /////IServer
 //////////////////////////////
 /**
- * Interface for HTTP `Server`.
+ * Interface of HTTP `Server`.
  */
 export interface IServer extends IRouter { }
 
@@ -221,7 +221,7 @@ export class Router implements IRouter {
 /////IRouter
 //////////////////////////////
 /**
- * Interface for `Router`.
+ * Interface of `Router`.
  */
 export interface IRouter {
     /**
