@@ -1,42 +1,46 @@
 //Import Libs.
 import { EventEmitter, once } from 'events';
-import { promises as Stream } from 'stream';
 
 //Import @iprolab Libs.
-import { Signal, Incoming, Outgoing } from '@iprolab/scp';
+import { Signal, Args, Incoming, Outgoing } from '@iprolab/scp';
 
 export default class Conductor extends EventEmitter {
-    public readonly incoming: Incoming;
-    public readonly outgoing: Outgoing;
+    public incoming!: Incoming;
+    public outgoing!: Outgoing;
 
-    constructor(incoming: Incoming, outgoing: Outgoing) {
+    constructor() {
         super();
+    }
 
-        //Initialize Options.
+    public assign(incoming: Incoming, outgoing: Outgoing) {
         this.incoming = incoming;
         this.outgoing = outgoing;
     }
 
     //////////////////////////////
-    //////Read Operations
+    //////Read
     //////////////////////////////
     public async *[Symbol.asyncIterator]() {
-        this.incoming.pause();
-        for await (const chunk of this.incoming) {
-            this.incoming.pause();
+        while (true) {
+            const chunk: string | Signal = this.incoming.read();
+            if (!chunk) {
+                await once(this.incoming, 'readable');
+                continue;
+            }
             if (typeof chunk === 'string') {
                 yield chunk;
-            } else if (chunk?.event === 'END') {
+            }
+            if (chunk instanceof Signal && chunk.event === 'EOB') {
                 return;
             }
         }
     }
 
     //////////////////////////////
-    //////Write Operations
+    //////Write
     //////////////////////////////
-    public async write(chunk: string) {
-        const chunks = [chunk, new Signal('END')];
+    public async writeBlock(chunk: string) {
+        const chunks = [chunk, new Signal('EOB')];
         for await (const chunk of chunks) {
             const write = this.outgoing.write(chunk);
             if (!write) {
@@ -45,11 +49,10 @@ export default class Conductor extends EventEmitter {
         }
     }
 
-    //////////////////////////////
-    //////Read/Write Operations
-    //////////////////////////////
-    public async end() {
-        this.outgoing.end();
-        await Promise.all([Stream.finished(this.incoming), Stream.finished(this.outgoing)]);
+    public async signal(event: string, args: Args) {
+        const write = this.outgoing.write(new Signal(event, args));
+        if (!write) {
+            await once(this.outgoing, 'drain');
+        }
     }
 }

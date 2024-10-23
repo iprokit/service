@@ -26,7 +26,7 @@ export default class Server extends ScpServer implements IServer {
     /**
      * The client socket connections.
      */
-    public readonly declare connections: Array<Connection>;
+    public declare readonly connections: Array<Connection>;
 
     /**
      * The executions registered on the server.
@@ -279,23 +279,24 @@ export class Executor implements IExecutor {
         }
         instance.func = (operation, func) => {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
+                if (incoming.get('FORMAT') !== 'OBJECT') return proceed(); //🤦🏽‍♂️
+
+                //Initialize 🎩🚦🔲.
+                const conductor = (incoming.has('CONDUCTOR')) ? new Conductor() : undefined;
+                if (conductor) {
+                    conductor.assign(incoming, outgoing);
+                }
+
+                let incomingData = '', outgoingData = '';
                 try {
-                    //Initialize 🎩🕒🚦.
-                    const conductor = (incoming.get('SIGNAL') === 'CONDUCTOR') ? new Conductor(incoming, outgoing) : undefined;
-
-                    //Consumer needs to handle it 🤦🏽‍♂️!
-                    if (incoming.get('FORMAT') !== 'OBJECT') return proceed();
-
-                    //Read: Incoming stream.
-                    let incomingData = '';
+                    //Read.
                     for await (const chunk of (conductor ?? incoming)) {
                         incomingData += chunk;
                     }
 
-                    //Execute: Function 🫡.
-                    let outgoingData = '';
+                    //Execute 🫡.
                     try {
-                        const args = conductor ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
+                        const args = (conductor) ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
                         const returned = await func(...args);
                         outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
                         outgoing.set('STATUS', 'OK');
@@ -305,13 +306,12 @@ export class Executor implements IExecutor {
                         outgoing.set('STATUS', 'ERROR');
                     }
 
-                    //Write: Outgoing stream.
-                    await (conductor ? conductor.write(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
+                    //Write.
+                    await (conductor ? conductor.writeBlock(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
                 } catch (error) {
                     //❗️⚠️❗️
                     incoming.destroy();
                     outgoing.destroy();
-                    outgoing.socket.destroy(error as Error);
                 }
             });
             return instance;

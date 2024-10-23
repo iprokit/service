@@ -450,8 +450,7 @@ mocha.describe('SCP Test', () => {
             });
 
             //Client
-            const { incoming, outgoing } = client.Socket();
-            const conductor = new Conductor(incoming, outgoing);
+            const conductor = new Conductor();
             const returned = await client.execute('nexus', args, conductor);
             assert.deepStrictEqual(returned, args);
         });

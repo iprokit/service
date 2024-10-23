@@ -254,19 +254,22 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     public async execute<Returned>(operation: string, ...args: Array<any>) {
-        //Initialize 🎩🕒🚦.
-        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
-        const { incoming, outgoing } = conductor ?? this.Socket();
+        const { incoming, outgoing } = this.Socket();
         outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
-        if (conductor) outgoing.set('SIGNAL', 'CONDUCTOR');
 
-        let incomingData = '';
+        //Initialize 🎩🚦🔲.
+        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
+        if (conductor) {
+            conductor.assign(incoming, outgoing);
+            outgoing.set('CONDUCTOR', 'TRUE');
+        }
+
+        let incomingData = '', outgoingData = JSON.stringify(args);
         try {
-            //Write: Outgoing stream.
-            const outgoingData = JSON.stringify(args);
-            await (conductor ? conductor.write(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
+            //Write.
+            await (conductor ? conductor.writeBlock(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
 
-            //Read: Incoming stream.
+            //Read.
             await once(incoming, 'rfi');
             for await (const chunk of (conductor ?? incoming)) {
                 incomingData += chunk;
@@ -275,16 +278,12 @@ export default class Client extends EventEmitter implements IClient {
             //❗️⚠️❗️
             incoming.destroy();
             outgoing.destroy();
-            outgoing.socket.destroy(error as Error);
             throw error;
         }
 
-        //ERROR 😡 
         if (incoming.get('STATUS') === 'ERROR') {
             throw Object.assign(new Error(), JSON.parse(incomingData)) as Error;
         }
-
-        //OK 😊
         return JSON.parse(incomingData) as Returned;
     }
 
