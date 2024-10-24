@@ -38,6 +38,10 @@ export default class Conductor extends EventEmitter {
                 await once(this.incoming, 'readable');
                 continue;
             }
+            if (chunk instanceof Signal && chunk.event === 'SOB') {
+                this.incoming.emit('SOB');
+                continue;
+            }
             if (typeof chunk === 'string') {
                 yield chunk;
             }
@@ -52,7 +56,7 @@ export default class Conductor extends EventEmitter {
     //////Write
     //////////////////////////////
     public async writeBlock(chunk: string) {
-        const chunks = [chunk, new Signal('EOB')];
+        const chunks = [new Signal('SOB'), chunk, new Signal('EOB')];
         for await (const chunk of chunks) {
             const write = this.outgoing.write(chunk);
             if (!write) {
