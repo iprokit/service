@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 //Import Local.
-import { ScpServer, Executor, Segment, Nexus, IncomingHandler, ScpClient, Conductor } from '../lib';
+import { Signal, Args, ScpServer, Executor, Segment, Nexus, IncomingHandler, ScpClient, Conductor } from '../lib';
 import { createString, createIdentifier, clientOmni } from './util';
 
 const host = '127.0.0.1';
@@ -446,13 +446,21 @@ mocha.describe('SCP Test', () => {
         mocha.it('should execute remote function with conductor', async () => {
             //Server
             server.func('nexus', (args, conductor: Conductor) => {
+                conductor.on('signal', (event: string, args: Args) => conductor.signal(event, args));
                 return args;
             });
 
             //Client
+            const signals = Array(5).fill({}).map(() => new Signal(createString(10), [['ARG1', 'A'], ['ARG2', 'B']]));
             const conductor = new Conductor();
             const returned = await client.execute('nexus', args, conductor);
             assert.deepStrictEqual(returned, args);
+            for (const signal of signals) {
+                await conductor.signal(signal.event, signal.args);
+                const [event, args] = await once(conductor, 'signal') as [string, Args];
+                assert.deepStrictEqual(event, signal.event);
+                assert.deepStrictEqual(args, signal.args);
+            }
         });
 
         mocha.it('should execute remote function as error', async () => {

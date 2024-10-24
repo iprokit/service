@@ -2,7 +2,7 @@
 import { EventEmitter, once } from 'events';
 
 //Import @iprolab Libs.
-import { Signal, Args, Incoming, Outgoing } from '@iprolab/scp';
+import { Signal, Incoming, Outgoing } from '@iprolab/scp';
 
 export default class Conductor extends EventEmitter {
     public incoming!: Incoming;
@@ -15,6 +15,14 @@ export default class Conductor extends EventEmitter {
     public assign(incoming: Incoming, outgoing: Outgoing) {
         this.incoming = incoming;
         this.outgoing = outgoing;
+        this.incoming.on('EOB', () => {
+            this.incoming.on('data', (chunk: Signal) => {
+                if (chunk instanceof Signal) {
+                    this.emit('signal', chunk.event, chunk.args);
+                }
+            });
+        });
+        return this;
     }
 
     //////////////////////////////
@@ -31,6 +39,7 @@ export default class Conductor extends EventEmitter {
                 yield chunk;
             }
             if (chunk instanceof Signal && chunk.event === 'EOB') {
+                this.incoming.emit('EOB');
                 return;
             }
         }
@@ -49,7 +58,7 @@ export default class Conductor extends EventEmitter {
         }
     }
 
-    public async signal(event: string, args: Args) {
+    public async signal(event: string, args?: Iterable<readonly [string, string]>) {
         const write = this.outgoing.write(new Signal(event, args));
         if (!write) {
             await once(this.outgoing, 'drain');
