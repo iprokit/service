@@ -284,7 +284,7 @@ export class Executor implements IExecutor {
                 //Initialize 🎩🚦🔲.
                 const conductor = (incoming.has('CONDUCTOR')) ? new Conductor() : undefined;
                 if (conductor) {
-                    conductor.assign(incoming, outgoing);
+                    conductor.setIO(incoming, outgoing);
                 }
 
                 let incomingData = '', outgoingData = '';

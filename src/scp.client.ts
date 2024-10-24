@@ -260,7 +260,7 @@ export default class Client extends EventEmitter implements IClient {
         //Initialize 🎩🚦🔲.
         const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
         if (conductor) {
-            conductor.assign(incoming, outgoing);
+            conductor.setIO(incoming, outgoing);
             outgoing.set('CONDUCTOR', 'TRUE');
         }
 

@@ -12,10 +12,13 @@ export default class Conductor extends EventEmitter {
         super();
     }
 
-    public assign(incoming: Incoming, outgoing: Outgoing) {
+    //////////////////////////////
+    //////Gets/Sets
+    //////////////////////////////
+    public setIO(incoming: Incoming, outgoing: Outgoing) {
         this.incoming = incoming;
         this.outgoing = outgoing;
-        this.incoming.on('EOB', () => {
+        this.incoming.once('EOB', () => {
             this.incoming.on('data', (chunk: Signal) => {
                 if (chunk instanceof Signal) {
                     this.emit('signal', chunk.event, chunk.args);
