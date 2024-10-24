@@ -260,7 +260,7 @@ export default class Client extends EventEmitter implements IClient {
         //Initialize 🎩🚦🔲.
         const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
         if (conductor) {
-            conductor.setIO(incoming, outgoing);
+            conductor.setIO(outgoing);
             outgoing.set('CONDUCTOR', 'TRUE');
         }
 
@@ -270,7 +270,8 @@ export default class Client extends EventEmitter implements IClient {
             await (conductor ? conductor.writeBlock(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
 
             //Read.
-            await once(incoming, 'rfi');
+            await once(incoming, 'rfi'); //Waiting for RFI to surface...🕵️‍♂️
+            conductor && incoming.pipe(conductor);
             for await (const chunk of (conductor ?? incoming)) {
                 incomingData += chunk;
             }

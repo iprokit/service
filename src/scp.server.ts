@@ -284,12 +284,13 @@ export class Executor implements IExecutor {
                 //Initialize 🎩🚦🔲.
                 const conductor = (incoming.has('CONDUCTOR')) ? new Conductor() : undefined;
                 if (conductor) {
-                    conductor.setIO(incoming, outgoing);
+                    conductor.setIO(outgoing);
                 }
 
                 let incomingData = '', outgoingData = '';
                 try {
                     //Read.
+                    conductor && incoming.pipe(conductor);
                     for await (const chunk of (conductor ?? incoming)) {
                         incomingData += chunk;
                     }
