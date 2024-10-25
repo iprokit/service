@@ -3,9 +3,10 @@ import { once } from 'events';
 import { Transform } from 'stream';
 
 //Import @iprolab Libs.
-import { Signal, Outgoing } from '@iprolab/scp';
+import { Signal, Incoming, Outgoing } from '@iprolab/scp';
 
 export default class Conductor extends Transform {
+    public incoming!: Incoming;
     public outgoing!: Outgoing;
 
     constructor() {
@@ -15,8 +16,13 @@ export default class Conductor extends Transform {
     //////////////////////////////
     //////Gets/Sets
     //////////////////////////////
-    public setIO(outgoing: Outgoing) {
+    public setIO(incoming: Incoming, outgoing: Outgoing) {
+        this.incoming = incoming;
         this.outgoing = outgoing;
+
+        //⏳ Be a patient ninja. 🥷
+        this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
+        this.outgoing.set('CONDUCTOR', 'TRUE');
         return this;
     }
 
@@ -25,12 +31,13 @@ export default class Conductor extends Transform {
     //////////////////////////////
     _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
         if (chunk instanceof Signal) {
-            if (chunk.event === 'SOB')
+            if (chunk.event === 'SOB') {
                 this.emit('SOB');
-            else if (chunk.event === 'EOB')
+            } else if (chunk.event === 'EOB') {
                 this.emit('EOB');
-            else
+            } else {
                 this.emit('signal', chunk.event, chunk.args);
+            }
         }
 
         this.push(chunk);

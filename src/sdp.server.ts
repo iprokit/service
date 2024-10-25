@@ -118,21 +118,18 @@ export default class Server extends EventEmitter {
         if (!foundPod) { /* NEW */
             this.pods.set(identifier, { available: true, attrs, host });
             this.send(true, () => this.emit('available', identifier, attrs, host));
-            return;
-        }
-        if (foundPod) { /* EXISTING */
+        } else { /* EXISTING */
             if (available && !foundPod.available) { /* Server restarted. */
                 this.pods.set(identifier, { available: true, attrs, host });
                 this.send(true, () => this.emit('available', identifier, attrs, host));
-                return;
-            }
-            if (!available && foundPod.available) { /* Server shutting down. */
+            } else if (!available && foundPod.available) { /* Server shutting down. */
                 this.pods.set(identifier, { available: false, attrs: null, host: null });
                 this.emit('unavailable', identifier);
+            } else if (!available && !foundPod.available) {
+                return;
+            } else if (available && foundPod.available) {
                 return;
             }
-            if (!available && !foundPod.available) return;
-            if (available && foundPod.available) return;
         }
     }
 

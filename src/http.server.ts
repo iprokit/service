@@ -3,6 +3,9 @@ import HTTP, { Server as HttpServer } from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
+//Import Local.
+import { Method } from './http';
+
 /**
  * This class is used to create a HTTP server.
  * A `Server` is bound to an IP address and port number and listens for incoming HTTP client connections.
@@ -95,7 +98,7 @@ export default class Server extends HttpServer implements IServer {
             }
         } else {
             //Treat as `Endpoint`.
-            const methodMatches = request.method === route.method || 'ALL' === route.method;
+            const methodMatches = request.method === route.method || Method.ALL === route.method;
             const pathMatches = request.path.match(route.regExp);
             const handlerMatches = handlerIndex < route.handlers.length;
 
@@ -187,7 +190,7 @@ export class Router implements IRouter {
         const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
 
         //Factory for registering a `Endpoint`.
-        const endpoint = (method: Method) => {
+        const endpoint = (method: MethodType) => {
             return (path: string, ...handlers: Array<RequestHandler>) => {
                 const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
                 const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
@@ -207,12 +210,12 @@ export class Router implements IRouter {
         }
 
         //`IRouter` properties 😈.
-        instance.get = endpoint('GET');
-        instance.post = endpoint('POST');
-        instance.put = endpoint('PUT');
-        instance.patch = endpoint('PATCH');
-        instance.delete = endpoint('DELETE');
-        instance.all = endpoint('ALL');
+        instance.get = endpoint(Method.GET);
+        instance.post = endpoint(Method.POST);
+        instance.put = endpoint(Method.PUT);
+        instance.patch = endpoint(Method.PATCH);
+        instance.delete = endpoint(Method.DELETE);
+        instance.all = endpoint(Method.ALL);
         instance.mount = stack();
     }
 }
@@ -321,7 +324,7 @@ export interface Endpoint {
     /**
      * The HTTP method of the endpoint.
      */
-    method: Method;
+    method: MethodType;
 
     /**
      * The path pattern of the endpoint.
@@ -345,9 +348,9 @@ export interface Endpoint {
 }
 
 /**
- * The HTTP method.
+ * The Type definitions of the HTTP method.
  */
-export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
+export type MethodType = typeof Method[keyof typeof Method];
 
 /**
  * The request handler.

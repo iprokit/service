@@ -5,6 +5,7 @@ import { promises as Stream } from 'stream';
 import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
 
 //Import Local.
+import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -68,10 +69,9 @@ export default class Server extends ScpServer implements IServer {
         //Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
-        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
+        if (incoming.mode === Mode.SUBSCRIBE && incoming.operation === Operation.SUBSCRIBE) {
             this.subscribe(incoming, outgoing);
-        }
-        if (incoming.mode === 'OMNI') {
+        } else if (incoming.mode === Mode.OMNI) {
             //Set: Incoming.
             const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
             const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
@@ -175,7 +175,7 @@ export default class Server extends ScpServer implements IServer {
                     new Promise<string>((resolve, reject) =>
                         connection.createOutgoing(async (outgoing) => {
                             try {
-                                outgoing.setRFI(new RFI('BROADCAST', operation, [['FORMAT', 'OBJECT']]));
+                                outgoing.setRFI(new RFI(Mode.BROADCAST, operation, [['FORMAT', 'OBJECT']]));
                                 outgoing.set('SID', this.identifier);
                                 outgoing.end(JSON.stringify(args));
                                 await Stream.finished(outgoing);
@@ -282,18 +282,15 @@ export class Executor implements IExecutor {
                 if (incoming.get('FORMAT') !== 'OBJECT') return proceed(); //🤦🏽‍♂️
 
                 //Initialize 🎩🚦🔲.
-                const conductor = (incoming.has('CONDUCTOR')) ? new Conductor() : undefined;
-                if (conductor) {
-                    conductor.setIO(outgoing);
-                }
-
+                const conductor = (incoming.has('CONDUCTOR')) ? new Conductor().setIO(incoming, outgoing) : undefined;
                 let incomingData = '', outgoingData = '';
                 try {
                     //Read.
-                    conductor && incoming.pipe(conductor);
+                    //NOOOO..Waiting for RFI...🕵️‍♂️
                     for await (const chunk of (conductor ?? incoming)) {
                         incomingData += chunk;
                     }
+                    conductor || await Stream.finished(incoming);
 
                     //Execute 🫡.
                     try {
@@ -308,7 +305,7 @@ export class Executor implements IExecutor {
                     }
 
                     //Write.
-                    await (conductor ? conductor.writeBlock(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
+                    conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
                 } catch (error) {
                     //❗️⚠️❗️
                     incoming.destroy();
@@ -398,6 +395,11 @@ export interface Nexus {
 }
 
 /**
+ * The Type definitions of the SCP mode.
+ */
+export type ModeType = typeof Mode[keyof typeof Mode];
+
+/**
  * The incoming handler.
  */
 export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
@@ -445,6 +447,11 @@ export interface Incoming extends SCP.Incoming {
     socket: Connection;
 
     /**
+     * The mode of remote function.
+     */
+    mode: ModeType;
+
+    /**
      * The segment portion of the operation pattern.
      */
     segment: string;
@@ -468,4 +475,9 @@ export interface Outgoing extends SCP.Outgoing {
      * The underlying SCP Socket.
      */
     socket: Connection;
+
+    /**
+     * The mode of remote function.
+     */
+    mode: ModeType;
 }

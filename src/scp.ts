@@ -1,0 +1,29 @@
+//////////////////////////////
+//////Mode
+//////////////////////////////
+export namespace Mode {
+    /**
+     * SCP SUBSCRIBE mode.
+     */
+    export const SUBSCRIBE = 'SUBSCRIBE' as const;
+
+    /**
+     * SCP OMNI mode.
+     */
+    export const OMNI = 'OMNI' as const;
+
+    /**
+     * SCP BROADCAST mode.
+     */
+    export const BROADCAST = 'BROADCAST' as const;
+}
+
+//////////////////////////////
+//////Operation
+//////////////////////////////
+export namespace Operation {
+    /**
+     * SCP SUBSCRIBE operation.
+     */
+    export const SUBSCRIBE = 'subscribe';
+}

@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 //Import Local.
-import { HttpMethod, Incoming, IScpClient } from '../lib';
+import { HttpMethodType, Incoming, IScpClient } from '../lib';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -26,7 +26,7 @@ export async function read<R extends Readable>(readable: R) {
     return chunks;
 }
 
-export function clientRequest(host: string, port: number, method: HttpMethod, path: string, body: string) {
+export function clientRequest(host: string, port: number, method: HttpMethodType, path: string, body: string) {
     return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
         const headers = { 'Content-Length': Buffer.byteLength(body) }
         const request = http.request({ host, port, method, path, headers }, async (response) => {

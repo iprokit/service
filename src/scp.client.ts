@@ -7,6 +7,7 @@ import { AddressInfo } from 'net';
 import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
 
 //Import Local.
+import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -126,10 +127,9 @@ export default class Client extends EventEmitter implements IClient {
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.mode === 'SUBSCRIBE' && incoming.operation === 'subscribe') {
+        if (incoming.mode === Mode.SUBSCRIBE && incoming.operation === Operation.SUBSCRIBE) {
             this._socket.emit('subscribe', incoming);
-        }
-        if (incoming.mode === 'BROADCAST') {
+        } else if (incoming.mode === Mode.BROADCAST) {
             this.broadcast(incoming);
         }
     }
@@ -169,7 +169,7 @@ export default class Client extends EventEmitter implements IClient {
         try {
             //Write: Outgoing stream.
             outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing)));
-            outgoing.setRFI(new RFI('SUBSCRIBE', 'subscribe'));
+            outgoing.setRFI(new RFI(Mode.SUBSCRIBE, Operation.SUBSCRIBE));
             outgoing.set('CID', this.identifier);
             outgoing.end('');
             await Stream.finished(outgoing);
@@ -249,32 +249,27 @@ export default class Client extends EventEmitter implements IClient {
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         const { incoming, outgoing } = this.Socket();
         incoming.once('rfi', () => callback(incoming));
-        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier]]));
+        outgoing.setRFI(new RFI(Mode.OMNI, operation, [['CID', this.identifier]]));
         return outgoing;
     }
 
     public async execute<Returned>(operation: string, ...args: Array<any>) {
         const { incoming, outgoing } = this.Socket();
-        outgoing.setRFI(new RFI('OMNI', operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
+        outgoing.setRFI(new RFI(Mode.OMNI, operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
 
         //Initialize 🎩🚦🔲.
-        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? args.pop() as Conductor : undefined;
-        if (conductor) {
-            conductor.setIO(outgoing);
-            outgoing.set('CONDUCTOR', 'TRUE');
-        }
-
+        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? (args.pop() as Conductor).setIO(incoming, outgoing) : undefined;
         let incomingData = '', outgoingData = JSON.stringify(args);
         try {
             //Write.
-            await (conductor ? conductor.writeBlock(outgoingData) : Stream.finished(outgoing.end(outgoingData)));
+            conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
 
             //Read.
-            await once(incoming, 'rfi'); //Waiting for RFI to surface...🕵️‍♂️
-            conductor && incoming.pipe(conductor);
+            await once(incoming, 'rfi'); //Waiting for RFI...🕵️‍♂️
             for await (const chunk of (conductor ?? incoming)) {
                 incomingData += chunk;
             }
+            conductor || await Stream.finished(incoming);
         } catch (error) {
             //❗️⚠️❗️
             incoming.destroy();
@@ -370,6 +365,7 @@ export interface IClient {
 
     /**
      * Executes a remote function on the server and returns a promise that resolves to the returned value.
+     * A `Conductor` can be passed as the last argument to enable the handling of signals.
      * 
      * @param operation the operation pattern.
      * @param args the arguments to be passed to the remote function.

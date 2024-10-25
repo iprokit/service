@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 //Import Local.
-import Service, { Link, HttpStatusCode } from '../lib';
+import Service, { HttpMethod, HttpStatusCode, ScpMode, Link } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -144,7 +144,7 @@ mocha.describe('Service Test', () => {
 
             //Server Target
             serviceB.post('/endpoint', (request, response, next) => {
-                assert.deepStrictEqual(request.method, 'POST');
+                assert.deepStrictEqual(request.method, HttpMethod.POST);
                 assert.deepStrictEqual(request.url, '/endpoint');
                 assert.deepStrictEqual(request.headers['x-proxy-identifier'], serviceA.identifier);
                 request.pipe(response).writeHead(HttpStatusCode.OK);
@@ -152,7 +152,7 @@ mocha.describe('Service Test', () => {
 
             //Client
             const requestBody = createString(1000);
-            const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
+            const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, HttpMethod.POST, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
@@ -177,7 +177,7 @@ mocha.describe('Service Test', () => {
             //Client
             const outgoingData = createString(1000);
             const { incoming, data: incomingData } = await clientOmni(linkA, 'nexus', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            assert.deepStrictEqual(incoming.mode, ScpMode.OMNI);
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
