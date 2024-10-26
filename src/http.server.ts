@@ -4,7 +4,7 @@ import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
 //Import Local.
-import { Method } from './http';
+import { Method, RequestHeaders, ResponseHeaders } from './http';
 
 /**
  * This class is used to create a HTTP server.
@@ -370,6 +370,11 @@ export type NextFunction = () => void;
  */
 export interface Request extends HTTP.IncomingMessage {
     /**
+     * The request headers.
+     */
+    headers: RequestHeaders;
+
+    /**
      * The path portion of the URL.
      */
     path: string;
@@ -393,4 +398,9 @@ export interface Request extends HTTP.IncomingMessage {
 /**
  * Represents an outgoing HTTP response.
  */
-export interface Response extends HTTP.ServerResponse { }
+export interface Response extends HTTP.ServerResponse {
+    /**
+     * The response headers.
+     */
+    headers: ResponseHeaders;
+}

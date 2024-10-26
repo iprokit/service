@@ -1,5 +1,5 @@
 //Export HTTP.
-export { Method as HttpMethod, StatusCode as HttpStatusCode } from './http';
+export { Method as HttpMethod, StatusCode as HttpStatusCode, RequestHeaders, ResponseHeaders } from './http';
 export { default as HttpServer, IServer as IHttpServer, Router, IRouter, Route, Stack, Endpoint, MethodType as HttpMethodType, RequestHandler, NextFunction, Request as ServerRequest, Response as ServerResponse } from './http.server';
 export { default as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
 

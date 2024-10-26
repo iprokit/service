@@ -1,3 +1,6 @@
+//Import Libs.
+import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
+
 //////////////////////////////
 //////Method
 //////////////////////////////
@@ -32,6 +35,19 @@ export namespace Method {
      */
     export const ALL = 'ALL' as const;
 }
+
+//////////////////////////////
+//////Headers
+//////////////////////////////
+interface Headers {
+    /**
+     * Unique identifier of the proxy server.
+     */
+    'x-proxy-identifier'?: string;
+}
+
+export type RequestHeaders = IncomingHttpHeaders & Headers;
+export type ResponseHeaders = OutgoingHttpHeaders & Headers;
 
 //////////////////////////////
 //////StatusCode
