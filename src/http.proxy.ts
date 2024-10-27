@@ -1,8 +1,8 @@
-//Import Libs.
+// Import Libs.
 import Stream from 'stream';
 import HTTP, { RequestOptions, ClientRequest, IncomingMessage } from 'http';
 
-//Import Local.
+// Import Local.
 import { RequestHandler, Request, Response } from './http.server';
 
 /**
@@ -36,15 +36,15 @@ export default class Proxy implements IProxy {
      * @param identifier the unique identifier of the proxy.
      */
     constructor(identifier: string) {
-        //Initialize Variables.
+        // Initialize variables.
         this._configured = false;
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     /**
      * The remote host.
@@ -68,7 +68,7 @@ export default class Proxy implements IProxy {
     }
 
     //////////////////////////////
-    //////Interface: IProxy
+    //////// IProxy
     //////////////////////////////
     public forward(options?: ForwardOptions): RequestHandler {
         return (request, response, next) => {
@@ -78,7 +78,7 @@ export default class Proxy implements IProxy {
             headers['x-proxy-identifier'] = this.identifier;
             const requestOptions: RequestOptions = { host, port, method, path, headers }
 
-            //Let's boogie 🕺💃 🎶.
+            // Let's boogie 🕺💃 🎶.
             if (options.onOptions) options.onOptions(requestOptions, request, response);
             const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
                 if (options!.onResponse) options!.onResponse(proxyResponse, request, response);
@@ -95,7 +95,7 @@ export default class Proxy implements IProxy {
     }
 
     //////////////////////////////
-    //////Configuration Management
+    //////// Configuration Management
     //////////////////////////////
     /**
      * Configures the proxy.
@@ -137,7 +137,7 @@ export interface IProxy {
 }
 
 //////////////////////////////
-//////Forward Options
+//////// Forward Options
 //////////////////////////////
 export interface ForwardOptions {
     /**

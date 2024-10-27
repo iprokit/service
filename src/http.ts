@@ -1,8 +1,8 @@
-//Import Libs.
+// Import Libs.
 import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 
 //////////////////////////////
-//////Method
+//////// Method
 //////////////////////////////
 export namespace Method {
     /**
@@ -37,7 +37,7 @@ export namespace Method {
 }
 
 //////////////////////////////
-//////Headers
+//////// Headers
 //////////////////////////////
 interface Headers {
     /**
@@ -50,11 +50,11 @@ export type RequestHeaders = IncomingHttpHeaders & Headers;
 export type ResponseHeaders = OutgoingHttpHeaders & Headers;
 
 //////////////////////////////
-//////StatusCode
+//////// StatusCode
 //////////////////////////////
 export namespace StatusCode {
     //////////////////////////////
-    //////100x
+    //////// 100x
     //////////////////////////////
     /**
      * This interim response indicates that everything so far is OK and that the client should continue the request, or ignore the response if the request is already finished.
@@ -77,7 +77,7 @@ export namespace StatusCode {
     export const EARLY_HINTS = 103;
 
     //////////////////////////////
-    //////200x
+    //////// 200x
     //////////////////////////////
     /**
      * The request has succeeded. The meaning of the success depends on the HTTP method:
@@ -126,7 +126,7 @@ export namespace StatusCode {
     export const PARTIAL_CONTENT = 206;
 
     //////////////////////////////
-    //////300x
+    //////// 300x
     //////////////////////////////
     /**
      * The request has more than one possible response. The user-agent or user should choose one of them.
@@ -173,7 +173,7 @@ export namespace StatusCode {
     export const PERMANENT_REDIRECT = 308;
 
     //////////////////////////////
-    //////400x
+    //////// 400x
     //////////////////////////////
     /**
      * The server could not understand the request due to invalid syntax.
@@ -315,7 +315,7 @@ export namespace StatusCode {
     export const REQUEST_HEADER_FIELDS_TOO_LARGE = 431;
 
     //////////////////////////////
-    //////500x
+    //////// 500x
     //////////////////////////////
     /**
      * The server has encountered a situation it doesn't know how to handle.

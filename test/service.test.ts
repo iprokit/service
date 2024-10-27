@@ -1,9 +1,9 @@
-//Import Libs.
+// Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
 
-//Import Local.
+// Import Local.
 import Service, { HttpMethod, HttpStatusCode, ScpMode, Link } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
@@ -31,7 +31,7 @@ mocha.describe('Service Test', () => {
             const service = new Service(createIdentifier());
             assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
             assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-            assert.deepStrictEqual(service.memberships.size, 0);
+            assert.deepStrictEqual(service.memberships, []);
             assert.deepStrictEqual(service.localAddress, null);
             service.on('start', () => {
                 start++;
@@ -39,18 +39,18 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(service.address().http.port, httpPort);
                 assert.deepStrictEqual(service.address().scp.port, scpPort);
                 assert.deepStrictEqual(service.address().sdp.port, sdpPort);
-                assert.deepStrictEqual(service.memberships.has(sdpAddress), true);
+                assert.deepStrictEqual(service.memberships, [sdpAddress]);
                 assert.notDeepStrictEqual(service.localAddress, null);
             });
             service.on('stop', () => {
                 stop++;
                 assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
                 assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-                assert.deepStrictEqual(service.memberships.size, 0);
+                assert.deepStrictEqual(service.memberships, []);
                 assert.deepStrictEqual(service.localAddress, null);
             });
             await service.start(httpPort, scpPort, sdpPort, sdpAddress);
-            await service.stop(); //Calling End
+            await service.stop(); // Calling End
             assert.deepStrictEqual(start, stop);
         });
     });
@@ -81,33 +81,33 @@ mocha.describe('Service Test', () => {
             const restartCount = 5;
             const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
 
-            //Initialize
+            // Initialize
             let half: Array<Service>;
             const services = Array(serviceCount).fill({}).map((_, i) => initService(identifiers, i));
 
             validate(services, false, serviceCount);
 
-            //Start(All)
+            // Start(All)
             await Promise.all([...services.map((service, i) => service.start(httpPort + i, scpPort + i, sdpPort, sdpAddress))]);
             validate(services, true, serviceCount);
 
             for (let i = 0; i < restartCount; i++) {
-                //Stop(Half)
+                // Stop(Half)
                 half = services.slice(0, halfCount);
                 await Promise.all([...half.map((service) => service.stop())]);
                 validate(half, false, serviceCount);
 
-                //Re-Initialize(Half)
+                // Re-Initialize(Half)
                 for (let i = 0; i < halfCount; i++) services[i] = initService(identifiers, i);
                 validate(half, false, serviceCount);
 
-                //Start(Half)
+                // Start(Half)
                 half = services.slice(0, halfCount);
                 await Promise.all([...half.map((service, i) => service.start(httpPort + i, scpPort + i, sdpPort, sdpAddress))]);
                 validate(half, true, serviceCount);
             }
 
-            //Stop(All)
+            // Stop(All)
             await Promise.all([...services.map((service) => service.stop())]);
             validate(services, false, serviceCount);
         });
@@ -139,10 +139,10 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should forward request to remote service', async () => {
-            //Server
+            // Server
             serviceA.post('/endpoint', linkB.forward());
 
-            //Server Target
+            // Server Target
             serviceB.post('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.method, HttpMethod.POST);
                 assert.deepStrictEqual(request.url, '/endpoint');
@@ -150,7 +150,7 @@ mocha.describe('Service Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, HttpMethod.POST, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -158,23 +158,23 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should receive broadcast from remote service', async () => {
-            //Server
+            // Server
             const arg = createString(1000);
             const [identifier] = await serviceA.broadcast('nexus1', arg);
             assert.deepStrictEqual(identifier, serviceB.identifier);
 
-            //Client
+            // Client
             const argsResolved = await once(linkA, 'nexus1');
             assert.deepStrictEqual(argsResolved, [arg]);
         });
 
         mocha.it('should receive data(OMNI) from remote service', async () => {
-            //Server
+            // Server
             serviceA.omni('nexus', async (incoming, outgoing, proceed) => {
                 incoming.pipe(outgoing);
             });
 
-            //Client
+            // Client
             const outgoingData = createString(1000);
             const { incoming, data: incomingData } = await clientOmni(linkA, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, ScpMode.OMNI);
@@ -184,12 +184,12 @@ mocha.describe('Service Test', () => {
         });
 
         mocha.it('should execute function on remote service', async () => {
-            //Server
+            // Server
             serviceA.func('nexus', async (arg) => {
                 return arg;
             });
 
-            //Client
+            // Client
             const arg = createString(1000);
             const returned = await linkA.execute('nexus', arg);
             assert.deepStrictEqual(returned, arg);

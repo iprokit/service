@@ -1,9 +1,9 @@
-//Import Libs.
+// Import Libs.
 import HTTP, { Server as HttpServer } from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
-//Import Local.
+// Import Local.
 import { Method, RequestHeaders, ResponseHeaders } from './http';
 
 /**
@@ -27,37 +27,37 @@ export default class Server extends HttpServer implements IServer {
     constructor() {
         super();
 
-        //Initialize Variables.
+        // Initialize variables.
         this.routes = new Array();
 
-        //Bind listeners.
+        // Bind listeners.
         this.onRequest = this.onRequest.bind(this);
 
-        //Add listeners.
+        // Add listeners.
         this.addListener('request', this.onRequest);
 
-        //Apply `Router` properties 👻.
+        // Apply `Router` properties 👻.
         Router.applyProperties(this);
     }
 
     //////////////////////////////
-    //////Event Listeners
+    //////// Event Listeners
     //////////////////////////////
     /**
      * [Method?] is handled by `dispatch` function.
      */
     private onRequest(request: Request, response: Response) {
-        //Set: Request.
+        // Set: Request.
         const { pathname, query } = URL.parse(request.url as string, true);
         request.path = pathname as string;
         request.query = query;
 
-        //Below line will blow your mind! 🤯
+        // Below line will blow your mind! 🤯
         this.dispatch(0, 0, 0, this.routes, request, response, () => { });
     }
 
     //////////////////////////////
-    //////Dispatch
+    //////// Dispatch
     //////////////////////////////
     /**
      * Recursively loop through the routes to find and execute its handler.
@@ -71,24 +71,24 @@ export default class Server extends HttpServer implements IServer {
      * @param unwind function called once the processed routes unwind.
      */
     private dispatch(routeIndex: number, stackIndex: number, handlerIndex: number, routes: Array<Route>, request: Request, response: Response, unwind: () => void) {
-        //Need I say more.
+        // Need I say more.
         if (routeIndex >= routes.length) return unwind();
 
         const route = routes[routeIndex];
 
-        //Shits about to go down! 😎
+        // Shits about to go down! 😎
         if ('routes' in route) {
-            //Treat as `Stack`.
+            // Treat as `Stack`.
             const pathMatches = request.path.match(route.regExp);
             const stackMatchs = stackIndex < route.routes.length;
 
             if (pathMatches && stackMatchs) {
-                //Stack found, Save path and process the nested stacks.
+                // Stack found, Save path and process the nested stacks.
                 const unwindPath = request.path;
                 const nestedPath = request.path.substring(route.path.length);
                 request.path = nestedPath.startsWith('/') ? nestedPath : `/${nestedPath}`;
 
-                //🎢
+                // 🎢
                 const unwindFunction = () => {
                     request.path = unwindPath;
                     this.dispatch(routeIndex, stackIndex + 1, 0, routes, request, response, unwind);
@@ -97,29 +97,29 @@ export default class Server extends HttpServer implements IServer {
                 return;
             }
         } else {
-            //Treat as `Endpoint`.
+            // Treat as `Endpoint`.
             const methodMatches = request.method === route.method || Method.ALL === route.method;
             const pathMatches = request.path.match(route.regExp);
             const handlerMatches = handlerIndex < route.handlers.length;
 
             if (methodMatches && pathMatches && handlerMatches) {
-                //Endpoint found, Extract params and execute the handler.
+                // Endpoint found, Extract params and execute the handler.
                 request.params = route.paramKeys.reduce((params: Record<string, string>, param: string, index: number) => (params[param] = pathMatches[index + 1], params), {});
                 request.endpoint = route;
 
-                //🎉
+                // 🎉
                 const nextFunction = () => this.dispatch(routeIndex, stackIndex, handlerIndex + 1, routes, request, response, unwind);
                 route.handlers[handlerIndex](request, response, nextFunction);
                 return;
             }
         }
 
-        //Route not found, lets keep going though the loop.
+        // Route not found, lets keep going though the loop.
         this.dispatch(routeIndex + 1, 0, 0, routes, request, response, unwind);
     }
 
     //////////////////////////////
-    //////Interface: IRouter
+    //////// IRouter
     //////////////////////////////
     public declare get: (path: string, ...handlers: Array<RequestHandler>) => this;
     public declare post: (path: string, ...handlers: Array<RequestHandler>) => this;
@@ -155,15 +155,15 @@ export class Router implements IRouter {
      * Creates an instance of router.
      */
     constructor() {
-        //Initialize Variables.
+        // Initialize Variables.
         this.routes = new Array();
 
-        //Apply `Router` properties 👻.
+        // Apply `Router` properties 👻.
         Router.applyProperties(this);
     }
 
     //////////////////////////////
-    //////Interface: IRouter
+    //////// IRouter
     //////////////////////////////
     public declare get: (path: string, ...handlers: Array<RequestHandler>) => this;
     public declare post: (path: string, ...handlers: Array<RequestHandler>) => this;
@@ -174,7 +174,7 @@ export class Router implements IRouter {
     public declare mount: (path: string, ...routers: Array<IRouter>) => this;
 
     //////////////////////////////
-    //////Factory
+    //////// Factory
     //////////////////////////////
     /**
      * Applies properties of the `IRouter` interface to the provided instance,
@@ -183,13 +183,13 @@ export class Router implements IRouter {
      * @param instance the instance to which the `IRouter` properties are applied.
      */
     public static applyProperties<I extends IRouter>(instance: I) {
-        //Factory for handling path transformations.
+        // Factory for handling path transformations.
         const handleTrailingSlash = (path: string) => path.replace(/\/$/, '') || '/';
         const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
         const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
         const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
 
-        //Factory for registering a `Endpoint`.
+        // Factory for registering a `Endpoint`.
         const endpoint = (method: MethodType) => {
             return (path: string, ...handlers: Array<RequestHandler>) => {
                 const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
@@ -199,7 +199,7 @@ export class Router implements IRouter {
             }
         }
 
-        //Factory for registering a `Stack`.
+        // Factory for registering a `Stack`.
         const stack = () => {
             return (path: string, ...routers: Array<IRouter>) => {
                 const regExp = new RegExp(`^${handleTrailingSlash(path)}`);
@@ -209,7 +209,7 @@ export class Router implements IRouter {
             }
         }
 
-        //`IRouter` properties 😈.
+        // `IRouter` properties 😈.
         instance.get = endpoint(Method.GET);
         instance.post = endpoint(Method.POST);
         instance.put = endpoint(Method.PUT);

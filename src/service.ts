@@ -1,12 +1,12 @@
-//Import Libs.
+// Import Libs.
 import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
-//Import @iprolab Libs.
-import { Attrs } from '@iprolab/sdp';
+// Import @iprolab Libs.
+import { Attributes } from '@iprolab/sdp';
 import { Incoming } from '@iprolab/scp';
 
-//Import Local.
+// Import Local.
 import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
 import ScpServer, { IServer as IScpServer, IExecutor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
@@ -56,26 +56,26 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     constructor(identifier: string) {
         super();
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
 
-        //Initialize Variables.
+        // Initialize variables.
         this.httpServer = new HttpServer();
         this.scpServer = new ScpServer(this.identifier);
         this.sdpServer = new SdpServer(this.identifier);
         this.links = new Map();
 
-        //Bind Listeners.
+        // Bind listeners.
         this.onAvailable = this.onAvailable.bind(this);
         this.onUnavailable = this.onUnavailable.bind(this);
 
-        //Add Listeners.
+        // Add listeners.
         this.sdpServer.addListener('available', this.onAvailable);
         this.sdpServer.addListener('unavailable', this.onUnavailable);
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     /**
      * The HTTP routes registered.
@@ -128,18 +128,18 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Event Listeners: SDP
+    //////// Event Listeners
     //////////////////////////////
     /**
      * @emits `link` when a link is established.
      */
-    private onAvailable(identifier: string, attrs: Attrs, host: string) {
+    private onAvailable(identifier: string, attributes: Attributes, host: string) {
         const link = this.links.get(identifier);
         if (!link) return;
 
-        //Establish connection.
-        link.httpProxy.configure(Number(attrs.get('http')), host);
-        link.scpClient.connect(Number(attrs.get('scp')), host);
+        // Establish connection.
+        link.httpProxy.configure(Number(attributes['http']), host);
+        link.scpClient.connect(Number(attributes['scp']), host);
         this.emit('link', link);
     }
 
@@ -150,14 +150,14 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         const link = this.links.get(identifier);
         if (!link) return;
 
-        //Terminate connection.
+        // Terminate connection.
         link.httpProxy.configured && link.httpProxy.deconfigure();
         link.scpClient.connected && link.scpClient.close();
         this.emit('unlink', link);
     }
 
     //////////////////////////////
-    //////Link
+    //////// Link
     //////////////////////////////
     /**
      * Returns a `Link` to the remote service.
@@ -168,14 +168,14 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         let link = this.links.get(identifier);
         if (link) return link;
 
-        //Forging a new link 🚀🎉.
+        // Forging a new link 🚀🎉.
         link = new Link(identifier, this.identifier);
         this.links.set(identifier, link);
         return link;
     }
 
     //////////////////////////////
-    //////Interface: IHttpServer
+    //////// IHttpServer
     //////////////////////////////
     /**
      * Registers a HTTP route for handling GET requests.
@@ -255,7 +255,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Interface: IScpServer
+    //////// IScpServer
     //////////////////////////////
     /**
      * Broadcasts the supplied to all remote services.
@@ -302,7 +302,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     //////////////////////////////
-    //////Start/Stop
+    //////// Start/Stop
     //////////////////////////////
     /**
      * Starts the service by listening on the HTTP, SCP, SDP servers and connecting to the linked remote services.
@@ -314,21 +314,21 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * @emits `start` when the service starts.
      */
     public async start(httpPort: number, scpPort: number, sdpPort: number, sdpAddress: string) {
-        //HTTP
+        // HTTP
         this.httpServer.listen(httpPort);
         await once(this.httpServer, 'listening');
 
-        //SCP
+        // SCP
         this.scpServer.listen(scpPort);
         await once(this.scpServer, 'listening');
 
-        //SDP
-        this.sdpServer.attrs.set('http', String(httpPort));
-        this.sdpServer.attrs.set('scp', String(scpPort));
+        // SDP
+        this.sdpServer.attributes['http'] = String(httpPort);
+        this.sdpServer.attributes['scp'] = String(scpPort);
         this.sdpServer.listen(sdpPort, sdpAddress);
         await once(this.sdpServer, 'listening');
 
-        //Link
+        // Link
         await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => !scpClient.connected && once(scpClient, 'connect')));
 
         this.emit('start');
@@ -341,22 +341,22 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * @emits `stop` when the service stops.
      */
     public async stop() {
-        //HTTP
+        // HTTP
         this.httpServer.close();
         await once(this.httpServer, 'close');
 
-        //Link
+        // Link
         for (const { httpProxy, scpClient } of this.links.values()) {
             httpProxy.configured && httpProxy.deconfigure();
             scpClient.connected && scpClient.close();
         }
         await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient, 'close')));
 
-        //SCP
+        // SCP
         this.scpServer.close();
         await once(this.scpServer, 'close');
 
-        //SDP
+        // SDP
         this.sdpServer.close();
         await once(this.sdpServer, 'close');
 
@@ -366,7 +366,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 }
 
 //////////////////////////////
-//////Link
+//////// Link
 //////////////////////////////
 /**
  * `Link` class manages both HTTP and SCP interactions with a remote service.
@@ -397,23 +397,23 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     constructor(identifier: string, serviceIdentifier: string) {
         super();
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
 
-        //Initialize Variables.
+        // Initialize variables.
         this.httpProxy = new HttpProxy(serviceIdentifier);
         this.scpClient = new ScpClient(serviceIdentifier);
     }
 
     //////////////////////////////
-    //////Interface: IProxy
+    //////// IProxy
     //////////////////////////////
     public forward(options?: ForwardOptions) {
         return this.httpProxy.forward(options);
     }
 
     //////////////////////////////
-    //////Interface: IClient
+    //////// IClient
     //////////////////////////////
     public Socket() {
         return this.scpClient.Socket();
@@ -428,7 +428,7 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     }
 
     //////////////////////////////
-    //////Inherited: Event
+    //////// EventEmitter
     //////////////////////////////
     public once(operation: string | symbol, listener: (...args: Array<any>) => void) {
         this.scpClient.once(operation, listener);

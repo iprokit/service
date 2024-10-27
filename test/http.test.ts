@@ -1,9 +1,9 @@
-//Import Libs.
+// Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
 
-//Import Local.
+// Import Local.
 import { HttpMethod, HttpStatusCode, HttpServer, Router, IRouter, Stack, Endpoint, HttpMethodType, RequestHandler, HttpProxy, ForwardOptions } from '../lib';
 import { createString, createIdentifier, clientRequest } from './util';
 
@@ -191,7 +191,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to GET route', async () => {
-            //Server
+            // Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', (request, response, next) => {
                 assert.deepStrictEqual(nextCalled, 1);
@@ -205,7 +205,7 @@ mocha.describe('HTTP Test', () => {
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -213,7 +213,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to POST route', async () => {
-            //Server
+            // Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
             server.post('/endpoint/:param1', (request, response, next) => {
@@ -227,7 +227,7 @@ mocha.describe('HTTP Test', () => {
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.POST, '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -235,7 +235,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to PUT route', async () => {
-            //Server
+            // Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
             server.post('/endpoint/:param1', errorHandler);
@@ -249,7 +249,7 @@ mocha.describe('HTTP Test', () => {
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.PUT, '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -257,7 +257,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to PATCH route', async () => {
-            //Server
+            // Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
             server.post('/endpoint/:param1', errorHandler);
@@ -271,7 +271,7 @@ mocha.describe('HTTP Test', () => {
             });
             server.delete('/endpoint/:param1', errorHandler);
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.PATCH, '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -279,7 +279,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to DELETE route', async () => {
-            //Server
+            // Server
             server.all('/*', nextHandler);
             server.get('/endpoint/:param1', errorHandler);
             server.post('/endpoint/:param1', errorHandler);
@@ -293,7 +293,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.DELETE, '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -301,7 +301,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with required parameters', async () => {
-            //Server
+            // Server
             server.get('/endpoint/:param1/:param2/:param3/:param4', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
@@ -309,7 +309,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -317,7 +317,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with optional parameters(provided)', async () => {
-            //Server
+            // Server
             server.get('/endpoint/:param1?/:param2?/:param3?/:param4?', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
@@ -325,7 +325,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -333,7 +333,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with optional parameters(missing)', async () => {
-            //Server
+            // Server
             server.get('/endpoint/:param1?/:param2?/:param3?/:param4?', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/1//333/');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: undefined, param3: '333', param4: undefined });
@@ -341,7 +341,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/1//333/', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -349,7 +349,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with query parameters(provided)', async () => {
-            //Server
+            // Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
@@ -357,7 +357,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint?query1=1&query2=22&query3=333&query4=4444', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -365,7 +365,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with query parameters(missing)', async () => {
-            //Server
+            // Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
@@ -373,7 +373,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint?query1=&query2=&query3=&query4=', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -381,7 +381,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with wildcard path', async () => {
-            //Server
+            // Server
             server.get('/e*/*/2*/3*/4*', nextHandler);
             server.get('/*t/*/*2/*3/*4', nextHandler);
             server.get('/endpoint/1/22/333/*4', nextHandler);
@@ -398,7 +398,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -408,7 +408,7 @@ mocha.describe('HTTP Test', () => {
         mocha.it('should dispatch request to route with long path', async () => {
             const longPath = '/endpoint'.repeat(1000);
 
-            //Server
+            // Server
             server.get(longPath, (request, response, next) => {
                 assert.deepStrictEqual(request.path, longPath);
                 assert.deepStrictEqual(request.params, {});
@@ -416,7 +416,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, longPath, requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -424,7 +424,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with trailing slashes in path', async () => {
-            //Server
+            // Server
             server.get('/endpoint/', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
@@ -432,7 +432,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -440,7 +440,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with special characters in path', async () => {
-            //Server
+            // Server
             server.get('/endpoint/:param1', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint/special!@$%*([');
                 assert.deepStrictEqual(request.params, { param1: 'special!@$%*([' });
@@ -448,7 +448,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/special!@$%*([', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -456,7 +456,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with case sensitivity in path', async () => {
-            //Server
+            // Server
             server.get('/EndPoint', errorHandler);
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
@@ -465,7 +465,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -473,7 +473,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with multiple middleware in order', async () => {
-            //Server
+            // Server
             const nextHandlers = Array();
             const firstMiddleware: RequestHandler = (request, response, next) => {
                 nextHandlers.push('First');
@@ -491,7 +491,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -499,7 +499,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to route with registration order', async () => {
-            //Server
+            // Server
             server.get('/endpoint', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
@@ -508,7 +508,7 @@ mocha.describe('HTTP Test', () => {
             });
             server.get('/endpoint/:param1', errorHandler);
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -516,7 +516,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to overlapping routes', async () => {
-            //Server
+            // Server
             server.get('/endpoint/:param1', (request, response, next) => {
                 nextCalled++;
                 assert.deepStrictEqual(request.path, '/endpoint/123');
@@ -532,7 +532,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint/123', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -540,7 +540,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to duplicate routes', async () => {
-            //Server
+            // Server
             server.get('/endpoint', (request, response, next) => {
                 nextCalled++;
                 assert.deepStrictEqual(request.path, '/endpoint');
@@ -556,7 +556,7 @@ mocha.describe('HTTP Test', () => {
                 request.pipe(response).writeHead(HttpStatusCode.OK);
             });
 
-            //Client
+            // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.GET, '/endpoint', requestBody);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -564,7 +564,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to router mounted on root path', async () => {
-            //Server
+            // Server
             const router = new Router();
             router.get('/', (request, response, next) => {
                 assert.deepStrictEqual(request.path, '/');
@@ -582,7 +582,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request to router mounted on single path', async () => {
-            //Server
+            // Server
             const router1 = new Router();
             const router2 = new Router();
             const router3 = new Router();
@@ -606,7 +606,7 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.it('should dispatch request through routes & routers', async () => {
-            //Server
+            // Server
             server.all('/a/e*t', nextHandler, nextHandler);
             server.post('/a/endpoint', errorHandler);
             server.get('/a/endpoint', nextHandler);
@@ -676,14 +676,14 @@ mocha.describe('HTTP Test', () => {
             });
 
             mocha.it('should forward request to target server', async () => {
-                //Proxy
+                // Proxy
                 const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
-                //Server
+                // Server
                 server.post('/endpoint', proxy.forward());
 
-                //Server Target
+                // Server Target
                 targetServer.post('/endpoint', async (request, response, next) => {
                     assert.deepStrictEqual(request.method, HttpMethod.POST);
                     assert.deepStrictEqual(request.url, '/endpoint');
@@ -691,7 +691,7 @@ mocha.describe('HTTP Test', () => {
                     request.pipe(response).writeHead(HttpStatusCode.OK);
                 });
 
-                //Client
+                // Client
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.POST, '/endpoint', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -699,11 +699,11 @@ mocha.describe('HTTP Test', () => {
             });
 
             mocha.it('should forward request to target server with options', async () => {
-                //Proxy
+                // Proxy
                 const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
-                //Server
+                // Server
                 const options: ForwardOptions = {
                     onOptions: (options, request, response) => {
                         options.path = options.path?.replace(/^\/api/, '');
@@ -717,7 +717,7 @@ mocha.describe('HTTP Test', () => {
                 }
                 server.all('/api/*', proxy.forward(options));
 
-                //Server Target
+                // Server Target
                 targetServer.post('/endpoint', async (request, response, next) => {
                     assert.deepStrictEqual(request.method, HttpMethod.POST);
                     assert.deepStrictEqual(request.url, '/endpoint');
@@ -726,7 +726,7 @@ mocha.describe('HTTP Test', () => {
                     request.pipe(response).writeHead(HttpStatusCode.CREATED);
                 });
 
-                //Client
+                // Client
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.POST, '/api/endpoint', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
@@ -734,11 +734,11 @@ mocha.describe('HTTP Test', () => {
             });
 
             mocha.it('should forward Error', async () => {
-                //Proxy
+                // Proxy
                 const proxy = new HttpProxy(createIdentifier());
                 proxy.configure(port + 10, host);
 
-                //Server
+                // Server
                 const options: ForwardOptions = {
                     onError: (error, response) => {
                         response.writeHead(HttpStatusCode.INTERNAL_SERVER_ERROR).end(error.message);
@@ -746,7 +746,7 @@ mocha.describe('HTTP Test', () => {
                 }
                 server.all('/api/*', proxy.forward(options));
 
-                //Client
+                // Client
                 const requestBody = createString(1000);
                 const { response, body: responseBody } = await clientRequest(host, port, HttpMethod.POST, '/api/endpoint', requestBody);
                 assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);

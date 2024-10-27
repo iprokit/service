@@ -1,8 +1,8 @@
-//Import Libs.
+// Import Libs.
 import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
-//Import Local.
+// Import Local.
 import { HttpMethodType, Incoming, IScpClient } from '../lib';
 
 export function createString(size: number) {

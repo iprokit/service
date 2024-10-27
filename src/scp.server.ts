@@ -1,10 +1,10 @@
-//Import Libs.
+// Import Libs.
 import { promises as Stream } from 'stream';
 
-//Import @iprolab Libs.
+// Import @iprolab Libs.
 import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
 
-//Import Local.
+// Import Local.
 import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
@@ -42,37 +42,37 @@ export default class Server extends ScpServer implements IServer {
     constructor(identifier: string) {
         super();
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
 
-        //Initialize Variables.
+        // Initialize variables.
         this.executions = new Array();
 
-        //Bind listeners.
+        // Bind listeners.
         this.onIncoming = this.onIncoming.bind(this);
 
-        //Add listeners.
+        // Add listeners.
         this.addListener('incoming', this.onIncoming);
 
-        //Apply `Executor` properties 👻.
+        // Apply `Executor` properties 👻.
         Executor.applyProperties(this);
     }
 
     //////////////////////////////
-    //////Event Listeners
+    //////// Event Listeners
     //////////////////////////////
     /**
      * - Subscribe is handled by `subscribe` function.
      * - Omni is handled by `dispatch` function.
      */
     private onIncoming(incoming: Incoming, outgoing: Outgoing) {
-        //Set: Outgoing.
+        // Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
         if (incoming.mode === Mode.SUBSCRIBE && incoming.operation === Operation.SUBSCRIBE) {
             this.subscribe(incoming, outgoing);
         } else if (incoming.mode === Mode.OMNI) {
-            //Set: Incoming.
+            // Set: Incoming.
             const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
             const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
             const { segment, nexus } = groups as { segment: string, nexus: string };
@@ -80,13 +80,13 @@ export default class Server extends ScpServer implements IServer {
             incoming.nexus = nexus;
             incoming.matched = false;
 
-            //Below line will blow your mind! 🤯
+            // Below line will blow your mind! 🤯
             this.dispatch(0, this.executions, incoming, outgoing, () => { });
         }
     }
 
     //////////////////////////////
-    //////Dispatch
+    //////// Dispatch
     //////////////////////////////
     /**
      * Recursively loop through the executions to find and execute its handler.
@@ -98,21 +98,21 @@ export default class Server extends ScpServer implements IServer {
      * @param unwind function called once the processed executions unwind.
      */
     private dispatch(executionIndex: number, executions: Array<Execution>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
-        //Need I say more.
+        // Need I say more.
         if (executionIndex >= executions.length) return unwind();
 
         const execution = executions[executionIndex];
 
-        //Shits about to go down! 😎
+        // Shits about to go down! 😎
         if ('executions' in execution) {
-            //Treat as `Segment`.
+            // Treat as `Segment`.
             const operationMatches = incoming.segment.match(execution.regExp);
 
             if (operationMatches) {
-                //Segment found, Save match and process the segment.
+                // Segment found, Save match and process the segment.
                 incoming.matched = true;
 
-                //🎢
+                // 🎢
                 const unwindFunction = () => {
                     incoming.matched = false;
                     this.dispatch(executionIndex + 1, this.executions, incoming, outgoing, unwind);
@@ -121,24 +121,24 @@ export default class Server extends ScpServer implements IServer {
                 return;
             }
         } else {
-            //Treat as `Nexus`.
+            // Treat as `Nexus`.
             const segmentMatches = (incoming.segment && incoming.matched) || (!incoming.segment && !incoming.matched);
             const operationMatches = incoming.nexus.match(execution.regExp);
 
             if (segmentMatches && operationMatches) {
-                //Nexus found, execute the handler. 🎉
+                // Nexus found, execute the handler. 🎉
                 const proceedFunction = () => this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
                 execution.handler(incoming, outgoing, proceedFunction);
                 return;
             }
         }
 
-        //Execution not found, lets keep going though the loop.
+        // Execution not found, lets keep going though the loop.
         this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
     }
 
     //////////////////////////////
-    //////Subscribe
+    //////// Subscribe
     //////////////////////////////
     /**
      * Registers the subscription from the client socket connection.
@@ -146,18 +146,18 @@ export default class Server extends ScpServer implements IServer {
      */
     private async subscribe(incoming: Incoming, outgoing: Outgoing) {
         try {
-            //Read: Incoming stream.
+            // Read: Incoming stream.
             incoming.resume();
             await Stream.finished(incoming);
 
-            //Set: Connection properties.
-            incoming.socket.identifier = incoming.get('CID') as string;
+            // Set: Connection properties.
+            incoming.socket.identifier = incoming.get('CID')!;
 
-            //Write: Outgoing stream.
+            // Write: Outgoing stream.
             outgoing.end('');
             await Stream.finished(outgoing);
         } catch (error) {
-            //❗️⚠️❗️
+            // ❗️⚠️❗️
             incoming.destroy();
             outgoing.destroy();
             outgoing.socket.destroy(error as Error);
@@ -165,7 +165,7 @@ export default class Server extends ScpServer implements IServer {
     }
 
     //////////////////////////////
-    //////Interface: IServer
+    //////// IServer
     //////////////////////////////
     public broadcast(operation: string, ...args: Array<any>) {
         return Promise.all(
@@ -175,13 +175,12 @@ export default class Server extends ScpServer implements IServer {
                     new Promise<string>((resolve, reject) =>
                         connection.createOutgoing(async (outgoing) => {
                             try {
-                                outgoing.setRFI(new RFI(Mode.BROADCAST, operation, [['FORMAT', 'OBJECT']]));
-                                outgoing.set('SID', this.identifier);
+                                outgoing.setRFI(new RFI(Mode.BROADCAST, operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
                                 outgoing.end(JSON.stringify(args));
                                 await Stream.finished(outgoing);
                                 resolve(connection.identifier);
                             } catch (error) {
-                                //❗️⚠️❗️
+                                // ❗️⚠️❗️
                                 outgoing.destroy();
                                 outgoing.socket.destroy(error as Error);
                                 reject(error);
@@ -200,7 +199,7 @@ export default class Server extends ScpServer implements IServer {
     }
 
     //////////////////////////////
-    //////Interface: IExecutor
+    //////// IExecutor
     //////////////////////////////
     public declare omni: (operation: string, handler: IncomingHandler) => this;
     public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
@@ -232,7 +231,7 @@ export interface IServer extends IExecutor {
 }
 
 //////////////////////////////
-//////Executor
+//////// Executor
 //////////////////////////////
 /**
  * This class is used to register executions that handle SCP I/O's.
@@ -248,21 +247,21 @@ export class Executor implements IExecutor {
      * Creates an instance of executor.
      */
     constructor() {
-        //Initialize Variables.
+        // Initialize variables.
         this.executions = new Array();
 
-        //Apply `Executor` properties 👻.
+        // Apply `Executor` properties 👻.
         Executor.applyProperties(this);
     }
 
     //////////////////////////////
-    //////Interface: IExecutor
+    //////// IExecutor
     //////////////////////////////
     public declare omni: (operation: string, handler: IncomingHandler) => this;
     public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
 
     //////////////////////////////
-    //////Factory
+    //////// Factory
     //////////////////////////////
     /**
      * Applies properties of the `IExecutor` interface to the provided instance,
@@ -271,7 +270,7 @@ export class Executor implements IExecutor {
      * @param instance the instance to which the `IExecutor` properties are applied.
      */
     public static applyProperties<I extends IExecutor>(instance: I) {
-        //`IExecutor` properties 😈.
+        // `IExecutor` properties 😈.
         instance.omni = (operation, handler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
             instance.executions.push({ operation, regExp, handler } as Nexus);
@@ -279,20 +278,20 @@ export class Executor implements IExecutor {
         }
         instance.func = (operation, func) => {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
-                if (incoming.get('FORMAT') !== 'OBJECT') return proceed(); //🤦🏽‍♂️
+                if (incoming.get('FORMAT') !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
 
-                //Initialize 🎩🚦🔲.
+                // Initialize 🎩🚦🔲.
                 const conductor = (incoming.has('CONDUCTOR')) ? new Conductor().setIO(incoming, outgoing) : undefined;
                 let incomingData = '', outgoingData = '';
                 try {
-                    //Read.
-                    //NOOOO..Waiting for RFI...🕵️‍♂️
+                    // Read.
+                    // NOOOO..Waiting for RFI...🕵️‍♂️
                     for await (const chunk of (conductor ?? incoming)) {
                         incomingData += chunk;
                     }
                     conductor || await Stream.finished(incoming);
 
-                    //Execute 🫡.
+                    // Execute 🫡.
                     try {
                         const args = (conductor) ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
                         const returned = await func(...args);
@@ -304,10 +303,10 @@ export class Executor implements IExecutor {
                         outgoing.set('STATUS', 'ERROR');
                     }
 
-                    //Write.
+                    // Write.
                     conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
                 } catch (error) {
-                    //❗️⚠️❗️
+                    // ❗️⚠️❗️
                     incoming.destroy();
                     outgoing.destroy();
                 }
@@ -318,7 +317,7 @@ export class Executor implements IExecutor {
 }
 
 //////////////////////////////
-//////IExecutor
+//////// IExecutor
 //////////////////////////////
 /**
  * Interface of `Executor`.
@@ -347,7 +346,7 @@ export interface IExecutor {
 }
 
 //////////////////////////////
-//////Execution
+//////// Execution
 //////////////////////////////
 /**
  * The union of an `Segment`/`Nexus`.
@@ -415,7 +414,7 @@ export type ProceedFunction = () => void;
 export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Returned;
 
 //////////////////////////////
-//////Connection
+//////// Connection
 //////////////////////////////
 export interface Connection extends SCP.Connection {
     /**

@@ -1,9 +1,9 @@
-//Import Libs.
+// Import Libs.
 import { EventEmitter } from 'events';
 import { AddressInfo } from 'net';
 
-//Import @iprolab Libs.
-import { Pod, Attrs, Socket, Sender } from '@iprolab/sdp';
+// Import @iprolab Libs.
+import { Pod, Attributes, Socket, Sender } from '@iprolab/sdp';
 
 /**
  * This class is used to create a SDP server.
@@ -24,7 +24,7 @@ export default class Server extends EventEmitter {
     /**
      * The attributes of the server.
      */
-    public readonly attrs: Attrs;
+    public readonly attributes: Attributes;
 
     /**
      * The pods discovered.
@@ -49,25 +49,25 @@ export default class Server extends EventEmitter {
     constructor(identifier: string) {
         super();
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
 
-        //Initialize Variables.
-        this.attrs = new Attrs();
+        // Initialize variables.
+        this.attributes = {};
         this.pods = new Map();
         this._localAddress = null;
         this._socket = new Socket();
 
-        //Bind listeners.
+        // Bind listeners.
         this.onPod = this.onPod.bind(this);
 
-        //Add listeners.
+        // Add listeners.
         this._socket.addListener('pod', this.onPod);
         this._socket.addListener('error', (error: Error) => this.emit('error', error));
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     /**
      * The local address of the server.
@@ -98,14 +98,14 @@ export default class Server extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Event Listeners
+    //////// Event Listeners
     //////////////////////////////
     /**
      * @emits `available` when a pod is available.
      * @emits `unavailable` when a pod is unavailable.
      */
     private onPod(pod: Pod, sender: Sender) {
-        const { identifier, available, attrs } = pod;
+        const { identifier, available, attributes } = pod;
         const { address: host } = sender;
 
         if (identifier === this.identifier) { /* ECHO */
@@ -113,17 +113,17 @@ export default class Server extends EventEmitter {
             return;
         }
 
-        //Be ready to be confused 😈.
+        // Be ready to be confused 😈.
         const foundPod = this.pods.get(identifier);
         if (!foundPod) { /* NEW */
-            this.pods.set(identifier, { available: true, attrs, host });
-            this.send(true, () => this.emit('available', identifier, attrs, host));
+            this.pods.set(identifier, { available: true, attributes, host });
+            this.send(true, () => this.emit('available', identifier, attributes, host));
         } else { /* EXISTING */
             if (available && !foundPod.available) { /* Server restarted. */
-                this.pods.set(identifier, { available: true, attrs, host });
-                this.send(true, () => this.emit('available', identifier, attrs, host));
+                this.pods.set(identifier, { available: true, attributes, host });
+                this.send(true, () => this.emit('available', identifier, attributes, host));
             } else if (!available && foundPod.available) { /* Server shutting down. */
-                this.pods.set(identifier, { available: false, attrs: null, host: null });
+                this.pods.set(identifier, { available: false, attributes: null, host: null });
                 this.emit('unavailable', identifier);
             } else if (!available && !foundPod.available) {
                 return;
@@ -134,7 +134,7 @@ export default class Server extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Send/Echo
+    //////// Send/Echo
     //////////////////////////////
     /**
      * Encodes and multicasts a pod on the network.
@@ -143,10 +143,10 @@ export default class Server extends EventEmitter {
      * @param callback called once the pod is multicasted.
      */
     private send(available: boolean, callback?: () => void) {
-        const pod = new Pod(this.identifier, available, this.attrs);
+        const pod = new Pod(this.identifier, available, this.attributes);
         const address = this._socket.address() as AddressInfo;
 
-        //If you can spare a moment to notice, there's just one membership here 🙃
+        // If you can spare a moment to notice, there's just one membership here 🙃
         this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => callback && callback());
     }
 
@@ -157,15 +157,15 @@ export default class Server extends EventEmitter {
      * @param callback called once the echo is received.
      */
     private echo(available: boolean, callback: (address: string) => void) {
-        //Read
+        // Read
         this._socket.once('echo', (address: string) => callback(address));
 
-        //Write
+        // Write
         this.send(available);
     }
 
     //////////////////////////////
-    //////Connection Management
+    //////// Connection Management
     //////////////////////////////
     /**
      * Starts listening for pods on the network, the `listening` event will be emitted.
@@ -206,7 +206,7 @@ export default class Server extends EventEmitter {
     }
 
     //////////////////////////////
-    //////Ref/Unref
+    //////// Ref/Unref
     //////////////////////////////
     /**
      * Ref the server.
@@ -228,7 +228,7 @@ export default class Server extends EventEmitter {
 }
 
 //////////////////////////////
-//////IPod
+//////// IPod
 //////////////////////////////
 /**
  * Interface of `Pod`.
@@ -242,7 +242,7 @@ export interface IPod {
     /**
      * The attributes of entity.
      */
-    attrs: Attrs | null;
+    attributes: Attributes | null;
 
     /**
      * The host address of entity.

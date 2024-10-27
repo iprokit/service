@@ -1,9 +1,9 @@
-//Import Libs.
+// Import Libs.
 import { once } from 'events';
 import { Transform } from 'stream';
 
-//Import @iprolab Libs.
-import { Signal, Incoming, Outgoing } from '@iprolab/scp';
+// Import @iprolab Libs.
+import { Signal, Tags, Incoming, Outgoing } from '@iprolab/scp';
 
 export default class Conductor extends Transform {
     public incoming!: Incoming;
@@ -14,20 +14,20 @@ export default class Conductor extends Transform {
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     public setIO(incoming: Incoming, outgoing: Outgoing) {
         this.incoming = incoming;
         this.outgoing = outgoing;
 
-        //⏳ Be a patient ninja. 🥷
+        // ⏳ Be a patient ninja. 🥷
         this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
         this.outgoing.set('CONDUCTOR', 'TRUE');
         return this;
     }
 
     //////////////////////////////
-    //////Inherited: Transform
+    //////// Transform
     //////////////////////////////
     _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
         if (chunk instanceof Signal) {
@@ -36,7 +36,7 @@ export default class Conductor extends Transform {
             } else if (chunk.event === 'EOB') {
                 this.emit('EOB');
             } else {
-                this.emit('signal', chunk.event, chunk.args);
+                this.emit('signal', chunk.event, chunk.tags);
             }
         }
 
@@ -45,7 +45,7 @@ export default class Conductor extends Transform {
     }
 
     //////////////////////////////
-    //////Read Operations
+    //////// Read Operations
     //////////////////////////////
     public async *[Symbol.asyncIterator]() {
         while (true) {
@@ -67,7 +67,7 @@ export default class Conductor extends Transform {
     }
 
     //////////////////////////////
-    //////Write Operations
+    //////// Write Operations
     //////////////////////////////
     public async writeBlock(chunk: string) {
         const chunks = [new Signal('SOB'), chunk, new Signal('EOB')];
@@ -79,8 +79,8 @@ export default class Conductor extends Transform {
         }
     }
 
-    public async signal(event: string, args?: Iterable<readonly [string, string]>) {
-        const write = this.outgoing.write(new Signal(event, args));
+    public async signal(event: string, tags?: Tags) {
+        const write = this.outgoing.write(new Signal(event, tags));
         if (!write) {
             await once(this.outgoing, 'drain');
         }

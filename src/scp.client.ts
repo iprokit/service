@@ -1,12 +1,12 @@
-//Import Libs.
+// Import Libs.
 import { EventEmitter, once } from 'events';
 import { promises as Stream } from 'stream';
 import { AddressInfo } from 'net';
 
-//Import @iprolab Libs.
+// Import @iprolab Libs.
 import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
 
-//Import Local.
+// Import Local.
 import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
@@ -43,13 +43,13 @@ export default class Client extends EventEmitter implements IClient {
     constructor(identifier: string) {
         super();
 
-        //Initialize Options.
+        // Initialize options.
         this.identifier = identifier;
 
-        //Initialize Variables.
+        // Initialize variables.
         this._connected = false;
 
-        //Bind Listeners.
+        // Bind listeners.
         this.onConnect = this.onConnect.bind(this);
         this.onIncoming = this.onIncoming.bind(this);
         this.onError = this.onError.bind(this);
@@ -58,7 +58,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     /**
      * Returns true when the client is connected, false otherwise.
@@ -110,7 +110,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Event Listeners
+    //////// Event Listeners
     //////////////////////////////
     /**
      * @emits `connect` when the connection is successfully established.
@@ -157,7 +157,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Subscribe
+    //////// Subscribe
     //////////////////////////////
     /**
      * Subscribes to the server to receive broadcasts.
@@ -167,19 +167,18 @@ export default class Client extends EventEmitter implements IClient {
         let outgoing!: Outgoing;
 
         try {
-            //Write: Outgoing stream.
+            // Write: Outgoing stream.
             outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing)));
-            outgoing.setRFI(new RFI(Mode.SUBSCRIBE, Operation.SUBSCRIBE));
-            outgoing.set('CID', this.identifier);
+            outgoing.setRFI(new RFI(Mode.SUBSCRIBE, Operation.SUBSCRIBE, { 'CID': this.identifier }));
             outgoing.end('');
             await Stream.finished(outgoing);
 
-            //Read: Incoming stream.
+            // Read: Incoming stream.
             [incoming] = await once(this._socket, 'subscribe');
             incoming.resume();
             await Stream.finished(incoming);
         } catch (error) {
-            //❗️⚠️❗️
+            // ❗️⚠️❗️
             incoming?.destroy();
             outgoing?.destroy();
             (incoming || outgoing).socket.destroy(error as Error);
@@ -187,7 +186,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Broadcast
+    //////// Broadcast
     //////////////////////////////
     /**
      * Process the `Incoming` broadcast stream.
@@ -196,16 +195,16 @@ export default class Client extends EventEmitter implements IClient {
      */
     private async broadcast(incoming: Incoming) {
         try {
-            //No listener was added to the broadcast, Drain the stream. Move on to the next one.
+            // No listener was added to the broadcast, Drain the stream. Move on to the next one.
             if (this.listenerCount(incoming.operation) === 0) {
                 incoming.resume();
                 await Stream.finished(incoming);
                 return;
             }
 
-            //✅
-            if (incoming.params.get('FORMAT') === 'OBJECT') {
-                //Read: Incoming stream.
+            // ✅
+            if (incoming.get('FORMAT') === 'OBJECT') {
+                // Read: Incoming stream.
                 let data = '';
                 for await (const chunk of incoming) {
                     data += chunk;
@@ -214,64 +213,64 @@ export default class Client extends EventEmitter implements IClient {
                 return;
             }
 
-            //Nothing to see here! 🎤🎧
+            // Nothing to see here! 🎤🎧
             this.emit(incoming.operation, incoming);
         } catch (error) {
-            //❗️⚠️❗️
+            // ❗️⚠️❗️
             incoming.destroy();
             incoming.socket.destroy(error as Error);
         }
     }
 
     //////////////////////////////
-    //////Interface: IClient
+    //////// IClient
     //////////////////////////////
     public Socket() {
-        //Ohooomyyy 🤦.
+        // Ohooomyyy 🤦.
         if (!this.connected) throw new Error('SCP_CLIENT_INVALID_CONNECTION');
 
-        //Create socket.
+        // Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.once('end', () => socket.destroy());
         socket.connect(this.remotePort as number, this.remoteAddress as string);
 
-        //Create incoming.
+        // Create incoming.
         (socket as any)._incoming = new Incoming(socket);
         socket.incoming.once('end', () => socket.destroy());
 
-        //Create outgoing.
+        // Create outgoing.
         (socket as any)._outgoing = new Outgoing(socket);
 
-        //Connection. 🔌
+        // Connection. 🔌
         return socket;
     }
 
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         const { incoming, outgoing } = this.Socket();
         incoming.once('rfi', () => callback(incoming));
-        outgoing.setRFI(new RFI(Mode.OMNI, operation, [['CID', this.identifier]]));
+        outgoing.setRFI(new RFI(Mode.OMNI, operation, { 'CID': this.identifier }));
         return outgoing;
     }
 
     public async execute<Returned>(operation: string, ...args: Array<any>) {
         const { incoming, outgoing } = this.Socket();
-        outgoing.setRFI(new RFI(Mode.OMNI, operation, [['CID', this.identifier], ['FORMAT', 'OBJECT']]));
+        outgoing.setRFI(new RFI(Mode.OMNI, operation, { 'CID': this.identifier, 'FORMAT': 'OBJECT' }));
 
-        //Initialize 🎩🚦🔲.
+        // Initialize 🎩🚦🔲.
         const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? (args.pop() as Conductor).setIO(incoming, outgoing) : undefined;
         let incomingData = '', outgoingData = JSON.stringify(args);
         try {
-            //Write.
+            // Write.
             conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
 
-            //Read.
-            await once(incoming, 'rfi'); //Waiting for RFI...🕵️‍♂️
+            // Read.
+            await once(incoming, 'rfi'); // Waiting for RFI...🕵️‍♂️
             for await (const chunk of (conductor ?? incoming)) {
                 incomingData += chunk;
             }
             conductor || await Stream.finished(incoming);
         } catch (error) {
-            //❗️⚠️❗️
+            // ❗️⚠️❗️
             incoming.destroy();
             outgoing.destroy();
             throw error;
@@ -284,7 +283,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Connection Management
+    //////// Connection Management
     //////////////////////////////
     /**
      * Initiate the connection to the server.
@@ -296,7 +295,7 @@ export default class Client extends EventEmitter implements IClient {
     public connect(port: number, host: string, callback?: () => void) {
         callback && this.once('connect', callback);
 
-        //Setup Socket.
+        // Setup Socket.
         this._socket = new Socket();
         this._socket.addListener('connect', this.onConnect);
         this._socket.addListener('incoming', this.onIncoming);
@@ -322,7 +321,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     //////////////////////////////
-    //////Ref/Unref
+    //////// Ref/Unref
     //////////////////////////////
     /**
      * Ref the socket.
