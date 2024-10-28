@@ -1,10 +1,10 @@
 // Import Libs.
-import HTTP, { Server as HttpServer } from 'http';
+import HTTP from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
 // Import Local.
-import { Method, RequestHeaders, ResponseHeaders } from './http';
+import { Method, MethodType, RequestHeaders, ResponseHeaders } from './http';
 
 /**
  * Creates an HTTP Server bound to an IP address and port number,
@@ -15,7 +15,7 @@ import { Method, RequestHeaders, ResponseHeaders } from './http';
  * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
-export default class Server extends HttpServer implements IServer {
+export default class Server extends HTTP.Server implements IServer {
     /**
      * Routes registered on the server.
      */
@@ -346,11 +346,6 @@ export interface Endpoint {
      */
     handlers: Array<RequestHandler>;
 }
-
-/**
- * Type definition of the HTTP method.
- */
-export type MethodType = typeof Method[keyof typeof Method];
 
 /**
  * Request handler.

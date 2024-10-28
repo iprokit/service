@@ -2,10 +2,10 @@
 import { promises as Stream } from 'stream';
 
 // Import @iprolab Libs.
-import { Incoming as ScpIncoming, Outgoing as ScpOutgoing, RFI, Server as ScpServer, Connection as ScpConnection } from '@iprolab/scp';
+import SCP, { RFI } from '@iprolab/scp';
 
 // Import Local.
-import { Mode } from './scp';
+import { Mode, ModeType } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -18,7 +18,7 @@ import Conductor from './scp.conductor';
  * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
-export default class Server extends ScpServer implements IServer {
+export default class Server extends SCP.Server implements IServer {
     /**
      * Unique identifier of the server.
      */
@@ -394,11 +394,6 @@ export interface Nexus {
 }
 
 /**
- * Type definition of the SCP mode.
- */
-export type ModeType = typeof Mode[keyof typeof Mode];
-
-/**
  * Incoming handler.
  */
 export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
@@ -416,7 +411,7 @@ export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Re
 //////////////////////////////
 //////// Connection
 //////////////////////////////
-export interface Connection extends ScpConnection {
+export interface Connection extends InstanceType<typeof SCP.Connection> {
     /**
      * Unique identifier of the client socket connection.
      */
@@ -439,7 +434,7 @@ export interface Connection extends ScpConnection {
 /**
  * Represents an incoming SCP.
  */
-export interface Incoming extends ScpIncoming {
+export interface Incoming extends InstanceType<typeof SCP.Incoming> {
     /**
      * Underlying SCP Socket.
      */
@@ -469,7 +464,7 @@ export interface Incoming extends ScpIncoming {
 /**
  * Represents an outgoing SCP.
  */
-export interface Outgoing extends ScpOutgoing {
+export interface Outgoing extends InstanceType<typeof SCP.Outgoing> {
     /**
      * Underlying SCP Socket.
      */

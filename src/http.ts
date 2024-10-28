@@ -36,6 +36,8 @@ export namespace Method {
     export const ALL = 'ALL' as const;
 }
 
+export type MethodType = typeof Method[keyof typeof Method];
+
 //////////////////////////////
 //////// Headers
 //////////////////////////////

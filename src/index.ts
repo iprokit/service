@@ -1,12 +1,12 @@
 // Export HTTP.
-export { Method as HttpMethod, StatusCode as HttpStatusCode, RequestHeaders, ResponseHeaders } from './http';
-export { default as HttpServer, IServer as IHttpServer, Router, IRouter, Route, Stack, Endpoint, MethodType as HttpMethodType, RequestHandler, NextFunction, Request as ServerRequest, Response as ServerResponse } from './http.server';
+export { Method as HttpMethod, MethodType as HttpMethodType, StatusCode as HttpStatusCode, RequestHeaders, ResponseHeaders } from './http';
+export { default as HttpServer, IServer as IHttpServer, Router, IRouter, Route, Stack, Endpoint, RequestHandler, NextFunction, Request as ServerRequest, Response as ServerResponse } from './http.server';
 export { default as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
 
 // Export SCP.
 export { Frame, FrameType, RFI, IRFI, Parameters, Signal, Tags, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprolab/scp';
-export { Mode as ScpMode } from './scp';
-export { default as ScpServer, IServer as IScpServer, Executor, IExecutor, Execution, Segment, Nexus, ModeType as ScpModeType, IncomingHandler, ProceedFunction, Function, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
+export { Mode as ScpMode, ModeType as ScpModeType } from './scp';
+export { default as ScpServer, IServer as IScpServer, Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Function, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
 export { default as ScpClient, IClient as IScpClient } from './scp.client';
 export { default as Conductor } from './scp.conductor';
 

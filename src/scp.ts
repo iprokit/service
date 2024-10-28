@@ -17,3 +17,5 @@ export namespace Mode {
      */
     export const BROADCAST = 'BROADCAST' as const;
 }
+
+export type ModeType = typeof Mode[keyof typeof Mode];
