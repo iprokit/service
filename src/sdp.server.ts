@@ -1,6 +1,5 @@
 // Import Libs.
 import { EventEmitter } from 'events';
-import { AddressInfo } from 'net';
 
 // Import @iprolab Libs.
 import { Pod, Attributes, Socket, Sender } from '@iprolab/sdp';

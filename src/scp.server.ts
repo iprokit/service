@@ -2,10 +2,10 @@
 import { promises as Stream } from 'stream';
 
 // Import @iprolab Libs.
-import SCP, { RFI, Server as ScpServer } from '@iprolab/scp';
+import { Incoming as ScpIncoming, Outgoing as ScpOutgoing, RFI, Server as ScpServer, Connection as ScpConnection } from '@iprolab/scp';
 
 // Import Local.
-import { Mode, Operation } from './scp';
+import { Mode } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -69,7 +69,7 @@ export default class Server extends ScpServer implements IServer {
         // Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
-        if (incoming.mode === Mode.SUBSCRIBE && incoming.operation === Operation.SUBSCRIBE) {
+        if (incoming.mode === Mode.SUBSCRIBE) {
             this.subscribe(incoming, outgoing);
         } else if (incoming.mode === Mode.OMNI) {
             // Set: Incoming.
@@ -416,7 +416,7 @@ export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Re
 //////////////////////////////
 //////// Connection
 //////////////////////////////
-export interface Connection extends SCP.Connection {
+export interface Connection extends ScpConnection {
     /**
      * Unique identifier of the client socket connection.
      */
@@ -439,7 +439,7 @@ export interface Connection extends SCP.Connection {
 /**
  * Represents an incoming SCP.
  */
-export interface Incoming extends SCP.Incoming {
+export interface Incoming extends ScpIncoming {
     /**
      * Underlying SCP Socket.
      */
@@ -469,7 +469,7 @@ export interface Incoming extends SCP.Incoming {
 /**
  * Represents an outgoing SCP.
  */
-export interface Outgoing extends SCP.Outgoing {
+export interface Outgoing extends ScpOutgoing {
     /**
      * Underlying SCP Socket.
      */

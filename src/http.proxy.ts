@@ -1,6 +1,6 @@
 // Import Libs.
 import Stream from 'stream';
-import HTTP, { RequestOptions, ClientRequest, IncomingMessage } from 'http';
+import HTTP, { RequestOptions, ClientRequest, IncomingMessage as ClientResponse } from 'http';
 
 // Import Local.
 import { RequestHandler, Request, Response } from './http.server';
@@ -165,7 +165,7 @@ export interface ForwardOptions {
      * @param request incoming request.
      * @param response outgoing response.
      */
-    onResponse?: (proxyResponse: IncomingMessage, request: Request, response: Response) => void;
+    onResponse?: (proxyResponse: ClientResponse, request: Request, response: Response) => void;
 
     /**
      * Callback function to handle errors during the proxy request or response.

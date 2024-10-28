@@ -5,7 +5,7 @@ export { default as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './ht
 
 // Export SCP.
 export { Frame, FrameType, RFI, IRFI, Parameters, Signal, Tags, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprolab/scp';
-export { Mode as ScpMode, Operation as ScpOperation } from './scp';
+export { Mode as ScpMode } from './scp';
 export { default as ScpServer, IServer as IScpServer, Executor, IExecutor, Execution, Segment, Nexus, ModeType as ScpModeType, IncomingHandler, ProceedFunction, Function, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
 export { default as ScpClient, IClient as IScpClient } from './scp.client';
 export { default as Conductor } from './scp.conductor';

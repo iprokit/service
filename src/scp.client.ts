@@ -7,7 +7,7 @@ import { AddressInfo } from 'net';
 import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
 
 // Import Local.
-import { Mode, Operation } from './scp';
+import { Mode } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -127,7 +127,7 @@ export default class Client extends EventEmitter implements IClient {
      * - Broadcast is handled by `broadcast` function.
      */
     private onIncoming(incoming: Incoming) {
-        if (incoming.mode === Mode.SUBSCRIBE && incoming.operation === Operation.SUBSCRIBE) {
+        if (incoming.mode === Mode.SUBSCRIBE) {
             this._socket.emit('subscribe', incoming);
         } else if (incoming.mode === Mode.BROADCAST) {
             this.broadcast(incoming);
@@ -169,7 +169,7 @@ export default class Client extends EventEmitter implements IClient {
         try {
             // Write: Outgoing stream.
             outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing)));
-            outgoing.setRFI(new RFI(Mode.SUBSCRIBE, Operation.SUBSCRIBE, { 'CID': this.identifier }));
+            outgoing.setRFI(new RFI(Mode.SUBSCRIBE, '', { 'CID': this.identifier }));
             outgoing.end('');
             await Stream.finished(outgoing);
 

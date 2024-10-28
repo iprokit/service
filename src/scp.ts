@@ -17,13 +17,3 @@ export namespace Mode {
      */
     export const BROADCAST = 'BROADCAST' as const;
 }
-
-//////////////////////////////
-//////// Operation
-//////////////////////////////
-export namespace Operation {
-    /**
-     * SCP SUBSCRIBE operation.
-     */
-    export const SUBSCRIBE = 'subscribe';
-}
