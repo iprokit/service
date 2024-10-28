@@ -6,45 +6,45 @@ import { AddressInfo } from 'net';
 import { Pod, Attributes, Socket, Sender } from '@iprolab/sdp';
 
 /**
- * This class is used to create a SDP server.
- * A `Server` is bound to a multicast address, port number and listens for pods on the network.
+ * Creates an SDP server bound to a multicast address and port number,
+ * listening for pods on the network.
  * 
- * @emits `listening` when the server has been bound after calling `server.listen()`.
- * @emits `available` when a pod is available.
- * @emits `unavailable` when a pod is unavailable.
+ * @emits `listening` when the server is bound after calling `server.listen()`.
+ * @emits `available` when a pod becomes available.
+ * @emits `unavailable` when a pod becomes unavailable.
  * @emits `error` when an error occurs.
  * @emits `close` when the server is fully closed.
  */
 export default class Server extends EventEmitter {
     /**
-     * The unique identifier of the server.
+     * Unique identifier of the server.
      */
     public readonly identifier: string;
 
     /**
-     * The attributes of the server.
+     * Attributes of the server.
      */
     public readonly attributes: Attributes;
 
     /**
-     * The pods discovered.
+     * Pods discovered.
      */
     public readonly pods: Map<string, IPod>;
 
     /**
-     * The local address of the server.
+     * Local address of the server.
      */
     private _localAddress: string | null;
 
     /**
-     * The underlying SDP Socket.
+     * Underlying SDP Socket.
      */
     private _socket: Socket;
 
     /**
-     * Creates an instance of SDP server.
+     * Creates an instance of SDP `Server`.
      * 
-     * @param identifier the unique identifier of the server.
+     * @param identifier unique identifier of the server.
      */
     constructor(identifier: string) {
         super();
@@ -70,28 +70,28 @@ export default class Server extends EventEmitter {
     //////// Gets/Sets
     //////////////////////////////
     /**
-     * The local address of the server.
+     * Local address of the server.
      */
     public get localAddress() {
         return this._localAddress;
     }
 
     /**
-     * True when the server is listening for pods, false otherwise.
+     * `true` if the server is listening for connections, `false` otherwise.
      */
     public get listening() {
         return this._socket.listening;
     }
 
     /**
-     * The multicast groups joined.
+     * Multicast groups that have been joined.
      */
     public get memberships() {
         return this._socket.memberships;
     }
 
     /**
-     * The bound address, the address family name and port of the server as reported by the operating system.
+     * Retrieves the bound address, family, and port of the server as reported by operating system.
      */
     public address() {
         return this._socket.address();
@@ -139,12 +139,12 @@ export default class Server extends EventEmitter {
     /**
      * Encodes and multicasts a pod on the network.
      * 
-     * @param available set true for an available pod, false otherwise.
-     * @param callback called once the pod is multicasted.
+     * @param available `true` for an available pod, `false` otherwise.
+     * @param callback called once the pod is multicast.
      */
     private send(available: boolean, callback?: () => void) {
         const pod = new Pod(this.identifier, available, this.attributes);
-        const address = this._socket.address() as AddressInfo;
+        const address = this._socket.address()!;
 
         // If you can spare a moment to notice, there's just one membership here 🙃
         this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => callback && callback());
@@ -153,7 +153,7 @@ export default class Server extends EventEmitter {
     /**
      * Encodes and multicasts a pod on the network, then waits for an echo.
      * 
-     * @param available set true for an available pod, false otherwise.
+     * @param available `true` for an available pod, `false` otherwise.
      * @param callback called once the echo is received.
      */
     private echo(available: boolean, callback: (address: string) => void) {
@@ -168,11 +168,11 @@ export default class Server extends EventEmitter {
     //////// Connection Management
     //////////////////////////////
     /**
-     * Starts listening for pods on the network, the `listening` event will be emitted.
+     * Starts listening for pods on the network and emits `listening` event.
      * 
-     * @param port the local port.
-     * @param address the address of the multicast group.
-     * @param callback the optional callback will be added as a listener for the `listening` event once.
+     * @param port local port.
+     * @param address address of the multicast group.
+     * @param callback optional callback added as a one-time listener for the `listening` event.
      */
     public listen(port: number, address: string, callback?: () => void) {
         callback && this.once('listening', callback);
@@ -188,9 +188,9 @@ export default class Server extends EventEmitter {
     }
 
     /**
-     * Closes the underlying socket and stops listening for pods, the `close` event will be emitted.
+     * Closes the underlying socket and stops listening for pods, emitting the `close` event.
      * 
-     * @param callback optional callback will be added as a listener for the `close` event once.
+     * @param callback optional callback added as a one-time listener for the `close` event.
      */
     public close(callback?: () => void) {
         callback && this.once('close', callback);
@@ -209,17 +209,17 @@ export default class Server extends EventEmitter {
     //////// Ref/Unref
     //////////////////////////////
     /**
-     * Ref the server.
-     * If the server is refed calling ref again will have no effect.
+     * References the socket, preventing it from closing automatically.
+     * Calling `ref` again has no effect if already referenced.
      */
     public ref() {
         this._socket.ref();
         return this;
     }
 
-    /**
-     * Unref the server.
-     * If the server is unrefed calling unref again will have no effect.
+   /**
+     * Unreferences the socket, allowing it to close automatically when no other event loop activity is present.
+     * Calling `unref` again has no effect if already unreferenced.
      */
     public unref() {
         this._socket.unref();
@@ -235,17 +235,17 @@ export default class Server extends EventEmitter {
  */
 export interface IPod {
     /**
-     * True if the entity is available, false otherwise.
+     * `true` if the Pod is available, `false` otherwise.
      */
     available: boolean;
 
     /**
-     * The attributes of entity.
+     * Attributes of the Pod.
      */
     attributes: Attributes | null;
 
     /**
-     * The host address of entity.
+     * Host address of the Pod.
      */
     host: string | null;
 }

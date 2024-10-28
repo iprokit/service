@@ -9,35 +9,35 @@ import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
 /**
- * This class is used to create a SCP server.
- * A `Server` is bound to an IP address and port number and listens for incoming SCP client connections.
+ * Creates an SCP Server bound to an IP address and port number,
+ * listening for incoming SCP client connections.
  *
- * @emits `listening` when the server has been bound after calling `server.listen()`.
+ * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `connection` when a client socket connection is received.
  * @emits `error` when an error occurs.
- * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
+ * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
 export default class Server extends ScpServer implements IServer {
     /**
-     * The unique identifier of the server.
+     * Unique identifier of the server.
      */
     public readonly identifier: string;
 
     /**
-     * The client socket connections.
+     * Client socket connections.
      */
     public declare readonly connections: Array<Connection>;
 
     /**
-     * The executions registered on the server.
+     * Executions registered on the server.
      */
     public readonly executions: Array<Execution>;
 
     /**
-     * Creates an instance of SCP server.
+     * Creates an instance of SCP `Server`.
      * 
-     * @param identifier the unique identifier of the server.
+     * @param identifier unique identifier of the server.
      */
     constructor(identifier: string) {
         super();
@@ -91,10 +91,10 @@ export default class Server extends ScpServer implements IServer {
     /**
      * Recursively loop through the executions to find and execute its handler.
      * 
-     * @param executionIndex the index of the current execution being processed.
-     * @param executions the executions to be processed.
-     * @param incoming the incoming stream.
-     * @param outgoing the outgoing stream.
+     * @param executionIndex index of the current execution being processed.
+     * @param executions executions to be processed.
+     * @param incoming incoming stream.
+     * @param outgoing outgoing stream.
      * @param unwind function called once the processed executions unwind.
      */
     private dispatch(executionIndex: number, executions: Array<Execution>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
@@ -141,8 +141,8 @@ export default class Server extends ScpServer implements IServer {
     //////// Subscribe
     //////////////////////////////
     /**
-     * Registers the subscription from the client socket connection.
-     * Broadcasts can only be sent to subscribed connections.
+     * Registers a subscription from the client socket connection.
+     * Broadcasts are only sent to subscribed connections.
      */
     private async subscribe(incoming: Incoming, outgoing: Outgoing) {
         try {
@@ -209,23 +209,23 @@ export default class Server extends ScpServer implements IServer {
 /////IServer
 //////////////////////////////
 /**
- * Interface of SCP `Server`.
+ * Interface for the SCP `Server`.
  */
 export interface IServer extends IExecutor {
     /**
      * Broadcasts the supplied to all subscribed client socket connections.
-     * Returns the identifiers of the client sockets that successfully received the broadcast.
+     * Returns identifiers of client sockets that successfully received broadcast.
      * 
-     * @param operation the operation pattern.
-     * @param args the arguments to broadcast.
+     * @param operation operation pattern.
+     * @param args arguments to broadcast.
      */
     broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
 
     /**
      * Attaches a executor.
      * 
-     * @param operation the operation pattern.
-     * @param executor the executor to attach.
+     * @param operation operation pattern.
+     * @param executor executor to attach.
      */
     attach: (operation: string, executor: IExecutor) => this;
 }
@@ -234,17 +234,17 @@ export interface IServer extends IExecutor {
 //////// Executor
 //////////////////////////////
 /**
- * This class is used to register executions that handle SCP I/O's.
+ * Registers executions that handle SCP I/O's.
  * Once attached, SCP I/O's are dispatched to the appropriate registered executions.
  */
 export class Executor implements IExecutor {
     /**
-     * The executions registered.
+     * Executions registered.
      */
     public readonly executions: Array<Execution>;
 
     /**
-     * Creates an instance of executor.
+     * Creates an instance of `Executor`.
      */
     constructor() {
         // Initialize variables.
@@ -264,10 +264,10 @@ export class Executor implements IExecutor {
     //////// Factory
     //////////////////////////////
     /**
-     * Applies properties of the `IExecutor` interface to the provided instance,
-     * enabling the registration of executions.
+     * Applies properties of `IExecutor` interface to the provided instance,
+     * enabling registration of executions.
      * 
-     * @param instance the instance to which the `IExecutor` properties are applied.
+     * @param instance instance to which the `IExecutor` properties are applied.
      */
     public static applyProperties<I extends IExecutor>(instance: I) {
         // `IExecutor` properties 😈.
@@ -320,27 +320,27 @@ export class Executor implements IExecutor {
 //////// IExecutor
 //////////////////////////////
 /**
- * Interface of `Executor`.
+ * Interface for the `Executor`.
  */
 export interface IExecutor {
     /**
-     * The executions registered.
+     * Executions registered.
      */
     executions: Array<Execution>;
 
     /**
      * Registers a execution for handling OMNI I/O.
      * 
-     * @param operation the operation pattern.
-     * @param handler the incoming handler function.
+     * @param operation operation pattern.
+     * @param handler incoming handler function.
      */
     omni: (operation: string, handler: IncomingHandler) => this;
 
     /**
-     * Registers a function for execution through a client socket connection.
+     * Registers a asynchronous function for execution through a client socket connection.
      * 
-     * @param operation the operation pattern.
-     * @param func the function to be executed.
+     * @param operation operation pattern.
+     * @param func function to be executed.
      */
     func: <Returned>(operation: string, func: Function<Returned>) => this;
 }
@@ -349,7 +349,7 @@ export interface IExecutor {
 //////// Execution
 //////////////////////////////
 /**
- * The union of an `Segment`/`Nexus`.
+ * Union of `Segment` and `Nexus`.
  */
 export type Execution = Segment | Nexus;
 
@@ -358,17 +358,17 @@ export type Execution = Segment | Nexus;
  */
 export interface Segment {
     /**
-     * The operation pattern of the segment.
+     * Operation pattern of the segment.
      */
     operation: string;
 
     /**
-     * The compiled regular expression to match the operation of the segment.
+     * Compiled regular expression to match operation pattern of the segment.
      */
     regExp: RegExp;
 
     /**
-     * The executions registered in the segment.
+     * Executions registered in the segment.
      */
     executions: Array<Nexus>;
 }
@@ -378,38 +378,38 @@ export interface Segment {
  */
 export interface Nexus {
     /**
-     * The operation pattern of the nexus.
+     * Operation pattern of the nexus.
      */
     operation: string;
 
     /**
-     * The compiled regular expression to match the operation of the nexus.
+     * Compiled regular expression to match operation pattern of the nexus.
      */
     regExp: RegExp;
 
     /**
-     * The incoming handler function of the nexus.
+     * Incoming handler function of the nexus.
      */
     handler: IncomingHandler;
 }
 
 /**
- * The Type definitions of the SCP mode.
+ * Type definition of the SCP mode.
  */
 export type ModeType = typeof Mode[keyof typeof Mode];
 
 /**
- * The incoming handler.
+ * Incoming handler.
  */
 export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
 
 /**
- * The proceed function.
+ * Proceed function.
  */
 export type ProceedFunction = () => void;
 
 /**
- * The remote function.
+ * Remote function.
  */
 export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Returned;
 
@@ -418,17 +418,17 @@ export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Re
 //////////////////////////////
 export interface Connection extends SCP.Connection {
     /**
-     * The unique identifier of the client socket connection.
+     * Unique identifier of the client socket connection.
      */
     identifier: string;
 
     /**
-     * The current incoming stream.
+     * Current incoming stream.
      */
     incoming: Incoming;
 
     /**
-     * The current outgoing stream.
+     * Current outgoing stream.
      */
     outgoing: Outgoing;
 }
@@ -441,27 +441,27 @@ export interface Connection extends SCP.Connection {
  */
 export interface Incoming extends SCP.Incoming {
     /**
-     * The underlying SCP Socket.
+     * Underlying SCP Socket.
      */
     socket: Connection;
 
     /**
-     * The mode of remote function.
+     * Mode of the remote function.
      */
     mode: ModeType;
 
     /**
-     * The segment portion of the operation pattern.
+     * Segment portion of the operation pattern.
      */
     segment: string;
 
     /**
-     * The nexus portion of the operation pattern.
+     * Nexus portion of the operation pattern.
      */
     nexus: string;
 
     /**
-     * Set to true if the segment matched, false otherwise.
+     * `true` if the segment matched, `false` otherwise.
      */
     matched: boolean;
 }
@@ -471,12 +471,12 @@ export interface Incoming extends SCP.Incoming {
  */
 export interface Outgoing extends SCP.Outgoing {
     /**
-     * The underlying SCP Socket.
+     * Underlying SCP Socket.
      */
     socket: Connection;
 
     /**
-     * The mode of remote function.
+     * Mode of the remote function.
      */
     mode: ModeType;
 }

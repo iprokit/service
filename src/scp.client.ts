@@ -11,8 +11,8 @@ import { Mode, Operation } from './scp';
 import Conductor from './scp.conductor';
 
 /**
- * This class implements a simple SCP Client.
- * A `Client` is responsible for managing connection persistence to the server.
+ * Implements a simple SCP Client.
+ * Manages connection persistence to the server.
  * 
  * @emits `connect` when the connection is successfully established.
  * @emits `<operation>` when a broadcast is received.
@@ -21,24 +21,24 @@ import Conductor from './scp.conductor';
  */
 export default class Client extends EventEmitter implements IClient {
     /**
-     * The unique identifier of the client.
+     * Unique identifier of the client.
      */
     public readonly identifier: string;
 
     /**
-     * Returns true when the client is connected, false when destroyed.
+     * `true` when the client is connected, `false` when destroyed.
      */
     private _connected: boolean;
 
     /**
-     * The underlying SCP Socket.
+     * Underlying SCP Socket.
      */
     private _socket!: Socket;
 
     /**
-     * Creates an instance of SCP client.
+     * Creates an instance of SCP `Client`.
      * 
-     * @param identifier the unique identifier of the client.
+     * @param identifier unique identifier of the client.
      */
     constructor(identifier: string) {
         super();
@@ -61,49 +61,49 @@ export default class Client extends EventEmitter implements IClient {
     //////// Gets/Sets
     //////////////////////////////
     /**
-     * Returns true when the client is connected, false otherwise.
+     * `true` when the client is connected, `false` otherwise.
      */
     public get connected() {
         return this._connected;
     }
 
     /**
-     * The remote address of the client.
+     * Remote address of the client.
      */
     public get remoteAddress() {
         return this._socket?.remoteAddress;
     }
 
     /**
-     * The local address of the client.
+     * Local address of the client.
      */
     public get localAddress() {
         return this._socket?.localAddress;
     }
 
     /**
-     * The remote port of the client.
+     * Remote port of the client.
      */
     public get remotePort() {
         return this._socket?.remotePort;
     }
 
     /**
-     * The local port of the client.
+     * Local port of the client.
      */
     public get localPort() {
         return this._socket?.localPort;
     }
 
     /**
-     * The remote family of the client.
+     * Remote family of the client.
      */
     public get remoteFamily() {
         return this._socket?.remoteFamily;
     }
 
     /**
-     * The bound address, the address family name and port of the client as reported by the operating system.
+     * Retrieves the bound address, family, and port of the client as reported by operating system.
      */
     public address() {
         return (this._socket && this.connected) ? this._socket.address() as AddressInfo : null;
@@ -142,7 +142,7 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     /**
-     * FIN packet is received. Ending the writable part of the socket.
+     * FIN packet is received. Ending writable operations on the socket.
      */
     private onEnd() {
         this._socket.destroy();
@@ -232,7 +232,7 @@ export default class Client extends EventEmitter implements IClient {
         // Create socket.
         const socket = new Socket({ emitIncoming: false });
         socket.once('end', () => socket.destroy());
-        socket.connect(this.remotePort as number, this.remoteAddress as string);
+        socket.connect(this.remotePort!, this.remoteAddress!);
 
         // Create incoming.
         (socket as any)._incoming = new Incoming(socket);
@@ -286,11 +286,11 @@ export default class Client extends EventEmitter implements IClient {
     //////// Connection Management
     //////////////////////////////
     /**
-     * Initiate the connection to the server.
+     * Initiates a connection to the server.
      * 
-     * @param port the remote port.
-     * @param host the remote host.
-     * @param callback the optional callback will be added as a listener for the `connect` event once.
+     * @param port remote port.
+     * @param host remote host.
+     * @param callback optional callback added as a one-time listener for the `connect` event.
      */
     public connect(port: number, host: string, callback?: () => void) {
         callback && this.once('connect', callback);
@@ -308,9 +308,9 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     /**
-     * Closes the connection to the server.
+     * Closes connection to the server.
      * 
-     * @param callback the optional callback will be added as a listener for the `close` event once.
+     * @param callback optional callback added as a one-time listener for the `close` event.
      */
     public close(callback?: () => void) {
         if (!this._socket) return this;
@@ -324,8 +324,8 @@ export default class Client extends EventEmitter implements IClient {
     //////// Ref/Unref
     //////////////////////////////
     /**
-     * Ref the socket.
-     * If the socket is refed calling ref again will have no effect.
+     * References the socket, preventing it from closing automatically.
+     * Calling `ref` again has no effect if already referenced.
      */
     public ref() {
         this._socket?.ref();
@@ -333,8 +333,8 @@ export default class Client extends EventEmitter implements IClient {
     }
 
     /**
-     * Unref the socket.
-     * If the socket is unrefed calling unref again will have no effect.
+     * Unreferences the socket, allowing it to close automatically when no other event loop activity is present.
+     * Calling `unref` again has no effect if already unreferenced.
      */
     public unref() {
         this._socket?.unref();
@@ -346,28 +346,28 @@ export default class Client extends EventEmitter implements IClient {
 /////IClient
 //////////////////////////////
 /**
- * Interface of SCP `Client`.
+ * Interface for the SCP `Client`.
  */
 export interface IClient {
     /**
-     * Returns a `Socket` that is connected and configured with single-use `Incoming` and `Outgoing` streams.
+     * Returns a `Socket` that is connected and configured with single-use `Incoming` and `Outgoing` stream.
      */
     Socket: () => Socket;
 
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
      * 
-     * @param operation the operation pattern.
+     * @param operation operation pattern.
      * @param callback called when data is available on the `Incoming` stream.
      */
     omni: (operation: string, callback: (incoming: Incoming) => void) => Outgoing;
 
     /**
-     * Executes a remote function on the server and returns a promise that resolves to the returned value.
-     * A `Conductor` can be passed as the last argument to enable the handling of signals.
+     * Executes an asynchronous remote function on the server and returns a promise resolving to a result.
+     * Pass a `Conductor` as the final argument to handle signals.
      * 
-     * @param operation the operation pattern.
-     * @param args the arguments to be passed to the remote function.
+     * @param operation operation pattern.
+     * @param args arguments to be passed to the remote function.
      */
     execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
 }

@@ -14,8 +14,8 @@ import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
 import ScpClient, { IClient as IScpClient } from './scp.client';
 
 /**
- * Creates a lightweight instance of `Service` for managing HTTP endpoints and facilitating SCP remote function invocation.
- * It ensures smooth communication and coordination by bridging various protocols and managing remote service interactions.
+ * Creates a lightweight `Service` instance for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * Ensures smooth communication and coordination by bridging protocols and managing remote service interactions.
  * 
  * @emits `start` when the service starts.
  * @emits `link` when a link is established.
@@ -24,22 +24,22 @@ import ScpClient, { IClient as IScpClient } from './scp.client';
  */
 export default class Service extends EventEmitter implements IHttpServer, IScpServer {
     /**
-     * The unique identifier of the service.
+     * Unique identifier of the service.
      */
     public readonly identifier: string;
 
     /**
-     * The HTTP server instance.
+     * HTTP server instance.
      */
     public readonly httpServer: HttpServer;
 
     /**
-     * The SCP server instance.
+     * SCP server instance.
      */
     public readonly scpServer: ScpServer;
 
     /**
-     * The SDP server instance.
+     * SDP server instance.
      */
     public readonly sdpServer: SdpServer;
 
@@ -49,9 +49,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     public readonly links: Map<string, Link>;
 
     /**
-     * Creates an instance of service.
+     * Creates an instance of `Service`.
      * 
-     * @param identifier the unique identifier of the service.
+     * @param identifier unique identifier of the service.
      */
     constructor(identifier: string) {
         super();
@@ -78,21 +78,21 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Gets/Sets
     //////////////////////////////
     /**
-     * The HTTP routes registered.
+     * HTTP routes registered.
      */
     public get routes() {
         return this.httpServer.routes;
     }
 
     /**
-     * The SCP executions registered.
+     * SCP executions registered.
      */
     public get executions() {
         return this.scpServer.executions;
     }
 
     /**
-     * True when the servers are listening for connections, false otherwise.
+     * `true` if the servers are listening for connections, `false` otherwise.
      */
     public get listening() {
         return {
@@ -103,7 +103,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * The bound address, the address family name and port of the servers as reported by the operating system.
+     * Retrieves the bound address, family, and port of the servers as reported by the operating system.
      */
     public address() {
         return {
@@ -114,14 +114,14 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * The multicast groups joined.
+     * Multicast groups that have been joined.
      */
     public get memberships() {
         return this.sdpServer.memberships;
     }
 
     /**
-     * The local address of the service.
+     * Local address of the service.
      */
     public get localAddress() {
         return this.sdpServer.localAddress;
@@ -162,7 +162,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Returns a `Link` to the remote service.
      * 
-     * @param identifier the unique identifier of the remote service.
+     * @param identifier unique identifier of the remote service.
      */
     public Link(identifier: string) {
         let link = this.links.get(identifier);
@@ -180,8 +180,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling GET requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public get(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.get(path, ...handlers);
@@ -191,8 +191,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling POST requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public post(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.post(path, ...handlers);
@@ -202,8 +202,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling PUT requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public put(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.put(path, ...handlers);
@@ -213,8 +213,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling PATCH requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public patch(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.patch(path, ...handlers);
@@ -224,8 +224,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling DELETE requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public delete(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.delete(path, ...handlers);
@@ -235,8 +235,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a HTTP route for handling ALL requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     public all(path: string, ...handlers: Array<RequestHandler>) {
         this.httpServer.all(path, ...handlers);
@@ -246,8 +246,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Mounts multiple HTTP routers.
      * 
-     * @param path the path pattern.
-     * @param routers the routers to mount.
+     * @param path path pattern.
+     * @param routers routers to mount.
      */
     public mount(path: string, ...routers: Array<IRouter>) {
         this.httpServer.mount(path, ...routers);
@@ -259,10 +259,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////////////////////////////
     /**
      * Broadcasts the supplied to all remote services.
-     * Returns the identifiers of the remote services that successfully received the broadcast.
+     * Returns identifiers of remote services that successfully received broadcast.
      * 
-     * @param operation the operation pattern.
-     * @param args the arguments to broadcast.
+     * @param operation operation pattern.
+     * @param args arguments to broadcast.
      */
     public broadcast(operation: string, ...args: Array<any>) {
         return this.scpServer.broadcast(operation, ...args);
@@ -271,8 +271,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Attaches a SCP executor.
      * 
-     * @param operation the operation pattern.
-     * @param executor the executor to attach.
+     * @param operation operation pattern.
+     * @param executor executor to attach.
      */
     public attach(operation: string, executor: IExecutor) {
         this.scpServer.attach(operation, executor);
@@ -282,8 +282,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Registers a SCP execution for handling OMNI I/O.
      * 
-     * @param operation the operation pattern.
-     * @param handler the incoming handler function.
+     * @param operation operation pattern.
+     * @param handler incoming handler function.
      */
     public omni(operation: string, handler: IncomingHandler) {
         this.scpServer.omni(operation, handler);
@@ -291,10 +291,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Registers a SCP function for execution through a remote service.
+     * Registers a SCP async function for execution through a remote service.
      * 
-     * @param operation the operation pattern.
-     * @param func the function to be executed.
+     * @param operation operation pattern.
+     * @param func function to be executed.
      */
     public func<Returned>(operation: string, func: Function<Returned>) {
         this.scpServer.func(operation, func);
@@ -305,12 +305,12 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Start/Stop
     //////////////////////////////
     /**
-     * Starts the service by listening on the HTTP, SCP, SDP servers and connecting to the linked remote services.
+     * Starts the service by listening on HTTP, SCP, and SDP servers, connecting to linked remote services.
      * 
-     * @param httpPort the HTTP port.
-     * @param scpPort the SCP port.
-     * @param sdpPort the SDP port.
-     * @param sdpAddress the SDP address of the multicast group.
+     * @param httpPort local HTTP port.
+     * @param scpPort local SCP port.
+     * @param sdpPort local SDP port.
+     * @param sdpAddress address of the SDP multicast group.
      * @emits `start` when the service starts.
      */
     public async start(httpPort: number, scpPort: number, sdpPort: number, sdpAddress: string) {
@@ -336,7 +336,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Stops the service by closing all the servers and disconnecting from the linked remote services.
+     * Stops the service by closing all servers and disconnecting from linked remote services.
      * 
      * @emits `stop` when the service stops.
      */
@@ -370,29 +370,29 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 //////////////////////////////
 /**
  * `Link` class manages both HTTP and SCP interactions with a remote service.
- * It handles HTTP proxying and SCP function invocations.
+ * Handles HTTP proxying and SCP function invocations.
  */
 export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     /**
-     * The unique identifier of the remote service.
+     * Unique identifier of the remote service.
      */
     public readonly identifier: string;
 
     /**
-     * The HTTP `Proxy` instance used to forward requests to the remote service.
+     * HTTP proxy instance.
      */
     public readonly httpProxy: HttpProxy;
 
     /**
-     * The SCP `Client` instance used to communicate with the remote service.
+     * SCP client instance.
      */
     public readonly scpClient: ScpClient;
 
     /**
-     * Creates an instance of link.
+     * Creates an instance of `Link`.
      * 
-     * @param identifier the unique identifier of the remote service.
-     * @param serviceIdentifier the unique identifier of the current service.
+     * @param identifier unique identifier of the remote service.
+     * @param serviceIdentifier unique identifier of the current service.
      */
     constructor(identifier: string, serviceIdentifier: string) {
         super();
@@ -408,6 +408,11 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     //////////////////////////////
     //////// IProxy
     //////////////////////////////
+    /**
+     * Creates a request handler that forwards incoming requests to the target remote service.
+     * 
+     * @param options optional options for forwarding requests.
+     */
     public forward(options?: ForwardOptions) {
         return this.httpProxy.forward(options);
     }
@@ -419,10 +424,23 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
         return this.scpClient.Socket();
     }
 
+    /**
+     * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the remote service.
+     * 
+     * @param operation operation pattern.
+     * @param callback called when data is available on the `Incoming` stream.
+     */
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         return this.scpClient.omni(operation, callback);
     }
 
+    /**
+     * Executes an asynchronous remote function on the remote service and returns a promise resolving to a result.
+     * Pass a `Conductor` as the final argument to handle signals.
+     * 
+     * @param operation operation pattern.
+     * @param args arguments to be passed to the remote function.
+     */
     public execute<Returned>(operation: string, ...args: Array<any>) {
         return this.scpClient.execute<Returned>(operation, ...args);
     }

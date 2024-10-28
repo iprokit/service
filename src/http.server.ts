@@ -7,22 +7,22 @@ import { ParsedUrlQuery } from 'querystring';
 import { Method, RequestHeaders, ResponseHeaders } from './http';
 
 /**
- * This class is used to create a HTTP server.
- * A `Server` is bound to an IP address and port number and listens for incoming HTTP client connections.
+ * Creates an HTTP Server bound to an IP address and port number,
+ * listening for incoming HTTP client connections.
  *
- * @emits `listening` when the server has been bound after calling `server.listen()`.
+ * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `error` when an error occurs.
- * @emits `drop` when the number of connections reaches the threshold of `server.maxConnections`.
+ * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
 export default class Server extends HttpServer implements IServer {
     /**
-     * The routes registered on the server.
+     * Routes registered on the server.
      */
     public readonly routes: Array<Route>;
 
     /**
-     * Creates an instance of HTTP server.
+     * Creates an instance of HTTP `Server`.
      */
     constructor() {
         super();
@@ -48,8 +48,8 @@ export default class Server extends HttpServer implements IServer {
      */
     private onRequest(request: Request, response: Response) {
         // Set: Request.
-        const { pathname, query } = URL.parse(request.url as string, true);
-        request.path = pathname as string;
+        const { pathname, query } = URL.parse(request.url!, true);
+        request.path = pathname!;
         request.query = query;
 
         // Below line will blow your mind! 🤯
@@ -62,12 +62,12 @@ export default class Server extends HttpServer implements IServer {
     /**
      * Recursively loop through the routes to find and execute its handler.
      * 
-     * @param routeIndex the index of the current route being processed.
-     * @param stackIndex the index of the current stack being processed.
-     * @param handlerIndex the index of the current handler being processed.
-     * @param routes the routes to be processed.
-     * @param request the incoming request.
-     * @param response the outgoing response. 
+     * @param routeIndex index of the current route being processed.
+     * @param stackIndex index of the current stack being processed.
+     * @param handlerIndex index of the current handler being processed.
+     * @param routes routes to be processed.
+     * @param request incoming request.
+     * @param response outgoing response. 
      * @param unwind function called once the processed routes unwind.
      */
     private dispatch(routeIndex: number, stackIndex: number, handlerIndex: number, routes: Array<Route>, request: Request, response: Response, unwind: () => void) {
@@ -134,7 +134,7 @@ export default class Server extends HttpServer implements IServer {
 /////IServer
 //////////////////////////////
 /**
- * Interface of HTTP `Server`.
+ * Interface for the HTTP `Server`.
  */
 export interface IServer extends IRouter { }
 
@@ -142,17 +142,17 @@ export interface IServer extends IRouter { }
 /////Router
 //////////////////////////////
 /**
- * This class is used to register routes that handle HTTP requests.
+ * Registers routes that handle HTTP requests.
  * Once mounted, HTTP requests are dispatched to the appropriate registered routes.
  */
 export class Router implements IRouter {
     /**
-     * The routes registered.
+     * Routes registered.
      */
     public readonly routes: Array<Route>;
 
     /**
-     * Creates an instance of router.
+     * Creates an instance of `Router`.
      */
     constructor() {
         // Initialize Variables.
@@ -177,10 +177,10 @@ export class Router implements IRouter {
     //////// Factory
     //////////////////////////////
     /**
-     * Applies properties of the `IRouter` interface to the provided instance,
-     * enabling the registration of routes.
+     * Applies properties of `IRouter` interface to the provided instance,
+     * enabling registration of routes.
      * 
-     * @param instance the instance to which the `IRouter` properties are applied.
+     * @param instance instance to which the `IRouter` properties are applied.
      */
     public static applyProperties<I extends IRouter>(instance: I) {
         // Factory for handling path transformations.
@@ -224,67 +224,67 @@ export class Router implements IRouter {
 /////IRouter
 //////////////////////////////
 /**
- * Interface of `Router`.
+ * Interface for the `Router`.
  */
 export interface IRouter {
     /**
-     * The routes registered.
+     * Routes registered.
      */
     routes: Array<Route>;
 
     /**
      * Registers a route for handling GET requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     get: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Registers a route for handling POST requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     post: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Registers a route for handling PUT requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     put: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Registers a route for handling PATCH requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     patch: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Registers a route for handling DELETE requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     delete: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Registers a route for handling ALL requests.
      * 
-     * @param path the path pattern.
-     * @param handlers the request handler functions.
+     * @param path path pattern.
+     * @param handlers request handler functions.
      */
     all: (path: string, ...handlers: Array<RequestHandler>) => this;
 
     /**
      * Mounts multiple routers.
      * 
-     * @param path the path pattern.
-     * @param routers the routers to mount.
+     * @param path path pattern.
+     * @param routers routers to mount.
      */
     mount: (path: string, ...routers: Array<IRouter>) => this;
 }
@@ -293,7 +293,7 @@ export interface IRouter {
 /////Route
 //////////////////////////////
 /**
- * The union of an `Stack`/`Endpoint`.
+ * Union of `Stack` and `Endpoint`.
  */
 export type Route = Stack | Endpoint;
 
@@ -302,17 +302,17 @@ export type Route = Stack | Endpoint;
  */
 export interface Stack {
     /**
-     * The path pattern of the stack.
+     * Path pattern of the stack.
      */
     path: string;
 
     /**
-     * The compiled regular expression to match the path pattern of the stack.
+     * Compiled regular expression to match path pattern of the stack.
      */
     regExp: RegExp;
 
     /**
-     * The routes registered in the stack.
+     * Routes registered in the stack.
      */
     routes: Array<Array<Route>>;
 }
@@ -322,43 +322,43 @@ export interface Stack {
  */
 export interface Endpoint {
     /**
-     * The HTTP method of the endpoint.
+     * HTTP method of the endpoint.
      */
     method: MethodType;
 
     /**
-     * The path pattern of the endpoint.
+     * Path pattern of the endpoint.
      */
     path: string;
 
     /**
-     * The compiled regular expression to match the path pattern of the endpoint.
+     * Compiled regular expression to match path pattern of the endpoint.
      */
     regExp: RegExp;
 
     /**
-     * The list of parameter names extracted from the path pattern of the endpoint.
+     * List of parameter names extracted from the endpoint's path pattern.
      */
     paramKeys: Array<string>;
 
     /**
-     * The request handler functions of the endpoint.
+     * Request handler functions of the endpoint.
      */
     handlers: Array<RequestHandler>;
 }
 
 /**
- * The Type definitions of the HTTP method.
+ * Type definition of the HTTP method.
  */
 export type MethodType = typeof Method[keyof typeof Method];
 
 /**
- * The request handler.
+ * Request handler.
  */
 export type RequestHandler = (request: Request, response: Response, next: NextFunction) => void;
 
 /**
- * The next function.
+ * Next function.
  */
 export type NextFunction = () => void;
 
@@ -370,27 +370,27 @@ export type NextFunction = () => void;
  */
 export interface Request extends HTTP.IncomingMessage {
     /**
-     * The request headers.
+     * Request headers.
      */
     headers: RequestHeaders;
 
     /**
-     * The path portion of the URL.
+     * Path portion of the URL.
      */
     path: string;
 
     /**
-     * The parameters extracted from the URL.
+     * Parameters extracted from the URL.
      */
     params: Record<string, string>;
 
     /**
-     * The query parameters.
+     * Query parameters.
      */
     query: ParsedUrlQuery;
 
     /**
-     * The matched endpoint.
+     * Matched endpoint.
      */
     endpoint: Endpoint;
 }
@@ -400,7 +400,7 @@ export interface Request extends HTTP.IncomingMessage {
  */
 export interface Response extends HTTP.ServerResponse {
     /**
-     * The response headers.
+     * Response headers.
      */
     headers: ResponseHeaders;
 }
