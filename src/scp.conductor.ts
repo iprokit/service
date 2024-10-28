@@ -3,7 +3,10 @@ import { once } from 'events';
 import { Transform } from 'stream';
 
 // Import @iprolab Libs.
-import { Signal, Tags, Incoming, Outgoing } from '@iprolab/scp';
+import { Incoming, Outgoing } from '@iprolab/scp';
+
+// Import Local.
+import { Signal, Tags } from './scp';
 
 export default class Conductor extends Transform {
     public incoming!: Incoming;
@@ -30,7 +33,7 @@ export default class Conductor extends Transform {
     //////// Transform
     //////////////////////////////
     _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
-        if (chunk instanceof Signal) {
+        if (typeof chunk !== 'string') {
             if (chunk.event === 'SOB') {
                 this.emit('SOB');
             } else if (chunk.event === 'EOB') {
@@ -54,13 +57,13 @@ export default class Conductor extends Transform {
                 await once(this, 'readable');
                 continue;
             }
-            if (chunk instanceof Signal && chunk.event === 'SOB') {
+            if (typeof chunk !== 'string' && chunk.event === 'SOB') {
                 continue;
             }
             if (typeof chunk === 'string') {
                 yield chunk;
             }
-            if (chunk instanceof Signal && chunk.event === 'EOB') {
+            if (typeof chunk !== 'string' && chunk.event === 'EOB') {
                 return;
             }
         }

@@ -1,6 +1,18 @@
+// Import @iprolab Libs.
+import SCP, { Parameters as ScpParameters, Tags as ScpTags } from '@iprolab/scp';
+
 //////////////////////////////
-//////// Mode
+//////// RFI
 //////////////////////////////
+export class RFI extends SCP.RFI {
+    public declare readonly mode: ModeType;
+    public declare readonly parameters: Parameters;
+
+    constructor(mode: ModeType, operation: string, parameters?: Parameters) {
+        super(mode, operation, parameters);
+    }
+}
+
 export namespace Mode {
     /**
      * SCP SUBSCRIBE mode.
@@ -19,3 +31,23 @@ export namespace Mode {
 }
 
 export type ModeType = typeof Mode[keyof typeof Mode];
+
+export interface Parameters extends ScpParameters {
+    'CID'?: string;
+    'SID'?: string;
+    'FORMAT'?: 'OBJECT';
+    'STATUS'?: 'OK' | 'ERROR';
+}
+
+//////////////////////////////
+//////// Signal
+//////////////////////////////
+export class Signal extends SCP.Signal {
+    public declare readonly tags: Tags;
+
+    constructor(event: string, tags?: Tags) {
+        super(event, tags);
+    }
+}
+
+export interface Tags extends ScpTags { }

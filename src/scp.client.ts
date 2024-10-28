@@ -4,10 +4,10 @@ import { promises as Stream } from 'stream';
 import { AddressInfo } from 'net';
 
 // Import @iprolab Libs.
-import { RFI, Socket, Incoming, Outgoing } from '@iprolab/scp';
+import { Socket, Incoming, Outgoing } from '@iprolab/scp';
 
 // Import Local.
-import { Mode } from './scp';
+import { RFI, Mode } from './scp';
 import Conductor from './scp.conductor';
 
 /**
