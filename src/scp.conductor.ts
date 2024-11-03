@@ -3,10 +3,10 @@ import { once } from 'events';
 import { Transform } from 'stream';
 
 // Import @iprolab Libs.
-import { Incoming, Outgoing } from '@iprolab/scp';
+import { Signal, Tags } from '@iprolab/scp';
 
 // Import Local.
-import { Signal, Tags } from './scp';
+import { Incoming, Outgoing } from './scp';
 
 export default class Conductor extends Transform {
     public incoming!: Incoming;

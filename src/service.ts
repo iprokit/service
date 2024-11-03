@@ -4,10 +4,10 @@ import { AddressInfo } from 'net';
 
 // Import @iprolab Libs.
 import { Attributes } from '@iprolab/sdp';
-import { Incoming } from '@iprolab/scp';
 
 // Import Local.
 import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
+import { Incoming } from './scp';
 import ScpServer, { IServer as IScpServer, IExecutor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
 import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
@@ -420,10 +420,6 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     //////////////////////////////
     //////// IClient
     //////////////////////////////
-    public Socket() {
-        return this.scpClient.Socket();
-    }
-
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the remote service.
      * 

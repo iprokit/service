@@ -5,7 +5,7 @@ import { promises as Stream } from 'stream';
 import SCP from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Mode, ModeType } from './scp';
+import { RFI, Incoming as _Incoming, Outgoing as _Outgoing } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -69,9 +69,9 @@ export default class Server extends SCP.Server implements IServer {
         // Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
-        if (incoming.mode === Mode.SUBSCRIBE) {
+        if (incoming.mode === 'SUBSCRIBE') {
             this.subscribe(incoming, outgoing);
-        } else if (incoming.mode === Mode.OMNI) {
+        } else if (incoming.mode === 'OMNI') {
             // Set: Incoming.
             const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
             const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
@@ -175,7 +175,7 @@ export default class Server extends SCP.Server implements IServer {
                     new Promise<string>((resolve, reject) =>
                         connection.createOutgoing(async (outgoing) => {
                             try {
-                                outgoing.setRFI(new RFI(Mode.BROADCAST, operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
+                                outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
                                 outgoing.end(JSON.stringify(args));
                                 await Stream.finished(outgoing);
                                 resolve(connection.identifier);
@@ -434,16 +434,11 @@ export interface Connection extends InstanceType<typeof SCP.Connection> {
 /**
  * Represents an incoming SCP.
  */
-export interface Incoming extends InstanceType<typeof SCP.Incoming> {
+export interface Incoming extends _Incoming {
     /**
      * Underlying SCP Socket.
      */
     socket: Connection;
-
-    /**
-     * Mode of the remote function.
-     */
-    mode: ModeType;
 
     /**
      * Segment portion of the operation pattern.
@@ -464,14 +459,9 @@ export interface Incoming extends InstanceType<typeof SCP.Incoming> {
 /**
  * Represents an outgoing SCP.
  */
-export interface Outgoing extends InstanceType<typeof SCP.Outgoing> {
+export interface Outgoing extends _Outgoing {
     /**
      * Underlying SCP Socket.
      */
     socket: Connection;
-
-    /**
-     * Mode of the remote function.
-     */
-    mode: ModeType;
 }

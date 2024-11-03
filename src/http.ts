@@ -4,39 +4,7 @@ import HTTP from 'http';
 //////////////////////////////
 //////// Method
 //////////////////////////////
-export namespace Method {
-    /**
-     * HTTP GET method.
-     */
-    export const GET = 'GET' as const;
-
-    /**
-     * HTTP POST method.
-     */
-    export const POST = 'POST' as const;
-
-    /**
-     * HTTP PUT method.
-     */
-    export const PUT = 'PUT' as const;
-
-    /**
-     * HTTP PATCH method.
-     */
-    export const PATCH = 'PATCH' as const;
-
-    /**
-     * HTTP DELETE method.
-     */
-    export const DELETE = 'DELETE' as const;
-
-    /**
-     * HTTP ALL method.
-     */
-    export const ALL = 'ALL' as const;
-}
-
-export type MethodType = typeof Method[keyof typeof Method];
+export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
 
 //////////////////////////////
 //////// Headers

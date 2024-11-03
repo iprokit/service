@@ -1,53 +1,39 @@
 // Import @iprolab Libs.
-import SCP, { Parameters as ScpParameters, Tags as ScpTags } from '@iprolab/scp';
+import SCP, { Parameters as ScpParameters } from '@iprolab/scp';
 
 //////////////////////////////
 //////// RFI
 //////////////////////////////
 export class RFI extends SCP.RFI {
-    public declare readonly mode: ModeType;
+    public declare readonly mode: Mode;
     public declare readonly parameters: Parameters;
 
-    constructor(mode: ModeType, operation: string, parameters?: Parameters) {
+    constructor(mode: Mode, operation: string, parameters?: Parameters) {
         super(mode, operation, parameters);
     }
 }
 
-export namespace Mode {
-    /**
-     * SCP SUBSCRIBE mode.
-     */
-    export const SUBSCRIBE = 'SUBSCRIBE' as const;
-
-    /**
-     * SCP OMNI mode.
-     */
-    export const OMNI = 'OMNI' as const;
-
-    /**
-     * SCP BROADCAST mode.
-     */
-    export const BROADCAST = 'BROADCAST' as const;
-}
-
-export type ModeType = typeof Mode[keyof typeof Mode];
+export type Mode = 'SUBSCRIBE' | 'OMNI' | 'BROADCAST';
 
 export interface Parameters extends ScpParameters {
     'CID'?: string;
     'SID'?: string;
     'FORMAT'?: 'OBJECT';
+    'CONDUCTOR'?: 'TRUE';
     'STATUS'?: 'OK' | 'ERROR';
 }
 
 //////////////////////////////
-//////// Signal
+//////// Incoming/Outgoing
 //////////////////////////////
-export class Signal extends SCP.Signal {
-    public declare readonly tags: Tags;
-
-    constructor(event: string, tags?: Tags) {
-        super(event, tags);
-    }
+export interface Incoming extends InstanceType<typeof SCP.Incoming> {
+    rfi: RFI;
+    mode: Mode;
+    parameters: Parameters;
 }
 
-export interface Tags extends ScpTags { }
+export interface Outgoing extends InstanceType<typeof SCP.Outgoing> {
+    rfi: RFI;
+    mode: Mode;
+    parameters: Parameters;
+}
