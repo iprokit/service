@@ -5,7 +5,7 @@ import { promises as Stream } from 'stream';
 import SCP from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Incoming, Outgoing } from './scp';
+import { RFI, Incoming, Outgoing } from './scp.common';
 import Conductor from './scp.conductor';
 
 /**

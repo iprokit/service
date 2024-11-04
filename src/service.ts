@@ -7,7 +7,7 @@ import { Attributes } from '@iprolab/sdp';
 
 // Import Local.
 import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
-import { Incoming } from './scp';
+import { Incoming } from './scp.common';
 import ScpServer, { IServer as IScpServer, IExecutor, IncomingHandler, Function } from './scp.server';
 import SdpServer from './sdp.server';
 import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';

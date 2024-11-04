@@ -4,7 +4,7 @@ import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
 // Import Local.
-import { Method, RequestHeaders, ResponseHeaders } from './http';
+import { Method, RequestHeaders, ResponseHeaders } from './http.common';
 
 /**
  * Creates an HTTP Server bound to an IP address and port number,
