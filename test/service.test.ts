@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import Service, { HttpStatusCode, Link } from '../lib';
+import Service, { Link, HTTP } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -147,7 +147,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(request.method, 'POST');
                 assert.deepStrictEqual(request.url, '/endpoint');
                 assert.deepStrictEqual(request.headers['x-proxy-identifier'], serviceA.identifier);
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(HTTP.StatusCode.OK);
             });
 
             // Client
@@ -155,7 +155,7 @@ mocha.describe('Service Test', () => {
             const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], linkB.identifier);
             assert.deepStrictEqual(response.headers['x-proxy-identifier'], serviceA.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, HTTP.StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 

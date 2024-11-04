@@ -4,22 +4,22 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import { HttpMethod, HttpStatusCode, HttpServer, Router, IRouter, Stack, Endpoint, RequestHandler, HttpProxy, ForwardOptions } from '../lib';
+import { Server, Router, IRouter, Stack, Endpoint, RequestHandler, Method, Proxy, ForwardOptions, StatusCode } from '../lib/http';
 import { createString, createIdentifier, clientRequest } from './util';
 
 const host = '127.0.0.1';
 const port = 3000;
 
 mocha.describe('HTTP Test', () => {
-    let server: HttpServer;
+    let server: Server;
 
     mocha.beforeEach(() => {
-        server = new HttpServer(createIdentifier());
+        server = new Server(createIdentifier());
     });
 
     mocha.describe('Register Test', () => {
         const handlers = Array<RequestHandler>(3).fill((request, response, next) => { });
-        const validateEndpoint = (endpoint: Endpoint, method: HttpMethod, path: string, paramKeys: Array<string>, handlers: Array<RequestHandler>) => {
+        const validateEndpoint = (endpoint: Endpoint, method: Method, path: string, paramKeys: Array<string>, handlers: Array<RequestHandler>) => {
             assert.deepStrictEqual(endpoint.method, method);
             assert.deepStrictEqual(endpoint.path, path);
             assert.notDeepStrictEqual(endpoint.regExp, undefined);
@@ -198,7 +198,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.post('/endpoint/:param1', errorHandler);
             server.put('/endpoint/:param1', errorHandler);
@@ -209,7 +209,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -222,7 +222,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.put('/endpoint/:param1', errorHandler);
             server.patch('/endpoint/:param1', errorHandler);
@@ -232,7 +232,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -246,7 +246,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.patch('/endpoint/:param1', errorHandler);
             server.delete('/endpoint/:param1', errorHandler);
@@ -255,7 +255,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'PUT', '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -270,7 +270,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.delete('/endpoint/:param1', errorHandler);
 
@@ -278,7 +278,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'PATCH', '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -294,14 +294,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1');
                 assert.deepStrictEqual(request.params, { param1: '1' });
                 assert.deepStrictEqual({ ...request.query }, { query1: '1' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'DELETE', '/endpoint/1?query1=1', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -311,14 +311,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -328,14 +328,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -345,14 +345,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1//333/');
                 assert.deepStrictEqual(request.params, { param1: '1', param2: undefined, param3: '333', param4: undefined });
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1//333/', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -362,14 +362,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, { query1: '1', query2: '22', query3: '333', query4: '4444' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint?query1=1&query2=22&query3=333&query4=4444', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -379,14 +379,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, { query1: '', query2: '', query3: '', query4: '' });
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint?query1=&query2=&query3=&query4=', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -405,14 +405,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -424,14 +424,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, longPath);
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', longPath, requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -441,14 +441,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -458,14 +458,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/special!@$%*([');
                 assert.deepStrictEqual(request.params, { param1: 'special!@$%*([' });
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/special!@$%*([', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -476,14 +476,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -503,14 +503,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -520,7 +520,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.get('/endpoint/:param1', errorHandler);
 
@@ -528,7 +528,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -546,14 +546,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint/123');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/123', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -571,14 +571,14 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -589,7 +589,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.mount('/', router);
 
@@ -597,7 +597,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -611,7 +611,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.mount('/', router1);
             router1.mount('/a', router2);
@@ -622,7 +622,7 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/a/b/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -643,7 +643,7 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(request.path, '/endpoint');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
-                request.pipe(response).writeHead(HttpStatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
             server.mount('/', router1);
             router1.mount('/a', router2);
@@ -652,14 +652,14 @@ mocha.describe('HTTP Test', () => {
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/a/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-            assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
     });
 
     mocha.describe('Proxy Test', () => {
         mocha.describe('Configuration Test', () => {
-            const validateConfiguration = (proxy: HttpProxy, host: string | undefined, port: number | undefined, configured: boolean) => {
+            const validateConfiguration = (proxy: Proxy, host: string | undefined, port: number | undefined, configured: boolean) => {
                 assert.deepStrictEqual(proxy.host, host);
                 assert.deepStrictEqual(proxy.port, port);
                 assert.deepStrictEqual(proxy.configured, configured);
@@ -667,7 +667,7 @@ mocha.describe('HTTP Test', () => {
 
             mocha.it('should configure/deconfigure proxy', () => {
                 const identifier = createIdentifier();
-                const proxy = new HttpProxy(identifier);
+                const proxy = new Proxy(identifier);
                 assert.deepStrictEqual(proxy.identifier, identifier);
                 validateConfiguration(proxy, undefined, undefined, false);
                 proxy.configure(port, host);
@@ -678,13 +678,13 @@ mocha.describe('HTTP Test', () => {
         });
 
         mocha.describe('Forward Test', () => {
-            let targetServer: HttpServer;
+            let targetServer: Server;
 
             mocha.beforeEach(async () => {
                 server.listen(port);
                 await once(server, 'listening');
 
-                targetServer = new HttpServer(createIdentifier());
+                targetServer = new Server(createIdentifier());
                 targetServer.listen(port + 1);
                 await once(targetServer, 'listening');
             });
@@ -699,7 +699,7 @@ mocha.describe('HTTP Test', () => {
 
             mocha.it('should forward request to target server', async () => {
                 // Proxy
-                const proxy = new HttpProxy(createIdentifier());
+                const proxy = new Proxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
                 // Server
@@ -710,7 +710,7 @@ mocha.describe('HTTP Test', () => {
                     assert.deepStrictEqual(request.method, 'POST');
                     assert.deepStrictEqual(request.url, '/endpoint');
                     assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
-                    request.pipe(response).writeHead(HttpStatusCode.OK);
+                    request.pipe(response).writeHead(StatusCode.OK);
                 });
 
                 // Client
@@ -718,13 +718,13 @@ mocha.describe('HTTP Test', () => {
                 const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/endpoint', requestBody);
                 assert.deepStrictEqual(response.headers['x-server-identifier'], targetServer.identifier);
                 assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
-                assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
+                assert.deepStrictEqual(response.statusCode, StatusCode.OK);
                 assert.deepStrictEqual(responseBody, requestBody);
             });
 
             mocha.it('should forward request to target server with options', async () => {
                 // Proxy
-                const proxy = new HttpProxy(createIdentifier());
+                const proxy = new Proxy(createIdentifier());
                 proxy.configure(port + 1, host);
 
                 // Server
@@ -747,7 +747,7 @@ mocha.describe('HTTP Test', () => {
                     assert.deepStrictEqual(request.url, '/endpoint');
                     assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
                     assert.deepStrictEqual(request.headers['x-proxy'], '1');
-                    request.pipe(response).writeHead(HttpStatusCode.CREATED);
+                    request.pipe(response).writeHead(StatusCode.CREATED);
                 });
 
                 // Client
@@ -756,19 +756,19 @@ mocha.describe('HTTP Test', () => {
                 assert.deepStrictEqual(response.headers['x-server-identifier'], targetServer.identifier);
                 assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
                 assert.deepStrictEqual(response.headers['x-proxy'], '2');
-                assert.deepStrictEqual(response.statusCode, HttpStatusCode.CREATED);
+                assert.deepStrictEqual(response.statusCode, StatusCode.CREATED);
                 assert.deepStrictEqual(responseBody, requestBody);
             });
 
             mocha.it('should forward Error', async () => {
                 // Proxy
-                const proxy = new HttpProxy(createIdentifier());
+                const proxy = new Proxy(createIdentifier());
                 proxy.configure(port + 10, host);
 
                 // Server
                 const options: ForwardOptions = {
                     onError: (error, response) => {
-                        response.writeHead(HttpStatusCode.INTERNAL_SERVER_ERROR).end(error.message);
+                        response.writeHead(StatusCode.INTERNAL_SERVER_ERROR).end(error.message);
                     }
                 }
                 server.all('/api/*', proxy.forward(options));
@@ -778,7 +778,7 @@ mocha.describe('HTTP Test', () => {
                 const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/api/endpoint', requestBody);
                 assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
                 assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
-                assert.deepStrictEqual(response.statusCode, HttpStatusCode.INTERNAL_SERVER_ERROR);
+                assert.deepStrictEqual(response.statusCode, StatusCode.INTERNAL_SERVER_ERROR);
                 assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
             });
         });

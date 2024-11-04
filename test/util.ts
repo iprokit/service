@@ -3,7 +3,8 @@ import { Readable } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 // Import Local.
-import { HttpMethod, Incoming, IScpClient } from '../lib';
+import { Method } from '../lib/http';
+import { IClient, Incoming } from '../lib/scp';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -26,7 +27,7 @@ export async function read<R extends Readable>(readable: R) {
     return chunks;
 }
 
-export function clientRequest(host: string, port: number, method: HttpMethod, path: string, body: string) {
+export function clientRequest(host: string, port: number, method: Method, path: string, body: string) {
     return new Promise<{ response: IncomingMessage, body: string }>((resolve, reject) => {
         const headers = { 'Content-Length': Buffer.byteLength(body) }
         const request = http.request({ host, port, method, path, headers }, async (response) => {
@@ -41,7 +42,7 @@ export function clientRequest(host: string, port: number, method: HttpMethod, pa
     });
 }
 
-export function clientOmni<C extends IScpClient>(client: C, operation: string, data: string) {
+export function clientOmni<C extends IClient>(client: C, operation: string, data: string) {
     return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
         const outgoing = client.omni(operation, async (incoming) => {
             try {

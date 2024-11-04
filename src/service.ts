@@ -2,16 +2,10 @@
 import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
-// Import @iprolab Libs.
-import { Attributes } from '@iprolab/sdp';
-
 // Import Local.
-import HttpServer, { IServer as IHttpServer, IRouter, RequestHandler } from './http.server';
-import { Incoming } from './scp.common';
-import ScpServer, { IServer as IScpServer, IExecutor, IncomingHandler, Function } from './scp.server';
-import SdpServer from './sdp.server';
-import HttpProxy, { IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
-import ScpClient, { IClient as IScpClient } from './scp.client';
+import { Server as HttpServer, IServer as IHttpServer, IRouter, RequestHandler, Proxy as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http';
+import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, Function, Client as ScpClient, IClient as IScpClient, Incoming } from './scp';
+import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
 
 /**
  * Creates a lightweight `Service` instance for managing HTTP endpoints and facilitating SCP remote function invocation.
@@ -323,8 +317,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         await once(this.scpServer, 'listening');
 
         // SDP
-        this.sdpServer.attributes['http'] = String(httpPort);
-        this.sdpServer.attributes['scp'] = String(scpPort);
+        (this.sdpServer.attributes as Attributes)['http'] = String(httpPort);
+        (this.sdpServer.attributes as Attributes)['scp'] = String(scpPort);
         this.sdpServer.listen(sdpPort, sdpAddress);
         await once(this.sdpServer, 'listening');
 
@@ -458,4 +452,12 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
         this.scpClient.off(operation, listener);
         return this;
     }
+}
+
+//////////////////////////////
+//////// Attributes
+//////////////////////////////
+export interface Attributes extends SdpAttributes {
+    http: string;
+    scp: string;
 }

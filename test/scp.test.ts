@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 // Import Local.
-import { Signal, Tags, ScpServer, Executor, Segment, Nexus, IncomingHandler, ScpClient, Conductor } from '../lib';
+import { Server, Executor, Segment, Nexus, IncomingHandler, Client, Conductor, Signal, Tags } from '../lib/scp';
 import { createString, createIdentifier, clientOmni } from './util';
 
 const host = '127.0.0.1';
@@ -15,22 +15,22 @@ mocha.describe('SCP Test', () => {
     mocha.describe('Constructor Test', () => {
         mocha.it('should construct server', () => {
             const identifier = createIdentifier();
-            const server = new ScpServer(identifier);
+            const server = new Server(identifier);
             assert.deepStrictEqual(server.identifier, identifier);
         });
 
         mocha.it('should construct client', () => {
             const identifier = createIdentifier();
-            const client = new ScpClient(identifier);
+            const client = new Client(identifier);
             assert.deepStrictEqual(client.identifier, identifier);
         });
     });
 
     mocha.describe('Connection Test', () => {
-        let server: ScpServer;
+        let server: Server;
 
         mocha.beforeEach(async () => {
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
             server.listen(port);
             await once(server, 'listening');
         });
@@ -45,7 +45,7 @@ mocha.describe('SCP Test', () => {
             let connect = 0, close = 0;
 
             // Client
-            const client = new ScpClient(createIdentifier());
+            const client = new Client(createIdentifier());
             assert.deepStrictEqual(client.address(), null);
             client.on('connect', () => {
                 connect++;
@@ -72,7 +72,7 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should emit close event on server close', (done) => {
             // Client
-            const client = new ScpClient(createIdentifier());
+            const client = new Client(createIdentifier());
             client.on('close', () => {
                 done();
             });
@@ -87,17 +87,17 @@ mocha.describe('SCP Test', () => {
     });
 
     mocha.describe('Broadcast Test', () => {
-        let server: ScpServer;
-        let client: ScpClient;
+        let server: Server;
+        let client: Client;
 
         const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
 
         mocha.beforeEach(async () => {
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
             server.listen(port);
             await once(server, 'listening');
 
-            client = new ScpClient(createIdentifier());
+            client = new Client(createIdentifier());
             client.connect(port, host);
             await once(client, 'connect');
         });
@@ -141,7 +141,7 @@ mocha.describe('SCP Test', () => {
     });
 
     mocha.describe('Register Test', () => {
-        let server: ScpServer;
+        let server: Server;
 
         const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
         const validateNexus = (nexus: Nexus, operation: string, handler: IncomingHandler) => {
@@ -151,7 +151,7 @@ mocha.describe('SCP Test', () => {
         }
 
         mocha.beforeEach(() => {
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
         });
 
         mocha.it('should register OMNI execution', () => {
@@ -166,12 +166,12 @@ mocha.describe('SCP Test', () => {
     });
 
     mocha.describe('Attach Test', () => {
-        let server: ScpServer;
+        let server: Server;
 
         const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
 
         mocha.beforeEach(() => {
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
         });
 
         mocha.it('should attach executor', () => {
@@ -202,8 +202,8 @@ mocha.describe('SCP Test', () => {
 
     mocha.describe('Dispatch Test', () => {
         let proceedCalled: number;
-        let server: ScpServer;
-        let client: ScpClient;
+        let server: Server;
+        let client: Client;
 
         const proceedHandler: IncomingHandler = (incoming, outgoing, proceed) => {
             proceedCalled++;
@@ -216,11 +216,11 @@ mocha.describe('SCP Test', () => {
 
         mocha.beforeEach(async () => {
             proceedCalled = 0;
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
             server.listen(port);
             await once(server, 'listening');
 
-            client = new ScpClient(createIdentifier());
+            client = new Client(createIdentifier());
             client.connect(port, host);
             await once(client, 'connect');
         });
@@ -377,17 +377,17 @@ mocha.describe('SCP Test', () => {
     });
 
     mocha.describe('Remote Function Test', () => {
-        let server: ScpServer;
-        let client: ScpClient;
+        let server: Server;
+        let client: Client;
 
         const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
 
         mocha.beforeEach(async () => {
-            server = new ScpServer(createIdentifier());
+            server = new Server(createIdentifier());
             server.listen(port);
             await once(server, 'listening');
 
-            client = new ScpClient(createIdentifier());
+            client = new Client(createIdentifier());
             client.connect(port, host);
             await once(client, 'connect');
         });

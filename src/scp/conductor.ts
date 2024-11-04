@@ -6,7 +6,7 @@ import { Transform } from 'stream';
 import { Signal, Tags } from '@iprolab/scp';
 
 // Import Local.
-import { Incoming, Outgoing } from './scp.common';
+import { Incoming, Outgoing } from './definitions';
 
 export default class Conductor extends Transform {
     public incoming!: Incoming;

@@ -7,8 +7,8 @@ import { AddressInfo } from 'net';
 import { Socket } from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Incoming, Outgoing } from './scp.common';
-import Conductor from './scp.conductor';
+import { RFI, Incoming, Outgoing } from './definitions';
+import Conductor from './conductor';
 
 /**
  * Implements a simple SCP Client.

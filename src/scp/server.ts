@@ -5,8 +5,8 @@ import { promises as Stream } from 'stream';
 import SCP from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Incoming, Outgoing } from './scp.common';
-import Conductor from './scp.conductor';
+import { RFI, Incoming, Outgoing } from './definitions';
+import Conductor from './conductor';
 
 /**
  * Creates an SCP Server bound to an IP address and port number,

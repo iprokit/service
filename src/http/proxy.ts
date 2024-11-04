@@ -1,9 +1,9 @@
 // Import Libs.
 import Stream from 'stream';
-import HTTP, { RequestOptions, ClientRequest, IncomingMessage as ClientResponse } from 'http';
+import HTTP, { ClientRequest, IncomingMessage as ClientResponse, RequestOptions } from 'http';
 
 // Import Local.
-import { RequestHandler, ServerRequest, ServerResponse } from './http.server';
+import { ServerRequest, ServerResponse, RequestHandler } from './server';
 
 /**
  * Implements a simple HTTP Proxy.

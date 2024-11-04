@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import { Attributes, SdpServer } from '../lib';
+import { Server, Attributes } from '../lib/sdp';
 import { createIdentifier } from './util';
 
 const port = 5000;
@@ -14,7 +14,7 @@ mocha.describe('SDP Test', () => {
     mocha.describe('Constructor Test', () => {
         mocha.it('should construct server', () => {
             const identifier = createIdentifier();
-            const server = new SdpServer(identifier);
+            const server = new Server(identifier);
             assert.deepStrictEqual(server.identifier, identifier);
         });
     });
@@ -23,7 +23,7 @@ mocha.describe('SDP Test', () => {
         mocha.it('should emit listening & close events', (done) => {
             let listening = 0, close = 0;
 
-            const server = new SdpServer(createIdentifier());
+            const server = new Server(createIdentifier());
             assert.deepStrictEqual(server.memberships, []);
             assert.deepStrictEqual(server.localAddress, null);
             assert.deepStrictEqual(server.address(), null);
@@ -51,7 +51,7 @@ mocha.describe('SDP Test', () => {
     });
 
     mocha.describe('Available/Unavailable Test', () => {
-        const on = (server: SdpServer, eventName: string, eventCount: number) => {
+        const on = (server: Server, eventName: string, eventCount: number) => {
             return new Promise<Array<{ identifier: string, attributes: Attributes, host: string }>>((resolve, reject) => {
                 const pods = new Array<{ identifier: string, attributes: Attributes, host: string }>();
                 const listener = (identifier: string, attributes: Attributes, host: string) => {
@@ -71,7 +71,7 @@ mocha.describe('SDP Test', () => {
             const identifierB = Array(serverCount).fill({}).map(() => createIdentifier());
 
             // Start A
-            const serverA = new SdpServer(createIdentifier());
+            const serverA = new Server(createIdentifier());
             serverA.listen(port, address);
             await once(serverA, 'listening');
 
@@ -79,7 +79,7 @@ mocha.describe('SDP Test', () => {
                 const availables = new Set<string>(), unavailables = new Set<string>();
 
                 // Start B
-                const serverB = Array(serverCount).fill({}).map((_, i) => new SdpServer(identifierB[i]));
+                const serverB = Array(serverCount).fill({}).map((_, i) => new Server(identifierB[i]));
                 serverB.forEach((server) => server.listen(port, address));
                 const availableAB = await Promise.all([on(serverA, 'available', serverCount), ...serverB.map((server) => on(server, 'available', serverCount))]);
                 for (const available of availableAB) {

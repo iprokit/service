@@ -2,7 +2,7 @@
 import { EventEmitter } from 'events';
 
 // Import @iprolab Libs.
-import { Pod, Attributes, Socket, Sender } from '@iprolab/sdp';
+import { Socket, Pod, Attributes, Sender } from '@iprolab/sdp';
 
 /**
  * Creates an SDP server bound to a multicast address and port number,
@@ -216,10 +216,10 @@ export default class Server extends EventEmitter {
         return this;
     }
 
-   /**
-     * Unreferences the socket, allowing it to close automatically when no other event loop activity is present.
-     * Calling `unref` again has no effect if already unreferenced.
-     */
+    /**
+      * Unreferences the socket, allowing it to close automatically when no other event loop activity is present.
+      * Calling `unref` again has no effect if already unreferenced.
+      */
     public unref() {
         this._socket.unref();
         return this;
