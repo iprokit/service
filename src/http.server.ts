@@ -17,15 +17,25 @@ import { Method, RequestHeaders, ResponseHeaders } from './http';
  */
 export default class Server extends HTTP.Server implements IServer {
     /**
+     * Unique identifier of the server.
+     */
+    public readonly identifier: string;
+
+    /**
      * Routes registered on the server.
      */
     public readonly routes: Array<Route>;
 
     /**
      * Creates an instance of HTTP `Server`.
+     * 
+     * @param identifier unique identifier of the server.
      */
-    constructor() {
+    constructor(identifier: string) {
         super();
+
+        // Initialize options.
+        this.identifier = identifier;
 
         // Initialize variables.
         this.routes = new Array();
@@ -47,6 +57,9 @@ export default class Server extends HTTP.Server implements IServer {
      * [Method?] is handled by `dispatch` function.
      */
     private onRequest(request: Request, response: Response) {
+        // Set: Response.
+        response.setHeader('x-server-identifier', this.identifier);
+
         // Set: Request.
         const { pathname, query } = URL.parse(request.url!, true);
         request.path = pathname!;

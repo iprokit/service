@@ -60,7 +60,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.identifier = identifier;
 
         // Initialize variables.
-        this.httpServer = new HttpServer();
+        this.httpServer = new HttpServer(this.identifier);
         this.scpServer = new ScpServer(this.identifier);
         this.sdpServer = new SdpServer(this.identifier);
         this.links = new Map();

@@ -11,7 +11,12 @@ export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'ALL';
 //////////////////////////////
 interface Headers {
     /**
-     * Unique identifier of the proxy server.
+     * Unique identifier of the server.
+     */
+    'x-server-identifier'?: string;
+
+    /**
+     * Unique identifier of the proxy.
      */
     'x-proxy-identifier'?: string;
 }

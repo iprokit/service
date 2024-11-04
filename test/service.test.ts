@@ -153,6 +153,8 @@ mocha.describe('Service Test', () => {
             // Client
             const requestBody = createString(1000);
             const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
+            assert.deepStrictEqual(response.headers['x-server-identifier'], linkB.identifier);
+            assert.deepStrictEqual(response.headers['x-proxy-identifier'], serviceA.identifier);
             assert.deepStrictEqual(response.statusCode, HttpStatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
