@@ -3,7 +3,7 @@ import Stream from 'stream';
 import HTTP, { RequestOptions, ClientRequest, IncomingMessage as ClientResponse } from 'http';
 
 // Import Local.
-import { RequestHandler, Request, Response } from './http.server';
+import { RequestHandler, ServerRequest, ServerResponse } from './http.server';
 
 /**
  * Implements a simple HTTP Proxy.
@@ -150,7 +150,7 @@ export interface ForwardOptions {
      * @param request incoming request.
      * @param response outgoing response.
      */
-    onOptions?: (options: RequestOptions, request: Request, response: Response) => void;
+    onOptions?: (options: RequestOptions, request: ServerRequest, response: ServerResponse) => void;
 
     /**
      * Callback function to modify proxy request before it is sent to the target server.
@@ -159,7 +159,7 @@ export interface ForwardOptions {
      * @param request incoming request.
      * @param response outgoing response.
      */
-    onRequest?: (proxyRequest: ClientRequest, request: Request, response: Response) => void;
+    onRequest?: (proxyRequest: ClientRequest, request: ServerRequest, response: ServerResponse) => void;
 
     /**
      * Callback function to modify proxy response before it is sent back to the client.
@@ -168,7 +168,7 @@ export interface ForwardOptions {
      * @param request incoming request.
      * @param response outgoing response.
      */
-    onResponse?: (proxyResponse: ClientResponse, request: Request, response: Response) => void;
+    onResponse?: (proxyResponse: ClientResponse, request: ServerRequest, response: ServerResponse) => void;
 
     /**
      * Callback function to handle errors during the proxy request or response.
@@ -176,5 +176,5 @@ export interface ForwardOptions {
      * @param error error object.
      * @param response outgoing response.
      */
-    onError?: (error: Error, response: Response) => void;
+    onError?: (error: Error, response: ServerResponse) => void;
 }

@@ -5,7 +5,7 @@ import { promises as Stream } from 'stream';
 import SCP from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Incoming as _Incoming, Outgoing as _Outgoing } from './scp';
+import { RFI, Incoming, Outgoing } from './scp';
 import Conductor from './scp.conductor';
 
 /**
@@ -65,7 +65,7 @@ export default class Server extends SCP.Server implements IServer {
      * - Subscribe is handled by `subscribe` function.
      * - Omni is handled by `dispatch` function.
      */
-    private onIncoming(incoming: Incoming, outgoing: Outgoing) {
+    private onIncoming(incoming: ServerIncoming, outgoing: ServerOutgoing) {
         // Set: Outgoing.
         outgoing.set('SID', this.identifier);
 
@@ -97,7 +97,7 @@ export default class Server extends SCP.Server implements IServer {
      * @param outgoing outgoing stream.
      * @param unwind function called once the processed executions unwind.
      */
-    private dispatch(executionIndex: number, executions: Array<Execution>, incoming: Incoming, outgoing: Outgoing, unwind: () => void) {
+    private dispatch(executionIndex: number, executions: Array<Execution>, incoming: ServerIncoming, outgoing: ServerOutgoing, unwind: () => void) {
         // Need I say more.
         if (executionIndex >= executions.length) return unwind();
 
@@ -144,7 +144,7 @@ export default class Server extends SCP.Server implements IServer {
      * Registers a subscription from the client socket connection.
      * Broadcasts are only sent to subscribed connections.
      */
-    private async subscribe(incoming: Incoming, outgoing: Outgoing) {
+    private async subscribe(incoming: ServerIncoming, outgoing: ServerOutgoing) {
         try {
             // Read: Incoming stream.
             incoming.resume();
@@ -396,7 +396,7 @@ export interface Nexus {
 /**
  * Incoming handler.
  */
-export type IncomingHandler = (incoming: Incoming, outgoing: Outgoing, proceed: ProceedFunction) => void;
+export type IncomingHandler = (incoming: ServerIncoming, outgoing: ServerOutgoing, proceed: ProceedFunction) => void;
 
 /**
  * Proceed function.
@@ -420,21 +420,21 @@ export interface Connection extends InstanceType<typeof SCP.Connection> {
     /**
      * Current incoming stream.
      */
-    incoming: Incoming;
+    incoming: ServerIncoming;
 
     /**
      * Current outgoing stream.
      */
-    outgoing: Outgoing;
+    outgoing: ServerOutgoing;
 }
 
 //////////////////////////////
 /////Incoming/Outgoing
 //////////////////////////////
 /**
- * Represents an incoming SCP.
+ * Represents an SCP server incoming.
  */
-export interface Incoming extends _Incoming {
+export interface ServerIncoming extends Incoming {
     /**
      * Underlying SCP Socket.
      */
@@ -457,9 +457,9 @@ export interface Incoming extends _Incoming {
 }
 
 /**
- * Represents an outgoing SCP.
+ * Represents an SCP server outgoing.
  */
-export interface Outgoing extends _Outgoing {
+export interface ServerOutgoing extends Outgoing {
     /**
      * Underlying SCP Socket.
      */

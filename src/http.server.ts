@@ -56,7 +56,7 @@ export default class Server extends HTTP.Server implements IServer {
     /**
      * [Method?] is handled by `dispatch` function.
      */
-    private onRequest(request: Request, response: Response) {
+    private onRequest(request: ServerRequest, response: ServerResponse) {
         // Set: Response.
         response.setHeader('x-server-identifier', this.identifier);
 
@@ -83,7 +83,7 @@ export default class Server extends HTTP.Server implements IServer {
      * @param response outgoing response. 
      * @param unwind function called once the processed routes unwind.
      */
-    private dispatch(routeIndex: number, stackIndex: number, handlerIndex: number, routes: Array<Route>, request: Request, response: Response, unwind: () => void) {
+    private dispatch(routeIndex: number, stackIndex: number, handlerIndex: number, routes: Array<Route>, request: ServerRequest, response: ServerResponse, unwind: () => void) {
         // Need I say more.
         if (routeIndex >= routes.length) return unwind();
 
@@ -363,7 +363,7 @@ export interface Endpoint {
 /**
  * Request handler.
  */
-export type RequestHandler = (request: Request, response: Response, next: NextFunction) => void;
+export type RequestHandler = (request: ServerRequest, response: ServerResponse, next: NextFunction) => void;
 
 /**
  * Next function.
@@ -374,9 +374,9 @@ export type NextFunction = () => void;
 /////Request/Response
 //////////////////////////////
 /**
- * Represents an incoming HTTP request.
+ * Represents an HTTP server request.
  */
-export interface Request extends HTTP.IncomingMessage {
+export interface ServerRequest extends HTTP.IncomingMessage {
     /**
      * Request headers.
      */
@@ -404,9 +404,9 @@ export interface Request extends HTTP.IncomingMessage {
 }
 
 /**
- * Represents an outgoing HTTP response.
+ * Represents an HTTP server response.
  */
-export interface Response extends HTTP.ServerResponse {
+export interface ServerResponse extends HTTP.ServerResponse {
     /**
      * Response headers.
      */
