@@ -6,7 +6,7 @@ import SCP from '@iprolab/scp';
 
 // Import Local.
 import { RFI, Incoming, Outgoing } from './definitions';
-import Conductor from './conductor';
+import { Conductor } from './orchestrator';
 
 /**
  * Creates an SCP Server bound to an IP address and port number,

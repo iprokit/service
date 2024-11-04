@@ -8,7 +8,14 @@ import { Signal, Tags } from '@iprolab/scp';
 // Import Local.
 import { Incoming, Outgoing } from './definitions';
 
-export default class Conductor extends Transform {
+export default class Orchestrator {
+
+}
+
+//////////////////////////////
+//////// Conductor
+//////////////////////////////
+export class Conductor extends Transform {
     public incoming!: Incoming;
     public outgoing!: Outgoing;
 
