@@ -181,7 +181,7 @@ mocha.describe('Service Test', () => {
             const { incoming, data: incomingData } = await clientOmni(linkA, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
-            assert.deepStrictEqual(incoming.get('SID'), serviceA.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], serviceA.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 

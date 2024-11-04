@@ -67,7 +67,7 @@ export default class Server extends SCP.Server implements IServer {
      */
     private onIncoming(incoming: ServerIncoming, outgoing: ServerOutgoing) {
         // Set: Outgoing.
-        outgoing.set('SID', this.identifier);
+        outgoing.parameters['SID'] = this.identifier;
 
         if (incoming.mode === 'SUBSCRIBE') {
             this.subscribe(incoming, outgoing);
@@ -151,7 +151,7 @@ export default class Server extends SCP.Server implements IServer {
             await Stream.finished(incoming);
 
             // Set: Connection properties.
-            incoming.socket.identifier = incoming.get('CID')!;
+            incoming.socket.identifier = incoming.parameters['CID']!;
 
             // Write: Outgoing stream.
             outgoing.end('');
@@ -278,10 +278,10 @@ export class Executor implements IExecutor {
         }
         instance.func = (operation, func) => {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
-                if (incoming.get('FORMAT') !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
+                if (incoming.parameters['FORMAT'] !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
 
                 // Initialize 🎩🚦🔲.
-                const conductor = (incoming.has('CONDUCTOR')) ? new Conductor().setIO(incoming, outgoing) : undefined;
+                const conductor = (!!incoming.parameters['CONDUCTOR']) ? new Conductor().setIO(incoming, outgoing) : undefined;
                 let incomingData = '', outgoingData = '';
                 try {
                     // Read.
@@ -296,11 +296,11 @@ export class Executor implements IExecutor {
                         const args = (conductor) ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
                         const returned = await func(...args);
                         outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-                        outgoing.set('STATUS', 'OK');
+                        outgoing.parameters['STATUS'] = 'OK';
                     } catch (error) {
                         error instanceof Error && delete error.stack; /* Delete stack from error because we dont need it. */
                         outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
-                        outgoing.set('STATUS', 'ERROR');
+                        outgoing.parameters['STATUS'] = 'ERROR';
                     }
 
                     // Write.

@@ -25,7 +25,7 @@ export default class Conductor extends Transform {
 
         // ⏳ Be a patient ninja. 🥷
         this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
-        this.outgoing.set('CONDUCTOR', 'TRUE');
+        this.outgoing.parameters['CONDUCTOR'] = 'TRUE';
         return this;
     }
 

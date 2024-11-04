@@ -243,7 +243,7 @@ mocha.describe('SCP Test', () => {
             const { incoming, data: incomingData } = await clientOmni(client, 'nexus2', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus2');
-            assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
@@ -262,7 +262,7 @@ mocha.describe('SCP Test', () => {
             const { incoming, data: incomingData } = await clientOmni(client, 'nexus123', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus123');
-            assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
@@ -278,7 +278,7 @@ mocha.describe('SCP Test', () => {
             const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
-            assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
@@ -296,7 +296,7 @@ mocha.describe('SCP Test', () => {
             const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'nexus');
-            assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
@@ -323,7 +323,7 @@ mocha.describe('SCP Test', () => {
             const { incoming, data: incomingData } = await clientOmni(client, 'Segment3.nexus', outgoingData);
             assert.deepStrictEqual(incoming.mode, 'OMNI');
             assert.deepStrictEqual(incoming.operation, 'Segment3.nexus');
-            assert.deepStrictEqual(incoming.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
         });
 
@@ -360,7 +360,7 @@ mocha.describe('SCP Test', () => {
             const { incoming: incoming1, data: incomingData1 } = await clientOmni(client, 'nexus2', outgoingData1);
             assert.deepStrictEqual(incoming1.mode, 'OMNI');
             assert.deepStrictEqual(incoming1.operation, 'nexus2');
-            assert.deepStrictEqual(incoming1.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming1.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData1, outgoingData1);
 
             // Rest
@@ -371,7 +371,7 @@ mocha.describe('SCP Test', () => {
             const { incoming: incoming2, data: incomingData2 } = await clientOmni(client, 'Segment3.nexus', outgoingData2);
             assert.deepStrictEqual(incoming2.mode, 'OMNI');
             assert.deepStrictEqual(incoming2.operation, 'Segment3.nexus');
-            assert.deepStrictEqual(incoming2.get('SID'), server.identifier);
+            assert.deepStrictEqual(incoming2.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData2, outgoingData2);
         });
     });

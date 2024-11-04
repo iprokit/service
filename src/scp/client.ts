@@ -203,7 +203,7 @@ export default class Client extends EventEmitter implements IClient {
             }
 
             // ✅
-            if (incoming.get('FORMAT') === 'OBJECT') {
+            if (incoming.parameters['FORMAT'] === 'OBJECT') {
                 // Read: Incoming stream.
                 let data = '';
                 for await (const chunk of incoming) {
@@ -256,7 +256,7 @@ export default class Client extends EventEmitter implements IClient {
             throw error;
         }
 
-        if (incoming.get('STATUS') === 'ERROR') {
+        if (incoming.parameters['STATUS'] === 'ERROR') {
             throw Object.assign(new Error(), JSON.parse(incomingData)) as Error;
         }
         return JSON.parse(incomingData) as Returned;
