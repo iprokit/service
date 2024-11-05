@@ -32,7 +32,7 @@ export class Conductor extends Transform {
 
         // ⏳ Be a patient ninja. 🥷
         this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
-        this.outgoing.parameters['CONDUCTOR'] = 'TRUE';
+        this.outgoing.parameters['CONDUCTOR'] = 'ORCHESTRATOR';
         return this;
     }
 

@@ -16,10 +16,29 @@ export class RFI extends SCP.RFI {
 export type Mode = 'SUBSCRIBE' | 'OMNI' | 'BROADCAST';
 
 export interface Parameters extends ScpParameters {
+    /**
+     * Unique identifier of the client.
+     */
     'CID'?: string;
+
+    /**
+     * Unique identifier of the server.
+     */
     'SID'?: string;
+
+    /**
+     * Specifies the format of the data.
+     */
     'FORMAT'?: 'OBJECT';
-    'CONDUCTOR'?: 'TRUE';
+
+    /**
+     * Indicates that an orchestrator is managing the conductor to send and receive signals.
+     */
+    'CONDUCTOR'?: 'ORCHESTRATOR';
+
+    /**
+     * Status of the function execution.
+     */
     'STATUS'?: 'OK' | 'ERROR';
 }
 

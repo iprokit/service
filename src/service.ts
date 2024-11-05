@@ -384,8 +384,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 //////// Remote
 //////////////////////////////
 /**
- * `Remote` class manages both HTTP and SCP interactions with a remote service.
- * Handles HTTP proxying and SCP function invocations.
+ * `Remote` class manages both HTTP and SCP interactions with a remote service,
+ * handling HTTP proxying and SCP function invocations.
  */
 export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
     /**
