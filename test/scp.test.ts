@@ -52,6 +52,7 @@ mocha.describe('SCP Test', () => {
                 assert.deepStrictEqual(client.connected, true);
                 assert.notDeepStrictEqual(client.address(), null);
                 assert.deepStrictEqual(server.connections[0].identifier, client.identifier);
+                assert.deepStrictEqual(server.connections[0].canBroadcast, true);
             });
             client.on('close', () => {
                 close++;

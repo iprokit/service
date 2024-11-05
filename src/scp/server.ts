@@ -152,6 +152,7 @@ export default class Server extends SCP.Server implements IServer {
 
             // Set: Connection properties.
             incoming.socket.identifier = incoming.parameters['CID']!;
+            incoming.socket.canBroadcast = true;
 
             // Write: Outgoing stream.
             outgoing.end('');
@@ -168,11 +169,11 @@ export default class Server extends SCP.Server implements IServer {
     //////// IServer
     //////////////////////////////
     public broadcast(operation: string, ...args: Array<any>) {
-        return Promise.all(
-            this.connections
-                .filter((connection) => !!connection.identifier)
-                .map((connection) =>
-                    new Promise<string>((resolve, reject) =>
+        const broadcastPromises = new Array<Promise<string>>();
+        for (const connection of this.connections) {
+            if (connection.canBroadcast) {
+                broadcastPromises.push(
+                    new Promise<string>(async (resolve, reject) => {
                         connection.createOutgoing(async (outgoing) => {
                             try {
                                 outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
@@ -185,10 +186,12 @@ export default class Server extends SCP.Server implements IServer {
                                 outgoing.socket.destroy(error as Error);
                                 reject(error);
                             }
-                        })
-                    )
-                )
-        );
+                        });
+                    })
+                );
+            }
+        }
+        return Promise.all(broadcastPromises);
     }
 
     public attach(operation: string, executor: IExecutor) {
@@ -416,6 +419,11 @@ export interface Connection extends InstanceType<typeof SCP.Connection> {
      * Unique identifier of the client socket connection.
      */
     identifier: string;
+
+    /**
+     * `true` if the connection can accept broadcasts, `false` otherwise.
+     */
+    canBroadcast: boolean;
 
     /**
      * Current incoming stream.

@@ -12,8 +12,8 @@ import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
  * Ensures smooth communication and coordination by bridging protocols and managing remote service interactions.
  * 
  * @emits `start` when the service starts.
- * @emits `link` when a link is established.
- * @emits `unlink` when a link is terminated.
+ * @emits `link` when a remote link is established.
+ * @emits `unlink` when a remote link is terminated.
  * @emits `stop` when the service stops.
  */
 export default class Service extends EventEmitter implements IHttpServer, IScpServer {
@@ -38,9 +38,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     public readonly sdpServer: SdpServer;
 
     /**
-     * Links to remote services.
+     * Remote services linked.
      */
-    public readonly links: Map<string, Link>;
+    public readonly remotes: Map<string, Array<Remote>>;
 
     /**
      * Creates an instance of `Service`.
@@ -57,7 +57,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.httpServer = new HttpServer(this.identifier);
         this.scpServer = new ScpServer(this.identifier);
         this.sdpServer = new SdpServer(this.identifier);
-        this.links = new Map();
+        this.remotes = new Map();
 
         // Bind listeners.
         this.onAvailable = this.onAvailable.bind(this);
@@ -125,47 +125,54 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Event Listeners
     //////////////////////////////
     /**
-     * @emits `link` when a link is established.
+     * @emits `link` when a remote link is established.
      */
     private onAvailable(identifier: string, attributes: Attributes, host: string) {
-        const link = this.links.get(identifier);
-        if (!link) return;
+        const remotes = this.remotes.get(identifier);
+        if (!remotes) return;
 
         // Establish connection.
-        link.httpProxy.configure(Number(attributes['http']), host);
-        link.scpClient.connect(Number(attributes['scp']), host);
-        this.emit('link', link);
+        for (const remote of remotes) {
+            remote.httpProxy.configure(Number(attributes['http']), host);
+            remote.scpClient.connect(Number(attributes['scp']), host);
+            this.emit('link', remote);
+        }
     }
 
     /**
-     * @emits `unlink` when a link is terminated.
+     * @emits `unlink` when a remote link is terminated.
      */
     private onUnavailable(identifier: string) {
-        const link = this.links.get(identifier);
-        if (!link) return;
+        const remotes = this.remotes.get(identifier);
+        if (!remotes) return;
 
         // Terminate connection.
-        link.httpProxy.configured && link.httpProxy.deconfigure();
-        link.scpClient.connected && link.scpClient.close();
-        this.emit('unlink', link);
+        for (const remote of remotes) {
+            if (remote.httpProxy.configured) remote.httpProxy.deconfigure();
+            if (remote.scpClient.connected) remote.scpClient.close();
+            this.emit('unlink', remote);
+        }
     }
 
     //////////////////////////////
     //////// Link
     //////////////////////////////
     /**
-     * Returns a `Link` to the remote service.
+     * Links multiple remotes to the remote service.
      * 
      * @param identifier unique identifier of the remote service.
+     * @param remotes remote instances to link.
      */
-    public Link(identifier: string) {
-        let link = this.links.get(identifier);
-        if (link) return link;
+    public link(identifier: string, ...remotes: Array<Remote>) {
+        let remotesLinked = this.remotes.get(identifier);
+        if (!remotesLinked) {
+            remotesLinked = new Array();
+            this.remotes.set(identifier, remotesLinked);
+        }
 
         // Forging a new link 🚀🎉.
-        link = new Link(identifier, this.identifier);
-        this.links.set(identifier, link);
-        return link;
+        remotesLinked.push(...remotes);
+        return this;
     }
 
     //////////////////////////////
@@ -299,7 +306,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Start/Stop
     //////////////////////////////
     /**
-     * Starts the service by listening on HTTP, SCP, and SDP servers, connecting to linked remote services.
+     * Starts the service by listening on HTTP, SCP, and SDP servers, connecting to remote services linked.
      * 
      * @param httpPort local HTTP port.
      * @param scpPort local SCP port.
@@ -322,15 +329,23 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.sdpServer.listen(sdpPort, sdpAddress);
         await once(this.sdpServer, 'listening');
 
-        // Link
-        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => !scpClient.connected && once(scpClient, 'connect')));
+        // Remote
+        const connectPromises = new Array<Promise<Array<void>>>();
+        for (const remotes of this.remotes.values()) {
+            for (const { scpClient } of remotes) {
+                if (!scpClient.connected) {
+                    connectPromises.push(once(scpClient, 'connect'));
+                }
+            }
+        }
+        await Promise.all(connectPromises);
 
         this.emit('start');
         return this;
     }
 
     /**
-     * Stops the service by closing all servers and disconnecting from linked remote services.
+     * Stops the service by closing all servers and disconnecting from remote services linked.
      * 
      * @emits `stop` when the service stops.
      */
@@ -339,12 +354,18 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.httpServer.close();
         await once(this.httpServer, 'close');
 
-        // Link
-        for (const { httpProxy, scpClient } of this.links.values()) {
-            httpProxy.configured && httpProxy.deconfigure();
-            scpClient.connected && scpClient.close();
+        // Remote
+        const closePromises = new Array<Promise<Array<void>>>();
+        for (const remotes of this.remotes.values()) {
+            for (const { httpProxy, scpClient } of remotes) {
+                if (httpProxy.configured) httpProxy.deconfigure();
+                if (scpClient.connected) {
+                    scpClient.close();
+                    closePromises.push(once(scpClient, 'close'));
+                }
+            }
         }
-        await Promise.all(Array.from(this.links.values()).map(({ scpClient }) => scpClient.connected && once(scpClient, 'close')));
+        await Promise.all(closePromises);
 
         // SCP
         this.scpServer.close();
@@ -360,15 +381,15 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 }
 
 //////////////////////////////
-//////// Link
+//////// Remote
 //////////////////////////////
 /**
- * `Link` class manages both HTTP and SCP interactions with a remote service.
+ * `Remote` class manages both HTTP and SCP interactions with a remote service.
  * Handles HTTP proxying and SCP function invocations.
  */
-export class Link extends EventEmitter implements IHttpProxy, IScpClient {
+export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
     /**
-     * Unique identifier of the remote service.
+     * Unique identifier of the remote.
      */
     public readonly identifier: string;
 
@@ -383,20 +404,19 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     public readonly scpClient: ScpClient;
 
     /**
-     * Creates an instance of `Link`.
+     * Creates an instance of `Remote`.
      * 
-     * @param identifier unique identifier of the remote service.
-     * @param serviceIdentifier unique identifier of the current service.
+     * @param identifier unique identifier of the remote.
      */
-    constructor(identifier: string, serviceIdentifier: string) {
+    constructor(identifier: string) {
         super();
 
         // Initialize options.
         this.identifier = identifier;
 
         // Initialize variables.
-        this.httpProxy = new HttpProxy(serviceIdentifier);
-        this.scpClient = new ScpClient(serviceIdentifier);
+        this.httpProxy = new HttpProxy(this.identifier);
+        this.scpClient = new ScpClient(this.identifier);
     }
 
     //////////////////////////////
@@ -405,7 +425,7 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     /**
      * Creates a request handler that forwards incoming requests to the target remote service.
      * 
-     * @param options optional options for forwarding requests.
+     * @param options options for forwarding requests.
      */
     public forward(options?: ForwardOptions) {
         return this.httpProxy.forward(options);
@@ -438,18 +458,18 @@ export class Link extends EventEmitter implements IHttpProxy, IScpClient {
     //////////////////////////////
     //////// EventEmitter
     //////////////////////////////
-    public once(operation: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.once(operation, listener);
+    public once(eventName: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.once(eventName, listener);
         return this;
     }
 
-    public on(operation: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.on(operation, listener);
+    public on(eventName: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.on(eventName, listener);
         return this;
     }
 
-    public off(operation: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.off(operation, listener);
+    public off(eventName: string | symbol, listener: (...args: Array<any>) => void) {
+        this.scpClient.off(eventName, listener);
         return this;
     }
 }

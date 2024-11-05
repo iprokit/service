@@ -134,7 +134,7 @@ export interface IProxy {
     /**
      * Creates a request handler that forwards incoming requests to the target server.
      * 
-     * @param options optional options for forwarding requests.
+     * @param options options for forwarding requests.
      */
     forward: (options?: ForwardOptions) => RequestHandler;
 }

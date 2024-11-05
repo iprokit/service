@@ -4,4 +4,4 @@ export * as SCP from './scp';
 export * as SDP from './sdp';
 
 // Export Service.
-export { default, Link, Attributes } from './service';
+export { default, Remote, Attributes } from './service';
