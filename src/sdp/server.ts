@@ -5,8 +5,8 @@ import { EventEmitter } from 'events';
 import { Socket, Pod, Attributes, Sender } from '@iprolab/sdp';
 
 /**
- * Creates an SDP server bound to a multicast address and port number,
- * listening for pods on the network.
+ * SDP server that binds to multicast addresses and port number,
+ * and listens for pods on the network.
  * 
  * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `available` when a pod becomes available.

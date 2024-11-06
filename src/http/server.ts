@@ -7,8 +7,8 @@ import { ParsedUrlQuery } from 'querystring';
 import { Method, RequestHeaders, ResponseHeaders } from './definitions';
 
 /**
- * Creates an HTTP Server bound to an IP address and port number,
- * listening for incoming HTTP client connections.
+ * HTTP Server that binds to an IP address and port number,
+ * and listens for incoming HTTP client connections.
  *
  * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `error` when an error occurs.

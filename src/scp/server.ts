@@ -9,8 +9,8 @@ import { RFI, Incoming, Outgoing } from './definitions';
 import { Conductor } from './orchestrator';
 
 /**
- * Creates an SCP Server bound to an IP address and port number,
- * listening for incoming SCP client connections.
+ * SCP Server that binds to an IP address and port number,
+ * and listens for incoming SCP client connections.
  *
  * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `connection` when a client socket connection is received.
