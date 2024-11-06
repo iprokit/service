@@ -8,7 +8,7 @@ import { Socket } from '@iprolab/scp';
 
 // Import Local.
 import { RFI, Incoming, Outgoing } from './definitions';
-import { Conductor } from './orchestrator';
+import Orchestrator, { Conductor } from './orchestrator';
 
 /**
  * Implements a simple SCP Client.
@@ -237,7 +237,11 @@ export default class Client extends EventEmitter implements IClient {
         outgoing.setRFI(new RFI('OMNI', operation, { 'CID': this.identifier, 'FORMAT': 'OBJECT' }));
 
         // Initialize 🎩🚦🔲.
-        const conductor = (args.length > 0 && args[args.length - 1] instanceof Conductor) ? (args.pop() as Conductor).setIO(incoming, outgoing) : undefined;
+        let conductor: Conductor | undefined;
+        if (args.at(-1) instanceof Orchestrator) {
+            conductor = (args.pop() as Orchestrator).synchronize(incoming, outgoing);
+            outgoing.parameters['CONDUCTOR'] = 'TRUE';
+        }
         let incomingData = '', outgoingData = JSON.stringify(args);
         try {
             // Write.
@@ -339,7 +343,7 @@ export interface IClient {
 
     /**
      * Executes an asynchronous remote function on the server and returns a promise resolving to a result.
-     * Pass a `Conductor` as the final argument to handle signals.
+     * Provide an `Orchestrator` as the final argument to orchestrate both data and signals.
      * 
      * @param operation operation pattern.
      * @param args arguments to be passed to the remote function.

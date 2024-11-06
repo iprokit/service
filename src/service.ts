@@ -446,7 +446,7 @@ export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
 
     /**
      * Executes an asynchronous remote function on the remote service and returns a promise resolving to a result.
-     * Pass a `Conductor` as the final argument to handle signals.
+     * Provide an `Orchestrator` as the final argument to orchestrate both data and signals.
      * 
      * @param operation operation pattern.
      * @param args arguments to be passed to the remote function.

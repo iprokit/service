@@ -5,7 +5,7 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 // Import Local.
-import { Server, Executor, Segment, Nexus, IncomingHandler, Client, Conductor, Signal, Tags } from '../lib/scp';
+import { Server, Executor, Segment, Nexus, IncomingHandler, Client, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
 import { createString, createIdentifier, clientOmni } from './util';
 
 const host = '127.0.0.1';
@@ -382,6 +382,7 @@ mocha.describe('SCP Test', () => {
         let client: Client;
 
         const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
+        const signal = new Signal(createString(10), { 'ARG1': createString(5), 'ARG2': createString(5) });
 
         mocha.beforeEach(async () => {
             server = new Server(createIdentifier());
@@ -434,26 +435,6 @@ mocha.describe('SCP Test', () => {
             assert.deepStrictEqual(returned, args);
         });
 
-        mocha.it('should execute remote function with conductor', async () => {
-            // Server
-            server.func('nexus', (args, conductor: Conductor) => {
-                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
-                return args;
-            });
-
-            // Client
-            const signals = Array(10).fill({}).map(() => new Signal(createString(10), { 'ARG1': 'A', 'ARG2': 'B' }));
-            const conductor = new Conductor();
-            const returned = await client.execute('nexus', args, conductor);
-            assert.deepStrictEqual(returned, args);
-            for (const signal of signals) {
-                await conductor.signal(signal.event, signal.tags);
-                const [event, tags] = await once(conductor, 'signal') as [string, Tags];
-                assert.deepStrictEqual(event, signal.event);
-                assert.deepStrictEqual(tags, signal.tags);
-            }
-        });
-
         mocha.it('should execute remote function as error', async () => {
             // Server
             server.func('nexus', (arg) => {
@@ -465,6 +446,30 @@ mocha.describe('SCP Test', () => {
                 const returned = await client.execute('nexus', 'SCP Error');
             } catch (error) {
                 assert.deepStrictEqual((error as Error).message, 'SCP Error');
+            }
+        });
+
+        mocha.it('should execute remote functions with orchestrator', async () => {
+            // Server
+            server.func('nexus1', (conductor: Conductor) => {
+                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
+                return;
+            });
+            server.func('nexus2', (args, conductor: Conductor) => {
+                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
+                return args;
+            });
+
+            // Client
+            const orchestrator = new Orchestrator();
+            const returned1 = await client.execute('nexus1', orchestrator);
+            assert.deepStrictEqual(returned1, {});
+            const returned2 = await client.execute('nexus2', args, orchestrator);
+            assert.deepStrictEqual(returned2, args);
+            const signals = await orchestrator.signal(signal.event, signal.tags);
+            for (const { event, tags } of signals) {
+                assert.deepStrictEqual(event, signal.event);
+                assert.deepStrictEqual(tags, signal.tags);
             }
         });
     });

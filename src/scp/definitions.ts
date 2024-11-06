@@ -32,9 +32,9 @@ export interface Parameters extends ScpParameters {
     'FORMAT'?: 'OBJECT';
 
     /**
-     * Indicates that an orchestrator is managing the conductor to send and receive signals.
+     * Indicates that the conductor is configured to send/receive both data and signals.
      */
-    'CONDUCTOR'?: 'ORCHESTRATOR';
+    'CONDUCTOR'?: 'TRUE';
 
     /**
      * Status of the function execution.

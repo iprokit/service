@@ -284,7 +284,7 @@ export class Executor implements IExecutor {
                 if (incoming.parameters['FORMAT'] !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
 
                 // Initialize 🎩🚦🔲.
-                const conductor = (!!incoming.parameters['CONDUCTOR']) ? new Conductor().setIO(incoming, outgoing) : undefined;
+                const conductor = (incoming.parameters['CONDUCTOR'] === 'TRUE') ? new Conductor(incoming, outgoing) : undefined;
                 let incomingData = '', outgoingData = '';
                 try {
                     // Read.

@@ -9,31 +9,50 @@ import { Signal, Tags } from '@iprolab/scp';
 import { Incoming, Outgoing } from './definitions';
 
 export default class Orchestrator {
+    public readonly conductors: Array<Conductor>;
 
+    constructor() {
+        // Initialize variables.
+        this.conductors = new Array();
+    }
+
+    //////////////////////////////
+    //////// Synchronize
+    //////////////////////////////
+    public synchronize(incoming: Incoming, outgoing: Outgoing) {
+        const condition = new Conductor(incoming, outgoing);
+        this.conductors.push(condition);
+        return condition;
+    }
+
+    //////////////////////////////
+    //////// Signal
+    //////////////////////////////
+    public async signal(event: string, tags?: Tags) {
+        return await Promise.all(this.conductors.map(async (conductor) => {
+            await conductor.signal(event, tags);
+            const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags];
+            return { event: emittedEvent, tags: emittedTags }
+        }));
+    }
 }
 
 //////////////////////////////
 //////// Conductor
 //////////////////////////////
 export class Conductor extends Transform {
-    public incoming!: Incoming;
-    public outgoing!: Outgoing;
+    public readonly incoming: Incoming;
+    public readonly outgoing: Outgoing;
 
-    constructor() {
+    constructor(incoming: Incoming, outgoing: Outgoing) {
         super({ objectMode: true });
-    }
 
-    //////////////////////////////
-    //////// Gets/Sets
-    //////////////////////////////
-    public setIO(incoming: Incoming, outgoing: Outgoing) {
+        // Initialize options.
         this.incoming = incoming;
         this.outgoing = outgoing;
 
         // ⏳ Be a patient ninja. 🥷
         this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
-        this.outgoing.parameters['CONDUCTOR'] = 'ORCHESTRATOR';
-        return this;
     }
 
     //////////////////////////////
@@ -41,11 +60,7 @@ export class Conductor extends Transform {
     //////////////////////////////
     _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
         if (typeof chunk !== 'string') {
-            if (chunk.event === 'SOB') {
-                this.emit('SOB');
-            } else if (chunk.event === 'EOB') {
-                this.emit('EOB');
-            } else {
+            if (chunk.event !== BlockEvent.START && chunk.event !== BlockEvent.END) {
                 this.emit('signal', chunk.event, chunk.tags);
             }
         }
@@ -64,13 +79,13 @@ export class Conductor extends Transform {
                 await once(this, 'readable');
                 continue;
             }
-            if (typeof chunk !== 'string' && chunk.event === 'SOB') {
+            if (typeof chunk !== 'string' && chunk.event === BlockEvent.START) {
                 continue;
             }
             if (typeof chunk === 'string') {
                 yield chunk;
             }
-            if (typeof chunk !== 'string' && chunk.event === 'EOB') {
+            if (typeof chunk !== 'string' && chunk.event === BlockEvent.END) {
                 return;
             }
         }
@@ -80,7 +95,7 @@ export class Conductor extends Transform {
     //////// Write Operations
     //////////////////////////////
     public async writeBlock(chunk: string) {
-        const chunks = [new Signal('SOB'), chunk, new Signal('EOB')];
+        const chunks = [new Signal(BlockEvent.START), chunk, new Signal(BlockEvent.END)];
         for await (const chunk of chunks) {
             const write = this.outgoing.write(chunk);
             if (!write) {
@@ -95,4 +110,12 @@ export class Conductor extends Transform {
             await once(this.outgoing, 'drain');
         }
     }
+}
+
+//////////////////////////////
+//////// Block Event
+//////////////////////////////
+enum BlockEvent {
+    START = 'SOB',
+    END = 'EOB',
 }
