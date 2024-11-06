@@ -330,15 +330,17 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         await once(this.sdpServer, 'listening');
 
         // Remote
-        const connectPromises = new Array<Promise<Array<void>>>();
+        const scpConnections = new Array<Promise<Array<void>>>();
         for (const remotes of this.remotes.values()) {
             for (const { scpClient } of remotes) {
+                // `onAvailable()` will call `httpProxy.configure()`. 👀
                 if (!scpClient.connected) {
-                    connectPromises.push(once(scpClient, 'connect'));
+                    // `onAvailable()` will call `scpClient.connect()`. 👀
+                    scpConnections.push(once(scpClient, 'connect'));
                 }
             }
         }
-        await Promise.all(connectPromises);
+        await Promise.all(scpConnections);
 
         this.emit('start');
         return this;
@@ -355,17 +357,17 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         await once(this.httpServer, 'close');
 
         // Remote
-        const closePromises = new Array<Promise<Array<void>>>();
+        const scpConnections = new Array<Promise<Array<void>>>();
         for (const remotes of this.remotes.values()) {
             for (const { httpProxy, scpClient } of remotes) {
                 if (httpProxy.configured) httpProxy.deconfigure();
                 if (scpClient.connected) {
                     scpClient.close();
-                    closePromises.push(once(scpClient, 'close'));
+                    scpConnections.push(once(scpClient, 'close'));
                 }
             }
         }
-        await Promise.all(closePromises);
+        await Promise.all(scpConnections);
 
         // SCP
         this.scpServer.close();

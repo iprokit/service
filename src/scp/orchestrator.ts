@@ -29,11 +29,16 @@ export default class Orchestrator {
     //////// Signal
     //////////////////////////////
     public async signal(event: string, tags?: Tags) {
-        return await Promise.all(this.conductors.map(async (conductor) => {
-            await conductor.signal(event, tags);
-            const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags];
-            return { event: emittedEvent, tags: emittedTags }
-        }));
+        const signals = new Array<Promise<{ event: string, tags: Tags }>>();
+        for (const conductor of this.conductors) {
+            const signal = (async () => {
+                await conductor.signal(event, tags);
+                const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags];
+                return { event: emittedEvent, tags: emittedTags }
+            })(); // IIFE 🧑🏽‍💻
+            signals.push(signal);
+        }
+        return await Promise.all(signals);
     }
 }
 

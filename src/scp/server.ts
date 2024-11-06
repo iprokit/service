@@ -169,29 +169,28 @@ export default class Server extends SCP.Server implements IServer {
     //////// IServer
     //////////////////////////////
     public broadcast(operation: string, ...args: Array<any>) {
-        const broadcastPromises = new Array<Promise<string>>();
+        const broadcasts = new Array<Promise<string>>();
         for (const connection of this.connections) {
             if (connection.canBroadcast) {
-                broadcastPromises.push(
-                    new Promise<string>(async (resolve, reject) => {
-                        connection.createOutgoing(async (outgoing) => {
-                            try {
-                                outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
-                                outgoing.end(JSON.stringify(args));
-                                await Stream.finished(outgoing);
-                                resolve(connection.identifier);
-                            } catch (error) {
-                                // ❗️⚠️❗️
-                                outgoing.destroy();
-                                outgoing.socket.destroy(error as Error);
-                                reject(error);
-                            }
-                        });
-                    })
-                );
+                const broadcast = new Promise<string>(async (resolve, reject) => {
+                    connection.createOutgoing(async (outgoing) => {
+                        try {
+                            outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
+                            outgoing.end(JSON.stringify(args));
+                            await Stream.finished(outgoing);
+                            resolve(connection.identifier);
+                        } catch (error) {
+                            // ❗️⚠️❗️
+                            outgoing.destroy();
+                            outgoing.socket.destroy(error as Error);
+                            reject(error);
+                        }
+                    });
+                });
+                broadcasts.push(broadcast);
             }
         }
-        return Promise.all(broadcastPromises);
+        return Promise.all(broadcasts);
     }
 
     public attach(operation: string, executor: IExecutor) {
