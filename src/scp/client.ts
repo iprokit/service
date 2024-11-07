@@ -239,7 +239,7 @@ export default class Client extends EventEmitter implements IClient {
         // Initialize 🎩🚦🔲.
         let conductor: Conductor | undefined;
         if (args.at(-1) instanceof Orchestrator) {
-            conductor = (args.pop() as Orchestrator).synchronize(incoming, outgoing);
+            conductor = (args.pop() as Orchestrator).Conductor(incoming, outgoing);
             outgoing.parameters['CONDUCTOR'] = 'TRUE';
         }
         let incomingData = '', outgoingData = JSON.stringify(args);
@@ -343,7 +343,7 @@ export interface IClient {
 
     /**
      * Executes an asynchronous remote function on the server and returns a promise resolving to a result.
-     * Provide an `Orchestrator` as the final argument to orchestrate both data and signals.
+     * Provide an `Orchestrator` as the final argument to coordinate signals across multiple remote functions.
      * 
      * @param operation operation pattern.
      * @param args arguments to be passed to the remote function.

@@ -38,7 +38,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     public readonly sdpServer: SdpServer;
 
     /**
-     * Remote services linked.
+     * Remote services registered.
      */
     public readonly remotes: Map<string, Array<Remote>>;
 
@@ -306,7 +306,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Start/Stop
     //////////////////////////////
     /**
-     * Starts the service by listening on HTTP, SCP, and SDP servers, connecting to remote services linked.
+     * Starts the service by listening on HTTP, SCP, and SDP servers, connecting to remote services registered.
      * 
      * @param httpPort local HTTP port.
      * @param scpPort local SCP port.
@@ -347,7 +347,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Stops the service by closing all servers and disconnecting from remote services linked.
+     * Stops the service by closing all servers and disconnecting from remote services registered.
      * 
      * @emits `stop` when the service stops.
      */
@@ -448,7 +448,7 @@ export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
 
     /**
      * Executes an asynchronous remote function on the remote service and returns a promise resolving to a result.
-     * Provide an `Orchestrator` as the final argument to orchestrate both data and signals.
+     * Provide an `Orchestrator` as the final argument to coordinate signals across multiple remote functions.
      * 
      * @param operation operation pattern.
      * @param args arguments to be passed to the remote function.

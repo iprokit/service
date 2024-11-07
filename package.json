@@ -38,8 +38,8 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@iprolab/sdp": "1.1.1",
-    "@iprolab/scp": "1.3.0"
+    "@iprolab/sdp": "1.1.2",
+    "@iprolab/scp": "1.3.1"
   },
   "devDependencies": {
     "typescript": "5.4.5",
