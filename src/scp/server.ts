@@ -208,7 +208,7 @@ export default class Server extends SCP.Server implements IServer {
 }
 
 //////////////////////////////
-/////IServer
+//////// IServer
 //////////////////////////////
 /**
  * Interface for the SCP `Server`.
@@ -300,7 +300,7 @@ export class Executor implements IExecutor {
                         outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
                         outgoing.parameters['STATUS'] = 'OK';
                     } catch (error) {
-                        error instanceof Error && delete error.stack; /* Delete stack from error because we dont need it. */
+                        error instanceof Error && delete error.stack; // Delete stack from error because we dont need it.
                         outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
                         outgoing.parameters['STATUS'] = 'ERROR';
                     }
@@ -436,7 +436,7 @@ export interface Connection extends InstanceType<typeof SCP.Connection> {
 }
 
 //////////////////////////////
-/////Incoming/Outgoing
+//////// Incoming/Outgoing
 //////////////////////////////
 /**
  * Represents an SCP server incoming.

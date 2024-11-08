@@ -227,8 +227,8 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     public omni(operation: string, callback: (incoming: Incoming) => void) {
         const { incoming, outgoing } = new IOSocket().connect(this.remotePort!, this.remoteAddress!);
-        incoming.once('rfi', () => callback(incoming));
         outgoing.setRFI(new RFI('OMNI', operation, { 'CID': this.identifier }));
+        incoming.once('rfi', () => callback(incoming));
         return outgoing;
     }
 
@@ -327,7 +327,7 @@ export default class Client extends EventEmitter implements IClient {
 }
 
 //////////////////////////////
-/////IClient
+//////// IClient
 //////////////////////////////
 /**
  * Interface for the SCP `Client`.
@@ -352,7 +352,7 @@ export interface IClient {
 }
 
 //////////////////////////////
-/////IO Socket
+//////// IO Socket
 //////////////////////////////
 /**
  * Implements a simple SCP IOSocket.

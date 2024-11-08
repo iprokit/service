@@ -144,7 +144,7 @@ export default class Server extends HTTP.Server implements IServer {
 }
 
 //////////////////////////////
-/////IServer
+//////// IServer
 //////////////////////////////
 /**
  * Interface for the HTTP `Server`.
@@ -152,7 +152,7 @@ export default class Server extends HTTP.Server implements IServer {
 export interface IServer extends IRouter { }
 
 //////////////////////////////
-/////Router
+//////// Router
 //////////////////////////////
 /**
  * Registers routes that handle HTTP requests.
@@ -234,7 +234,7 @@ export class Router implements IRouter {
 }
 
 //////////////////////////////
-/////IRouter
+//////// IRouter
 //////////////////////////////
 /**
  * Interface for the `Router`.
@@ -303,7 +303,7 @@ export interface IRouter {
 }
 
 //////////////////////////////
-/////Route
+//////// Route
 //////////////////////////////
 /**
  * Union of `Stack` and `Endpoint`.
@@ -371,7 +371,7 @@ export type RequestHandler = (request: ServerRequest, response: ServerResponse, 
 export type NextFunction = () => void;
 
 //////////////////////////////
-/////Request/Response
+//////// Request/Response
 //////////////////////////////
 /**
  * Represents an HTTP server request.

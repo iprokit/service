@@ -41,7 +41,7 @@ export default class Orchestrator {
     }
 
     //////////////////////////////
-    //////// Signal
+    //////// Read/Write Operations
     //////////////////////////////
     /**
      * Sends a signal to all registered conductors and returns a promise that resolves with the received signals.
@@ -53,7 +53,10 @@ export default class Orchestrator {
         const signals = new Array<Promise<{ event: string, tags: Tags }>>();
         for (const conductor of this.conductors) {
             const signal = (async () => {
+                // Write.
                 await conductor.signal(event, tags);
+
+                // Read.
                 const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags];
                 return { event: emittedEvent, tags: emittedTags }
             })(); // IIFE 🧑🏽‍💻
@@ -70,7 +73,7 @@ export default class Orchestrator {
  * Conductor transforms blocks into data and emits signals that are read from the `Incoming` stream.
  * It writes blocks and signals into the `Outgoing` stream.
  *
- * A block is a unit of data that is wrapped with `SOB` (Start of Block) and `EOB` (End of Block) signals,
+ * A block is a unit of data that is wrapped with `SOB` (Start of block) and `EOB` (End of block) signals,
  * referred to as block signals, which indicate the block's boundaries.
  * 
  * @emits `signal` when a `Signal` is received.
@@ -118,11 +121,9 @@ export class Conductor extends Transform {
      * 
      * @emits `signal` when a `Signal` is received.
      */
-    _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
-        if (typeof chunk !== 'string') {
-            if (chunk.event !== Block.START && chunk.event !== Block.END) {
-                this.emit('signal', chunk.event, chunk.tags);
-            }
+    public _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+        if (typeof chunk !== 'string' && chunk.event !== Block.START && chunk.event !== Block.END) {
+            this.emit('signal', chunk.event, chunk.tags); // 🚦
         }
 
         this.push(chunk);
@@ -142,16 +143,14 @@ export class Conductor extends Transform {
         while (true) {
             const chunk: string | Signal = this.read();
             if (!chunk) {
+                // The data will flow when the universe decides. 🧘‍♂️🌌
                 await once(this, 'readable');
                 continue;
-            }
-            if (typeof chunk !== 'string' && chunk.event === Block.START) {
+            } else if (typeof chunk !== 'string' && chunk.event === Block.START) {
                 continue;
-            }
-            if (typeof chunk === 'string') {
+            } else if (typeof chunk === 'string') {
                 yield chunk;
-            }
-            if (typeof chunk !== 'string' && chunk.event === Block.END) {
+            } else if (typeof chunk !== 'string' && chunk.event === Block.END) {
                 return;
             }
         }
@@ -169,9 +168,8 @@ export class Conductor extends Transform {
         const chunks = [new Signal(Block.START), chunk, new Signal(Block.END)];
         for await (const chunk of chunks) {
             const write = this.outgoing.write(chunk);
-            if (!write) {
+            if (!write) // Ah, backpressure strikes again! 😬
                 await once(this.outgoing, 'drain');
-            }
         }
     }
 
@@ -183,26 +181,25 @@ export class Conductor extends Transform {
      */
     public async signal(event: string, tags?: Tags) {
         const write = this.outgoing.write(new Signal(event, tags));
-        if (!write) {
+        if (!write) // Stream's got commitment issues, always needing space. 🤔
             await once(this.outgoing, 'drain');
-        }
     }
 }
 
 //////////////////////////////
-//////// Block Event
+//////// Block
 //////////////////////////////
 /**
  * Defines the boundaries of a block.
  */
 enum Block {
     /**
-     * Start of Block.
+     * Start of block.
      */
     START = 'SOB',
 
     /**
-     * End of Block.
+     * End of block.
      */
     END = 'EOB',
 }
