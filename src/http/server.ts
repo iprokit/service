@@ -46,7 +46,7 @@ export default class Server extends HTTP.Server implements IServer {
         // Add listeners.
         this.addListener('request', this.onRequest);
 
-        // Apply `Router` properties 👻.
+        // Apply `Router` properties. 👻
         Router.applyProperties(this);
     }
 
@@ -171,7 +171,7 @@ export class Router implements IRouter {
         // Initialize Variables.
         this.routes = new Array();
 
-        // Apply `Router` properties 👻.
+        // Apply `Router` properties. 👻
         Router.applyProperties(this);
     }
 
@@ -222,7 +222,7 @@ export class Router implements IRouter {
             }
         }
 
-        // `IRouter` properties 😈.
+        // `IRouter` properties. 😈
         instance.get = endpoint('GET');
         instance.post = endpoint('POST');
         instance.put = endpoint('PUT');

@@ -54,7 +54,7 @@ export default class Server extends SCP.Server implements IServer {
         // Add listeners.
         this.addListener('incoming', this.onIncoming);
 
-        // Apply `Executor` properties 👻.
+        // Apply `Executor` properties. 👻
         Executor.applyProperties(this);
     }
 
@@ -252,7 +252,7 @@ export class Executor implements IExecutor {
         // Initialize variables.
         this.executions = new Array();
 
-        // Apply `Executor` properties 👻.
+        // Apply `Executor` properties. 👻
         Executor.applyProperties(this);
     }
 
@@ -272,7 +272,7 @@ export class Executor implements IExecutor {
      * @param instance instance to which the `IExecutor` properties are applied.
      */
     public static applyProperties<I extends IExecutor>(instance: I) {
-        // `IExecutor` properties 😈.
+        // `IExecutor` properties. 😈
         instance.omni = (operation, handler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
             instance.executions.push({ operation, regExp, handler } as Nexus);
@@ -282,7 +282,7 @@ export class Executor implements IExecutor {
             instance.omni(operation, async (incoming, outgoing, proceed) => {
                 if (incoming.parameters['FORMAT'] !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
 
-                // Initialize 🎩🚦🔲.
+                // Initialize. 🎩🚦🔲
                 const conductor = (incoming.parameters['CONDUCTOR'] === 'TRUE') ? new Conductor(incoming, outgoing) : undefined;
                 let incomingData = '', outgoingData = '';
                 try {
@@ -293,7 +293,7 @@ export class Executor implements IExecutor {
                     }
                     conductor || await Stream.finished(incoming);
 
-                    // Execute 🫡.
+                    // Execute. 🤖
                     try {
                         const args = (conductor) ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
                         const returned = await func(...args);

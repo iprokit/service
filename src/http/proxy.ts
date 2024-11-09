@@ -81,7 +81,7 @@ export default class Proxy implements IProxy {
             // Set: Response.
             response.setHeader('x-proxy-identifier', this.identifier); // 🏴‍☠️💀👻
 
-            // Let's boogie 🕺💃 🎶.
+            // Let's boogie. 🕺💃 🎶
             if (options.onOptions) options.onOptions(requestOptions, request, response);
             const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
                 if (options!.onResponse) options!.onResponse(proxyResponse, request, response);

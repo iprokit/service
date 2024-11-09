@@ -170,7 +170,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
             this.remotes.set(identifier, remotesLinked);
         }
 
-        // Forging a new link 🚀🎉.
+        // Forging a new link. 🚀🎉
         remotesLinked.push(...remotes);
         return this;
     }

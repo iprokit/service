@@ -236,7 +236,7 @@ export default class Client extends EventEmitter implements IClient {
         const { incoming, outgoing } = new IOSocket().connect(this.remotePort!, this.remoteAddress!);
         outgoing.setRFI(new RFI('OMNI', operation, { 'CID': this.identifier, 'FORMAT': 'OBJECT' }));
 
-        // Initialize 🎩🚦🔲.
+        // Initialize. 🎩🚦🔲
         let conductor: Conductor | undefined;
         if (args.at(-1) instanceof Orchestrator) {
             conductor = (args.pop() as Orchestrator).Conductor(incoming, outgoing);

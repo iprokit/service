@@ -112,7 +112,7 @@ export default class Server extends EventEmitter {
             return;
         }
 
-        // Be ready to be confused 😈.
+        // Be ready to be confused. 😈
         const foundPod = this.pods.get(identifier);
         if (!foundPod) { // NEW
             this.pods.set(identifier, { available: true, attributes, host });
@@ -145,7 +145,7 @@ export default class Server extends EventEmitter {
         const pod = new Pod(this.identifier, available, this.attributes);
         const address = this._socket.address()!;
 
-        // If you can spare a moment to notice, there's just one membership here 🙃
+        // If you can spare a moment to notice, there's just one membership here. 🙃
         this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => callback && callback());
     }
 
