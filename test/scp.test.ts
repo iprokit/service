@@ -453,10 +453,12 @@ mocha.describe('SCP Test', () => {
             // Server
             server.func('nexus1', (conductor: Conductor) => {
                 conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
+                conductor.on('end', () => conductor.end());
                 return;
             });
             server.func('nexus2', (args, conductor: Conductor) => {
                 conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
+                conductor.on('end', () => conductor.end());
                 return args;
             });
 
@@ -471,6 +473,7 @@ mocha.describe('SCP Test', () => {
                 assert.deepStrictEqual(event, signal.event);
                 assert.deepStrictEqual(tags, signal.tags);
             }
+            await orchestrator.end();
         });
     });
 });

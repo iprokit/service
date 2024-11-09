@@ -1,6 +1,6 @@
 // Import Libs.
-import { once } from 'events';
-import { Transform } from 'stream';
+import EventEmitter, { once } from 'events';
+import { promises as Stream } from 'stream';
 
 // Import @iprolab Libs.
 import { Signal, Tags } from '@iprolab/scp';
@@ -9,7 +9,7 @@ import { Signal, Tags } from '@iprolab/scp';
 import { Incoming, Outgoing } from './definitions';
 
 /**
- * Orchestrator manages the coordination of signals with registered conductors.
+ * Orchestrator manages the life cycle of multiple `Conductor` instances and coordinates signals.
  */
 export default class Orchestrator {
     /**
@@ -21,7 +21,6 @@ export default class Orchestrator {
      * Creates an instance of `Orchestrator`.
      */
     constructor() {
-        // Initialize variables.
         this.conductors = new Array();
     }
 
@@ -44,7 +43,7 @@ export default class Orchestrator {
     //////// Read/Write Operations
     //////////////////////////////
     /**
-     * Sends a signal to all registered conductors and returns a promise that resolves with the received signals.
+     * Writes a signal to all the conductors and returns a promise that resolves with the result of the signals.
      * 
      * @param event name of the signal.
      * @param tags optional tags of the signal.
@@ -53,16 +52,28 @@ export default class Orchestrator {
         const signals = new Array<Promise<{ event: string, tags: Tags }>>();
         for (const conductor of this.conductors) {
             const signal = (async () => {
-                // Write.
-                await conductor.signal(event, tags);
-
-                // Read.
-                const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags];
+                await conductor.signal(event, tags); // Write.
+                const [emittedEvent, emittedTags] = await once(conductor, 'signal') as [string, Tags]; // Read.
                 return { event: emittedEvent, tags: emittedTags }
             })(); // IIFE 🧑🏽‍💻
             signals.push(signal);
         }
         return await Promise.all(signals);
+    }
+
+    /**
+     * Ends all the conductors.
+     */
+    public async end() {
+        const ends = Array<Promise<void>>();
+        for (const conductor of this.conductors) {
+            const end = (async () => {
+                await conductor.end(); // Write.
+                await once(conductor, 'end'); // Read.
+            })(); // IIFE 🧑🏽‍💻
+            ends.push(end);
+        }
+        await Promise.all(ends);
     }
 }
 
@@ -70,24 +81,22 @@ export default class Orchestrator {
 //////// Conductor
 //////////////////////////////
 /**
- * Conductor transforms blocks into data and emits signals that are read from the `Incoming` stream.
- * It writes blocks and signals into the `Outgoing` stream.
- *
+ * Conductor manages the flow of `Block` and `Signal` between incoming and outgoing streams.
+ * 
  * A block is a unit of data that is wrapped with `SOB` (Start of block) and `EOB` (End of block) signals,
  * referred to as block signals, which indicate the block's boundaries.
  * 
- * @emits `signal` when a `Signal` is received.
+ * @emits `signal` when signal is received on the incoming stream.
+ * @emits `end` when end is received on the incoming stream.
  */
-export class Conductor extends Transform {
+export class Conductor extends EventEmitter {
     /**
-     * Incoming stream.
-     * Piped to read blocks and signals.
+     * Incoming stream to read.
      */
     public readonly incoming: Incoming;
 
     /**
-     * Outgoing stream.
-     * Used to write blocks and signals.
+     * Outgoing stream to write.
      */
     public readonly outgoing: Outgoing;
 
@@ -98,60 +107,71 @@ export class Conductor extends Transform {
      * @param outgoing outgoing stream to write.
      */
     constructor(incoming: Incoming, outgoing: Outgoing) {
-        super({ objectMode: true });
+        super();
 
         // Initialize options.
         this.incoming = incoming;
         this.outgoing = outgoing;
 
-        // ⏳ Be a patient ninja. 🥷
-        this.incoming.rfi ? this.incoming.pipe(this) : this.incoming.once('rfi', () => this.incoming.pipe(this));
-    }
-
-    //////////////////////////////
-    //////// Transform
-    //////////////////////////////
-    /**
-     * Implements the transform stream method `_transform`.
-     * Pushes all chunks downstream.
-     * 
-     * WARNING: Should not be called by the consumer.
-     * 
-     * NOTE: Block signals are not emitted.
-     * 
-     * @emits `signal` when a `Signal` is received.
-     */
-    public _transform(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
-        if (typeof chunk !== 'string' && chunk.event !== Block.START && chunk.event !== Block.END) {
-            this.emit('signal', chunk.event, chunk.tags); // 🚦
-        }
-
-        this.push(chunk);
-        callback();
+        // Add listeners.
+        this.incoming.addListener('end', () => this.emit('end'));
     }
 
     //////////////////////////////
     //////// Read Operations
     //////////////////////////////
     /**
-     * Asynchronous generator reads available data.
-     * Skips over `START` block signal.
-     * Yields data chunks.
-     * Stops and returns when an `END` block signal is encountered.
+     * Async iterator.
+     * Reads a `Block` from the incoming stream.
      */
     public async *[Symbol.asyncIterator]() {
+        yield* this.readBlock();
+    }
+
+    /**
+     * Reads a `Block` from the incoming stream.
+     * 
+     * NOTE: When `END` block signal is encountered, control is passed to `readSignal`.
+     * 
+     * @yields data chunk of the block received on the incoming stream.
+     */
+    private async *readBlock() {
         while (true) {
-            const chunk: string | Signal = this.read();
+            const chunk: string | Signal = this.incoming.read();
             if (!chunk) {
-                // The data will flow when the universe decides. 🧘‍♂️🌌
-                await once(this, 'readable');
+                // Ready or not, here we wait! 👀
+                await once(this.incoming, 'readable');
                 continue;
-            } else if (typeof chunk !== 'string' && chunk.event === Block.START) {
+            } else if (chunk instanceof Signal && chunk.event === Conductor.START) {
                 continue;
             } else if (typeof chunk === 'string') {
                 yield chunk;
-            } else if (typeof chunk !== 'string' && chunk.event === Block.END) {
-                return;
+            } else if (chunk instanceof Signal && chunk.event === Conductor.END) {
+                this.readSignal();
+                return; // Switching to signal reading mode using `readSignal`.
+            }
+        }
+    }
+
+    /**
+     * Reads a `Signal` from the incoming stream.
+     * 
+     * NOTE: When `START` block signal is encountered, control is passed to `readBlock`.
+     * 
+     * @emits `signal` when signal is received on the incoming stream.
+     */
+    private async readSignal() {
+        while (true) {
+            const chunk: string | Signal = this.incoming.read();
+            if (!chunk) {
+                // Waiting for a clearer sign! 🔮
+                await once(this.incoming, 'readable');
+                continue;
+            } else if (chunk instanceof Signal && !(chunk.event === Conductor.START || chunk.event === Conductor.END)) {
+                this.emit('signal', chunk.event, chunk.tags);
+            } else if (chunk instanceof Signal && chunk.event === Conductor.START) {
+                this.incoming.unshift(chunk);
+                return; // Switching to block reading mode using `readBlock`.
             }
         }
     }
@@ -160,46 +180,60 @@ export class Conductor extends Transform {
     //////// Write Operations
     //////////////////////////////
     /**
-     * Writes a block of data to the outgoing stream.
+     * Writes a `Block` to the outgoing stream.
      * 
-     * @param chunk data chunk to write as a block.
+     * @param chunk data chunk of the block.
      */
     public async writeBlock(chunk: string) {
-        const chunks = [new Signal(Block.START), chunk, new Signal(Block.END)];
-        for await (const chunk of chunks) {
-            const write = this.outgoing.write(chunk);
-            if (!write) // Ah, backpressure strikes again! 😬
-                await once(this.outgoing, 'drain');
-        }
+        await this.write(new Signal(Conductor.START));
+        await this.write(chunk);
+        await this.write(new Signal(Conductor.END));
     }
 
     /**
-     * Sends a `Signal` to the outgoing stream.
+     * Writes a `Signal` to the outgoing stream.
      * 
      * @param event name of the signal.
      * @param tags optional tags of the signal.
      */
     public async signal(event: string, tags?: Tags) {
-        const write = this.outgoing.write(new Signal(event, tags));
-        if (!write) // Stream's got commitment issues, always needing space. 🤔
-            await once(this.outgoing, 'drain');
+        await this.write(new Signal(event, tags));
     }
-}
-
-//////////////////////////////
-//////// Block
-//////////////////////////////
-/**
- * Defines the boundaries of a block.
- */
-enum Block {
-    /**
-     * Start of block.
-     */
-    START = 'SOB',
 
     /**
-     * End of block.
+     * Writes data to the outgoing stream.
+     * 
+     * @param chunk chunk to write.
      */
-    END = 'EOB',
+    private async write(chunk: string | Signal) {
+        const write = this.outgoing.write(chunk);
+        if (!write) {
+            // Ah, backpressure strikes again! 😬
+            await once(this.outgoing, 'drain');
+        }
+    }
+
+    //////////////////////////////
+    //////// End
+    //////////////////////////////
+    /**
+     * Ends the outgoing stream.
+     */
+    public async end() {
+        this.outgoing.end();
+        await Stream.finished(this.outgoing);
+    }
+
+    //////////////////////////////
+    //////// Block Definitions
+    //////////////////////////////
+    /**
+     * Indicates start of block.
+     */
+    public static readonly START = 'SOB';
+
+    /**
+     * Indicates end of block.
+     */
+    public static readonly END = 'EOB';
 }
