@@ -239,7 +239,8 @@ export default class Client extends EventEmitter implements IClient {
         // Initialize. 🎩🚦🔲
         let conductor: Conductor | undefined;
         if (args.at(-1) instanceof Orchestrator) {
-            conductor = (args.pop() as Orchestrator).Conductor(incoming, outgoing);
+            conductor = new Conductor(incoming, outgoing);
+            (args.pop() as Orchestrator).manage(conductor);
             outgoing.parameters['CONDUCTOR'] = 'TRUE';
         }
         let incomingData = '', outgoingData = JSON.stringify(args);

@@ -25,18 +25,16 @@ export default class Orchestrator {
     }
 
     //////////////////////////////
-    //////// Conductor
+    //////// Manage
     //////////////////////////////
     /**
-     * Creates and registers a new `Conductor`.
+     * Manges multiple conductors.
      * 
-     * @param incoming incoming stream to read.
-     * @param outgoing outgoing stream to write.
+     * @param conductors conductors to manage.
      */
-    public Conductor(incoming: Incoming, outgoing: Outgoing) {
-        const condition = new Conductor(incoming, outgoing);
-        this.conductors.push(condition);
-        return condition;
+    public manage(...conductors: Array<Conductor>) {
+        this.conductors.push(...conductors);
+        return this;
     }
 
     //////////////////////////////
