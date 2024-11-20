@@ -71,15 +71,12 @@ mocha.describe('Service Test', () => {
             for (const service of services) {
                 assert.deepStrictEqual(service.listening, { http: status, scp: status, sdp: status });
                 assert.deepStrictEqual(service.remotes.size, count - 1);
-                service.remotes.forEach((remotes) => {
-                    remotes.forEach((remote) => {
-                        assert.deepStrictEqual(remote.identifier, service.identifier);
-                        assert.deepStrictEqual(remote.httpProxy.identifier, service.identifier);
-                        assert.deepStrictEqual(remote.httpProxy.configured, status);
-                        assert.deepStrictEqual(remote.scpClient.identifier, service.identifier);
-                        assert.deepStrictEqual(remote.scpClient.connected, status);
-                    });
-                    assert.deepStrictEqual(remotes.length, 1);
+                service.remotes.forEach((remote) => {
+                    assert.deepStrictEqual(remote.identifier, service.identifier);
+                    assert.deepStrictEqual(remote.httpProxy.identifier, service.identifier);
+                    assert.deepStrictEqual(remote.httpProxy.configured, status);
+                    assert.deepStrictEqual(remote.scpClient.identifier, service.identifier);
+                    assert.deepStrictEqual(remote.scpClient.connected, status);
                 });
             }
         }
@@ -141,12 +138,11 @@ mocha.describe('Service Test', () => {
             await Promise.all([serviceA.stop(), serviceB.stop()]);
         });
 
-        mocha.it('should create duplicate remotes', () => {
-            const remoteToB1 = new Remote(createIdentifier());
-            const remoteToB2 = new Remote(createIdentifier());
-            serviceA.link('serviceB', remoteToB1, remoteToB2);
-            assert.deepStrictEqual(serviceA.remotes.size, 1);
-            assert.deepStrictEqual(serviceA.remotes.get('serviceB')!.length, 1 + 2);
+        mocha.it('should not create duplicate remote', () => {
+            const remoteToB1 = new Remote(serviceA.identifier);
+            serviceA.link('serviceB', remoteToB1);
+            assert.notDeepStrictEqual(serviceA.remotes.get('serviceB'), remoteToB1);
+            assert.deepStrictEqual(serviceA.remotes.get('serviceB'), remoteToB);
         });
 
         mocha.it('should forward request to remote service', async () => {

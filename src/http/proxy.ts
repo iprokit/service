@@ -6,8 +6,8 @@ import HTTP, { ClientRequest, IncomingMessage as ClientResponse, RequestOptions 
 import { ServerRequest, ServerResponse, RequestHandler } from './server';
 
 /**
- * Implements a simple HTTP Proxy.
- * Responsible for managing connection persistence to the target server.
+ * `Proxy` manages connections to an HTTP server.
+ * Once configured, it forwards incoming requests to the target server.
  */
 export default class Proxy implements IProxy {
     /**

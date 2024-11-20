@@ -11,8 +11,8 @@ import { RFI, Incoming, Outgoing } from './definitions';
 import Orchestrator, { Conductor } from './orchestrator';
 
 /**
- * Implements a simple SCP Client.
- * Manages connection persistence to the server.
+ * `Client` manages connections to an SCP server.
+ * Once connected, it subscribes to receive broadcasts and handles the execution of OMNIs and remote functions.
  * 
  * @emits `connect` when the connection is successfully established.
  * @emits `<operation>` when a broadcast is received.

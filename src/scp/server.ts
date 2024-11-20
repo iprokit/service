@@ -9,8 +9,8 @@ import { RFI, Incoming, Outgoing } from './definitions';
 import { Conductor } from './orchestrator';
 
 /**
- * SCP Server that binds to an IP address and port number,
- * and listens for incoming SCP client connections.
+ * `Server` binds to an IP address and port number, listening for incoming SCP client connections.
+ * Manages registered executions to handle various SCP modes and dispatches I/Os to the appropriate execution handlers.
  *
  * @emits `listening` when the server is bound after calling `server.listen()`.
  * @emits `connection` when a client socket connection is received.
@@ -236,8 +236,8 @@ export interface IServer extends IExecutor {
 //////// Executor
 //////////////////////////////
 /**
- * Registers executions that handle SCP I/O's.
- * Once attached, SCP I/O's are dispatched to the appropriate registered executions.
+ * Registers executions that handle SCP I/Os.
+ * Once attached, SCP I/Os are dispatched to the appropriate registered executions.
  */
 export class Executor implements IExecutor {
     /**

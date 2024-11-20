@@ -382,7 +382,6 @@ mocha.describe('SCP Test', () => {
         let client: Client;
 
         const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
-        const signal = new Signal(createString(10), { 'ARG1': createString(5), 'ARG2': createString(5) });
 
         mocha.beforeEach(async () => {
             server = new Server(createIdentifier());
@@ -449,30 +448,33 @@ mocha.describe('SCP Test', () => {
             }
         });
 
-        mocha.it('should execute remote functions with orchestrator', async () => {
+        mocha.it('should execute remote function as empty with orchestrator', async () => {
+            const functions = Array(10).fill({}).map((_, i) => ({ name: `nexus${i}`, data: {} }));
+            const signal = new Signal(createString(10), { 'ID': createString(5) });
+
             // Server
-            server.func('nexus1', (conductor: Conductor) => {
-                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
-                conductor.on('end', () => conductor.end());
-                return;
-            });
-            server.func('nexus2', (args, conductor: Conductor) => {
-                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
-                conductor.on('end', () => conductor.end());
-                return args;
-            });
+            for (const { name } of functions) {
+                server.func(name, (conductor: Conductor) => {
+                    (async () => {
+                        const [event, tags] = await once(conductor, 'signal') as [string, Tags];
+                        await conductor.signal(event, tags);
+                        await once(conductor, 'end');
+                        await conductor.end();
+                    })();
+                    return;
+                });
+            }
 
             // Client
             const orchestrator = new Orchestrator();
-            const returned1 = await client.execute('nexus1', orchestrator);
-            assert.deepStrictEqual(returned1, {});
-            const returned2 = await client.execute('nexus2', args, orchestrator);
-            assert.deepStrictEqual(returned2, args);
+            await Promise.all(functions.map(async ({ name, data }) => {
+                const returned = await client.execute(name, orchestrator);
+                assert.deepStrictEqual(returned, data);
+            }));
+
+            // Orchestrate
             const signals = await orchestrator.signal(signal.event, signal.tags);
-            for (const { event, tags } of signals) {
-                assert.deepStrictEqual(event, signal.event);
-                assert.deepStrictEqual(tags, signal.tags);
-            }
+            signals.forEach(({ event, tags }) => { assert.deepStrictEqual(event, signal.event); assert.deepStrictEqual(tags, signal.tags); });
             await orchestrator.end();
         });
     });

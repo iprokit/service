@@ -119,7 +119,7 @@ export class Conductor extends EventEmitter {
     //////// Read Operations
     //////////////////////////////
     /**
-     * Async iterator.
+     * Asynchronous iterator.
      * Reads a `Block` from the incoming stream.
      */
     public async *[Symbol.asyncIterator]() {

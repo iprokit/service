@@ -8,7 +8,7 @@ import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler,
 import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
 
 /**
- * Creates a lightweight `Service` instance for managing HTTP endpoints and facilitating SCP remote function invocation.
+ * A lightweight `Service` for managing HTTP routes and SCP executions.
  * Ensures smooth communication and coordination by bridging protocols and managing remote service interactions.
  * 
  * @emits `start` when the service starts.
@@ -40,7 +40,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     /**
      * Remote services registered.
      */
-    public readonly remotes: Map<string, Array<Remote>>;
+    public readonly remotes: Map<string, Remote>;
 
     /**
      * Creates an instance of `Service`.
@@ -128,50 +128,44 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      * @emits `link` when a remote link is established.
      */
     private onAvailable(identifier: string, attributes: Attributes, host: string) {
-        const remotes = this.remotes.get(identifier);
-        if (!remotes) return;
+        const remote = this.remotes.get(identifier);
+        if (!remote) return;
 
         // Establish connection.
-        for (const remote of remotes) {
-            remote.httpProxy.configure(Number(attributes['http']), host);
-            remote.scpClient.connect(Number(attributes['scp']), host);
-            this.emit('link', remote);
-        }
+        remote.httpProxy.configure(Number(attributes['http']), host);
+        remote.scpClient.connect(Number(attributes['scp']), host);
+        this.emit('link', remote);
     }
 
     /**
      * @emits `unlink` when a remote link is terminated.
      */
     private onUnavailable(identifier: string) {
-        const remotes = this.remotes.get(identifier);
-        if (!remotes) return;
+        const remote = this.remotes.get(identifier);
+        if (!remote) return;
 
         // Terminate connection.
-        for (const remote of remotes) {
-            if (remote.httpProxy.configured) remote.httpProxy.deconfigure();
-            if (remote.scpClient.connected) remote.scpClient.close();
-            this.emit('unlink', remote);
-        }
+        if (remote.httpProxy.configured) remote.httpProxy.deconfigure();
+        if (remote.scpClient.connected) remote.scpClient.close();
+        this.emit('unlink', remote);
     }
 
     //////////////////////////////
     //////// Link
     //////////////////////////////
     /**
-     * Links multiple remotes to the remote service.
+     * Links a remote to the remote service.
+     * 
+     * No-op if the remote service is already linked.
      * 
      * @param identifier unique identifier of the remote service.
-     * @param remotes remote instances to link.
+     * @param remote remote to link.
      */
-    public link(identifier: string, ...remotes: Array<Remote>) {
-        let remotesLinked = this.remotes.get(identifier);
-        if (!remotesLinked) {
-            remotesLinked = new Array();
-            this.remotes.set(identifier, remotesLinked);
-        }
+    public link(identifier: string, remote: Remote) {
+        if (this.remotes.has(identifier)) return this;
 
         // Forging a new link. 🚀🎉
-        remotesLinked.push(...remotes);
+        this.remotes.set(identifier, remote);
         return this;
     }
 
@@ -292,7 +286,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Registers a SCP async function for execution through a remote service.
+     * Registers a SCP asynchronous function for execution through a remote service.
      * 
      * @param operation operation pattern.
      * @param func function to be executed.
@@ -331,13 +325,11 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 
         // Remote
         const scpConnections = new Array<Promise<Array<void>>>();
-        for (const remotes of this.remotes.values()) {
-            for (const { scpClient } of remotes) {
-                // `onAvailable()` will call `httpProxy.configure()`. 👀
-                if (!scpClient.connected) {
-                    // `onAvailable()` will call `scpClient.connect()`. 👀
-                    scpConnections.push(once(scpClient, 'connect'));
-                }
+        for (const { scpClient } of this.remotes.values()) {
+            // `onAvailable()` will call `httpProxy.configure()`. 👀
+            if (!scpClient.connected) {
+                // `onAvailable()` will call `scpClient.connect()`. 👀
+                scpConnections.push(once(scpClient, 'connect'));
             }
         }
         await Promise.all(scpConnections);
@@ -358,13 +350,11 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 
         // Remote
         const scpConnections = new Array<Promise<Array<void>>>();
-        for (const remotes of this.remotes.values()) {
-            for (const { httpProxy, scpClient } of remotes) {
-                if (httpProxy.configured) httpProxy.deconfigure();
-                if (scpClient.connected) {
-                    scpClient.close();
-                    scpConnections.push(once(scpClient, 'close'));
-                }
+        for (const { httpProxy, scpClient } of this.remotes.values()) {
+            if (httpProxy.configured) httpProxy.deconfigure();
+            if (scpClient.connected) {
+                scpClient.close();
+                scpConnections.push(once(scpClient, 'close'));
             }
         }
         await Promise.all(scpConnections);
@@ -386,8 +376,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 //////// Remote
 //////////////////////////////
 /**
- * `Remote` class manages both HTTP and SCP interactions with a remote service,
- * handling HTTP proxying and SCP function invocations.
+ * `Remote` encapsulates `HttpProxy` and `ScpClient` to interact with a remote service.
  */
 export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
     /**
