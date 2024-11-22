@@ -246,7 +246,7 @@ export default class Client extends EventEmitter implements IClient {
         let incomingData = '', outgoingData = JSON.stringify(args);
         try {
             // Write.
-            conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
+            conductor ? await conductor.deliver(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
 
             // Read.
             await once(incoming, 'rfi'); // Waiting for RFI...🕵️‍♂️

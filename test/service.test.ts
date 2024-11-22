@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import Service, { Remote, HTTP } from '../lib';
+import Service, { Remote, HTTP, SCP } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -202,6 +202,32 @@ mocha.describe('Service Test', () => {
             const arg = createString(1000);
             const returned = await remoteToA.execute('nexus', arg);
             assert.deepStrictEqual(returned, arg);
+        });
+
+        mocha.it('should execute functions on remote service with Orchestrator', async () => {
+            const operations = Array(20).fill({}).map(() => createString(5));
+
+            // Server
+            serviceA.func('*', async (arg, conductor: SCP.Conductor) => {
+                conductor.on('signal', (event: string, tags: SCP.Tags) => conductor.signal(event, tags));
+                conductor.on('end', () => conductor.end());
+                return arg;
+            });
+
+            // Client
+            const orchestrator = new SCP.Orchestrator();
+            await Promise.all(operations.map(async (operation) => {
+                const arg = createString(20);
+                const returned = await remoteToA.execute(operation, arg, orchestrator);
+                assert.deepStrictEqual(returned, arg);
+            }));
+            const signal = new SCP.Signal(createString(10), { 'ID': createString(5) }); // Signals
+            const returnedSignals = await orchestrator.signal(signal.event, signal.tags);
+            returnedSignals.forEach((returnedSignal) => {
+                assert.deepStrictEqual(returnedSignal.event, signal.event);
+                assert.deepStrictEqual(returnedSignal.tags, signal.tags);
+            });
+            await orchestrator.end();
         });
     });
 });

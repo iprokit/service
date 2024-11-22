@@ -306,7 +306,7 @@ export class Executor implements IExecutor {
                     }
 
                     // Write.
-                    conductor ? await conductor.writeBlock(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
+                    conductor ? await conductor.deliver(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
                 } catch (error) {
                     // ❗️⚠️❗️
                     incoming.destroy();

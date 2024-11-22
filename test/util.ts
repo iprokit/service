@@ -19,7 +19,7 @@ export function createIdentifier() {
     return createString(10);
 }
 
-export async function read<R extends Readable>(readable: R) {
+export async function read<R extends Readable | AsyncIterable<string>>(readable: R) {
     let chunks = '';
     for await (const chunk of readable) {
         chunks += chunk;

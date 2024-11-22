@@ -6,7 +6,7 @@ import { promisify } from 'util';
 
 // Import Local.
 import { Server, Executor, Segment, Nexus, IncomingHandler, Client, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
-import { createString, createIdentifier, clientOmni } from './util';
+import { createString, createIdentifier, clientOmni, read } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
@@ -383,6 +383,34 @@ mocha.describe('SCP Test', () => {
 
         const args = [null, 0, '', {}, [], [null], [0], [''], [{}], [[]], createString(1000), { arg: createString(1000) }, createString(1000).split('')];
 
+        const conduct = (conductor: Conductor) => {
+            conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
+            conductor.on('payload', async () => conductor.deliver(await read(conductor)));
+            conductor.on('end', () => conductor.end());
+        }
+
+        const orchestrate = async (orchestrator: Orchestrator, iterations: number, signals: number, payloads: number) => {
+            for (let i = 0; i < iterations; i++) {
+                for (let j = 0; j < signals; j++) { // Signals
+                    const signal = new Signal(createString(10), { 'ID': createString(5) });
+                    const returnedSignals = await orchestrator.signal(signal.event, signal.tags); // Write + Read
+                    returnedSignals.forEach((returnedSignal) => {
+                        assert.deepStrictEqual(returnedSignal.event, signal.event);
+                        assert.deepStrictEqual(returnedSignal.tags, signal.tags);
+                    });
+                }
+                for (let j = 0; j < payloads; j++) { // Payloads
+                    await Promise.all(orchestrator.conductors.map(async (conductor) => {
+                        const data = createString(20);
+                        await conductor.deliver(data); // Write
+                        await once(conductor, 'payload');
+                        const returnedData = await read(conductor); // Read
+                        assert.deepStrictEqual(returnedData, data);
+                    }));
+                }
+            }
+        }
+
         mocha.beforeEach(async () => {
             server = new Server(createIdentifier());
             server.listen(port);
@@ -448,33 +476,41 @@ mocha.describe('SCP Test', () => {
             }
         });
 
-        mocha.it('should execute remote function as empty with orchestrator', async () => {
-            const functions = Array(10).fill({}).map((_, i) => ({ name: `nexus${i}`, data: {} }));
-            const signal = new Signal(createString(10), { 'ID': createString(5) });
+        mocha.it('should execute remote functions in sequence with orchestrator', async () => {
+            const operations = Array(20).fill({}).map(() => createString(5));
 
             // Server
-            for (const { name } of functions) {
-                server.func(name, (conductor: Conductor) => {
-                    (async () => {
-                        const [event, tags] = await once(conductor, 'signal') as [string, Tags];
-                        await conductor.signal(event, tags);
-                        await once(conductor, 'end');
-                        await conductor.end();
-                    })();
-                    return;
-                });
-            }
+            server.func('*', (...args) => {
+                conduct(args.pop() as Conductor);
+                return args;
+            });
 
             // Client
             const orchestrator = new Orchestrator();
-            await Promise.all(functions.map(async ({ name, data }) => {
-                const returned = await client.execute(name, orchestrator);
-                assert.deepStrictEqual(returned, data);
-            }));
+            for await (const operation of operations) {
+                const returned = await client.execute(operation, ...args, orchestrator);
+                assert.deepStrictEqual(returned, args);
+            }
+            await orchestrate(orchestrator, 5, 5, 5);
+            await orchestrator.end();
+        });
 
-            // Orchestrate
-            const signals = await orchestrator.signal(signal.event, signal.tags);
-            signals.forEach(({ event, tags }) => { assert.deepStrictEqual(event, signal.event); assert.deepStrictEqual(tags, signal.tags); });
+        mocha.it('should execute remote functions in parallel with orchestrator', async () => {
+            const operations = Array(20).fill({}).map(() => createString(5));
+
+            // Server
+            server.func('*', (...args) => {
+                conduct(args.pop() as Conductor);
+                return args;
+            });
+
+            // Client
+            const orchestrator = new Orchestrator();
+            await Promise.all(operations.map(async (operation) => {
+                const returned = await client.execute(operation, ...args, orchestrator);
+                assert.deepStrictEqual(returned, args);
+            }));
+            await orchestrate(orchestrator, 5, 5, 5);
             await orchestrator.end();
         });
     });

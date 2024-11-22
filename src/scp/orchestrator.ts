@@ -9,7 +9,7 @@ import { Signal, Tags } from '@iprolab/scp';
 import { Incoming, Outgoing } from './definitions';
 
 /**
- * Orchestrator manages the life cycle of multiple `Conductor` instances and coordinates signals.
+ * `Orchestrator` manages the life cycle of multiple `Conductor` instances and coordinates signals.
  */
 export default class Orchestrator {
     /**
@@ -79,12 +79,13 @@ export default class Orchestrator {
 //////// Conductor
 //////////////////////////////
 /**
- * Conductor manages the flow of `Block` and `Signal` between incoming and outgoing streams.
+ * `Conductor` manages the flow of `Payload` and `Signal` between incoming and outgoing streams.
  * 
- * A block is a unit of data that is wrapped with `SOB` (Start of block) and `EOB` (End of block) signals,
- * referred to as block signals, which indicate the block's boundaries.
+ * A payload is a unit of data that is wrapped with `SOP` (Start of payload) and `EOP` (End of payload) signals,
+ * referred to as payload signals, which indicate the payload's boundaries.
  * 
  * @emits `signal` when signal is received on the incoming stream.
+ * @emits `payload` when payload is received on the incoming stream.
  * @emits `end` when end is received on the incoming stream.
  */
 export class Conductor extends EventEmitter {
@@ -120,20 +121,20 @@ export class Conductor extends EventEmitter {
     //////////////////////////////
     /**
      * Asynchronous iterator.
-     * Reads a `Block` from the incoming stream.
+     * Reads a `Payload` from the incoming stream.
      */
     public async *[Symbol.asyncIterator]() {
-        yield* this.readBlock();
+        yield* this.readPayload();
     }
 
     /**
-     * Reads a `Block` from the incoming stream.
+     * Reads a `Payload` from the incoming stream.
      * 
-     * NOTE: When `END` block signal is encountered, control is passed to `readSignal`.
+     * NOTE: When `END` payload signal is encountered, control is passed to `readSignal`.
      * 
-     * @yields data chunk of the block received on the incoming stream.
+     * @yields data chunk of the payload received on the incoming stream.
      */
-    private async *readBlock() {
+    private async *readPayload() {
         while (true) {
             const chunk: string | Signal = this.incoming.read();
             if (!chunk) {
@@ -154,9 +155,10 @@ export class Conductor extends EventEmitter {
     /**
      * Reads a `Signal` from the incoming stream.
      * 
-     * NOTE: When `START` block signal is encountered, control is passed to `readBlock`.
+     * NOTE: When `START` payload signal is encountered, control is passed to `readPayload`.
      * 
      * @emits `signal` when signal is received on the incoming stream.
+     * @emits `payload` when payload is received on the incoming stream.
      */
     private async readSignal() {
         while (true) {
@@ -169,7 +171,8 @@ export class Conductor extends EventEmitter {
                 this.emit('signal', chunk.event, chunk.tags);
             } else if (chunk instanceof Signal && chunk.event === Conductor.START) {
                 this.incoming.unshift(chunk);
-                return; // Switching to block reading mode using `readBlock`.
+                this.emit('payload');
+                return; // Switching to payload reading mode using `readPayload`.
             }
         }
     }
@@ -178,11 +181,11 @@ export class Conductor extends EventEmitter {
     //////// Write Operations
     //////////////////////////////
     /**
-     * Writes a `Block` to the outgoing stream.
+     * Writes a `Payload` to the outgoing stream.
      * 
-     * @param chunk data chunk of the block.
+     * @param chunk data chunk of the payload.
      */
-    public async writeBlock(chunk: string) {
+    public async deliver(chunk: string) {
         await this.write(new Signal(Conductor.START));
         await this.write(chunk);
         await this.write(new Signal(Conductor.END));
@@ -223,15 +226,15 @@ export class Conductor extends EventEmitter {
     }
 
     //////////////////////////////
-    //////// Block Definitions
+    //////// Payload Definitions
     //////////////////////////////
     /**
-     * Indicates start of block.
+     * Indicates start of payload.
      */
-    public static readonly START = 'SOB';
+    public static readonly START = 'SOP';
 
     /**
-     * Indicates end of block.
+     * Indicates end of payload.
      */
-    public static readonly END = 'EOB';
+    public static readonly END = 'EOP';
 }
