@@ -1,16 +1,17 @@
-//Export HTTP.
-export { default as HttpServer, IServer as IHttpServer, Router, Route, Stack, Endpoint, Method as HttpMethod, RequestHandler, NextFunction, Request as ServerRequest, Response as ServerResponse } from './http.server';
-export { default as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http.proxy';
-export { default as HttpStatusCode } from './http.statusCode';
+// Export HTTP.
+export * as http from './http';
+export { Method, StatusCode, RequestHeaders, ResponseHeaders } from './http';
+export { Router, IRouter, Route, Stack, Endpoint, RequestHandler, NextFunction, ServerRequest, ServerResponse } from './http';
 
-//Export SCP.
-export { Frame, FrameType, RFI, IRFI, Params, Signal, Args, Socket as ScpSocket, SocketOptions, Incoming, Outgoing, DropArgument } from '@iprolab/scp';
-export { default as ScpServer, IServer as IScpServer, Executor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Function, Connection as ScpConnection, Incoming as ServerIncoming, Outgoing as ServerOutgoing } from './scp.server';
-export { default as ScpClient, IClient as IScpClient } from './scp.client';
+// Export SCP.
+export * as scp from './scp';
+export { RFI, IRFI, Mode, Parameters, Signal, Tags, Incoming, Outgoing } from './scp';
+export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Function, ServerIncoming, ServerOutgoing } from './scp';
+export { IOSocket } from './scp';
+export { Orchestrator, Conductor } from './scp';
 
-//Export SDP.
-export { Pod, Attrs, Socket as SdpSocket, Sender } from '@iprolab/sdp';
-export { default as SdpServer, IPod } from './sdp.server';
+// Export SDP.
+export * as sdp from './sdp';
 
-//Export Service.
-export { default, Link } from './service';
+// Export Service.
+export { default, Remote, Attributes } from './service';

@@ -1,77 +1,91 @@
-//Import Libs.
+// Import Libs.
 import Stream from 'stream';
-import HTTP, { RequestOptions, ClientRequest, IncomingMessage } from 'http';
+import http, { ClientRequest, IncomingMessage as ClientResponse, RequestOptions } from 'http';
 
-//Import Local.
-import { RequestHandler, Request, Response } from './http.server';
+// Import Local.
+import { ServerRequest, ServerResponse, RequestHandler } from './server';
 
 /**
- * This class implements a simple HTTP Proxy.
- * A `Proxy` is responsible for managing connection persistence to the target server.
+ * `Proxy` manages connections to an HTTP server.
+ * Once configured, it forwards incoming requests to the target server.
  */
 export default class Proxy implements IProxy {
     /**
-     * The remote host.
+     * Unique identifier of the proxy.
+     */
+    public readonly identifier: string;
+
+    /**
+     * Remote host.
      */
     private _host: string | undefined;
 
     /**
-     * The remote port.
+     * Remote port.
      */
     private _port: number | undefined;
 
     /**
-     * Returns true when the proxy is configured, false otherwise.
+     * `true` when the proxy is configured, `false` otherwise.
      */
     private _configured: boolean;
 
     /**
-     * Creates an instance of HTTP proxy.
+     * Creates an instance of HTTP `Proxy`.
+     * 
+     * @param identifier unique identifier of the proxy.
      */
-    constructor() {
-        //Initialize Variables.
+    constructor(identifier: string) {
+        // Initialize variables.
         this._configured = false;
+
+        // Initialize options.
+        this.identifier = identifier;
     }
 
     //////////////////////////////
-    //////Gets/Sets
+    //////// Gets/Sets
     //////////////////////////////
     /**
-     * The remote host.
+     * Remote host.
      */
     public get host() {
         return this._host;
     }
 
     /**
-     * The remote port.
+     * Remote port.
      */
     public get port() {
         return this._port;
     }
 
     /**
-     * Returns true when the proxy is configured, false otherwise.
+     * `true` when the proxy is configured, `false` otherwise.
      */
     public get configured() {
         return this._configured;
     }
 
     //////////////////////////////
-    //////Interface: IProxy
+    //////// IProxy
     //////////////////////////////
     public forward(options?: ForwardOptions): RequestHandler {
         return (request, response, next) => {
             options = options ?? {};
             const { host, port } = this;
             const { method, url: path, headers } = request;
+            headers['x-proxy-identifier'] = this.identifier;
             const requestOptions: RequestOptions = { host, port, method, path, headers }
 
-            //Let's boogie 🕺💃 🎶.
+            // Set: Response.
+            response.setHeader('x-proxy-identifier', this.identifier); // 🏴‍☠️💀👻
+
+            // Let's boogie. 🕺💃 🎶
             if (options.onOptions) options.onOptions(requestOptions, request, response);
-            const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
+            const proxyRequest = http.request(requestOptions, (proxyResponse) => {
                 if (options!.onResponse) options!.onResponse(proxyResponse, request, response);
-                response.writeHead(proxyResponse.statusCode as number, proxyResponse.headers);
+                response.writeHead(proxyResponse.statusCode!, proxyResponse.headers);
                 Stream.pipeline(proxyResponse, response, (error: Error | null) => {
                     if (error && options!.onError) options!.onError(error, response);
                 });
@@ -84,13 +98,13 @@ export default class Proxy implements IProxy {
     }
 
     //////////////////////////////
-    //////Configuration Management
+    //////// Configuration Management
     //////////////////////////////
     /**
      * Configures the proxy.
      * 
-     * @param port the remote port.
-     * @param host the remote host.
+     * @param port remote port.
+     * @param host remote host.
      */
     public configure(port: number, host: string) {
         this._port = port;
@@ -111,56 +125,56 @@ export default class Proxy implements IProxy {
 }
 
 //////////////////////////////
-/////IProxy
+//////// IProxy
 //////////////////////////////
 /**
- * Interface of HTTP `Proxy`.
+ * Interface for the HTTP `Proxy`.
  */
 export interface IProxy {
     /**
      * Creates a request handler that forwards incoming requests to the target server.
      * 
-     * @param options the optional options for forwarding requests.
+     * @param options options for forwarding requests.
      */
     forward: (options?: ForwardOptions) => RequestHandler;
 }
 
 //////////////////////////////
-//////Forward Options
+//////// Forward Options
 //////////////////////////////
 export interface ForwardOptions {
     /**
-     * Callback function to modify the request options before the request is sent.
+     * Callback function to modify request options before sending the request.
      * 
-     * @param options the request options.
-     * @param request the incoming request.
-     * @param response the outgoing response.
+     * @param options request options.
+     * @param request incoming request.
+     * @param response outgoing response.
      */
-    onOptions?: (options: RequestOptions, request: Request, response: Response) => void;
+    onOptions?: (options: RequestOptions, request: ServerRequest, response: ServerResponse) => void;
 
     /**
-     * Callback function to modify the proxy request before it is sent to the target server.
+     * Callback function to modify proxy request before it is sent to the target server.
      * 
-     * @param proxyRequest the proxy request.
-     * @param request the incoming request.
-     * @param response the outgoing response.
+     * @param proxyRequest proxy request.
+     * @param request incoming request.
+     * @param response outgoing response.
      */
-    onRequest?: (proxyRequest: ClientRequest, request: Request, response: Response) => void;
+    onRequest?: (proxyRequest: ClientRequest, request: ServerRequest, response: ServerResponse) => void;
 
     /**
-     * Callback function to modify the proxy response before it is sent back to the client.
+     * Callback function to modify proxy response before it is sent back to the client.
      * 
-     * @param proxyResponse the proxy response.
-     * @param request the incoming request.
-     * @param response the outgoing response.
+     * @param proxyResponse proxy response.
+     * @param request incoming request.
+     * @param response outgoing response.
      */
-    onResponse?: (proxyResponse: IncomingMessage, request: Request, response: Response) => void;
+    onResponse?: (proxyResponse: ClientResponse, request: ServerRequest, response: ServerResponse) => void;
 
     /**
      * Callback function to handle errors during the proxy request or response.
      * 
-     * @param error the error object.
-     * @param response the outgoing response.
+     * @param error error object.
+     * @param response outgoing response.
      */
-    onError?: (error: Error, response: Response) => void;
+    onError?: (error: Error, response: ServerResponse) => void;
 }
