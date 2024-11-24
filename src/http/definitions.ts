@@ -1,5 +1,5 @@
 // Import Libs.
-import HTTP from 'http';
+import http from 'http';
 
 //////////////////////////////
 //////// Method
@@ -21,8 +21,8 @@ interface Headers {
     'x-proxy-identifier'?: string;
 }
 
-export type RequestHeaders = HTTP.IncomingHttpHeaders & Headers;
-export type ResponseHeaders = HTTP.OutgoingHttpHeaders & Headers;
+export type RequestHeaders = http.IncomingHttpHeaders & Headers;
+export type ResponseHeaders = http.OutgoingHttpHeaders & Headers;
 
 //////////////////////////////
 //////// StatusCode

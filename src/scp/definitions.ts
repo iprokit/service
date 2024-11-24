@@ -1,10 +1,10 @@
 // Import @iprolab Libs.
-import SCP, { Parameters as ScpParameters } from '@iprolab/scp';
+import scp, { Parameters as ScpParameters } from '@iprolab/scp';
 
 //////////////////////////////
 //////// RFI
 //////////////////////////////
-export class RFI extends SCP.RFI {
+export class RFI extends scp.RFI {
     public declare readonly mode: Mode;
     public declare readonly parameters: Parameters;
 
@@ -45,7 +45,7 @@ export interface Parameters extends ScpParameters {
 //////////////////////////////
 //////// Incoming/Outgoing
 //////////////////////////////
-export interface Incoming extends InstanceType<typeof SCP.Incoming> {
+export interface Incoming extends InstanceType<typeof scp.Incoming> {
     rfi: RFI;
     mode: Mode;
     parameters: Parameters;
@@ -53,7 +53,7 @@ export interface Incoming extends InstanceType<typeof SCP.Incoming> {
     has(key: keyof Parameters): boolean;
 }
 
-export interface Outgoing extends InstanceType<typeof SCP.Outgoing> {
+export interface Outgoing extends InstanceType<typeof scp.Outgoing> {
     rfi: RFI;
     mode: Mode;
     parameters: Parameters;

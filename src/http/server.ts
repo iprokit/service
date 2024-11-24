@@ -1,5 +1,5 @@
 // Import Libs.
-import HTTP from 'http';
+import http from 'http';
 import URL from 'url';
 import { ParsedUrlQuery } from 'querystring';
 
@@ -15,7 +15,7 @@ import { Method, RequestHeaders, ResponseHeaders } from './definitions';
  * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
-export default class Server extends HTTP.Server implements IServer {
+export default class Server extends http.Server implements IServer {
     /**
      * Unique identifier of the server.
      */
@@ -376,7 +376,7 @@ export type NextFunction = () => void;
 /**
  * Represents an HTTP server request.
  */
-export interface ServerRequest extends HTTP.IncomingMessage {
+export interface ServerRequest extends http.IncomingMessage {
     /**
      * Request headers.
      */
@@ -406,7 +406,7 @@ export interface ServerRequest extends HTTP.IncomingMessage {
 /**
  * Represents an HTTP server response.
  */
-export interface ServerResponse extends HTTP.ServerResponse {
+export interface ServerResponse extends http.ServerResponse {
     /**
      * Response headers.
      */

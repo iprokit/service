@@ -1,6 +1,6 @@
 // Import Libs.
 import Stream from 'stream';
-import HTTP, { ClientRequest, IncomingMessage as ClientResponse, RequestOptions } from 'http';
+import http, { ClientRequest, IncomingMessage as ClientResponse, RequestOptions } from 'http';
 
 // Import Local.
 import { ServerRequest, ServerResponse, RequestHandler } from './server';
@@ -83,7 +83,7 @@ export default class Proxy implements IProxy {
 
             // Let's boogie. 🕺💃 🎶
             if (options.onOptions) options.onOptions(requestOptions, request, response);
-            const proxyRequest = HTTP.request(requestOptions, (proxyResponse) => {
+            const proxyRequest = http.request(requestOptions, (proxyResponse) => {
                 if (options!.onResponse) options!.onResponse(proxyResponse, request, response);
                 response.writeHead(proxyResponse.statusCode!, proxyResponse.headers);
                 Stream.pipeline(proxyResponse, response, (error: Error | null) => {

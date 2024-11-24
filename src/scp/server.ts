@@ -2,7 +2,7 @@
 import { promises as Stream } from 'stream';
 
 // Import @iprolab Libs.
-import SCP from '@iprolab/scp';
+import scp from '@iprolab/scp';
 
 // Import Local.
 import { RFI, Incoming, Outgoing } from './definitions';
@@ -18,7 +18,7 @@ import { Conductor } from './orchestrator';
  * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
  * @emits `close` when the server is fully closed.
  */
-export default class Server extends SCP.Server implements IServer {
+export default class Server extends scp.Server implements IServer {
     /**
      * Unique identifier of the server.
      */
@@ -413,7 +413,7 @@ export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Re
 //////////////////////////////
 //////// Connection
 //////////////////////////////
-export interface Connection extends InstanceType<typeof SCP.Connection> {
+export interface Connection extends InstanceType<typeof scp.Connection> {
     /**
      * Unique identifier of the client socket connection.
      */

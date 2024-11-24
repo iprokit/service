@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import Service, { Remote, HTTP, SCP } from '../lib';
+import Service, { Remote, StatusCode, Orchestrator, Conductor, Signal, Tags } from '../lib';
 import { createString, createIdentifier, clientRequest, clientOmni } from './util';
 
 const httpPort = 3000;
@@ -154,7 +154,7 @@ mocha.describe('Service Test', () => {
                 assert.deepStrictEqual(request.method, 'POST');
                 assert.deepStrictEqual(request.url, '/endpoint');
                 assert.deepStrictEqual(request.headers['x-proxy-identifier'], serviceA.identifier);
-                request.pipe(response).writeHead(HTTP.StatusCode.OK);
+                request.pipe(response).writeHead(StatusCode.OK);
             });
 
             // Client
@@ -162,7 +162,7 @@ mocha.describe('Service Test', () => {
             const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
             assert.deepStrictEqual(response.headers['x-server-identifier'], serviceB.identifier);
             assert.deepStrictEqual(response.headers['x-proxy-identifier'], serviceA.identifier);
-            assert.deepStrictEqual(response.statusCode, HTTP.StatusCode.OK);
+            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
         });
 
@@ -208,20 +208,20 @@ mocha.describe('Service Test', () => {
             const operations = Array(20).fill({}).map(() => createString(5));
 
             // Server
-            serviceA.func('*', async (arg, conductor: SCP.Conductor) => {
-                conductor.on('signal', (event: string, tags: SCP.Tags) => conductor.signal(event, tags));
+            serviceA.func('*', async (arg, conductor: Conductor) => {
+                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
                 conductor.on('end', () => conductor.end());
                 return arg;
             });
 
             // Client
-            const orchestrator = new SCP.Orchestrator();
+            const orchestrator = new Orchestrator();
             await Promise.all(operations.map(async (operation) => {
                 const arg = createString(20);
                 const returned = await remoteToA.execute(operation, arg, orchestrator);
                 assert.deepStrictEqual(returned, arg);
             }));
-            const signal = new SCP.Signal(createString(10), { 'ID': createString(5) }); // Signals
+            const signal = new Signal(createString(10), { 'ID': createString(5) }); // Signals
             const returnedSignals = await orchestrator.signal(signal.event, signal.tags);
             returnedSignals.forEach((returnedSignal) => {
                 assert.deepStrictEqual(returnedSignal.event, signal.event);

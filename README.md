@@ -1,5 +1,5 @@
 # Service
-`Service` is a powerful, lightweight framework designed to streamline the development of efficient, reliable, and scalable services. Whether you're building a monolithic application or a suite of microservices, Service provides the tools you need to create robust systems. Built on a native HTTP server, Service leverages the Service Discovery Protocol (SDP) to enable seamless service discovery, and the Service Communication Protocol (SCP) to facilitate inter-service communication. With minimal code, Service provides a robust foundation for building interconnected systems that are both flexible and scalable.
+`Service` is a powerful, lightweight framework designed to streamline the development of efficient, reliable, and scalable services. Whether you're building a monolithic application or a suite of microservices, Service provides the tools you need to create robust systems. Built on a native HTTP server, Service leverages Service Discovery Protocol (SDP) to enable seamless service discovery, and Service Communication Protocol (SCP) to facilitate inter-service communication. With minimal code, Service provides a robust foundation for building interconnected systems that are both flexible and scalable.
 
 # Features
 * Native
@@ -18,38 +18,41 @@ npm install @iprolab/service --save
 Let's dive into an example where we build two microservices: `UserService` and `NotificationService`. These services will demonstrate how to manage users and respond to user-related events in a distributed system.
 
 ## UserService
-`UserService` is responsible for managing users-handling user creation and listing users. It also broadcasts events whenever a new user is created.
+`UserService` is responsible for managing users-handling, user creation and listing users. It also broadcasts events whenever a new user is created.
 ```javascript
-import Service, { HttpStatusCode } from '@iprolab/service';
+import Service, { Router, Executor, StatusCode } from '@iprolab/service';
 
 // Declare the service.
 const userService = new Service('User');
 
 // Define Router
-const userRouter = userService.Route()
-    .get('/list', (request, response, next) => {
-        const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
-        response.writeHead(HttpStatusCode.OK, { 'Content-Type': 'application/json' });
-        response.end(JSON.stringify(users));
-    }).post('/create', (request, response, next) => {
-        const user = { id: 1, name: 'John Doe' }; // Example user
-        response.writeHead(HttpStatusCode.CREATED, { 'Content-Type': 'application/json' });
-        response.end(JSON.stringify({ message: 'User created successfully!' }));
-        // Trigger a broadcast to all services that a user was created.
-        userService.broadcast('created', user);
-    });
+const userRouter = new Router();
+userRouter.get('/list', (request, response, next) => {
+    const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
+    response.writeHead(StatusCode.OK, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(users));
+});
+userRouter.post('/create', async (request, response, next) => {
+    const user = { id: 1, name: 'John Doe' }; // Example user
+    response.writeHead(StatusCode.CREATED, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ message: 'User created successfully!' }));
+
+    // Trigger a broadcast to all services that a user was created.
+    const identifiers = await userService.broadcast('created', user);
+    console.log(`Broadcast sent to ${identifiers} services.`);
+});
 
 // Mount Router
 userService.mount('/user', userRouter);
 
-// Define Remote Function
-const userExecutor = userService.Execution()
-    .func('list', (...args) => {
-        const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
-        return users;
-    });
+// Define Executor
+const userExecutor = new Executor();
+userExecutor.func('list', (...args) => {
+    const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
+    return users;
+});
 
-// Attach Remote Function
+// Attach Executor
 userService.attach('User', userExecutor);
 
 // Start the service.
@@ -73,13 +76,14 @@ userService.on('start', () => {
 ## NotificationService
 `NotificationService` listens for user-related events broadcasted by `UserService` and handles them appropriately-such as logging user creation events or fetching the list of users.
 ```javascript
-import Service from '@iprolab/service';
+import Service, { Remote } from '@iprolab/service';
 
 // Declare the service.
 const notificationService = new Service('Notification');
 
 // Link Notification to UserService.
-const userLink = notificationService.Link('User');
+const userRemote = new Remote('NotificationClient');
+notificationService.link('User', userRemote);
 
 // Start the service.
 notificationService.start(3001, 6001, 5000, '224.0.0.2');
@@ -87,12 +91,12 @@ notificationService.on('start', async () => {
     console.log(`${notificationService.identifier} has started!`);
 
     // Listen to user creation events broadcasted by UserService.
-    userLink.on('created', (user) => {
+    userRemote.on('created', (user) => {
         console.log(`User created:`, user);
     });
 
     // Execute 'User.list' on UserService to get the list of users.
-    const users = await userLink.execute('User.list');
+    const users = await userRemote.execute('User.list');
     console.log(`List of Users:`, users);
 });
 ```
@@ -105,6 +109,7 @@ notificationService.on('start', async () => {
 This setup allows you to see how the `UserService` and `NotificationService` interact within a microservices architecture, demonstrating the ease with which `Service` enables service discovery, communication, and event-driven interactions.
 
 ## Versions:
-| Version | Description               |
-| ------- | ------------------------- |
-| 1.0.0   | First release of Service. |
+| Version | Description                                                                                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0.0   | First release of Service.                                                                                                                                                                                                       |
+| 1.1.0   | Introduced `Router` and `Executor` as modular classes for routing and remote functions. Added `Remote` for better service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |
