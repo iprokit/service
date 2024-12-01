@@ -374,7 +374,7 @@ executor.omni('inventory*', (incoming, outgoing) => {
 ```
 
 # HTTP Proxy
-The `Proxy` class allows you to forward incoming requests to another service seamlessly. It provides hooks to customize behavior at different stages of the request lifecycle, ensuring flexibility and control.
+The Proxy class allows you to forward incoming requests to another service seamlessly. It provides hooks to customize behavior at different stages of the request lifecycle, ensuring flexibility and control.
 
 ## Forward
 The `forward` function is especially useful for creating reverse proxies, implementing gateway services, or routing traffic between microservices.
