@@ -12,7 +12,7 @@ import Orchestrator, { Conductor } from './orchestrator';
 
 /**
  * `Client` manages connections to an SCP server.
- * Once connected, it subscribes to receive broadcasts and handles the execution of OMNIs and remote functions.
+ * Once connected, it subscribes to receive broadcasts and handles the executions.
  * 
  * @emits `connect` when the connection is successfully established.
  * @emits `<operation>` when a broadcast is received.
@@ -202,19 +202,12 @@ export default class Client extends EventEmitter implements IClient {
                 return;
             }
 
-            // ✅
-            if (incoming.parameters['FORMAT'] === 'OBJECT') {
-                // Read: Incoming stream.
-                let data = '';
-                for await (const chunk of incoming) {
-                    data += chunk;
-                }
-                this.emit(incoming.operation, ...JSON.parse(data));
-                return;
+            // Read: Incoming stream. ✅
+            let data = '';
+            for await (const chunk of incoming) {
+                data += chunk;
             }
-
-            // Nothing to see here! 🎤🎧
-            this.emit(incoming.operation, incoming);
+            this.emit(incoming.operation, ...JSON.parse(data));
         } catch (error) {
             // ❗️⚠️❗️
             incoming.destroy();
@@ -225,35 +218,27 @@ export default class Client extends EventEmitter implements IClient {
     //////////////////////////////
     //////// IClient
     //////////////////////////////
-    public omni(operation: string, callback: (incoming: Incoming) => void) {
+    public IO(mode: IOMode, operation: string) {
         const { incoming, outgoing } = new IOSocket().connect(this.remotePort!, this.remoteAddress!);
-        outgoing.setRFI(new RFI('OMNI', operation, { 'CID': this.identifier }));
-        incoming.once('rfi', () => callback(incoming));
-        return outgoing;
+        outgoing.setRFI(new RFI(mode, operation, { 'CID': this.identifier }));
+        return { incoming, outgoing }
     }
 
-    public async execute<Returned>(operation: string, ...args: Array<any>) {
-        const { incoming, outgoing } = new IOSocket().connect(this.remotePort!, this.remoteAddress!);
-        outgoing.setRFI(new RFI('OMNI', operation, { 'CID': this.identifier, 'FORMAT': 'OBJECT' }));
-
-        // Initialize. 🎩🚦🔲
-        let conductor: Conductor | undefined;
-        if (args.at(-1) instanceof Orchestrator) {
-            conductor = new Conductor(incoming, outgoing);
-            (args.pop() as Orchestrator).manage(conductor);
-            outgoing.parameters['CONDUCTOR'] = 'TRUE';
-        }
+    public async message<Returned>(operation: string, ...args: Array<any>) {
+        const { incoming, outgoing } = this.IO('REPLY', operation);
         let incomingData = '', outgoingData = JSON.stringify(args);
         try {
-            // Write.
-            conductor ? await conductor.deliver(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
+            // Write: Outgoing stream.
+            outgoing.end(outgoingData);
+            await Stream.finished(outgoing);
 
-            // Read.
-            await once(incoming, 'rfi'); // Waiting for RFI...🕵️‍♂️
-            for await (const chunk of (conductor ?? incoming)) {
+            // Waiting for RFI... ⌛🕵️‍♂️
+            await once(incoming, 'rfi');
+
+            // Read: Incoming stream.
+            for await (const chunk of incoming) {
                 incomingData += chunk;
             }
-            conductor || await Stream.finished(incoming);
         } catch (error) {
             // ❗️⚠️❗️
             incoming.destroy();
@@ -265,6 +250,26 @@ export default class Client extends EventEmitter implements IClient {
             throw Object.assign(new Error(), JSON.parse(incomingData)) as Error;
         }
         return JSON.parse(incomingData) as Returned;
+    }
+
+    public async conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
+        const { incoming, outgoing } = this.IO('CONDUCTOR', operation);
+        let outgoingData = JSON.stringify(args);
+
+        // Initialize. 🎩🚦🔲
+        const conductor = new Conductor(incoming, outgoing);
+        orchestrator.manage(conductor);
+        try {
+            // Write: Conductor.
+            await conductor.deliver(outgoingData);
+
+            // Waiting for RFI... ⌛🕵️‍♂️
+            await once(conductor, 'rfi');
+        } catch (error) {
+            // ❗️⚠️❗️
+            conductor.destroy();
+            throw error;
+        }
     }
 
     //////////////////////////////
@@ -337,19 +342,34 @@ export interface IClient {
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
      * 
-     * @param operation operation pattern.
-     * @param callback called when data is available on the `Incoming` stream.
+     * @param mode mode of the `RFI`.
+     * @param operation operation pattern of the `RFI`.
      */
-    omni: (operation: string, callback: (incoming: Incoming) => void) => Outgoing;
+    IO: (mode: IOMode, operation: string) => IO;
 
     /**
-     * Executes an asynchronous remote function on the server and returns a promise resolving to a result.
-     * Provide an `Orchestrator` as the final argument to coordinate signals across multiple remote functions.
+     * Sends a message to the server and returns a promise resolving to a reply.
      * 
      * @param operation operation pattern.
-     * @param args arguments to be passed to the remote function.
+     * @param args arguments to send.
      */
-    execute: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
+    message: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
+
+    /**
+     * Sends a message to the server and returns a promise that resolves to `void`, enabling the coordination of signals.
+     * 
+     * @param operation operation pattern.
+     * @param orchestrator orchestrator that coordinates signals.
+     * @param args arguments to send.
+     */
+    conduct: (operation: string, orchestrator: Orchestrator, ...args: Array<any>) => Promise<void>;
+}
+
+export type IOMode = 'REPLY' | 'CONDUCTOR';
+
+export interface IO {
+    incoming: Incoming;
+    outgoing: Outgoing;
 }
 
 //////////////////////////////

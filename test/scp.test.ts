@@ -5,8 +5,8 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 // Import Local.
-import { Server, Executor, Segment, Nexus, IncomingHandler, Client, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
-import { createString, createIdentifier, clientOmni, read } from './util';
+import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
+import { createString, createIdentifier, clientIO, read } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
@@ -144,24 +144,46 @@ mocha.describe('SCP Test', () => {
     mocha.describe('Register Test', () => {
         let server: Server;
 
+        const remoteFunction = (...args: Array<any>) => { }
         const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
-        const validateNexus = (nexus: Nexus, operation: string, handler: IncomingHandler) => {
+        const validateNexus = (nexus: Nexus, mode: Mode, operation: string, handler?: IncomingHandler) => {
+            assert.deepStrictEqual(nexus.mode, mode);
             assert.deepStrictEqual(nexus.operation, operation);
             assert.notDeepStrictEqual(nexus.regExp, undefined);
-            assert.deepStrictEqual(nexus.handler, handler);
+            handler && assert.deepStrictEqual(nexus.handler, handler);
         }
 
         mocha.beforeEach(() => {
             server = new Server(createIdentifier());
         });
 
+        mocha.it('should register REPLY execution', () => {
+            server.reply('', remoteFunction);
+            server.reply('nexus', remoteFunction);
+            server.reply('*', remoteFunction);
+            validateNexus(server.executions[0] as Nexus, 'REPLY', '');
+            validateNexus(server.executions[1] as Nexus, 'REPLY', 'nexus');
+            validateNexus(server.executions[2] as Nexus, 'REPLY', '*');
+            assert.deepStrictEqual(server.executions.length, 3);
+        });
+
+        mocha.it('should register CONDUCTOR execution', () => {
+            server.conductor('', remoteFunction);
+            server.conductor('nexus', remoteFunction);
+            server.conductor('*', remoteFunction);
+            validateNexus(server.executions[0] as Nexus, 'CONDUCTOR', '');
+            validateNexus(server.executions[1] as Nexus, 'CONDUCTOR', 'nexus');
+            validateNexus(server.executions[2] as Nexus, 'CONDUCTOR', '*');
+            assert.deepStrictEqual(server.executions.length, 3);
+        });
+
         mocha.it('should register OMNI execution', () => {
             server.omni('', handler);
             server.omni('nexus', handler);
             server.omni('*', handler);
-            validateNexus(server.executions[0] as Nexus, '', handler);
-            validateNexus(server.executions[1] as Nexus, 'nexus', handler);
-            validateNexus(server.executions[2] as Nexus, '*', handler);
+            validateNexus(server.executions[0] as Nexus, 'OMNI', '', handler);
+            validateNexus(server.executions[1] as Nexus, 'OMNI', 'nexus', handler);
+            validateNexus(server.executions[2] as Nexus, 'OMNI', '*', handler);
             assert.deepStrictEqual(server.executions.length, 3);
         });
     });
@@ -169,7 +191,11 @@ mocha.describe('SCP Test', () => {
     mocha.describe('Attach Test', () => {
         let server: Server;
 
-        const handler: IncomingHandler = (incoming, outgoing, proceed) => { }
+        const registerNexus = <E extends IExecutor>(executor: E) => {
+            executor.reply('nexus1', (...args) => { });
+            executor.conductor('nexus2', (conductor, ...args) => { });
+            executor.omni('nexus3', (incoming, outgoing, proceed) => { });
+        }
 
         mocha.beforeEach(() => {
             server = new Server(createIdentifier());
@@ -177,26 +203,25 @@ mocha.describe('SCP Test', () => {
 
         mocha.it('should attach executor', () => {
             const executor1 = new Executor();
+            registerNexus(executor1);
             const executor2 = new Executor();
-            executor2.omni('', handler);
-            executor2.omni('nexus', handler);
-            executor2.omni('*', handler);
             const executor3 = new Executor();
-            server.attach('', executor1);
-            server.attach('Segment', executor2);
+            registerNexus(executor3);
+            server.attach('Segment', executor1);
+            server.attach('', executor2);
             server.attach('*', executor3);
-            assert.deepStrictEqual((server.executions[0] as Segment).operation, '');
+            assert.deepStrictEqual((server.executions[0] as Segment).operation, 'Segment');
             assert.notDeepStrictEqual((server.executions[0] as Segment).regExp, undefined);
             assert.deepStrictEqual((server.executions[0] as Segment).executions, executor1.executions);
-            assert.deepStrictEqual((server.executions[0] as Segment).executions.length, 0);
-            assert.deepStrictEqual((server.executions[1] as Segment).operation, 'Segment');
+            assert.deepStrictEqual((server.executions[0] as Segment).executions.length, 3);
+            assert.deepStrictEqual((server.executions[1] as Segment).operation, '');
             assert.notDeepStrictEqual((server.executions[1] as Segment).regExp, undefined);
             assert.deepStrictEqual((server.executions[1] as Segment).executions, executor2.executions);
-            assert.deepStrictEqual((server.executions[1] as Segment).executions.length, 3);
+            assert.deepStrictEqual((server.executions[1] as Segment).executions.length, 0);
             assert.deepStrictEqual((server.executions[2] as Segment).operation, '*');
             assert.notDeepStrictEqual((server.executions[2] as Segment).regExp, undefined);
             assert.deepStrictEqual((server.executions[2] as Segment).executions, executor3.executions);
-            assert.deepStrictEqual((server.executions[2] as Segment).executions.length, 0);
+            assert.deepStrictEqual((server.executions[2] as Segment).executions.length, 3);
             assert.deepStrictEqual(server.executions.length, 3);
         });
     });
@@ -206,14 +231,12 @@ mocha.describe('SCP Test', () => {
         let server: Server;
         let client: Client;
 
+        const errorFunction = (...args: Array<any>) => { throw new Error('Should not be called') }
         const proceedHandler: IncomingHandler = (incoming, outgoing, proceed) => {
             proceedCalled++;
             proceed();
         }
-
-        const errorHandler: IncomingHandler = (incoming, outgoing, proceed) => {
-            throw new Error('Should not be called');
-        }
+        const errorHandler: IncomingHandler = (incoming, outgoing, proceed) => { throw new Error('Should not be called') }
 
         mocha.beforeEach(async () => {
             proceedCalled = 0;
@@ -231,21 +254,44 @@ mocha.describe('SCP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should dispatch I/O to OMNI execution', async () => {
+        mocha.it('should dispatch I/O to REPLY execution', async () => {
             // Server
-            server.omni('nexus1', errorHandler);
-            server.omni('nexus2', async (incoming, outgoing, proceed) => {
-                incoming.pipe(outgoing);
+            server.omni('*', proceedHandler);
+            server.reply('nexus', (arg) => {
+                assert.deepStrictEqual(proceedCalled, 1);
+                return arg;
             });
-            server.omni('nexus3', errorHandler);
+            server.conductor('nexus', errorFunction);
 
             // Client
             const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientOmni(client, 'nexus2', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
-            assert.deepStrictEqual(incoming.operation, 'nexus2');
-            assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
+            const incomingData = await client.message('nexus', outgoingData);
             assert.deepStrictEqual(incomingData, outgoingData);
+        });
+
+        mocha.it('should dispatch I/O to CONDUCTOR execution', async () => {
+            // Server
+            server.omni('*', proceedHandler);
+            server.reply('nexus1', errorFunction);
+            server.conductor('nexus1', async (conductor, arg) => {
+                assert.deepStrictEqual(proceedCalled, 1);
+                await once(conductor, 'end');
+                await conductor.end();
+                return;
+            });
+            server.conductor('nexus2', async (conductor, arg) => {
+                assert.deepStrictEqual(proceedCalled, 2);
+                await once(conductor, 'end');
+                await conductor.end();
+                return;
+            });
+
+            // Client
+            const outgoingData = createString(1000);
+            const orchestrator = new Orchestrator();
+            await client.conduct('nexus1', orchestrator, outgoingData);
+            await client.conduct('nexus2', orchestrator, outgoingData);
+            await orchestrator.end();
         });
 
         mocha.it('should dispatch I/O to execution with wildcard operation', async () => {
@@ -253,15 +299,15 @@ mocha.describe('SCP Test', () => {
             server.omni('nex*1*3', proceedHandler);
             server.omni('nex*3', proceedHandler);
             server.omni('n*3', proceedHandler);
-            server.omni('*', async (incoming, outgoing, proceed) => {
+            server.omni('*', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 3);
                 incoming.pipe(outgoing);
             });
 
             // Client
             const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientOmni(client, 'nexus123', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            const { incoming, data: incomingData } = await clientIO(client, 'REPLY', 'nexus123', outgoingData);
+            assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.operation, 'nexus123');
             assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
@@ -270,14 +316,14 @@ mocha.describe('SCP Test', () => {
         mocha.it('should dispatch I/O to execution with case sensitivity in operation', async () => {
             // Server
             server.omni('NEXUS', errorHandler);
-            server.omni('nexus', async (incoming, outgoing, proceed) => {
+            server.omni('nexus', (incoming, outgoing, proceed) => {
                 incoming.pipe(outgoing);
             });
 
             // Client
             const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            const { incoming, data: incomingData } = await clientIO(client, 'REPLY', 'nexus', outgoingData);
+            assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
@@ -286,7 +332,7 @@ mocha.describe('SCP Test', () => {
         mocha.it('should dispatch I/O to execution with registration order', async () => {
             // Server
             server.omni('nexus', proceedHandler);
-            server.omni('nexus', async (incoming, outgoing, proceed) => {
+            server.omni('nexus', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 1);
                 incoming.pipe(outgoing);
             });
@@ -294,8 +340,8 @@ mocha.describe('SCP Test', () => {
 
             // Client
             const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientOmni(client, 'nexus', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            const { incoming, data: incomingData } = await clientIO(client, 'REPLY', 'nexus', outgoingData);
+            assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.operation, 'nexus');
             assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
@@ -309,7 +355,7 @@ mocha.describe('SCP Test', () => {
             executor2.omni('*', errorHandler);
             const executor3 = new Executor();
             executor3.omni('*', proceedHandler);
-            executor3.omni('nexus', async (incoming, outgoing, proceed) => {
+            executor3.omni('nexus', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 incoming.pipe(outgoing);
             });
@@ -321,8 +367,8 @@ mocha.describe('SCP Test', () => {
 
             // Client
             const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientOmni(client, 'Segment3.nexus', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'OMNI');
+            const { incoming, data: incomingData } = await clientIO(client, 'REPLY', 'Segment3.nexus', outgoingData);
+            assert.deepStrictEqual(incoming.mode, 'REPLY');
             assert.deepStrictEqual(incoming.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData, outgoingData);
@@ -336,7 +382,7 @@ mocha.describe('SCP Test', () => {
             executor2.omni('*', errorHandler);
             const executor3 = new Executor();
             executor3.omni('*', proceedHandler);
-            executor3.omni('nexus', async (incoming, outgoing, proceed) => {
+            executor3.omni('nexus', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 incoming.pipe(outgoing);
             });
@@ -345,7 +391,7 @@ mocha.describe('SCP Test', () => {
             server.omni('nexus1', errorHandler);
             server.omni('*1', errorHandler);
             server.omni('nex*', proceedHandler);
-            server.omni('nexus2', async (incoming, outgoing, proceed) => {
+            server.omni('nexus2', (incoming, outgoing, proceed) => {
                 assert.deepStrictEqual(proceedCalled, 2);
                 incoming.pipe(outgoing);
             });
@@ -358,8 +404,8 @@ mocha.describe('SCP Test', () => {
 
             // Client 1
             const outgoingData1 = createString(1000);
-            const { incoming: incoming1, data: incomingData1 } = await clientOmni(client, 'nexus2', outgoingData1);
-            assert.deepStrictEqual(incoming1.mode, 'OMNI');
+            const { incoming: incoming1, data: incomingData1 } = await clientIO(client, 'REPLY', 'nexus2', outgoingData1);
+            assert.deepStrictEqual(incoming1.mode, 'REPLY');
             assert.deepStrictEqual(incoming1.operation, 'nexus2');
             assert.deepStrictEqual(incoming1.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData1, outgoingData1);
@@ -369,15 +415,15 @@ mocha.describe('SCP Test', () => {
 
             // Client 2
             const outgoingData2 = createString(1000);
-            const { incoming: incoming2, data: incomingData2 } = await clientOmni(client, 'Segment3.nexus', outgoingData2);
-            assert.deepStrictEqual(incoming2.mode, 'OMNI');
+            const { incoming: incoming2, data: incomingData2 } = await clientIO(client, 'REPLY', 'Segment3.nexus', outgoingData2);
+            assert.deepStrictEqual(incoming2.mode, 'REPLY');
             assert.deepStrictEqual(incoming2.operation, 'Segment3.nexus');
             assert.deepStrictEqual(incoming2.parameters['SID'], server.identifier);
             assert.deepStrictEqual(incomingData2, outgoingData2);
         });
     });
 
-    mocha.describe('Remote Function Test', () => {
+    mocha.describe('Handler Function Test', () => {
         let server: Server;
         let client: Client;
 
@@ -426,89 +472,89 @@ mocha.describe('SCP Test', () => {
             await once(server, 'close');
         });
 
-        mocha.it('should execute remote function as empty', async () => {
+        mocha.it('should send a message and expect an empty reply', async () => {
             // Server
-            server.func('nexus', (arg) => {
+            server.reply('nexus', (arg) => {
                 assert.deepStrictEqual(arg, undefined);
                 return;
             });
 
             // Client
-            const returned = await client.execute('nexus');
+            const returned = await client.message('nexus');
             assert.deepStrictEqual(returned, {});
         });
 
-        mocha.it('should execute remote function as object', async () => {
+        mocha.it('should send a message and expect an object reply', async () => {
             // Server
-            server.func('nexus', (arg) => {
+            server.reply('nexus', (arg) => {
                 return arg;
             });
 
             // Client
             for (const arg of args) {
-                const returned = await client.execute('nexus', arg);
+                const returned = await client.message('nexus', arg);
                 assert.deepStrictEqual(returned, arg);
             }
         });
 
-        mocha.it('should execute remote function as ...object', async () => {
+        mocha.it('should send a message and expect an ...object reply', async () => {
             // Server
-            server.func('nexus', (...args) => {
+            server.reply('nexus', (...args) => {
                 return args;
             });
 
             // Client
-            const returned = await client.execute('nexus', ...args);
+            const returned = await client.message('nexus', ...args);
             assert.deepStrictEqual(returned, args);
         });
 
-        mocha.it('should execute remote function as error', async () => {
+        mocha.it('should send a message and expect an error reply', async () => {
             // Server
-            server.func('nexus', (arg) => {
+            server.reply('nexus', (arg) => {
                 throw new Error(arg);
             });
 
             // Client
             try {
-                const returned = await client.execute('nexus', 'SCP Error');
+                const returned = await client.message('nexus', 'SCP Error');
             } catch (error) {
                 assert.deepStrictEqual((error as Error).message, 'SCP Error');
             }
         });
 
-        mocha.it('should execute remote functions in sequence with orchestrator', async () => {
+        mocha.it('should send a message and orchestrate in sequence', async () => {
             const operations = Array(20).fill({}).map(() => createString(5));
 
             // Server
-            server.func('*', (...args) => {
-                conduct(args.pop() as Conductor);
-                return args;
+            server.conductor('*', (conductor, ..._args) => {
+                assert.deepStrictEqual(_args, args);
+                conduct(conductor);
+                return;
             });
 
             // Client
             const orchestrator = new Orchestrator();
             for await (const operation of operations) {
-                const returned = await client.execute(operation, ...args, orchestrator);
-                assert.deepStrictEqual(returned, args);
+                await client.conduct(operation, orchestrator, ...args);
             }
             await orchestrate(orchestrator, 5, 5, 5);
             await orchestrator.end();
         });
 
-        mocha.it('should execute remote functions in parallel with orchestrator', async () => {
+        mocha.it('should send a message and orchestrate in parallel', async () => {
             const operations = Array(20).fill({}).map(() => createString(5));
 
             // Server
-            server.func('*', (...args) => {
-                conduct(args.pop() as Conductor);
-                return args;
+            server.conductor('*', (conductor, ..._args) => {
+                assert.deepStrictEqual(_args, args);
+                conduct(conductor);
+                return;
             });
 
             // Client
             const orchestrator = new Orchestrator();
             await Promise.all(operations.map(async (operation) => {
-                const returned = await client.execute(operation, ...args, orchestrator);
-                assert.deepStrictEqual(returned, args);
+                await client.conduct(operation, orchestrator, ...args);
             }));
             await orchestrate(orchestrator, 5, 5, 5);
             await orchestrator.end();

@@ -84,8 +84,9 @@ export default class Orchestrator {
  * A payload is a unit of data that is wrapped with `SOP` (Start of payload) and `EOP` (End of payload) signals,
  * referred to as payload signals, which indicate the payload's boundaries.
  * 
- * @emits `signal` when signal is received on the incoming stream.
- * @emits `payload` when payload is received on the incoming stream.
+ * @emits `rfi` when RFI is received on the incoming stream.
+ * @emits `signal` when a signal is received on the incoming stream.
+ * @emits `payload` when a payload is received on the incoming stream.
  * @emits `end` when end is received on the incoming stream.
  */
 export class Conductor extends EventEmitter {
@@ -113,7 +114,11 @@ export class Conductor extends EventEmitter {
         this.outgoing = outgoing;
 
         // Add listeners.
+        this.incoming.addListener('rfi', () => this.emit('rfi'));
         this.incoming.addListener('end', () => this.emit('end'));
+
+        // Trigger reading.
+        !this.incoming.rfi && this.readSignal();
     }
 
     //////////////////////////////
@@ -157,8 +162,8 @@ export class Conductor extends EventEmitter {
      * 
      * NOTE: When `START` payload signal is encountered, control is passed to `readPayload`.
      * 
-     * @emits `signal` when signal is received on the incoming stream.
-     * @emits `payload` when payload is received on the incoming stream.
+     * @emits `signal` when a signal is received on the incoming stream.
+     * @emits `payload` when a payload is received on the incoming stream.
      */
     private async readSignal() {
         while (true) {
@@ -202,6 +207,13 @@ export class Conductor extends EventEmitter {
     }
 
     /**
+     * Flushes the stream by writing the RFI frame and an empty data frame into the outgoing stream.
+     */
+    public async flush() {
+        await this.write('');
+    }
+
+    /**
      * Writes data to the outgoing stream.
      * 
      * @param chunk chunk to write.
@@ -223,6 +235,17 @@ export class Conductor extends EventEmitter {
     public async end() {
         this.outgoing.end();
         await Stream.finished(this.outgoing);
+    }
+
+    //////////////////////////////
+    //////// Destroy
+    //////////////////////////////
+    /**
+     * Destroy both the incoming and outgoing streams.
+     */
+    public destroy() {
+        this.incoming.destroy();
+        this.outgoing.destroy();
     }
 
     //////////////////////////////

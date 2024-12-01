@@ -4,7 +4,7 @@ import { AddressInfo } from 'net';
 
 // Import Local.
 import { Server as HttpServer, IServer as IHttpServer, IRouter, RequestHandler, Proxy as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http';
-import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, Function, Client as ScpClient, IClient as IScpClient, Incoming } from './scp';
+import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, ReplyFunction, ConductorFunction, Client as ScpClient, IClient as IScpClient, IOMode, Orchestrator } from './scp';
 import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
 
 /**
@@ -264,13 +264,28 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Attaches a SCP executor.
+     * Registers a SCP execution for handling REPLY I/O.
+     * 
+     * Remote handler function receives a message from a remote service and returns a reply.
      * 
      * @param operation operation pattern.
-     * @param executor executor to attach.
+     * @param func function to be executed.
      */
-    public attach(operation: string, executor: IExecutor) {
-        this.scpServer.attach(operation, executor);
+    public reply<Returned>(operation: string, func: ReplyFunction<Returned>) {
+        this.scpServer.reply(operation, func);
+        return this;
+    }
+
+    /**
+     * Registers a SCP execution for handling CONDUCTOR I/O.
+     * 
+     * Remote handler function receives a message from a remote service and coordinates signals.
+     * 
+     * @param operation operation pattern.
+     * @param func function to be executed.
+     */
+    public conductor(operation: string, func: ConductorFunction) {
+        this.scpServer.conductor(operation, func);
         return this;
     }
 
@@ -286,13 +301,13 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     }
 
     /**
-     * Registers a SCP asynchronous function for execution through a remote service.
+     * Attaches a SCP executor.
      * 
      * @param operation operation pattern.
-     * @param func function to be executed.
+     * @param executor executor to attach.
      */
-    public func<Returned>(operation: string, func: Function<Returned>) {
-        this.scpServer.func(operation, func);
+    public attach(operation: string, executor: IExecutor) {
+        this.scpServer.attach(operation, executor);
         return this;
     }
 
@@ -428,22 +443,32 @@ export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
     /**
      * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the remote service.
      * 
-     * @param operation operation pattern.
-     * @param callback called when data is available on the `Incoming` stream.
+     * @param mode mode of the `RFI`.
+     * @param operation operation pattern of the `RFI`.
      */
-    public omni(operation: string, callback: (incoming: Incoming) => void) {
-        return this.scpClient.omni(operation, callback);
+    public IO(mode: IOMode, operation: string) {
+        return this.scpClient.IO(mode, operation);
     }
 
     /**
-     * Executes an asynchronous remote function on the remote service and returns a promise resolving to a result.
-     * Provide an `Orchestrator` as the final argument to coordinate signals across multiple remote functions.
+     * Sends a message to the remote service and returns a promise resolving to a reply.
      * 
      * @param operation operation pattern.
-     * @param args arguments to be passed to the remote function.
+     * @param args arguments to send.
      */
-    public execute<Returned>(operation: string, ...args: Array<any>) {
-        return this.scpClient.execute<Returned>(operation, ...args);
+    public message<Returned>(operation: string, ...args: Array<any>) {
+        return this.scpClient.message<Returned>(operation, ...args);
+    }
+
+    /**
+     * Sends a message to the remote service and returns a promise that resolves to `void`, enabling the coordination of signals.
+     * 
+     * @param operation operation pattern.
+     * @param orchestrator orchestrator that coordinates signals.
+     * @param args arguments to send.
+     */
+    public conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
+        return this.scpClient.conduct(operation, orchestrator, ...args);
     }
 
     //////////////////////////////

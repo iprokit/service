@@ -6,8 +6,8 @@ export { Router, IRouter, Route, Stack, Endpoint, RequestHandler, NextFunction, 
 // Export SCP.
 export * as scp from './scp';
 export { RFI, IRFI, Mode, Parameters, Signal, Tags, Incoming, Outgoing } from './scp';
-export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, Function, ServerIncoming, ServerOutgoing } from './scp';
-export { IOSocket } from './scp';
+export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, ReplyFunction, ConductorFunction, ServerIncoming, ServerOutgoing } from './scp';
+export { IOMode, IO } from './scp';
 export { Orchestrator, Conductor } from './scp';
 
 // Export SDP.

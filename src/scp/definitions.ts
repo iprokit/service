@@ -13,7 +13,7 @@ export class RFI extends scp.RFI {
     }
 }
 
-export type Mode = 'SUBSCRIBE' | 'OMNI' | 'BROADCAST';
+export type Mode = 'SUBSCRIBE' | 'BROADCAST' | 'REPLY' | 'CONDUCTOR' | 'OMNI';
 
 export interface Parameters extends ScpParameters {
     /**
@@ -25,16 +25,6 @@ export interface Parameters extends ScpParameters {
      * Unique identifier of the server.
      */
     'SID'?: string;
-
-    /**
-     * Specifies the format of the data.
-     */
-    'FORMAT'?: 'OBJECT';
-
-    /**
-     * Indicates that the conductor is configured to send/receive both data and signals.
-     */
-    'CONDUCTOR'?: 'TRUE';
 
     /**
      * Status of the function execution.
