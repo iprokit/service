@@ -400,8 +400,9 @@ mocha.describe('HTTP Test', () => {
             server.get('/endpoint/1*4', nextHandler);
             server.get('/endpoint/*4', nextHandler);
             server.get('/e*4', nextHandler);
-            server.get('/*', (request, response, next) => {
-                assert.deepStrictEqual(nextCalled, 8);
+            server.get('/*', nextHandler);
+            server.get('*', (request, response, next) => {
+                assert.deepStrictEqual(nextCalled, 9);
                 assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
                 assert.deepStrictEqual(request.params, {});
                 assert.deepStrictEqual({ ...request.query }, {});
@@ -706,7 +707,7 @@ mocha.describe('HTTP Test', () => {
                 server.post('/endpoint', proxy.forward());
 
                 // Server Target
-                targetServer.post('/endpoint', async (request, response, next) => {
+                targetServer.post('/endpoint', (request, response, next) => {
                     assert.deepStrictEqual(request.method, 'POST');
                     assert.deepStrictEqual(request.url, '/endpoint');
                     assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
@@ -742,7 +743,7 @@ mocha.describe('HTTP Test', () => {
                 server.all('/api/*', proxy.forward(options));
 
                 // Server Target
-                targetServer.post('/endpoint', async (request, response, next) => {
+                targetServer.post('/endpoint', (request, response, next) => {
                     assert.deepStrictEqual(request.method, 'POST');
                     assert.deepStrictEqual(request.url, '/endpoint');
                     assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);

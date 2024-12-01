@@ -1,10 +1,11 @@
 // Import Libs.
-import { Readable } from 'stream';
+import { once } from 'events';
+import { Readable, promises as Stream } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 // Import Local.
 import { Method } from '../lib/http';
-import { IClient, Incoming } from '../lib/scp';
+import { IClient, IOMode } from '../lib/scp';
 
 export function createString(size: number) {
     let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -42,16 +43,10 @@ export function clientRequest(host: string, port: number, method: Method, path: 
     });
 }
 
-export function clientOmni<C extends IClient>(client: C, operation: string, data: string) {
-    return new Promise<{ incoming: Incoming, data: string }>((resolve, reject) => {
-        const outgoing = client.omni(operation, async (incoming) => {
-            try {
-                const data = await read(incoming);
-                resolve({ incoming, data });
-            } catch (error) {
-                reject(error);
-            }
-        });
-        outgoing.end(data);
-    });
+export async function clientIO<C extends IClient>(client: C, mode: IOMode, operation: string, data: string) {
+    const { incoming, outgoing } = client.IO(mode, operation);
+    outgoing.end(data);
+    await Stream.finished(outgoing);
+    await once(incoming, 'rfi');
+    return { incoming, data: await read(incoming) }
 }

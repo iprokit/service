@@ -1,115 +1,420 @@
 # Service
-`Service` is a powerful, lightweight framework designed to streamline the development of efficient, reliable, and scalable services. Whether you're building a monolithic application or a suite of microservices, Service provides the tools you need to create robust systems. Built on a native HTTP server, Service leverages Service Discovery Protocol (SDP) to enable seamless service discovery, and Service Communication Protocol (SCP) to facilitate inter-service communication. With minimal code, Service provides a robust foundation for building interconnected systems that are both flexible and scalable.
+`Service` is a powerful, lightweight framework designed to simplify the development of efficient, reliable, and scalable applications. Whether you're developing a monolithic system or a suite of interconnected microservices, `Service` simplifies the process with minimal configuration.
 
 # Features
-* Native
-* Lightweight
-* Minimal Configuration
-* Service Discovery
-* Inter-Service Communication
-* Native HTTP Server
+* **Hypertext Transfer Protocol (HTTP):** Define and manage routes for handling web requests with support for dynamic and wildcard paths.
+* **Service Communication Protocol (SCP):** Create robust inter-service communication with remote functions, broadcasts, and workflows.
+* **Service Discovery Protocol (SDP):** Dynamically discover and link services for seamless interaction in distributed systems.
 
 # Installation
 ```sh
 npm install @iprolab/service --save
 ```
 
-# User Service and Notification Service
-Let's dive into an example where we build two microservices: `UserService` and `NotificationService`. These services will demonstrate how to manage users and respond to user-related events in a distributed system.
-
-## UserService
-`UserService` is responsible for managing users-handling, user creation and listing users. It also broadcasts events whenever a new user is created.
+# Quick Start
+Here’s how to get a basic service running:
 ```javascript
-import Service, { Router, Executor, StatusCode } from '@iprolab/service';
+import Service from '@iprolab/service';
 
-// Declare the service.
-const userService = new Service('User');
+// Create a service instance.
+const service = new Service('MyService');
 
-// Define Router
-const userRouter = new Router();
-userRouter.get('/list', (request, response, next) => {
-    const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
-    response.writeHead(StatusCode.OK, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(users));
-});
-userRouter.post('/create', async (request, response, next) => {
-    const user = { id: 1, name: 'John Doe' }; // Example user
-    response.writeHead(StatusCode.CREATED, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify({ message: 'User created successfully!' }));
-
-    // Trigger a broadcast to all services that a user was created.
-    const identifiers = await userService.broadcast('created', user);
-    console.log(`Broadcast sent to ${identifiers} services.`);
-});
-
-// Mount Router
-userService.mount('/user', userRouter);
-
-// Define Executor
-const userExecutor = new Executor();
-userExecutor.func('list', (...args) => {
-    const users = [{ id: 1, name: 'John Doe' }, { id: 2, name: 'Jane Smith' }]; // Example users
-    return users;
-});
-
-// Attach Executor
-userService.attach('User', userExecutor);
+// Listen for service events.
+service.on('start', () => console.log('Service has started successfully.'));
+service.on('stop', () => console.log('Service has stopped successfully.'));
 
 // Start the service.
-userService.start(3000, 6000, 5000, '224.0.0.2');
-userService.on('start', () => {
-    console.log(`${userService.identifier} has started!`);
+await service.start(3000, 6000, 5000, '224.0.0.2');
+console.log('Service is running: HTTP Port: 3000, SCP Port: 6000, SDP Port: 5000, Multicast Address: 224.0.0.2.');
+```
+
+# HTTP (Hypertext Transfer Protocol)
+The **HTTP** module provides the tools to define, expose, and manage routes for handling client requests efficiently.
+
+## Routes
+Create HTTP routes to handle client requests with ease. The framework supports all standard HTTP methods and offers flexible options for advanced routing.
+
+### Get
+Handle `GET` requests to retrieve resources:
+```javascript
+service.get('/products', (request, response) => {
+    response.end('Retrieve all products');
 });
 ```
 
-1. **Service Declaration**: We start by declaring a `UserService` using the `Service` framework.
-2. **Router Definition**: The service defines HTTP routes for listing users (`GET /user/list`) and creating users (`POST /user/create`). When a new user is created, the service broadcasts an event (`created`).
-3. **Remote Function**: The service also defines a remote function `list` that other services can execute to retrieve the list of users.
-4. **Service Start**: Finally, the service is started on a specific port and IP address.
-    * The `start` method takes four arguments:
-        1. **HTTP Port**: The port on which the service's HTTP server will run (e.g., `3000`).
-        2. **SCP Port**: The port used for Service Communication Protocol (e.g., `6000`).
-        3. **SDP Port**: The port used for Service Discovery Protocol (e.g., `5000`).
-        4. **Multicast Address**: The multicast address used for service discovery (e.g., `224.0.0.2`).
-    * **Note**: The SDP port and multicast address must be the same across all services to enable them to discover each other within the network.
+### Post
+Handle `POST` requests to create resources:
+```javascript
+service.post('/products', (request, response) => {
+    response.end('Create a new product');
+});
+```
 
-## NotificationService
-`NotificationService` listens for user-related events broadcasted by `UserService` and handles them appropriately-such as logging user creation events or fetching the list of users.
+### Put
+Handle `PUT` requests to update resources entirely:
+```javascript
+service.put('/products/:id', (request, response) => {
+    response.end(`Update product with ID: ${request.params.id}`);
+});
+```
+
+### Patch
+Handle `PATCH` requests to update resources partially:
+```javascript
+service.patch('/products/:id', (request, response) => {
+    response.end(`Partially update product with ID: ${request.params.id}`);
+});
+```
+
+### Delete
+Handle `DELETE` requests to delete resources:
+```javascript
+service.delete('/products/:id', (request, response) => {
+    response.end(`Delete product with ID: ${request.params.id}`);
+});
+```
+
+### All
+Handle any HTTP method for a specific route:
+```javascript
+service.all('/products', (request, response) => {
+    response.end('Handle all methods for /products');
+});
+```
+
+## Dynamic Parameters
+Capture and use dynamic URL parameters to create flexible routes:
+```javascript
+service.get('/products/:id', (request, response) => {
+    const { id } = request.params;
+    response.end(`Retrieve product with ID: ${id}`);
+});
+```
+
+## Query Parameters
+Extract and use query parameters from the request URL:
+```javascript
+service.get('/products/search', (request, response) => {
+    const { category, price } = request.query;
+    response.end(`Search products in category: ${category} with price: ${price}`);
+});
+```
+
+## Multiple Handlers
+Chain multiple handlers for modular request processing. Use `next()` to pass control:
+```javascript
+const validateRequest = (request, response, next) => {
+    console.log('Validating request');
+    next();
+};
+
+const processRequest = (request, response) => {
+    response.end('Request processed successfully');
+};
+
+service.get('/products/process', validateRequest, processRequest);
+```
+
+## Router
+Organize and manage related routes with the `Router` class.
+
+### Create and Mount Routers
+Create a router and mount it to the service:
+```javascript
+import { Router } from '@iprolab/service';
+
+const router = new Router();
+
+router.get('/users', (request, response) => {
+    response.end('Get all users');
+});
+
+service.mount('/', router);
+```
+
+### Mount Routes on the Same Path
+Mount multiple routers on the same path to handle different functionalities:
+```javascript
+const userRouter = new Router();
+const productRouter = new Router();
+
+userRouter.get('/users', (request, response) => {
+    response.end('User route');
+});
+productRouter.get('/products', (request, response) => {
+    response.end('Product route');
+});
+
+service.mount('/', userRouter, productRouter);
+```
+
+### Mount Routes on a Parent Router
+Nest routes under a parent router for hierarchical organization:
+```javascript
+const apiRouter = new Router();
+const userRouter = new Router();
+
+userRouter.get('/profile', (request, response) => {
+    response.end('User profile');
+});
+apiRouter.mount('/users', userRouter);
+
+service.mount('/api', apiRouter);
+```
+
+## Wildcard Paths
+Use wildcard routes to match dynamic patterns.
+
+### Match Routes
+Catch-all handler for unmatched routes:
+```javascript
+service.get('*', (request, response) => {
+    response.end(`No matching route for: ${request.url}`);
+});
+```
+### Match Nested Routes
+Match nested paths under a specific route:
+```javascript
+service.get('/categories/*', (request, response) => {
+    response.end(`Nested path: ${request.url}`);
+});
+```
+
+### Match Prefix-Based Routes
+Match routes starting with a specific prefix:
+```javascript
+service.get('/prod*', (request, response) => {
+    response.end(`Matched prefix route: ${request.url}`);
+});
+```
+
+# SDP (Service Discovery Protocol)
+The **SDP** module allows services to automatically discover and connect to each other within a network. This simplifies the process of linking services and ensures seamless communication between them.
+
+## Linking Services
+
+### Discoverable Target Service
+A service can be configured to become discoverable on the network, allowing other services to link to it.
+```javascript
+import Service from '@iprolab/service';
+
+// Create a discoverable service instance.
+const serviceA = new Service('ServiceA');
+
+// Start the service to make it discoverable.
+await serviceA.start(3000, 6000, 5000, '224.0.0.2');
+console.log('ServiceA is discoverable on SDP (Port: 5000, Address: 224.0.0.2).');
+```
+
+### Linking to a Target Service
+A service can link to a discoverable target service using the `Remote` class. This establishes a connection during startup, enabling communication between the two services.
 ```javascript
 import Service, { Remote } from '@iprolab/service';
 
-// Declare the service.
-const notificationService = new Service('Notification');
+// Create a service instance.
+const serviceB = new Service('ServiceB');
 
-// Link Notification to UserService.
-const userRemote = new Remote('NotificationClient');
-notificationService.link('User', userRemote);
+// Link to ServiceA using the Remote class.
+const remoteToA = new Remote('RemoteToA');
+serviceB.link('ServiceA', remoteToA);
+
+// Listen for link and unlink events.
+serviceB.on('link', (remote) => console.log(`Successfully linked ${remote.identifier}`));
+serviceB.on('unlink', (remote) => console.log(`Disconnected from ${remote.identifier}`));
 
 // Start the service.
-notificationService.start(3001, 6001, 5000, '224.0.0.2');
-notificationService.on('start', async () => {
-    console.log(`${notificationService.identifier} has started!`);
+await serviceB.start(4000, 7000, 5000, '224.0.0.2');
+console.log('ServiceB is running and linked to ServiceA.');
+```
 
-    // Listen to user creation events broadcasted by UserService.
-    userRemote.on('created', (user) => {
-        console.log(`User created:`, user);
-    });
+# SCP (Service Communication Protocol)
+The **SCP** module enables seamless interaction between services by defining remote functions, broadcasting messages, and orchestrating complex workflows. SCP supports various communication modes, making it easy to tailor inter-service interactions to your system’s requirements.
 
-    // Execute 'User.list' on UserService to get the list of users.
-    const users = await userRemote.execute('User.list');
-    console.log(`List of Users:`, users);
+## Broadcast
+Broadcast messages to notify multiple services simultaneously. This is useful for system-wide updates, alerts, or notifications.
+
+Send a broadcast to all subscribed services:
+```javascript
+await serviceA.broadcast('Catalog.updated', { id: 'P12345', name: 'Wireless Headphones' });
+```
+
+Subscribe to broadcast events and handle incoming messages:
+```javascript
+remoteToA.on('Catalog.updated', (product) => {
+    console.log(`Product Details: ID - ${product.id}, Name - ${product.name}`);
 });
 ```
 
-1. **Service Declaration**: `NotificationService` is declared to handle notifications and events related to users.
-2. **Linking Services**: The service links to `UserService` to listen to its broadcasts and execute its remote functions.
-3. **Service Start**: The service starts on a different port and listens for user creation events (`created`). When a new user is created, it logs the information. It can also retrieve the list of users by executing the `User.list` function from `UserService`.
-    * The start method for `NotificationService` is similar to `UserService`, with the SDP port and multicast address needing to be consistent across services to ensure proper service discovery.
+## Execution (Remote Functions)
+SCP allows services to expose and call remote functions for direct, targeted communication.
 
-This setup allows you to see how the `UserService` and `NotificationService` interact within a microservices architecture, demonstrating the ease with which `Service` enables service discovery, communication, and event-driven interactions.
+### Message/Reply
+The message-reply model enables direct communication between two services. This pattern is particularly suited for synchronous operations where the caller needs an immediate reply from the callee.
 
-## Versions:
-| Version | Description                                                                                                                                                                                                                     |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0.0   | First release of Service.                                                                                                                                                                                                       |
-| 1.1.0   | Introduced `Router` and `Executor` as modular classes for routing and remote functions. Added `Remote` for better service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |
+Expose a reply function to fetch product details:
+```javascript
+serviceA.reply('getProduct', (productId) => {
+    return { id: productId, name: 'Wireless Headphones', price: 99.99, stock: 25 };
+});
+```
+
+Call a remote function to retrieve product details:
+```javascript
+const product = await remoteToA.message('getProduct', 'P12345');
+console.log(`Product Details:`, product);
+```
+
+### Conduct/Conductor
+The conduct-conductor model facilitates multi-step workflows across services. It enables coordinated operations with support for signaling (e.g., COMMIT, ROLLBACK) to ensure consistency in distributed workflows.
+
+Expose a conductor function to handle multi-step workflows:
+```javascript
+serviceA.conductor('createOrder', (conductor, orderDetails) => {
+    console.log(`Processing order:`, orderDetails);
+
+    conductor.on('signal', (event, tags) => {
+        console.log(`${event} signal received.`);
+        conductor.signal(event, tags);
+    });
+    conductor.on('end', () => conductor.end());
+});
+```
+
+Orchestrate conductors across multiple services:
+```javascript
+import { Orchestrator } from '@iprolab/service';
+
+const orchestrator = new Orchestrator();
+try {
+    console.log('Starting workflow.');
+
+    // Conduct operations across services.
+    await remoteToA.conduct('createOrder', orchestrator, { orderId: 'O123' });
+    console.log('Order validated.');
+
+    await remoteToB.conduct('processPayment', orchestrator, { paymentId: 'P456' });
+    console.log('Payment processed.');
+
+    console.log('Sending COMMIT signal.');
+    await orchestrator.signal('COMMIT');
+} catch (error) {
+    console.error('Error occurred. Sending ROLLBACK signal.', error);
+    await orchestrator.signal('ROLLBACK');
+} finally {
+    console.log('Ending orchestrator.');
+    await orchestrator.end();
+}
+```
+
+### Omni
+The Omni mode acts as a catch-all handler for operations that don’t match a specific function. It is particularly useful for handling undefined or broad operation patterns in a flexible and generic way.
+
+```javascript
+serviceA.omni('order', (incoming, outgoing) => {
+    outgoing.end(`Operation '${incoming.operation}' completed.`);
+});
+```
+
+## Executor
+The Executor class organizes and manages remote functions within a service. Executors are ideal for creating modular, reusable logic for handling various operations.
+
+### Create and Attach Executors
+Create an executor and attach it to a service to handle specific operations:
+```javascript
+const executor = new Executor();
+
+executor.reply('get', (userId) => {
+    return { id: userId, name: 'John Doe', email: 'johndoe@example.com' };
+});
+
+serviceA.attach('User', executor);
+```
+
+### Attach Executions on the Same Operation
+The Omni mode allows multiple handlers to process the same operation in steps. Use `proceed()` to pass control from one handler to the next.
+
+Processing an Order in Steps:
+```javascript
+executor.omni('processOrder', (incoming, outgoing, proceed) => {
+    console.log('Step 1: Validating order');
+    proceed(); // Pass control to the next handler
+});
+
+executor.omni('processOrder', (incoming, outgoing, proceed) => {
+    console.log('Step 2: Checking inventory');
+    proceed(); // Pass control to the next handler
+});
+
+executor.omni('processOrder', (incoming, outgoing) => {
+    console.log('Step 3: Completing the order');
+    outgoing.end('Order processed successfully.');
+});
+```
+
+**Note:** The **Omni** mode is the only SCP mode that supports `proceed()` and allows multiple handlers for the same operation. Each handler in Omni mode shares the same `incoming` and `outgoing` objects, enabling step-by-step processing within the same execution context. Other modes (e.g., Reply, Conductor) do not support `proceed()` or multi-handler execution.
+
+
+## Wildcard Operations
+Wildcard operations provide dynamic handling for undefined or broad operation patterns. This is useful for logging, debugging, or fallback logic.
+
+### Match All Unmatched Operations
+Catch all unmatched operations using a wildcard handler:
+```javascript
+executor.omni('*', (incoming, outgoing) => {
+    outgoing.end(`No handler defined for operation: ${incoming.operation}`);
+});
+```
+
+### Match Operations with Specific Prefixes
+Match operations dynamically based on a prefix to group related tasks:
+```javascript
+executor.omni('inventory*', (incoming, outgoing) => {
+    outgoing.end(`Handled operation: ${incoming.operation}`);
+});
+```
+
+# HTTP Proxy
+The `Proxy` class allows you to forward incoming requests to another service seamlessly. It provides hooks to customize behavior at different stages of the request lifecycle, ensuring flexibility and control.
+
+## Forward
+The `forward` function is especially useful for creating reverse proxies, implementing gateway services, or routing traffic between microservices.
+
+Forward all incoming requests from `serviceA` to `serviceB` using `remoteToB` with optional hooks for customizing the proxy's behavior:
+```javascript
+import { StatusCode } from '@iprolab/service';
+
+const proxyOptions = {
+    // Customize options before making the proxied request.
+    onOptions: (options, request, response) => {
+        console.log('Customizing proxy options...');
+        options.headers['X-Proxy-Custom-Header'] = 'MyCustomValue'; // Add a custom header
+    },
+
+    // Inspect or modify the proxied request before it is sent to the remote service.
+    onRequest: (proxyRequest, request, response) => {
+        console.log(`Forwarding request: ${request.method} ${request.url}`);
+    },
+
+    // Inspect or modify the proxied response before it is sent to the client.
+    onResponse: (proxyResponse, request, response) => {
+        console.log(`Received response from target service: ${proxyResponse.statusCode}`);
+        response.setHeader('X-Proxy-Handled', 'true'); // Add a custom response header
+    },
+
+    // Handle errors that occur during the proxying process.
+    onError: (error, response) => {
+        console.error('Proxy error occurred:', error);
+        response.writeHead(StatusCode.INTERNAL_SERVER_ERROR, { 'Content-Type': 'text/plain' });
+        response.end('An error occurred while processing the proxy request.');
+    },
+};
+
+// Forward all incoming requests from serviceA to serviceB.
+serviceA.all('*', remoteToB.forward(proxyOptions));
+```
+
+# Versions:
+| Version | Description                                                                                                                                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0.0   | First release of Service.                                                                                                                                                                    |
+| 1.1.0   | Introduced `Router` and `Executor` as modular classes, and `Remote` to enhance service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |

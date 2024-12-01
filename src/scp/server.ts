@@ -5,7 +5,7 @@ import { promises as Stream } from 'stream';
 import scp from '@iprolab/scp';
 
 // Import Local.
-import { RFI, Incoming, Outgoing } from './definitions';
+import { RFI, Mode, Incoming, Outgoing } from './definitions';
 import { Conductor } from './orchestrator';
 
 /**
@@ -71,7 +71,7 @@ export default class Server extends scp.Server implements IServer {
 
         if (incoming.mode === 'SUBSCRIBE') {
             this.subscribe(incoming, outgoing);
-        } else if (incoming.mode === 'OMNI') {
+        } else {
             // Set: Incoming.
             const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
             const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
@@ -122,10 +122,11 @@ export default class Server extends scp.Server implements IServer {
             }
         } else {
             // Treat as `Nexus`.
+            const modeMatches = incoming.mode === execution.mode || 'OMNI' === execution.mode;
             const segmentMatches = (incoming.segment && incoming.matched) || (!incoming.segment && !incoming.matched);
             const operationMatches = incoming.nexus.match(execution.regExp);
 
-            if (segmentMatches && operationMatches) {
+            if (modeMatches && segmentMatches && operationMatches) {
                 // Nexus found, execute the handler. 🎉
                 const proceedFunction = () => this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
                 execution.handler(incoming, outgoing, proceedFunction);
@@ -172,10 +173,11 @@ export default class Server extends scp.Server implements IServer {
         const broadcasts = new Array<Promise<string>>();
         for (const connection of this.connections) {
             if (connection.canBroadcast) {
-                const broadcast = new Promise<string>(async (resolve, reject) => {
+                const broadcast = new Promise<string>((resolve, reject) => {
                     connection.createOutgoing(async (outgoing) => {
                         try {
-                            outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier, 'FORMAT': 'OBJECT' }));
+                            // Write: Outgoing stream.
+                            outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier }));
                             outgoing.end(JSON.stringify(args));
                             await Stream.finished(outgoing);
                             resolve(connection.identifier);
@@ -203,8 +205,9 @@ export default class Server extends scp.Server implements IServer {
     //////////////////////////////
     //////// IExecutor
     //////////////////////////////
+    public declare reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+    public declare conductor: (operation: string, func: ConductorFunction) => this;
     public declare omni: (operation: string, handler: IncomingHandler) => this;
-    public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
 }
 
 //////////////////////////////
@@ -259,8 +262,9 @@ export class Executor implements IExecutor {
     //////////////////////////////
     //////// IExecutor
     //////////////////////////////
+    public declare reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+    public declare conductor: (operation: string, func: ConductorFunction) => this;
     public declare omni: (operation: string, handler: IncomingHandler) => this;
-    public declare func: <Returned>(operation: string, func: Function<Returned>) => this;
 
     //////////////////////////////
     //////// Factory
@@ -272,49 +276,64 @@ export class Executor implements IExecutor {
      * @param instance instance to which the `IExecutor` properties are applied.
      */
     public static applyProperties<I extends IExecutor>(instance: I) {
-        // `IExecutor` properties. 😈
-        instance.omni = (operation, handler) => {
+        // Factory for registering a `Nexus`.
+        const nexus = (mode: Mode, operation: string, handler: IncomingHandler) => {
             const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-            instance.executions.push({ operation, regExp, handler } as Nexus);
+            instance.executions.push({ mode, operation, regExp, handler } as Nexus);
             return instance;
         }
-        instance.func = (operation, func) => {
-            instance.omni(operation, async (incoming, outgoing, proceed) => {
-                if (incoming.parameters['FORMAT'] !== 'OBJECT') return proceed(); // 🤦🏽‍♂️
 
-                // Initialize. 🎩🚦🔲
-                const conductor = (incoming.parameters['CONDUCTOR'] === 'TRUE') ? new Conductor(incoming, outgoing) : undefined;
-                let incomingData = '', outgoingData = '';
-                try {
-                    // Read.
-                    // NOOOO..Waiting for RFI...🕵️‍♂️
-                    for await (const chunk of (conductor ?? incoming)) {
-                        incomingData += chunk;
-                    }
-                    conductor || await Stream.finished(incoming);
-
-                    // Execute. 🤖
-                    try {
-                        const args = (conductor) ? [...JSON.parse(incomingData), conductor] : [...JSON.parse(incomingData)];
-                        const returned = await func(...args);
-                        outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-                        outgoing.parameters['STATUS'] = 'OK';
-                    } catch (error) {
-                        error instanceof Error && delete error.stack; // Delete stack from error because we dont need it.
-                        outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
-                        outgoing.parameters['STATUS'] = 'ERROR';
-                    }
-
-                    // Write.
-                    conductor ? await conductor.deliver(outgoingData) : await Stream.finished(outgoing.end(outgoingData));
-                } catch (error) {
-                    // ❗️⚠️❗️
-                    incoming.destroy();
-                    outgoing.destroy();
+        // `IExecutor` properties. 😈
+        instance.reply = (operation, func) => nexus('REPLY', operation, async (incoming, outgoing, proceed) => {
+            let incomingData = '', outgoingData = '';
+            try {
+                // Read: Incoming stream.
+                for await (const chunk of incoming) {
+                    incomingData += chunk;
                 }
-            });
-            return instance;
-        }
+
+                // Execute. 🤖
+                try {
+                    const returned = await func(...JSON.parse(incomingData));
+                    outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
+                    outgoing.parameters['STATUS'] = 'OK';
+                } catch (error) {
+                    error instanceof Error && delete error.stack; // Delete stack from error because we dont need it.
+                    outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
+                    outgoing.parameters['STATUS'] = 'ERROR';
+                }
+
+                // Write: Outgoing stream.
+                outgoing.end(outgoingData);
+                await Stream.finished(outgoing);
+            } catch (error) {
+                // ❗️⚠️❗️
+                incoming.destroy();
+                outgoing.destroy();
+            }
+        });
+        instance.conductor = (operation, func) => nexus('CONDUCTOR', operation, async (incoming, outgoing, proceed) => {
+            let incomingData = '';
+
+            // Initialize. 🎩🚦🔲
+            const conductor = new Conductor(incoming, outgoing);
+            try {
+                // Read: Conductor.
+                for await (const chunk of conductor) {
+                    incomingData += chunk;
+                }
+
+                // Execute. 🤖
+                func(conductor, ...JSON.parse(incomingData));
+
+                // Flush RFI + Data in the conductor. 🚽💨
+                await conductor.flush();
+            } catch (error) {
+                // ❗️⚠️❗️
+                conductor.destroy();
+            }
+        });
+        instance.omni = (operation, handler) => nexus('OMNI', operation, handler);
     }
 }
 
@@ -331,20 +350,32 @@ export interface IExecutor {
     executions: Array<Execution>;
 
     /**
+     * Registers a execution for handling REPLY I/O.
+     * 
+     * Handler function receives a message from a client socket connection and returns a reply.
+     * 
+     * @param operation operation pattern.
+     * @param func function to be executed.
+     */
+    reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+
+    /**
+     * Registers a execution for handling CONDUCTOR I/O.
+     * 
+     * Handler function receives a message from a client socket connection and coordinates signals.
+     * 
+     * @param operation operation pattern.
+     * @param func function to be executed.
+     */
+    conductor: (operation: string, func: ConductorFunction) => this;
+
+    /**
      * Registers a execution for handling OMNI I/O.
      * 
      * @param operation operation pattern.
      * @param handler incoming handler function.
      */
     omni: (operation: string, handler: IncomingHandler) => this;
-
-    /**
-     * Registers a asynchronous function for execution through a client socket connection.
-     * 
-     * @param operation operation pattern.
-     * @param func function to be executed.
-     */
-    func: <Returned>(operation: string, func: Function<Returned>) => this;
 }
 
 //////////////////////////////
@@ -380,6 +411,11 @@ export interface Segment {
  */
 export interface Nexus {
     /**
+     * SCP mode of the nexus.
+     */
+    mode: Mode;
+
+    /**
      * Operation pattern of the nexus.
      */
     operation: string;
@@ -406,9 +442,14 @@ export type IncomingHandler = (incoming: ServerIncoming, outgoing: ServerOutgoin
 export type ProceedFunction = () => void;
 
 /**
- * Remote function.
+ * Reply function.
  */
-export type Function<Returned> = (...args: Array<any>) => Promise<Returned> | Returned;
+export type ReplyFunction<Returned> = (...args: Array<any>) => Promise<Returned> | Returned;
+
+/**
+ * Conductor function.
+ */
+export type ConductorFunction = (conductor: Conductor, ...args: Array<any>) => Promise<void> | void;
 
 //////////////////////////////
 //////// Connection
