@@ -75,11 +75,11 @@ export default class Proxy implements IProxy {
             options = options ?? {};
             const { host, port } = this;
             const { method, url: path, headers } = request;
-            headers['x-proxy-identifier'] = this.identifier;
+            headers['X-Proxy-Identifier'] = this.identifier;
             const requestOptions: RequestOptions = { host, port, method, path, headers }
 
             // Set: Response.
-            response.setHeader('x-proxy-identifier', this.identifier); // 🏴‍☠️💀👻
+            response.setHeader('X-Proxy-Identifier', this.identifier); // 🏴‍☠️💀👻
 
             // Let's boogie. 🕺💃 🎶
             if (options.onOptions) options.onOptions(requestOptions, request, response);
