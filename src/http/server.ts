@@ -58,7 +58,7 @@ export default class Server extends http.Server implements IServer {
      */
     private onRequest(request: ServerRequest, response: ServerResponse) {
         // Set: Response.
-        response.setHeader('x-server-identifier', this.identifier);
+        response.setHeader('X-Server-Identifier', this.identifier);
 
         // Set: Request.
         const { pathname, query } = URL.parse(request.url!, true);

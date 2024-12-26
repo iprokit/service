@@ -418,3 +418,4 @@ serviceA.all('*', remoteToB.forward(proxyOptions));
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.0.0   | First release of Service.                                                                                                                                                                    |
 | 1.1.0   | Introduced `Router` and `Executor` as modular classes, and `Remote` to enhance service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |
+| 1.1.1   | Formatted HTTP headers to follow a standard.                                                                                                                                                 |
