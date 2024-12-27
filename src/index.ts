@@ -14,4 +14,4 @@ export { Orchestrator, Conductor } from './scp';
 export * as sdp from './sdp';
 
 // Export Service.
-export { default, Remote, Attributes } from './service';
+export { default, RemoteService, Attributes } from './service';

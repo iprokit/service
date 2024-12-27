@@ -14,11 +14,6 @@ interface Headers {
      * Unique identifier of the server.
      */
     'x-server-identifier'?: string;
-
-    /**
-     * Unique identifier of the proxy.
-     */
-    'x-proxy-identifier'?: string;
 }
 
 export type RequestHeaders = http.IncomingHttpHeaders & Headers;

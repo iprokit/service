@@ -3,8 +3,8 @@ import { EventEmitter, once } from 'events';
 import { AddressInfo } from 'net';
 
 // Import Local.
-import { Server as HttpServer, IServer as IHttpServer, IRouter, RequestHandler, Proxy as HttpProxy, IProxy as IHttpProxy, ForwardOptions } from './http';
-import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, ReplyFunction, ConductorFunction, Client as ScpClient, IClient as IScpClient, IOMode, Orchestrator } from './scp';
+import { Server as HttpServer, IServer as IHttpServer, IRouter, RequestHandler } from './http';
+import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, ReplyFunction, ConductorFunction, Client as ScpClient } from './scp';
 import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
 
 /**
@@ -12,8 +12,6 @@ import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
  * Ensures smooth communication and coordination by bridging protocols and managing remote service interactions.
  * 
  * @emits `start` when the service starts.
- * @emits `link` when a remote link is established.
- * @emits `unlink` when a remote link is terminated.
  * @emits `stop` when the service stops.
  */
 export default class Service extends EventEmitter implements IHttpServer, IScpServer {
@@ -38,9 +36,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     public readonly sdpServer: SdpServer;
 
     /**
-     * Remote services registered.
+     * Remote service instances.
      */
-    public readonly remotes: Map<string, Remote>;
+    public readonly remoteServices: Map<string, RemoteService>;
 
     /**
      * Creates an instance of `Service`.
@@ -57,7 +55,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.httpServer = new HttpServer(this.identifier);
         this.scpServer = new ScpServer(this.identifier);
         this.sdpServer = new SdpServer(this.identifier);
-        this.remotes = new Map();
+        this.remoteServices = new Map();
 
         // Bind listeners.
         this.onAvailable = this.onAvailable.bind(this);
@@ -83,6 +81,13 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
      */
     public get executions() {
         return this.scpServer.executions;
+    }
+
+    /**
+     * SDP pods discovered.
+     */
+    public get pods() {
+        return this.sdpServer.pods;
     }
 
     /**
@@ -125,47 +130,40 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
     //////// Event Listeners
     //////////////////////////////
     /**
-     * @emits `link` when a remote link is established.
+     * Establishes the connection to a remote service.
      */
     private onAvailable(identifier: string, attributes: Attributes, host: string) {
-        const remote = this.remotes.get(identifier);
-        if (!remote) return;
-
-        // Establish connection.
-        remote.httpProxy.configure(Number(attributes['http']), host);
-        remote.scpClient.connect(Number(attributes['scp']), host);
-        this.emit('link', remote);
+        const remoteService = this.remoteServices.get(identifier);
+        if (remoteService && !remoteService.connected) {
+            remoteService.connect(Number(attributes['scp']), host);
+        }
     }
 
     /**
-     * @emits `unlink` when a remote link is terminated.
+     * Terminates the connection to a remote service.
      */
     private onUnavailable(identifier: string) {
-        const remote = this.remotes.get(identifier);
-        if (!remote) return;
-
-        // Terminate connection.
-        if (remote.httpProxy.configured) remote.httpProxy.deconfigure();
-        if (remote.scpClient.connected) remote.scpClient.close();
-        this.emit('unlink', remote);
+        const remoteService = this.remoteServices.get(identifier);
+        if (remoteService && remoteService.connected) {
+            remoteService.close();
+        }
     }
 
     //////////////////////////////
     //////// Link
     //////////////////////////////
     /**
-     * Links a remote to the remote service.
+     * Links this service to a remote service.
      * 
      * No-op if the remote service is already linked.
      * 
      * @param identifier unique identifier of the remote service.
-     * @param remote remote to link.
+     * @param remoteService remote service instance.
      */
-    public link(identifier: string, remote: Remote) {
-        if (this.remotes.has(identifier)) return this;
-
-        // Forging a new link. 🚀🎉
-        this.remotes.set(identifier, remote);
+    public link(identifier: string, remoteService: RemoteService) {
+        if (!this.remoteServices.has(identifier)) {
+            this.remoteServices.set(identifier, remoteService);
+        }
         return this;
     }
 
@@ -338,16 +336,14 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.sdpServer.listen(sdpPort, sdpAddress);
         await once(this.sdpServer, 'listening');
 
-        // Remote
-        const scpConnections = new Array<Promise<Array<void>>>();
-        for (const { scpClient } of this.remotes.values()) {
-            // `onAvailable()` will call `httpProxy.configure()`. 👀
-            if (!scpClient.connected) {
-                // `onAvailable()` will call `scpClient.connect()`. 👀
-                scpConnections.push(once(scpClient, 'connect'));
+        // Remote Services
+        const connections = new Array<Promise<Array<void>>>();
+        for (const remoteService of this.remoteServices.values()) {
+            if (!remoteService.connected) {
+                connections.push(once(remoteService, 'connect'));
             }
         }
-        await Promise.all(scpConnections);
+        await Promise.all(connections);
 
         this.emit('start');
         return this;
@@ -363,16 +359,15 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
         this.httpServer.close();
         await once(this.httpServer, 'close');
 
-        // Remote
-        const scpConnections = new Array<Promise<Array<void>>>();
-        for (const { httpProxy, scpClient } of this.remotes.values()) {
-            if (httpProxy.configured) httpProxy.deconfigure();
-            if (scpClient.connected) {
-                scpClient.close();
-                scpConnections.push(once(scpClient, 'close'));
+        // Remote Services
+        const connections = new Array<Promise<Array<void>>>();
+        for (const remoteService of this.remoteServices.values()) {
+            if (remoteService.connected) {
+                remoteService.close();
+                connections.push(once(remoteService, 'close'));
             }
         }
-        await Promise.all(scpConnections);
+        await Promise.all(connections);
 
         // SCP
         this.scpServer.close();
@@ -388,107 +383,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 }
 
 //////////////////////////////
-//////// Remote
+//////// Remote Service
 //////////////////////////////
-/**
- * `Remote` encapsulates `HttpProxy` and `ScpClient` to interact with a remote service.
- */
-export class Remote extends EventEmitter implements IHttpProxy, IScpClient {
-    /**
-     * Unique identifier of the remote.
-     */
-    public readonly identifier: string;
-
-    /**
-     * HTTP proxy instance.
-     */
-    public readonly httpProxy: HttpProxy;
-
-    /**
-     * SCP client instance.
-     */
-    public readonly scpClient: ScpClient;
-
-    /**
-     * Creates an instance of `Remote`.
-     * 
-     * @param identifier unique identifier of the remote.
-     */
-    constructor(identifier: string) {
-        super();
-
-        // Initialize options.
-        this.identifier = identifier;
-
-        // Initialize variables.
-        this.httpProxy = new HttpProxy(this.identifier);
-        this.scpClient = new ScpClient(this.identifier);
-    }
-
-    //////////////////////////////
-    //////// IProxy
-    //////////////////////////////
-    /**
-     * Creates a request handler that forwards incoming requests to the target remote service.
-     * 
-     * @param options options for forwarding requests.
-     */
-    public forward(options?: ForwardOptions) {
-        return this.httpProxy.forward(options);
-    }
-
-    //////////////////////////////
-    //////// IClient
-    //////////////////////////////
-    /**
-     * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the remote service.
-     * 
-     * @param mode mode of the `RFI`.
-     * @param operation operation pattern of the `RFI`.
-     */
-    public IO(mode: IOMode, operation: string) {
-        return this.scpClient.IO(mode, operation);
-    }
-
-    /**
-     * Sends a message to the remote service and returns a promise resolving to a reply.
-     * 
-     * @param operation operation pattern.
-     * @param args arguments to send.
-     */
-    public message<Returned>(operation: string, ...args: Array<any>) {
-        return this.scpClient.message<Returned>(operation, ...args);
-    }
-
-    /**
-     * Sends a message to the remote service and returns a promise that resolves to `void`, enabling the coordination of signals.
-     * 
-     * @param operation operation pattern.
-     * @param orchestrator orchestrator that coordinates signals.
-     * @param args arguments to send.
-     */
-    public conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
-        return this.scpClient.conduct(operation, orchestrator, ...args);
-    }
-
-    //////////////////////////////
-    //////// EventEmitter
-    //////////////////////////////
-    public once(eventName: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.once(eventName, listener);
-        return this;
-    }
-
-    public on(eventName: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.on(eventName, listener);
-        return this;
-    }
-
-    public off(eventName: string | symbol, listener: (...args: Array<any>) => void) {
-        this.scpClient.off(eventName, listener);
-        return this;
-    }
-}
+export class RemoteService extends ScpClient { }
 
 //////////////////////////////
 //////// Attributes

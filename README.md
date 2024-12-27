@@ -207,20 +207,16 @@ console.log('ServiceA is discoverable on SDP (Port: 5000, Address: 224.0.0.2).')
 ```
 
 ### Linking to a Target Service
-A service can link to a discoverable target service using the `Remote` class. This establishes a connection during startup, enabling communication between the two services.
+A service can link to a discoverable target service using the `RemoteService` class. This establishes a connection during startup, enabling communication between the two services.
 ```javascript
-import Service, { Remote } from '@iprolab/service';
+import Service, { RemoteService } from '@iprolab/service';
 
 // Create a service instance.
 const serviceB = new Service('ServiceB');
 
-// Link to ServiceA using the Remote class.
-const remoteToA = new Remote('RemoteToA');
+// Link to ServiceA using the RemoteService class.
+const remoteToA = new RemoteService('RemoteToA');
 serviceB.link('ServiceA', remoteToA);
-
-// Listen for link and unlink events.
-serviceB.on('link', (remote) => console.log(`Successfully linked ${remote.identifier}`));
-serviceB.on('unlink', (remote) => console.log(`Disconnected from ${remote.identifier}`));
 
 // Start the service.
 await serviceB.start(4000, 7000, 5000, '224.0.0.2');
@@ -373,49 +369,10 @@ executor.omni('inventory*', (incoming, outgoing) => {
 });
 ```
 
-# HTTP Proxy
-The Proxy class allows you to forward incoming requests to another service seamlessly. It provides hooks to customize behavior at different stages of the request lifecycle, ensuring flexibility and control.
-
-## Forward
-The `forward` function is especially useful for creating reverse proxies, implementing gateway services, or routing traffic between microservices.
-
-Forward all incoming requests from `serviceA` to `serviceB` using `remoteToB` with optional hooks for customizing the proxy's behavior:
-```javascript
-import { StatusCode } from '@iprolab/service';
-
-const proxyOptions = {
-    // Customize options before making the proxied request.
-    onOptions: (options, request, response) => {
-        console.log('Customizing proxy options...');
-        options.headers['X-Proxy-Custom-Header'] = 'MyCustomValue'; // Add a custom header
-    },
-
-    // Inspect or modify the proxied request before it is sent to the remote service.
-    onRequest: (proxyRequest, request, response) => {
-        console.log(`Forwarding request: ${request.method} ${request.url}`);
-    },
-
-    // Inspect or modify the proxied response before it is sent to the client.
-    onResponse: (proxyResponse, request, response) => {
-        console.log(`Received response from target service: ${proxyResponse.statusCode}`);
-        response.setHeader('X-Proxy-Handled', 'true'); // Add a custom response header
-    },
-
-    // Handle errors that occur during the proxying process.
-    onError: (error, response) => {
-        console.error('Proxy error occurred:', error);
-        response.writeHead(StatusCode.INTERNAL_SERVER_ERROR, { 'Content-Type': 'text/plain' });
-        response.end('An error occurred while processing the proxy request.');
-    },
-};
-
-// Forward all incoming requests from serviceA to serviceB.
-serviceA.all('*', remoteToB.forward(proxyOptions));
-```
-
 # Versions:
 | Version | Description                                                                                                                                                                                  |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.0.0   | First release of Service.                                                                                                                                                                    |
 | 1.1.0   | Introduced `Router` and `Executor` as modular classes, and `Remote` to enhance service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |
 | 1.1.1   | Formatted HTTP headers to follow a standard.                                                                                                                                                 |
+| 1.2.0   | Removed HTTP proxy handler.                                                                                                                                                                  |
