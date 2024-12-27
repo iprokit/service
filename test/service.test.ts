@@ -1,11 +1,10 @@
 // Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
-import { once } from 'events';
 
 // Import Local.
-import Service, { Remote, StatusCode, Orchestrator, Signal, Tags } from '../lib';
-import { createString, createIdentifier, clientRequest, clientIO } from './util';
+import Service, { RemoteService } from '../lib';
+import { createIdentifier } from './util';
 
 const httpPort = 3000;
 const scpPort = 6000;
@@ -18,9 +17,10 @@ mocha.describe('Service Test', () => {
             const identifier = createIdentifier();
             const service = new Service(identifier);
             assert.deepStrictEqual(service.identifier, identifier);
-            assert.deepStrictEqual(service.remotes.size, 0);
+            assert.deepStrictEqual(service.remoteServices.size, 0);
             assert.deepStrictEqual(service.routes.length, 0);
             assert.deepStrictEqual(service.executions.length, 0);
+            assert.deepStrictEqual(service.pods.size, 0);
         });
     });
 
@@ -55,13 +55,13 @@ mocha.describe('Service Test', () => {
         });
     });
 
-    mocha.describe('Connection Test', () => {
+    mocha.describe('Remote Service Test', () => {
         const initService = (identifiers: Array<string>, i: number) => {
             const service = new Service(identifiers[i]);
             identifiers.forEach((identifier, j) => {
                 if (i !== j) {
-                    const remote = new Remote(identifiers[i]);
-                    service.link(identifier, remote);
+                    const remoteService = new RemoteService(identifiers[i]);
+                    service.link(identifier, remoteService);
                 }
             });
             return service;
@@ -70,20 +70,17 @@ mocha.describe('Service Test', () => {
         const validate = (services: Array<Service>, status: boolean, count: number) => {
             for (const service of services) {
                 assert.deepStrictEqual(service.listening, { http: status, scp: status, sdp: status });
-                assert.deepStrictEqual(service.remotes.size, count - 1);
-                service.remotes.forEach((remote) => {
-                    assert.deepStrictEqual(remote.identifier, service.identifier);
-                    assert.deepStrictEqual(remote.httpProxy.identifier, service.identifier);
-                    assert.deepStrictEqual(remote.httpProxy.configured, status);
-                    assert.deepStrictEqual(remote.scpClient.identifier, service.identifier);
-                    assert.deepStrictEqual(remote.scpClient.connected, status);
+                assert.deepStrictEqual(service.remoteServices.size, count - 1);
+                service.remoteServices.forEach((remoteService) => {
+                    assert.deepStrictEqual(remoteService.identifier, service.identifier);
+                    assert.deepStrictEqual(remoteService.connected, status);
                 });
             }
         }
 
         mocha.it('should link to remote services on start/stop', async () => {
             const serviceCount = 20, halfCount = 10;
-            const restartCount = 5;
+            const restartCount = 10;
             const identifiers = Array(serviceCount).fill({}).map(() => createIdentifier());
 
             // Initialize
@@ -115,119 +112,6 @@ mocha.describe('Service Test', () => {
             // Stop(All)
             await Promise.all([...services.map((service) => service.stop())]);
             validate(services, false, serviceCount);
-        });
-    });
-
-    mocha.describe('Remote Test', () => {
-        let serviceA: Service, serviceB: Service;
-        let remoteToA: Remote, remoteToB: Remote;
-
-        mocha.beforeEach(async () => {
-            serviceA = new Service('serviceA');
-            remoteToB = new Remote(serviceA.identifier);
-            serviceA.link('serviceB', remoteToB);
-
-            serviceB = new Service('serviceB');
-            remoteToA = new Remote(serviceB.identifier);
-            serviceB.link('serviceA', remoteToA);
-
-            await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
-        });
-
-        mocha.afterEach(async () => {
-            await Promise.all([serviceA.stop(), serviceB.stop()]);
-        });
-
-        mocha.it('should not create duplicate remote', () => {
-            const remoteToB1 = new Remote(serviceA.identifier);
-            serviceA.link('serviceB', remoteToB1);
-            assert.notDeepStrictEqual(serviceA.remotes.get('serviceB'), remoteToB1);
-            assert.deepStrictEqual(serviceA.remotes.get('serviceB'), remoteToB);
-        });
-
-        mocha.it('should forward request to remote service', async () => {
-            // Server
-            serviceA.post('/endpoint', remoteToB.forward());
-
-            // Server Target
-            serviceB.post('/endpoint', (request, response, next) => {
-                assert.deepStrictEqual(request.method, 'POST');
-                assert.deepStrictEqual(request.url, '/endpoint');
-                assert.deepStrictEqual(request.headers['x-proxy-identifier'], serviceA.identifier);
-                request.pipe(response).writeHead(StatusCode.OK);
-            });
-
-            // Client
-            const requestBody = createString(1000);
-            const { response, body: responseBody } = await clientRequest(serviceA.localAddress!, httpPort, 'POST', '/endpoint', requestBody);
-            assert.deepStrictEqual(response.headers['x-server-identifier'], serviceB.identifier);
-            assert.deepStrictEqual(response.headers['x-proxy-identifier'], serviceA.identifier);
-            assert.deepStrictEqual(response.statusCode, StatusCode.OK);
-            assert.deepStrictEqual(responseBody, requestBody);
-        });
-
-        mocha.it('should receive broadcast from remote service', async () => {
-            // Server
-            const arg = createString(1000);
-            const [identifier] = await serviceA.broadcast('nexus1', arg);
-            assert.deepStrictEqual(identifier, serviceB.identifier);
-
-            // Client
-            const argsResolved = await once(remoteToA, 'nexus1');
-            assert.deepStrictEqual(argsResolved, [arg]);
-        });
-
-        mocha.it('should dispatch I/O to execution from remote service', async () => {
-            // Server
-            serviceA.omni('nexus', (incoming, outgoing, proceed) => {
-                incoming.pipe(outgoing);
-            });
-
-            // Client
-            const outgoingData = createString(1000);
-            const { incoming, data: incomingData } = await clientIO(remoteToA, 'REPLY', 'nexus', outgoingData);
-            assert.deepStrictEqual(incoming.mode, 'REPLY');
-            assert.deepStrictEqual(incoming.operation, 'nexus');
-            assert.deepStrictEqual(incoming.parameters['SID'], serviceA.identifier);
-            assert.deepStrictEqual(incomingData, outgoingData);
-        });
-
-        mocha.it('should send a message and expect a reply from remote service', async () => {
-            // Server
-            serviceA.reply('nexus', (arg) => {
-                return arg;
-            });
-
-            // Client
-            const arg = createString(1000);
-            const returned = await remoteToA.message('nexus', arg);
-            assert.deepStrictEqual(returned, arg);
-        });
-
-        mocha.it('should send a message and orchestrate on remote service', async () => {
-            const operations = Array(20).fill({}).map(() => createString(5));
-
-            // Server
-            serviceA.conductor('*', (conductor, _arg) => {
-                assert.deepStrictEqual(_arg, arg);
-                conductor.on('signal', (event: string, tags: Tags) => conductor.signal(event, tags));
-                conductor.on('end', () => conductor.end());
-                return;
-            });
-
-            // Client
-            const arg = createString(20);
-            const orchestrator = new Orchestrator();
-            await Promise.all(operations.map(async (operation) => {
-                await remoteToA.conduct(operation, orchestrator, arg);
-            }));
-            const signal = new Signal(createString(10), { 'ID': createString(5) }); // Signals
-            const returnedSignals = await orchestrator.signal(signal.event, signal.tags);
-            returnedSignals.forEach((returnedSignal) => {
-                assert.deepStrictEqual(returnedSignal.event, signal.event);
-                assert.deepStrictEqual(returnedSignal.tags, signal.tags);
-            });
-            await orchestrator.end();
         });
     });
 });

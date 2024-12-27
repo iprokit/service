@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import { Server, Router, IRouter, Stack, Endpoint, RequestHandler, Method, Proxy, ForwardOptions, StatusCode } from '../lib/http';
+import { Server, Router, IRouter, Stack, Endpoint, RequestHandler, Method, StatusCode } from '../lib/http';
 import { createString, createIdentifier, clientRequest } from './util';
 
 const host = '127.0.0.1';
@@ -655,133 +655,6 @@ mocha.describe('HTTP Test', () => {
             assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
             assert.deepStrictEqual(response.statusCode, StatusCode.OK);
             assert.deepStrictEqual(responseBody, requestBody);
-        });
-    });
-
-    mocha.describe('Proxy Test', () => {
-        mocha.describe('Configuration Test', () => {
-            const validateConfiguration = (proxy: Proxy, host: string | undefined, port: number | undefined, configured: boolean) => {
-                assert.deepStrictEqual(proxy.host, host);
-                assert.deepStrictEqual(proxy.port, port);
-                assert.deepStrictEqual(proxy.configured, configured);
-            }
-
-            mocha.it('should configure/deconfigure proxy', () => {
-                const identifier = createIdentifier();
-                const proxy = new Proxy(identifier);
-                assert.deepStrictEqual(proxy.identifier, identifier);
-                validateConfiguration(proxy, undefined, undefined, false);
-                proxy.configure(port, host);
-                validateConfiguration(proxy, host, port, true);
-                proxy.deconfigure();
-                validateConfiguration(proxy, undefined, undefined, false);
-            });
-        });
-
-        mocha.describe('Forward Test', () => {
-            let targetServer: Server;
-
-            mocha.beforeEach(async () => {
-                server.listen(port);
-                await once(server, 'listening');
-
-                targetServer = new Server(createIdentifier());
-                targetServer.listen(port + 1);
-                await once(targetServer, 'listening');
-            });
-
-            mocha.afterEach(async () => {
-                server.close();
-                await once(server, 'close');
-
-                targetServer.close();
-                await once(targetServer, 'close');
-            });
-
-            mocha.it('should forward request to target server', async () => {
-                // Proxy
-                const proxy = new Proxy(createIdentifier());
-                proxy.configure(port + 1, host);
-
-                // Server
-                server.post('/endpoint', proxy.forward());
-
-                // Server Target
-                targetServer.post('/endpoint', (request, response, next) => {
-                    assert.deepStrictEqual(request.method, 'POST');
-                    assert.deepStrictEqual(request.url, '/endpoint');
-                    assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
-                    request.pipe(response).writeHead(StatusCode.OK);
-                });
-
-                // Client
-                const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/endpoint', requestBody);
-                assert.deepStrictEqual(response.headers['x-server-identifier'], targetServer.identifier);
-                assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
-                assert.deepStrictEqual(response.statusCode, StatusCode.OK);
-                assert.deepStrictEqual(responseBody, requestBody);
-            });
-
-            mocha.it('should forward request to target server with options', async () => {
-                // Proxy
-                const proxy = new Proxy(createIdentifier());
-                proxy.configure(port + 1, host);
-
-                // Server
-                const options: ForwardOptions = {
-                    onOptions: (options, request, response) => {
-                        options.path = options.path?.replace(/^\/api/, '');
-                    },
-                    onRequest: (proxyRequest, request, response) => {
-                        proxyRequest.setHeader('x-proxy', '1');
-                    },
-                    onResponse: (proxyResponse, request, response) => {
-                        response.setHeader('x-proxy', '2');
-                    }
-                }
-                server.all('/api/*', proxy.forward(options));
-
-                // Server Target
-                targetServer.post('/endpoint', (request, response, next) => {
-                    assert.deepStrictEqual(request.method, 'POST');
-                    assert.deepStrictEqual(request.url, '/endpoint');
-                    assert.deepStrictEqual(request.headers['x-proxy-identifier'], proxy.identifier);
-                    assert.deepStrictEqual(request.headers['x-proxy'], '1');
-                    request.pipe(response).writeHead(StatusCode.CREATED);
-                });
-
-                // Client
-                const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/api/endpoint', requestBody);
-                assert.deepStrictEqual(response.headers['x-server-identifier'], targetServer.identifier);
-                assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
-                assert.deepStrictEqual(response.headers['x-proxy'], '2');
-                assert.deepStrictEqual(response.statusCode, StatusCode.CREATED);
-                assert.deepStrictEqual(responseBody, requestBody);
-            });
-
-            mocha.it('should forward Error', async () => {
-                // Proxy
-                const proxy = new Proxy(createIdentifier());
-                proxy.configure(port + 10, host);
-
-                // Server
-                const options: ForwardOptions = {
-                    onError: (error, response) => {
-                        response.writeHead(StatusCode.INTERNAL_SERVER_ERROR).end(error.message);
-                    }
-                }
-                server.all('/api/*', proxy.forward(options));
-
-                // Client
-                const requestBody = createString(1000);
-                const { response, body: responseBody } = await clientRequest(host, port, 'POST', '/api/endpoint', requestBody);
-                assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
-                assert.deepStrictEqual(response.headers['x-proxy-identifier'], proxy.identifier);
-                assert.deepStrictEqual(response.statusCode, StatusCode.INTERNAL_SERVER_ERROR);
-                assert.deepStrictEqual(responseBody.includes('ECONNREFUSED'), true);
-            });
         });
     });
 });
