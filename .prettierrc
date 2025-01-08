@@ -1,0 +1,14 @@
+{
+	"printWidth": 300,
+	"tabWidth": 4,
+	"useTabs": true,
+	"semi": true,
+	"singleQuote": true,
+	"quoteProps": "as-needed",
+	"trailingComma": "none",
+	"bracketSpacing": true,
+	"arrowParens": "always",
+	"proseWrap": "never",
+	"endOfLine": "lf",
+	"embeddedLanguageFormatting": "auto"
+}

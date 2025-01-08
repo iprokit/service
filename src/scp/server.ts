@@ -19,195 +19,195 @@ import { Conductor } from './orchestrator';
  * @emits `close` when the server is fully closed.
  */
 export default class Server extends scp.Server implements IServer {
-    /**
-     * Unique identifier of the server.
-     */
-    public readonly identifier: string;
+	/**
+	 * Unique identifier of the server.
+	 */
+	public readonly identifier: string;
 
-    /**
-     * Client socket connections.
-     */
-    public declare readonly connections: Array<Connection>;
+	/**
+	 * Executions registered on the server.
+	 */
+	public readonly executions: Array<Execution>;
 
-    /**
-     * Executions registered on the server.
-     */
-    public readonly executions: Array<Execution>;
+	/**
+	 * Client socket connections.
+	 */
+	declare public readonly connections: Array<Connection>;
 
-    /**
-     * Creates an instance of SCP `Server`.
-     * 
-     * @param identifier unique identifier of the server.
-     */
-    constructor(identifier: string) {
-        super();
+	/**
+	 * Creates an instance of SCP `Server`.
+	 *
+	 * @param identifier unique identifier of the server.
+	 */
+	constructor(identifier: string) {
+		super();
 
-        // Initialize options.
-        this.identifier = identifier;
+		// Initialize options.
+		this.identifier = identifier;
 
-        // Initialize variables.
-        this.executions = new Array();
+		// Initialize variables.
+		this.executions = new Array();
 
-        // Bind listeners.
-        this.onIncoming = this.onIncoming.bind(this);
+		// Bind listeners.
+		this.onIncoming = this.onIncoming.bind(this);
 
-        // Add listeners.
-        this.addListener('incoming', this.onIncoming);
+		// Add listeners.
+		this.addListener('incoming', this.onIncoming);
 
-        // Apply `Executor` properties. 👻
-        Executor.applyProperties(this);
-    }
+		// Apply `Executor` properties. 👻
+		Executor.applyProperties(this);
+	}
 
-    //////////////////////////////
-    //////// Event Listeners
-    //////////////////////////////
-    /**
-     * - Subscribe is handled by `subscribe` function.
-     * - Omni is handled by `dispatch` function.
-     */
-    private onIncoming(incoming: ServerIncoming, outgoing: ServerOutgoing) {
-        // Set: Outgoing.
-        outgoing.parameters['SID'] = this.identifier;
+	//////////////////////////////
+	//////// Event Listeners
+	//////////////////////////////
+	/**
+	 * - Subscribe is handled by `subscribe` function.
+	 * - Omni is handled by `dispatch` function.
+	 */
+	private onIncoming(incoming: ServerIncoming, outgoing: ServerOutgoing) {
+		// Set: Outgoing.
+		outgoing.parameters.SID = this.identifier;
 
-        if (incoming.mode === 'SUBSCRIBE') {
-            this.subscribe(incoming, outgoing);
-        } else {
-            // Set: Incoming.
-            const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
-            const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
-            const { segment, nexus } = groups as { segment: string, nexus: string };
-            incoming.segment = segment;
-            incoming.nexus = nexus;
-            incoming.matched = false;
+		if (incoming.mode === 'SUBSCRIBE') {
+			this.subscribe(incoming, outgoing);
+		} else {
+			// Set: Incoming.
+			const operationRegExp = new RegExp(/^(?:(?<segment>[^.]+)\.)?(?<nexus>[^.]+)$/);
+			const { groups } = operationRegExp.exec(incoming.operation) as RegExpExecArray;
+			const { segment, nexus } = groups as { segment: string; nexus: string };
+			incoming.segment = segment;
+			incoming.nexus = nexus;
+			incoming.matched = false;
 
-            // Below line will blow your mind! 🤯
-            this.dispatch(0, this.executions, incoming, outgoing, () => { });
-        }
-    }
+			// Below line will blow your mind! 🤯
+			this.dispatch(0, this.executions, incoming, outgoing, () => {});
+		}
+	}
 
-    //////////////////////////////
-    //////// Dispatch
-    //////////////////////////////
-    /**
-     * Recursively loop through the executions to find and execute its handler.
-     * 
-     * @param executionIndex index of the current execution being processed.
-     * @param executions executions to be processed.
-     * @param incoming incoming stream.
-     * @param outgoing outgoing stream.
-     * @param unwind function called once the processed executions unwind.
-     */
-    private dispatch(executionIndex: number, executions: Array<Execution>, incoming: ServerIncoming, outgoing: ServerOutgoing, unwind: () => void) {
-        // Need I say more.
-        if (executionIndex >= executions.length) return unwind();
+	//////////////////////////////
+	//////// Dispatch
+	//////////////////////////////
+	/**
+	 * Recursively loop through the executions to find and execute its handler.
+	 *
+	 * @param executionIndex index of the current execution being processed.
+	 * @param executions executions to be processed.
+	 * @param incoming incoming stream.
+	 * @param outgoing outgoing stream.
+	 * @param unwind function called once the processed executions unwind.
+	 */
+	private dispatch(executionIndex: number, executions: Array<Execution>, incoming: ServerIncoming, outgoing: ServerOutgoing, unwind: () => void) {
+		// Need I say more.
+		if (executionIndex >= executions.length) return unwind();
 
-        const execution = executions[executionIndex];
+		const execution = executions[executionIndex];
 
-        // Shits about to go down! 😎
-        if ('executions' in execution) {
-            // Treat as `Segment`.
-            const operationMatches = incoming.segment.match(execution.regExp);
+		// Shits about to go down! 😎
+		if ('executions' in execution) {
+			// Treat as `Segment`.
+			const operationMatches = incoming.segment.match(execution.regExp);
 
-            if (operationMatches) {
-                // Segment found, Save match and process the segment.
-                incoming.matched = true;
+			if (operationMatches) {
+				// Segment found, Save match and process the segment.
+				incoming.matched = true;
 
-                // 🎢
-                const unwindFunction = () => {
-                    incoming.matched = false;
-                    this.dispatch(executionIndex + 1, this.executions, incoming, outgoing, unwind);
-                }
-                this.dispatch(0, execution.executions, incoming, outgoing, unwindFunction);
-                return;
-            }
-        } else {
-            // Treat as `Nexus`.
-            const modeMatches = incoming.mode === execution.mode || 'OMNI' === execution.mode;
-            const segmentMatches = (incoming.segment && incoming.matched) || (!incoming.segment && !incoming.matched);
-            const operationMatches = incoming.nexus.match(execution.regExp);
+				// 🎢
+				const unwindFunction = () => {
+					incoming.matched = false;
+					this.dispatch(executionIndex + 1, this.executions, incoming, outgoing, unwind);
+				};
+				this.dispatch(0, execution.executions, incoming, outgoing, unwindFunction);
+				return;
+			}
+		} else {
+			// Treat as `Nexus`.
+			const modeMatches = incoming.mode === execution.mode || 'OMNI' === execution.mode;
+			const segmentMatches = (incoming.segment && incoming.matched) || (!incoming.segment && !incoming.matched);
+			const operationMatches = incoming.nexus.match(execution.regExp);
 
-            if (modeMatches && segmentMatches && operationMatches) {
-                // Nexus found, execute the handler. 🎉
-                const proceedFunction = () => this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
-                execution.handler(incoming, outgoing, proceedFunction);
-                return;
-            }
-        }
+			if (modeMatches && segmentMatches && operationMatches) {
+				// Nexus found, execute the handler. 🎉
+				const proceedFunction = () => this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
+				execution.handler(incoming, outgoing, proceedFunction);
+				return;
+			}
+		}
 
-        // Execution not found, lets keep going though the loop.
-        this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
-    }
+		// Execution not found, lets keep going though the loop.
+		this.dispatch(executionIndex + 1, executions, incoming, outgoing, unwind);
+	}
 
-    //////////////////////////////
-    //////// Subscribe
-    //////////////////////////////
-    /**
-     * Registers a subscription from the client socket connection.
-     * Broadcasts are only sent to subscribed connections.
-     */
-    private async subscribe(incoming: ServerIncoming, outgoing: ServerOutgoing) {
-        try {
-            // Read: Incoming stream.
-            incoming.resume();
-            await Stream.finished(incoming);
+	//////////////////////////////
+	//////// Subscribe
+	//////////////////////////////
+	/**
+	 * Registers a subscription from the client socket connection.
+	 * Broadcasts are only sent to subscribed connections.
+	 */
+	private async subscribe(incoming: ServerIncoming, outgoing: ServerOutgoing) {
+		try {
+			// Read: Incoming stream.
+			incoming.resume();
+			await Stream.finished(incoming);
 
-            // Set: Connection properties.
-            incoming.socket.identifier = incoming.parameters['CID']!;
-            incoming.socket.canBroadcast = true;
+			// Set: Connection properties.
+			incoming.socket.identifier = incoming.parameters.CID!;
+			incoming.socket.canBroadcast = true;
 
-            // Write: Outgoing stream.
-            outgoing.end('');
-            await Stream.finished(outgoing);
-        } catch (error) {
-            // ❗️⚠️❗️
-            incoming.destroy();
-            outgoing.destroy();
-            outgoing.socket.destroy(error as Error);
-        }
-    }
+			// Write: Outgoing stream.
+			outgoing.end('');
+			await Stream.finished(outgoing);
+		} catch (error) {
+			// ❗️⚠️❗️
+			incoming.destroy();
+			outgoing.destroy();
+			outgoing.socket.destroy(error as Error);
+		}
+	}
 
-    //////////////////////////////
-    //////// IServer
-    //////////////////////////////
-    public broadcast(operation: string, ...args: Array<any>) {
-        const broadcasts = new Array<Promise<string>>();
-        for (const connection of this.connections) {
-            if (connection.canBroadcast) {
-                const broadcast = new Promise<string>((resolve, reject) => {
-                    connection.createOutgoing(async (outgoing) => {
-                        try {
-                            // Write: Outgoing stream.
-                            outgoing.setRFI(new RFI('BROADCAST', operation, { 'SID': this.identifier }));
-                            outgoing.end(JSON.stringify(args));
-                            await Stream.finished(outgoing);
-                            resolve(connection.identifier);
-                        } catch (error) {
-                            // ❗️⚠️❗️
-                            outgoing.destroy();
-                            outgoing.socket.destroy(error as Error);
-                            reject(error);
-                        }
-                    });
-                });
-                broadcasts.push(broadcast);
-            }
-        }
-        return Promise.all(broadcasts);
-    }
+	//////////////////////////////
+	//////// IServer
+	//////////////////////////////
+	public broadcast(operation: string, ...args: Array<any>) {
+		const broadcasts = new Array<Promise<string>>();
+		for (const connection of this.connections) {
+			if (connection.canBroadcast) {
+				const broadcast = new Promise<string>((resolve, reject) => {
+					connection.createOutgoing(async (outgoing) => {
+						try {
+							// Write: Outgoing stream.
+							outgoing.setRFI(new RFI('BROADCAST', operation, { SID: this.identifier }));
+							outgoing.end(JSON.stringify(args));
+							await Stream.finished(outgoing);
+							resolve(connection.identifier);
+						} catch (error) {
+							// ❗️⚠️❗️
+							outgoing.destroy();
+							outgoing.socket.destroy(error as Error);
+							reject(error);
+						}
+					});
+				});
+				broadcasts.push(broadcast);
+			}
+		}
+		return Promise.all(broadcasts);
+	}
 
-    public attach(operation: string, executor: IExecutor) {
-        const { executions } = executor;
-        const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-        this.executions.push({ operation, regExp, executions } as Segment);
-        return this;
-    }
+	public attach(operation: string, executor: IExecutor) {
+		const { executions } = executor;
+		const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+		this.executions.push({ operation, regExp, executions } as Segment);
+		return this;
+	}
 
-    //////////////////////////////
-    //////// IExecutor
-    //////////////////////////////
-    public declare reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
-    public declare conductor: (operation: string, func: ConductorFunction) => this;
-    public declare omni: (operation: string, handler: IncomingHandler) => this;
+	//////////////////////////////
+	//////// IExecutor
+	//////////////////////////////
+	declare public reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+	declare public conductor: (operation: string, func: ConductorFunction) => this;
+	declare public omni: (operation: string, handler: IncomingHandler) => this;
 }
 
 //////////////////////////////
@@ -217,22 +217,22 @@ export default class Server extends scp.Server implements IServer {
  * Interface for the SCP `Server`.
  */
 export interface IServer extends IExecutor {
-    /**
-     * Broadcasts the supplied to all subscribed client socket connections.
-     * Returns identifiers of client sockets that successfully received broadcast.
-     * 
-     * @param operation operation pattern.
-     * @param args arguments to broadcast.
-     */
-    broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
+	/**
+	 * Broadcasts the supplied to all subscribed client socket connections.
+	 * Returns identifiers of client sockets that successfully received broadcast.
+	 *
+	 * @param operation operation pattern.
+	 * @param args arguments to broadcast.
+	 */
+	broadcast: (operation: string, ...args: Array<any>) => Promise<Array<string>>;
 
-    /**
-     * Attaches a executor.
-     * 
-     * @param operation operation pattern.
-     * @param executor executor to attach.
-     */
-    attach: (operation: string, executor: IExecutor) => this;
+	/**
+	 * Attaches a executor.
+	 *
+	 * @param operation operation pattern.
+	 * @param executor executor to attach.
+	 */
+	attach: (operation: string, executor: IExecutor) => this;
 }
 
 //////////////////////////////
@@ -243,98 +243,101 @@ export interface IServer extends IExecutor {
  * Once attached, SCP I/Os are dispatched to the appropriate registered executions.
  */
 export class Executor implements IExecutor {
-    /**
-     * Executions registered.
-     */
-    public readonly executions: Array<Execution>;
+	/**
+	 * Executions registered.
+	 */
+	public readonly executions: Array<Execution>;
 
-    /**
-     * Creates an instance of `Executor`.
-     */
-    constructor() {
-        // Initialize variables.
-        this.executions = new Array();
+	/**
+	 * Creates an instance of `Executor`.
+	 */
+	constructor() {
+		// Initialize variables.
+		this.executions = new Array();
 
-        // Apply `Executor` properties. 👻
-        Executor.applyProperties(this);
-    }
+		// Apply `Executor` properties. 👻
+		Executor.applyProperties(this);
+	}
 
-    //////////////////////////////
-    //////// IExecutor
-    //////////////////////////////
-    public declare reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
-    public declare conductor: (operation: string, func: ConductorFunction) => this;
-    public declare omni: (operation: string, handler: IncomingHandler) => this;
+	//////////////////////////////
+	//////// IExecutor
+	//////////////////////////////
+	declare public reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+	declare public conductor: (operation: string, func: ConductorFunction) => this;
+	declare public omni: (operation: string, handler: IncomingHandler) => this;
 
-    //////////////////////////////
-    //////// Factory
-    //////////////////////////////
-    /**
-     * Applies properties of `IExecutor` interface to the provided instance,
-     * enabling registration of executions.
-     * 
-     * @param instance instance to which the `IExecutor` properties are applied.
-     */
-    public static applyProperties<I extends IExecutor>(instance: I) {
-        // Factory for registering a `Nexus`.
-        const nexus = (mode: Mode, operation: string, handler: IncomingHandler) => {
-            const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-            instance.executions.push({ mode, operation, regExp, handler } as Nexus);
-            return instance;
-        }
+	//////////////////////////////
+	//////// Factory
+	//////////////////////////////
+	/**
+	 * Applies properties of `IExecutor` interface to the provided instance,
+	 * enabling registration of executions.
+	 *
+	 * @param instance instance to which the `IExecutor` properties are applied.
+	 */
+	public static applyProperties<I extends IExecutor>(instance: I) {
+		// Factory for registering a `Nexus`.
+		const nexus = (mode: Mode, operation: string, handler: IncomingHandler) => {
+			const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+			instance.executions.push({ mode, operation, regExp, handler } as Nexus);
+			return instance;
+		};
 
-        // `IExecutor` properties. 😈
-        instance.reply = (operation, func) => nexus('REPLY', operation, async (incoming, outgoing, proceed) => {
-            let incomingData = '', outgoingData = '';
-            try {
-                // Read: Incoming stream.
-                for await (const chunk of incoming) {
-                    incomingData += chunk;
-                }
+		// `IExecutor` properties. 😈
+		instance.reply = (operation, func) =>
+			nexus('REPLY', operation, async (incoming, outgoing, proceed) => {
+				let incomingData = '';
+				let outgoingData = '';
+				try {
+					// Read: Incoming stream.
+					for await (const chunk of incoming) {
+						incomingData += chunk;
+					}
 
-                // Execute. 🤖
-                try {
-                    const returned = await func(...JSON.parse(incomingData));
-                    outgoingData = (returned !== undefined || null) ? JSON.stringify(returned) : JSON.stringify({});
-                    outgoing.parameters['STATUS'] = 'OK';
-                } catch (error) {
-                    error instanceof Error && delete error.stack; // Delete stack from error because we dont need it.
-                    outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
-                    outgoing.parameters['STATUS'] = 'ERROR';
-                }
+					// Execute. 🤖
+					try {
+						const returned = await func(...JSON.parse(incomingData));
+						outgoingData = returned !== undefined || null ? JSON.stringify(returned) : JSON.stringify({});
+						outgoing.parameters.STATUS = 'OK';
+					} catch (error) {
+						error instanceof Error && delete error.stack; // Delete stack from error because we don't need it.
+						outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
+						outgoing.parameters.STATUS = 'ERROR';
+					}
 
-                // Write: Outgoing stream.
-                outgoing.end(outgoingData);
-                await Stream.finished(outgoing);
-            } catch (error) {
-                // ❗️⚠️❗️
-                incoming.destroy();
-                outgoing.destroy();
-            }
-        });
-        instance.conductor = (operation, func) => nexus('CONDUCTOR', operation, async (incoming, outgoing, proceed) => {
-            let incomingData = '';
+					// Write: Outgoing stream.
+					outgoing.end(outgoingData);
+					await Stream.finished(outgoing);
+				} catch (error) {
+					// ❗️⚠️❗️
+					incoming.destroy();
+					outgoing.destroy();
+				}
+			});
+		instance.conductor = (operation, func) =>
+			nexus('CONDUCTOR', operation, async (incoming, outgoing, proceed) => {
+				let incomingData = '';
 
-            // Initialize. 🎩🚦🔲
-            const conductor = new Conductor(incoming, outgoing);
-            try {
-                // Read: Conductor.
-                for await (const chunk of conductor) {
-                    incomingData += chunk;
-                }
+				// Initialize. 🎩🚦🔲
+				const conductor = new Conductor(incoming, outgoing);
+				try {
+					// Read: Conductor.
+					for await (const chunk of conductor) {
+						incomingData += chunk;
+					}
 
-                // Execute. 🤖
-                func(conductor, ...JSON.parse(incomingData));
+					// Execute. 🤖
+					func(conductor, ...JSON.parse(incomingData));
 
-                // Flush RFI + Data in the conductor. 🚽💨
-                await conductor.flush();
-            } catch (error) {
-                // ❗️⚠️❗️
-                conductor.destroy();
-            }
-        });
-        instance.omni = (operation, handler) => nexus('OMNI', operation, handler);
-    }
+					// Flush RFI + Data in the conductor. 🚽💨
+					await conductor.flush();
+				} catch (error) {
+					// ❗️⚠️❗️
+					conductor.destroy();
+				}
+			});
+		instance.omni = (operation, handler) => nexus('OMNI', operation, handler);
+	}
 }
 
 //////////////////////////////
@@ -344,38 +347,38 @@ export class Executor implements IExecutor {
  * Interface for the `Executor`.
  */
 export interface IExecutor {
-    /**
-     * Executions registered.
-     */
-    executions: Array<Execution>;
+	/**
+	 * Executions registered.
+	 */
+	executions: Array<Execution>;
 
-    /**
-     * Registers a execution for handling REPLY I/O.
-     * 
-     * Handler function receives a message from a client socket connection and returns a reply.
-     * 
-     * @param operation operation pattern.
-     * @param func function to be executed.
-     */
-    reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
+	/**
+	 * Registers a execution for handling REPLY I/O.
+	 *
+	 * Handler function receives a message from a client socket connection and returns a reply.
+	 *
+	 * @param operation operation pattern.
+	 * @param func function to be executed.
+	 */
+	reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
 
-    /**
-     * Registers a execution for handling CONDUCTOR I/O.
-     * 
-     * Handler function receives a message from a client socket connection and coordinates signals.
-     * 
-     * @param operation operation pattern.
-     * @param func function to be executed.
-     */
-    conductor: (operation: string, func: ConductorFunction) => this;
+	/**
+	 * Registers a execution for handling CONDUCTOR I/O.
+	 *
+	 * Handler function receives a message from a client socket connection and coordinates signals.
+	 *
+	 * @param operation operation pattern.
+	 * @param func function to be executed.
+	 */
+	conductor: (operation: string, func: ConductorFunction) => this;
 
-    /**
-     * Registers a execution for handling OMNI I/O.
-     * 
-     * @param operation operation pattern.
-     * @param handler incoming handler function.
-     */
-    omni: (operation: string, handler: IncomingHandler) => this;
+	/**
+	 * Registers a execution for handling OMNI I/O.
+	 *
+	 * @param operation operation pattern.
+	 * @param handler incoming handler function.
+	 */
+	omni: (operation: string, handler: IncomingHandler) => this;
 }
 
 //////////////////////////////
@@ -390,45 +393,45 @@ export type Execution = Segment | Nexus;
  * Represents a group of executions.
  */
 export interface Segment {
-    /**
-     * Operation pattern of the segment.
-     */
-    operation: string;
+	/**
+	 * Operation pattern of the segment.
+	 */
+	operation: string;
 
-    /**
-     * Compiled regular expression to match operation pattern of the segment.
-     */
-    regExp: RegExp;
+	/**
+	 * Compiled regular expression to match operation pattern of the segment.
+	 */
+	regExp: RegExp;
 
-    /**
-     * Executions registered in the segment.
-     */
-    executions: Array<Nexus>;
+	/**
+	 * Executions registered in the segment.
+	 */
+	executions: Array<Nexus>;
 }
 
 /**
  * Represents a nexus.
  */
 export interface Nexus {
-    /**
-     * SCP mode of the nexus.
-     */
-    mode: Mode;
+	/**
+	 * SCP mode of the nexus.
+	 */
+	mode: Mode;
 
-    /**
-     * Operation pattern of the nexus.
-     */
-    operation: string;
+	/**
+	 * Operation pattern of the nexus.
+	 */
+	operation: string;
 
-    /**
-     * Compiled regular expression to match operation pattern of the nexus.
-     */
-    regExp: RegExp;
+	/**
+	 * Compiled regular expression to match operation pattern of the nexus.
+	 */
+	regExp: RegExp;
 
-    /**
-     * Incoming handler function of the nexus.
-     */
-    handler: IncomingHandler;
+	/**
+	 * Incoming handler function of the nexus.
+	 */
+	handler: IncomingHandler;
 }
 
 /**
@@ -455,25 +458,25 @@ export type ConductorFunction = (conductor: Conductor, ...args: Array<any>) => P
 //////// Connection
 //////////////////////////////
 export interface Connection extends InstanceType<typeof scp.Connection> {
-    /**
-     * Unique identifier of the client socket connection.
-     */
-    identifier: string;
+	/**
+	 * Unique identifier of the client socket connection.
+	 */
+	identifier: string;
 
-    /**
-     * `true` if the connection can accept broadcasts, `false` otherwise.
-     */
-    canBroadcast: boolean;
+	/**
+	 * `true` if the connection can accept broadcasts, `false` otherwise.
+	 */
+	canBroadcast: boolean;
 
-    /**
-     * Current incoming stream.
-     */
-    incoming: ServerIncoming;
+	/**
+	 * Current incoming stream.
+	 */
+	incoming: ServerIncoming;
 
-    /**
-     * Current outgoing stream.
-     */
-    outgoing: ServerOutgoing;
+	/**
+	 * Current outgoing stream.
+	 */
+	outgoing: ServerOutgoing;
 }
 
 //////////////////////////////
@@ -483,33 +486,33 @@ export interface Connection extends InstanceType<typeof scp.Connection> {
  * Represents an SCP server incoming.
  */
 export interface ServerIncoming extends Incoming {
-    /**
-     * Underlying SCP Socket.
-     */
-    socket: Connection;
+	/**
+	 * Underlying SCP Socket.
+	 */
+	socket: Connection;
 
-    /**
-     * Segment portion of the operation pattern.
-     */
-    segment: string;
+	/**
+	 * Segment portion of the operation pattern.
+	 */
+	segment: string;
 
-    /**
-     * Nexus portion of the operation pattern.
-     */
-    nexus: string;
+	/**
+	 * Nexus portion of the operation pattern.
+	 */
+	nexus: string;
 
-    /**
-     * `true` if the segment matched, `false` otherwise.
-     */
-    matched: boolean;
+	/**
+	 * `true` if the segment matched, `false` otherwise.
+	 */
+	matched: boolean;
 }
 
 /**
  * Represents an SCP server outgoing.
  */
 export interface ServerOutgoing extends Outgoing {
-    /**
-     * Underlying SCP Socket.
-     */
-    socket: Connection;
+	/**
+	 * Underlying SCP Socket.
+	 */
+	socket: Connection;
 }
