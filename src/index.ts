@@ -5,13 +5,13 @@ export { Router, IRouter, Route, Stack, Endpoint, RequestHandler, NextFunction, 
 
 // Export SCP.
 export * as scp from './scp';
-export { RFI, IRFI, Mode, Parameters, Signal, Tags, Incoming, Outgoing } from './scp';
-export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, ReplyFunction, ConductorFunction, ServerIncoming, ServerOutgoing } from './scp';
-export { IOMode, IO } from './scp';
+export { Frame, FrameType, RFI, IRFI, Mode, Parameters, Signal, Tags, Protocol, Incoming, Outgoing } from './scp';
+export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, ReplyFunction, ConductorFunction, Connection, ServerIncoming, ServerOutgoing } from './scp';
+export { Socket, SocketOptions } from './scp';
 export { Orchestrator, Conductor } from './scp';
 
 // Export SDP.
 export * as sdp from './sdp';
 
 // Export Service.
-export { default, RemoteService, Attributes } from './service';
+export { default, RemoteService, RemoteServiceOptions, Attributes } from './service';

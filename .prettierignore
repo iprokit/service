@@ -1,0 +1,15 @@
+# Lock files
+package-lock.json
+
+# Node modules
+/node_modules
+
+# Compiled Files
+/lib
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.vscode

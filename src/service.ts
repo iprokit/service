@@ -4,7 +4,7 @@ import { AddressInfo } from 'net';
 
 // Import Local.
 import { Server as HttpServer, IServer as IHttpServer, IRouter, RequestHandler } from './http';
-import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, ReplyFunction, ConductorFunction, Client as ScpClient } from './scp';
+import { Server as ScpServer, IServer as IScpServer, IExecutor, IncomingHandler, ReplyFunction, ConductorFunction, Client as RemoteService, ClientOptions as RemoteServiceOptions } from './scp';
 import { Server as SdpServer, Attributes as SdpAttributes } from './sdp';
 
 /**
@@ -113,10 +113,10 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	}
 
 	/**
-	 * Multicast groups that have been joined.
+	 * Multicast group that have been joined.
 	 */
-	public get memberships() {
-		return this.sdpServer.memberships;
+	public get membership() {
+		return this.sdpServer.membership;
 	}
 
 	/**
@@ -385,7 +385,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 //////////////////////////////
 //////// Remote Service
 //////////////////////////////
-export class RemoteService extends ScpClient {}
+export { RemoteService, RemoteServiceOptions };
 
 //////////////////////////////
 //////// Attributes

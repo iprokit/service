@@ -12,15 +12,15 @@ const sdpPort = 5000;
 const sdpAddress = '224.0.0.2';
 
 mocha.describe('Service Test', () => {
-	mocha.describe('Constructor Test', () => {
+	mocha.describe('Constructor Base Test', () => {
 		mocha.it('should construct service', () => {
 			const identifier = createIdentifier();
 			const service = new Service(identifier);
 			assert.deepStrictEqual(service.identifier, identifier);
-			assert.deepStrictEqual(service.remoteServices.size, 0);
 			assert.deepStrictEqual(service.routes.length, 0);
 			assert.deepStrictEqual(service.executions.length, 0);
 			assert.deepStrictEqual(service.pods.size, 0);
+			assert.deepStrictEqual(service.remoteServices.size, 0);
 		});
 	});
 
@@ -32,7 +32,7 @@ mocha.describe('Service Test', () => {
 			const service = new Service(createIdentifier());
 			assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
 			assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-			assert.deepStrictEqual(service.memberships, []);
+			assert.deepStrictEqual(service.membership, null);
 			assert.deepStrictEqual(service.localAddress, null);
 			service.on('start', () => {
 				start++;
@@ -40,18 +40,18 @@ mocha.describe('Service Test', () => {
 				assert.deepStrictEqual(service.address().http.port, httpPort);
 				assert.deepStrictEqual(service.address().scp.port, scpPort);
 				assert.deepStrictEqual(service.address().sdp.port, sdpPort);
-				assert.deepStrictEqual(service.memberships, [sdpAddress]);
+				assert.deepStrictEqual(service.membership, sdpAddress);
 				assert.notDeepStrictEqual(service.localAddress, null);
 			});
 			service.on('stop', () => {
 				stop++;
 				assert.deepStrictEqual(service.listening, { http: false, scp: false, sdp: false });
 				assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
-				assert.deepStrictEqual(service.memberships, []);
+				assert.deepStrictEqual(service.membership, null);
 				assert.deepStrictEqual(service.localAddress, null);
 			});
 			await service.start(httpPort, scpPort, sdpPort, sdpAddress);
-			await service.stop(); // Calling End
+			await service.stop();
 			assert.deepStrictEqual(start, stop);
 		});
 	});

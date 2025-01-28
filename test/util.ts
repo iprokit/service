@@ -1,11 +1,11 @@
 // Import Libs.
 import { once } from 'events';
-import { Readable, promises as Stream } from 'stream';
+import { Readable, Writable, promises as Stream } from 'stream';
 import http, { IncomingMessage } from 'http';
 
 // Import Local.
 import { Method } from '../lib/http';
-import { IClient, IOMode } from '../lib/scp';
+import { Frame, RFI, Mode, Signal, Client } from '../lib/scp';
 
 export function createString(size: number) {
 	let characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -16,8 +16,43 @@ export function createString(size: number) {
 	return string;
 }
 
+export function createFrame(size?: number) {
+	return Frame.createData(createString(size ?? Frame.PAYLOAD_BYTES));
+}
+
+export function createRFI() {
+	return new RFI(createString(5) as Mode, createString(10), { ID: createString(5) });
+}
+
+export function createData(size?: number) {
+	return createString(size ?? Frame.PAYLOAD_BYTES);
+}
+
+export function createSignal() {
+	return new Signal(createString(10).toUpperCase(), { ID: createString(5) });
+}
+
 export function createIdentifier() {
 	return createString(10);
+}
+
+export async function readObjects<R extends Readable>(readable: R) {
+	const chunksReceived = new Array();
+	for await (const chunk of readable) {
+		chunksReceived.push(chunk);
+	}
+	await Stream.finished(readable);
+	return chunksReceived;
+}
+
+export async function writeObjects<W extends Writable, C>(writable: W, chunks: Array<C>, shouldFinish: boolean) {
+	for await (const chunk of chunks) {
+		if (!writable.write(chunk)) {
+			await once(writable, 'drain');
+		}
+	}
+	writable.end();
+	shouldFinish && (await Stream.finished(writable));
 }
 
 export async function read<R extends Readable | AsyncIterable<string>>(readable: R) {
@@ -43,8 +78,8 @@ export function clientRequest(host: string, port: number, method: Method, path: 
 	});
 }
 
-export async function clientIO<C extends IClient>(client: C, mode: IOMode, operation: string, data: string) {
-	const { incoming, outgoing } = client.IO(mode, operation);
+export async function clientIO(client: Client, mode: Mode, operation: string, data: string) {
+	const { incoming, outgoing } = await client.IO(mode, operation, { CID: client.identifier });
 	outgoing.end(data);
 	await Stream.finished(outgoing);
 	await once(incoming, 'rfi');

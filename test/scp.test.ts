@@ -5,18 +5,19 @@ import { once } from 'events';
 import { promisify } from 'util';
 
 // Import Local.
-import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
+import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, ClientOptions, Socket, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
 import { createString, createIdentifier, clientIO, read } from './util';
 
 const host = '127.0.0.1';
 const port = 6000;
 
 mocha.describe('SCP Test', () => {
-	mocha.describe('Constructor Test', () => {
+	mocha.describe('Constructor Base Test', () => {
 		mocha.it('should construct server', () => {
 			const identifier = createIdentifier();
 			const server = new Server(identifier);
 			assert.deepStrictEqual(server.identifier, identifier);
+			assert.deepStrictEqual(server.executions, new Array());
 		});
 
 		mocha.it('should construct client', () => {
@@ -31,60 +32,78 @@ mocha.describe('SCP Test', () => {
 
 		mocha.beforeEach(async () => {
 			server = new Server(createIdentifier());
+		});
+
+		mocha.it('should emit listening, scp:connection, incoming & close events for single connection', async () => {
+			// Client
+			const client = new Client(createIdentifier());
+
+			// Server
 			server.listen(port);
 			await once(server, 'listening');
-		});
-
-		mocha.afterEach(async () => {
-			server.close();
-			await once(server, 'close');
-		});
-
-		mocha.it('should emit connect & close events multiple times', (done) => {
-			const connectCount = 20;
-			let connect = 0,
-				close = 0;
-
-			// Client
-			const client = new Client(createIdentifier());
-			assert.deepStrictEqual(client.address(), null);
-			client.on('connect', () => {
-				connect++;
-				assert.deepStrictEqual(client.connected, true);
-				assert.notDeepStrictEqual(client.address(), null);
-				assert.deepStrictEqual(server.connections[0].identifier, client.identifier);
-				assert.deepStrictEqual(server.connections[0].canBroadcast, true);
-			});
-			client.on('close', () => {
-				close++;
-				assert.deepStrictEqual(client.connected, false);
-				assert.deepStrictEqual(client.address(), null);
-			});
-			(async () => {
-				for (let i = 0; i < connectCount; i++) {
-					client.connect(port, host);
-					await once(client, 'connect');
-					client.close(); // Calling End
-					await once(client, 'close');
-					assert.deepStrictEqual(connect, close);
-				}
-				done();
+			assert.deepStrictEqual(server.listening, true);
+			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
+			await (async () => {
+				client.connect(port, host);
+				await Promise.all([once(server, 'scp:connection'), once(server, 'incoming'), once(client, 'connect')]);
+				assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 1);
 			})();
+			server.close(); // Server 1st Close.
+			await Promise.all([once(server, 'close'), once(client, 'close')]);
+			assert.deepStrictEqual(server.listening, false);
+			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
 		});
 
-		mocha.it('should emit close event on server close', (done) => {
+		mocha.it('should emit listening, scp:connection incoming & close events for multiple connections', async () => {
+			// Client
+			const clients = Array(20)
+				.fill({})
+				.map(() => new Client(createIdentifier()));
+
+			// Server
+			server.listen(port);
+			await once(server, 'listening');
+			assert.deepStrictEqual(server.listening, true);
+			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
+			for (let i = 0; i < clients.length; i++) {
+				clients[i].connect(port, host);
+				await Promise.all([once(server, 'scp:connection'), once(server, 'incoming'), once(clients[i], 'connect')]);
+				assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), i + 1);
+			}
+			server.close(); // Server 1st Close.
+			await Promise.all([once(server, 'close'), ...clients.map((client) => once(client, 'close'))]);
+			assert.deepStrictEqual(server.listening, false);
+			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
+		});
+
+		mocha.it('should emit connect & close events multiple times', async () => {
+			const connectCount = 20;
+
 			// Client
 			const client = new Client(createIdentifier());
-			client.on('close', () => {
-				done();
-			});
-			(async () => {
+			assert.deepStrictEqual(client.remotePort, null);
+			assert.deepStrictEqual(client.remoteAddress, null);
+			assert.deepStrictEqual(client.connected, false);
+			assert.deepStrictEqual(client.pool, { size: 0, busy: 0, idle: 0 });
+			// Server
+			server.listen(port);
+			await once(server, 'listening');
+			for (let i = 0; i < connectCount; i++) {
 				client.connect(port, host);
 				await once(client, 'connect');
-				await promisify(setTimeout)(1); // Delay for server to establish connection.
-				server.close();
-				await once(server, 'close'); // Calling End
-			})();
+				assert.deepStrictEqual(client.remotePort, port);
+				assert.deepStrictEqual(client.remoteAddress, host);
+				assert.deepStrictEqual(client.connected, true);
+				assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
+				client.close(); // Client 1st Close.
+				await once(client, 'close');
+				assert.deepStrictEqual(client.remotePort, null);
+				assert.deepStrictEqual(client.remoteAddress, null);
+				assert.deepStrictEqual(client.connected, false);
+				assert.deepStrictEqual(client.pool, { size: 0, busy: 0, idle: 0 });
+			}
+			server.close();
+			await once(server, 'close');
 		});
 	});
 
@@ -105,6 +124,9 @@ mocha.describe('SCP Test', () => {
 		});
 
 		mocha.afterEach(async () => {
+			client.close();
+			await once(client, 'close');
+
 			server.close();
 			await once(server, 'close');
 		});
@@ -255,6 +277,9 @@ mocha.describe('SCP Test', () => {
 		});
 
 		mocha.afterEach(async () => {
+			client.close();
+			await once(client, 'close');
+
 			server.close();
 			await once(server, 'close');
 		});
@@ -471,12 +496,15 @@ mocha.describe('SCP Test', () => {
 			server.listen(port);
 			await once(server, 'listening');
 
-			client = new Client(createIdentifier());
+			client = new Client(createIdentifier(), { maxPoolSize: 30 });
 			client.connect(port, host);
 			await once(client, 'connect');
 		});
 
 		mocha.afterEach(async () => {
+			client.close();
+			await once(client, 'close');
+
 			server.close();
 			await once(server, 'close');
 		});
@@ -500,10 +528,12 @@ mocha.describe('SCP Test', () => {
 			});
 
 			// Client
-			for (const arg of args) {
-				const returned = await client.message('nexus', arg);
-				assert.deepStrictEqual(returned, arg);
+			const returned = new Array();
+			for await (const arg of args) {
+				const reply = await client.message('nexus', arg);
+				returned.push(reply);
 			}
+			assert.deepStrictEqual(returned, args);
 		});
 
 		mocha.it('should send a message and expect an ...object reply', async () => {
@@ -573,6 +603,89 @@ mocha.describe('SCP Test', () => {
 			);
 			await orchestrate(orchestrator, 5, 5, 5);
 			await orchestrator.end();
+		});
+	});
+
+	mocha.describe('Pool Test', () => {
+		let server: Server;
+		let pool: { create: 0; acquire: 0; drain: 0 };
+		let poolSocket: { drain: 0 };
+
+		const createClient = async (options: ClientOptions) => {
+			pool = { create: 0, acquire: 0, drain: 0 };
+			poolSocket = { drain: 0 };
+			const client = new Client(createIdentifier(), options);
+			client.on('pool:create', (socket: Socket) => {
+				assert.notDeepStrictEqual(socket, undefined);
+				pool.create++;
+				socket.on('io:drain', () => poolSocket.drain++);
+			});
+			client.on('pool:acquire', (socket: Socket) => {
+				assert.notDeepStrictEqual(socket, undefined);
+				pool.acquire++;
+			});
+			client.on('pool:drain', () => pool.drain++);
+			client.connect(port, host);
+			await once(client, 'connect');
+			return client;
+		};
+
+		mocha.beforeEach(async () => {
+			server = new Server(createIdentifier());
+			server.reply('nexus', (arg) => arg);
+			server.listen(port);
+			await once(server, 'listening');
+		});
+
+		mocha.afterEach(async () => {
+			server.close();
+			await once(server, 'close');
+		});
+
+		mocha.it('should reuse sockets up to maxPoolSize', async () => {
+			const messages = Array(100)
+				.fill({})
+				.map((_) => createString(10000));
+
+			// Client
+			const client = await createClient({ maxPoolSize: 2, maxMessages: Infinity, idleTimeout: 0 });
+			const returned = await Promise.all(messages.map(async (message) => client.message('nexus', message)));
+			assert.deepStrictEqual(returned, messages);
+			assert.deepStrictEqual(client.pool, { size: 2, busy: 1, idle: 1 });
+			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 0 });
+			assert.deepStrictEqual(poolSocket, { drain: 2 });
+		});
+
+		mocha.it('should reuse sockets up to maxMessages', async () => {
+			const messages = Array(100)
+				.fill({})
+				.map((_) => createString(10000));
+
+			// Client
+			const client = await createClient({ maxPoolSize: 2, maxMessages: 100, idleTimeout: 0 });
+			const returned = await Promise.all(messages.map(async (message) => client.message('nexus', message)));
+			assert.deepStrictEqual(returned, messages);
+			assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
+			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 1 });
+			assert.deepStrictEqual(poolSocket, { drain: 1 });
+		});
+
+		mocha.it('should reuse sockets up to idleTimeout', async () => {
+			const messages = Array(100)
+				.fill({})
+				.map((_) => createString(10000));
+
+			// Client
+			const client = await createClient({ maxPoolSize: 2, maxMessages: Infinity, idleTimeout: 100 });
+			const returned = await Promise.all(messages.map(async (message) => client.message('nexus', message)));
+			assert.deepStrictEqual(returned, messages);
+			assert.deepStrictEqual(client.pool, { size: 2, busy: 1, idle: 1 });
+			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 0 });
+			assert.deepStrictEqual(poolSocket, { drain: 2 });
+			await promisify(setTimeout)(150);
+			assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
+			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 1 });
+			assert.deepStrictEqual(poolSocket, { drain: 2 });
 		});
 	});
 });

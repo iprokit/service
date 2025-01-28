@@ -4,51 +4,97 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import { Server, Attributes } from '../lib/sdp';
+import { Pod, Attributes, Server } from '../lib/sdp';
 import { createIdentifier } from './util';
 
 const port = 5000;
 const address = '224.0.0.2';
 
 mocha.describe('SDP Test', () => {
-	mocha.describe('Constructor Test', () => {
+	mocha.describe('Constructor Pod Test', () => {
+		mocha.it('should construct pod with default variables', () => {
+			const _pod = 'ID*true';
+			const pod = new Pod('ID', true);
+			assert.deepStrictEqual(pod.identifier, 'ID');
+			assert.deepStrictEqual(pod.available, true);
+			assert.deepStrictEqual(pod.attributes, {});
+			assert.deepStrictEqual(pod.size, 0);
+			assert.deepStrictEqual(pod.stringify(), _pod);
+			assert.deepStrictEqual(pod, Pod.objectify(_pod));
+		});
+
+		mocha.it('should construct pod with custom(attributes 1) variables', () => {
+			const _pod = 'ID*false';
+			const pod = new Pod('ID', false, {});
+			assert.deepStrictEqual(pod.identifier, 'ID');
+			assert.deepStrictEqual(pod.available, false);
+			assert.deepStrictEqual(pod.attributes, {});
+			assert.deepStrictEqual(pod.size, 0);
+			assert.deepStrictEqual(pod.stringify(), _pod);
+			assert.deepStrictEqual(pod, Pod.objectify(_pod));
+		});
+
+		mocha.it('should construct pod with custom(attributes 2) variables', () => {
+			const _pod = 'ID*true$ONE=';
+			const pod = new Pod('ID', true, { ONE: '' });
+			assert.deepStrictEqual(pod.identifier, 'ID');
+			assert.deepStrictEqual(pod.available, true);
+			assert.deepStrictEqual(pod.attributes, { ONE: '' });
+			assert.deepStrictEqual(pod.get('ONE'), '');
+			assert.deepStrictEqual(pod.size, 1);
+			assert.deepStrictEqual(pod.stringify(), _pod);
+			assert.deepStrictEqual(pod, Pod.objectify(_pod));
+		});
+
+		mocha.it('should construct pod with custom(attributes 3) variables', () => {
+			const _pod = 'ID*false$ONE=&TWO=2&THREE=3';
+			const pod = new Pod('ID', false, { ONE: '', TWO: '', THREE: '3' });
+			pod.set('TWO', '2');
+			assert.deepStrictEqual(pod.identifier, 'ID');
+			assert.deepStrictEqual(pod.available, false);
+			assert.deepStrictEqual(pod.attributes, { ONE: '', TWO: '2', THREE: '3' });
+			assert.deepStrictEqual(pod.get('ONE'), '');
+			assert.deepStrictEqual(pod.has('TWO'), true);
+			assert.deepStrictEqual(pod.get('THREE'), '3');
+			assert.deepStrictEqual(pod.has('ZERO'), false);
+			assert.deepStrictEqual(pod.size, 3);
+			assert.deepStrictEqual(pod.stringify(), _pod);
+			assert.deepStrictEqual(pod, Pod.objectify(_pod));
+		});
+	});
+
+	mocha.describe('Constructor Base Test', () => {
 		mocha.it('should construct server', () => {
 			const identifier = createIdentifier();
 			const server = new Server(identifier);
 			assert.deepStrictEqual(server.identifier, identifier);
+			assert.deepStrictEqual(server.attributes, {});
+			assert.deepStrictEqual(server.pods, new Map());
 		});
 	});
 
 	mocha.describe('Connection Test', () => {
-		mocha.it('should emit listening & close events', (done) => {
-			let listening = 0,
-				close = 0;
-
+		mocha.it('should emit listening & close events', async () => {
 			const server = new Server(createIdentifier());
-			assert.deepStrictEqual(server.memberships, []);
+			assert.deepStrictEqual(server.listening, false);
+			assert.deepStrictEqual(server.membership, null);
+			assert.deepStrictEqual(server.localPort, null);
 			assert.deepStrictEqual(server.localAddress, null);
 			assert.deepStrictEqual(server.address(), null);
-			server.on('listening', () => {
-				listening++;
-				assert.deepStrictEqual(server.listening, true);
-				assert.deepStrictEqual(server.memberships, [address]);
-				assert.notDeepStrictEqual(server.localAddress, null);
-				assert.deepStrictEqual(server.address()!.port, port);
-			});
-			server.on('close', () => {
-				close++;
-				assert.deepStrictEqual(server.listening, false);
-				assert.deepStrictEqual(server.memberships, []);
-				assert.deepStrictEqual(server.localAddress, null);
-				assert.deepStrictEqual(server.address(), null);
-			});
-			server.listen(port, address, () => {
-				server.close(() => {
-					// Calling End
-					assert.deepStrictEqual(listening, close);
-					done();
-				});
-			});
+			server.listen(port, address);
+			await once(server, 'listening');
+			assert.deepStrictEqual(server.listening, true);
+			assert.deepStrictEqual(server.membership, address);
+			assert.deepStrictEqual(server.localPort, port);
+			assert.notDeepStrictEqual(server.localAddress, null);
+			assert.deepStrictEqual(server.address()!.port, port);
+			server.close();
+			await once(server, 'close');
+			assert.deepStrictEqual(server.listening, false);
+			assert.deepStrictEqual(server.membership, null);
+			assert.deepStrictEqual(server.localPort, null);
+			assert.deepStrictEqual(server.localAddress, null);
+			assert.deepStrictEqual(server.address(), null);
 		});
 	});
 

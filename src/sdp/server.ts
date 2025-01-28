@@ -1,14 +1,18 @@
 // Import Libs.
 import { EventEmitter } from 'events';
+import { Socket as UdpSocket, createSocket, RemoteInfo } from 'dgram';
 
-// Import @iprolab Libs.
-import { Socket, Pod, Attributes, Sender } from '@iprolab/sdp';
+// Import Local.
+import Pod, { Attributes } from './pod';
+
+// Symbol Definitions.
+const socket = Symbol('Socket');
 
 /**
  * `Server` binds to a multicast address and port number, listening for incoming SDP client connections.
  * Tracks pods' availability and emits events when their states change.
  *
- * @emits `listening` when the server is bound after calling `server.listen()`.
+ * @emits `listening` when the server is bound after calling `listen()`.
  * @emits `available` when a pod becomes available.
  * @emits `unavailable` when a pod becomes unavailable.
  * @emits `error` when an error occurs.
@@ -31,14 +35,29 @@ export default class Server extends EventEmitter {
 	public readonly pods: Map<string, IPod>;
 
 	/**
-	 * Local address of the server.
+	 * Underlying UDP Socket.
 	 */
-	private _localAddress: string | null;
+	private readonly [socket]: UdpSocket;
 
 	/**
-	 * Underlying SDP Socket.
+	 * Multicast group that have been joined.
 	 */
-	private _socket: Socket;
+	#membership: string | null;
+
+	/**
+	 * Local port of the server.
+	 */
+	#localPort: number | null;
+
+	/**
+	 * Local address of the server.
+	 */
+	#localAddress: string | null;
+
+	/**
+	 * `true` when the server is listening for connections, `false` otherwise.
+	 */
+	#listening: boolean;
 
 	/**
 	 * Creates an instance of SDP `Server`.
@@ -54,46 +73,56 @@ export default class Server extends EventEmitter {
 		// Initialize variables.
 		this.attributes = {};
 		this.pods = new Map();
-		this._localAddress = null;
-		this._socket = new Socket();
+		this[socket] = createSocket({ type: 'udp4', reuseAddr: true });
+		this.#membership = null;
+		this.#localPort = null;
+		this.#localAddress = null;
+		this.#listening = false;
 
 		// Bind listeners.
-		this.onPod = this.onPod.bind(this);
+		this.onMessage = this.onMessage.bind(this);
 
 		// Add listeners.
-		this._socket.addListener('pod', this.onPod);
-		this._socket.addListener('error', (error: Error) => this.emit('error', error));
+		this[socket].addListener('message', this.onMessage);
+		this[socket].addListener('error', (error: Error) => this.emit('error', error));
 	}
 
 	//////////////////////////////
 	//////// Gets/Sets
 	//////////////////////////////
 	/**
+	 * Multicast group that have been joined.
+	 */
+	public get membership() {
+		return this.#membership;
+	}
+
+	/**
+	 * Local port of the server.
+	 */
+	public get localPort() {
+		return this.#localPort;
+	}
+
+	/**
 	 * Local address of the server.
 	 */
 	public get localAddress() {
-		return this._localAddress;
+		return this.#localAddress;
 	}
 
 	/**
-	 * `true` if the server is listening for connections, `false` otherwise.
+	 * `true` when the server is listening for connections, `false` otherwise.
 	 */
 	public get listening() {
-		return this._socket.listening;
-	}
-
-	/**
-	 * Multicast groups that have been joined.
-	 */
-	public get memberships() {
-		return this._socket.memberships;
+		return this.#listening;
 	}
 
 	/**
 	 * Retrieves the bound address, family, and port of the server as reported by operating system.
 	 */
 	public address() {
-		return this._socket.address();
+		return this.#listening ? this[socket].address() : null;
 	}
 
 	//////////////////////////////
@@ -103,12 +132,12 @@ export default class Server extends EventEmitter {
 	 * @emits `available` when a pod is available.
 	 * @emits `unavailable` when a pod is unavailable.
 	 */
-	private onPod(pod: Pod, sender: Sender) {
-		const { identifier, available, attributes } = pod;
-		const { address: host } = sender;
+	private onMessage(buffer: Buffer, remoteInfo: RemoteInfo) {
+		const { identifier, available, attributes } = Pod.objectify(buffer.toString());
+		const { address: host } = remoteInfo;
 
 		if (identifier === this.identifier) {
-			this._socket.emit('echo', host);
+			this[socket].emit('echo', host);
 			return;
 		}
 
@@ -143,10 +172,7 @@ export default class Server extends EventEmitter {
 	 */
 	private send(available: boolean, callback?: () => void) {
 		const pod = new Pod(this.identifier, available, this.attributes);
-		const address = this._socket.address()!;
-
-		// If you can spare a moment to notice, there's just one membership here. 🙃
-		this._socket.send(pod, address.port, [...this._socket.memberships][0], (error: Error | null) => callback && callback());
+		this[socket].send(pod.stringify(), this.#localPort!, this.#membership!, (error: Error | null) => callback && callback());
 	}
 
 	/**
@@ -157,7 +183,7 @@ export default class Server extends EventEmitter {
 	 */
 	private echo(available: boolean, callback: (address: string) => void) {
 		// Read
-		this._socket.once('echo', (address: string) => callback(address));
+		this[socket].once('echo', (address: string) => callback(address));
 
 		// Write
 		this.send(available);
@@ -176,10 +202,13 @@ export default class Server extends EventEmitter {
 	public listen(port: number, address: string, callback?: () => void) {
 		callback && this.once('listening', callback);
 
-		this._socket.bind(port, () => {
-			this._socket.addMembership(address);
-			this.echo(true, (localAddress: string) => {
-				this._localAddress = localAddress;
+		this.#localPort = port;
+		this.#membership = address;
+		this[socket].bind(this.#localPort!, () => {
+			this[socket].addMembership(this.#membership!);
+			this.echo(true, (address: string) => {
+				this.#localAddress = address;
+				this.#listening = true;
 				this.emit('listening');
 			});
 		});
@@ -187,17 +216,20 @@ export default class Server extends EventEmitter {
 	}
 
 	/**
-	 * Closes the underlying socket and stops listening for pods, emitting the `close` event.
+	 * Closes the underlying UDP socket and stops listening for pods, emitting the `close` event.
 	 *
 	 * @param callback optional callback added as a one-time listener for the `close` event.
 	 */
 	public close(callback?: () => void) {
 		callback && this.once('close', callback);
 
-		this.echo(false, (localAddress: string) => {
-			this._localAddress = null;
-			this._socket.removeMemberships();
-			this._socket.close(() => {
+		this.echo(false, (address: string) => {
+			this[socket].dropMembership(this.#membership!);
+			this[socket].close(() => {
+				this.#membership = null;
+				this.#localPort = null;
+				this.#localAddress = null;
+				this.#listening = false;
 				this.emit('close');
 			});
 		});
@@ -212,7 +244,7 @@ export default class Server extends EventEmitter {
 	 * Calling `ref` again has no effect if already referenced.
 	 */
 	public ref() {
-		this._socket.ref();
+		this[socket].ref();
 		return this;
 	}
 
@@ -221,7 +253,7 @@ export default class Server extends EventEmitter {
 	 * Calling `unref` again has no effect if already unreferenced.
 	 */
 	public unref() {
-		this._socket.unref();
+		this[socket].unref();
 		return this;
 	}
 }
