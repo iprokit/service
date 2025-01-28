@@ -1,24 +1,23 @@
 // Import Libs.
 import { promises as Stream } from 'stream';
-
-// Import @iprolab Libs.
-import scp from '@iprolab/scp';
+import net, { Socket as TcpSocket } from 'net';
 
 // Import Local.
-import { RFI, Mode, Incoming, Outgoing } from './definitions';
+import { Mode, Parameters } from './rfi';
+import Protocol, { Incoming, Outgoing } from './protocol';
 import { Conductor } from './orchestrator';
+
+// Symbol Definitions.
+const connections = Symbol('Connections');
 
 /**
  * `Server` binds to an IP address and port number, listening for incoming SCP client connections.
  * Manages registered executions to handle various SCP modes and dispatches I/Os to the appropriate execution handlers.
  *
- * @emits `listening` when the server is bound after calling `server.listen()`.
- * @emits `connection` when a client socket connection is received.
- * @emits `error` when an error occurs.
- * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
- * @emits `close` when the server is fully closed.
+ * @emits `scp:connection` when a new scp connection is made.
+ * @emits `incoming` when a new incoming stream is received.
  */
-export default class Server extends scp.Server implements IServer {
+export default class Server extends net.Server implements IServer {
 	/**
 	 * Unique identifier of the server.
 	 */
@@ -32,7 +31,7 @@ export default class Server extends scp.Server implements IServer {
 	/**
 	 * Client socket connections.
 	 */
-	declare public readonly connections: Array<Connection>;
+	private readonly [connections]: Array<Connection>;
 
 	/**
 	 * Creates an instance of SCP `Server`.
@@ -47,11 +46,14 @@ export default class Server extends scp.Server implements IServer {
 
 		// Initialize variables.
 		this.executions = new Array();
+		this[connections] = new Array();
 
 		// Bind listeners.
+		this.onConnection = this.onConnection.bind(this);
 		this.onIncoming = this.onIncoming.bind(this);
 
 		// Add listeners.
+		this.addListener('connection', this.onConnection);
 		this.addListener('incoming', this.onIncoming);
 
 		// Apply `Executor` properties. 👻
@@ -61,6 +63,27 @@ export default class Server extends scp.Server implements IServer {
 	//////////////////////////////
 	//////// Event Listeners
 	//////////////////////////////
+	/**
+	 * @emits `scp:connection` when a new scp connection is made.
+	 * @emits `incoming` when a new incoming stream is received.
+	 */
+	private onConnection(socket: TcpSocket) {
+		const connection = new Connection(socket);
+		connection.on('incoming', (incoming: ServerIncoming, outgoing: ServerOutgoing) => {
+			this.emit('incoming', incoming, outgoing);
+		});
+		connection.on('error', (error: Error) => {
+			this.emit('error', error);
+		});
+		connection.on('close', () => {
+			// Find the connection and remove it.
+			const connectionIndex = this[connections].findIndex((c) => c === connection);
+			if (connectionIndex >= 0) this[connections].splice(connectionIndex, 1);
+		});
+		this[connections].push(connection);
+		this.emit('scp:connection', connection);
+	}
+
 	/**
 	 * - Subscribe is handled by `subscribe` function.
 	 * - Omni is handled by `dispatch` function.
@@ -152,8 +175,8 @@ export default class Server extends scp.Server implements IServer {
 			await Stream.finished(incoming);
 
 			// Set: Connection properties.
-			incoming.socket.identifier = incoming.parameters.CID!;
-			incoming.socket.canBroadcast = true;
+			incoming.scp.identifier = incoming.parameters.CID!;
+			incoming.scp.canBroadcast = true;
 
 			// Write: Outgoing stream.
 			outgoing.end('');
@@ -162,7 +185,6 @@ export default class Server extends scp.Server implements IServer {
 			// ❗️⚠️❗️
 			incoming.destroy();
 			outgoing.destroy();
-			outgoing.socket.destroy(error as Error);
 		}
 	}
 
@@ -171,25 +193,23 @@ export default class Server extends scp.Server implements IServer {
 	//////////////////////////////
 	public broadcast(operation: string, ...args: Array<any>) {
 		const broadcasts = new Array<Promise<string>>();
-		for (const connection of this.connections) {
+		const outgoingData = JSON.stringify(args);
+		for (const connection of this[connections]) {
 			if (connection.canBroadcast) {
-				const broadcast = new Promise<string>((resolve, reject) => {
-					connection.createOutgoing(async (outgoing) => {
-						try {
-							// Write: Outgoing stream.
-							outgoing.setRFI(new RFI('BROADCAST', operation, { SID: this.identifier }));
-							outgoing.end(JSON.stringify(args));
-							await Stream.finished(outgoing);
-							resolve(connection.identifier);
-						} catch (error) {
-							// ❗️⚠️❗️
-							outgoing.destroy();
-							outgoing.socket.destroy(error as Error);
-							reject(error);
-						}
-					});
-				});
-				broadcasts.push(broadcast);
+				const broadcast = async () => {
+					const outgoing = connection.createOutgoing('BROADCAST', operation, { SID: this.identifier });
+					try {
+						// Write: Outgoing stream.
+						outgoing.end(outgoingData);
+						await Stream.finished(outgoing);
+						return connection.identifier;
+					} catch (error) {
+						// ❗️⚠️❗️
+						outgoing.destroy();
+						throw error;
+					}
+				};
+				broadcasts.push(broadcast());
 			}
 		}
 		return Promise.all(broadcasts);
@@ -208,6 +228,17 @@ export default class Server extends scp.Server implements IServer {
 	declare public reply: <Returned>(operation: string, func: ReplyFunction<Returned>) => this;
 	declare public conductor: (operation: string, func: ConductorFunction) => this;
 	declare public omni: (operation: string, handler: IncomingHandler) => this;
+
+	//////////////////////////////
+	//////// Connection Management
+	//////////////////////////////
+	public close(callback?: (error?: Error) => void) {
+		super.close(callback); // 🛑 🙉 to new connections.
+		for (const connection of this[connections]) {
+			connection.end(); // 🔚 ⏹️
+		}
+		return this;
+	}
 }
 
 //////////////////////////////
@@ -267,7 +298,7 @@ export class Executor implements IExecutor {
 	declare public omni: (operation: string, handler: IncomingHandler) => this;
 
 	//////////////////////////////
-	//////// Factory
+	//////// Apply
 	//////////////////////////////
 	/**
 	 * Applies properties of `IExecutor` interface to the provided instance,
@@ -276,67 +307,95 @@ export class Executor implements IExecutor {
 	 * @param instance instance to which the `IExecutor` properties are applied.
 	 */
 	public static applyProperties<I extends IExecutor>(instance: I) {
-		// Factory for registering a `Nexus`.
-		const nexus = (mode: Mode, operation: string, handler: IncomingHandler) => {
-			const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
-			instance.executions.push({ mode, operation, regExp, handler } as Nexus);
-			return instance;
+		instance.reply = (operation, func) => this.registerNexus(instance, 'REPLY', operation, this.replyHandler(func));
+		instance.conductor = (operation, func) => this.registerNexus(instance, 'CONDUCTOR', operation, this.conductorHandler(func));
+		instance.omni = (operation, handler) => this.registerNexus(instance, 'OMNI', operation, handler);
+	}
+
+	//////////////////////////////
+	//////// Register
+	//////////////////////////////
+	/**
+	 * Registers an individual SCP nexus for handling specific SCP mode and operation pattern.
+	 *
+	 * @param instance executor instance where the nexus will be registered.
+	 * @param mode SCP mode of the nexus.
+	 * @param operation operation pattern of the nexus.
+	 * @param handler handler function of the nexus.
+	 */
+	private static registerNexus<I extends IExecutor>(instance: I, mode: Mode, operation: string, handler: IncomingHandler) {
+		const regExp = new RegExp(`^${operation.replace(/\*/g, '.*')}$`);
+		instance.executions.push({ mode, operation, regExp, handler } as Nexus);
+		return instance;
+	}
+
+	//////////////////////////////
+	//////// Handlers
+	//////////////////////////////
+	/**
+	 * Creates a handler for executing reply function.
+	 *
+	 * @param func reply function to execute.
+	 */
+	private static replyHandler<Returned>(func: ReplyFunction<Returned>): IncomingHandler {
+		return async (incoming, outgoing, proceed) => {
+			let incomingData = '';
+			let outgoingData = '';
+
+			try {
+				// Read: Incoming stream.
+				for await (const chunk of incoming) {
+					incomingData += chunk;
+				}
+
+				// Execute. 🤖
+				try {
+					const returned = await func(...JSON.parse(incomingData));
+					outgoingData = returned !== undefined || null ? JSON.stringify(returned) : JSON.stringify({});
+					outgoing.parameters.STATUS = 'OK';
+				} catch (error) {
+					error instanceof Error && delete error.stack; // Delete stack from error because we don't need it.
+					outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
+					outgoing.parameters.STATUS = 'ERROR';
+				}
+
+				// Write: Outgoing stream.
+				outgoing.end(outgoingData);
+				await Stream.finished(outgoing);
+			} catch (error) {
+				// ❗️⚠️❗️
+				incoming.destroy();
+				outgoing.destroy();
+			}
 		};
+	}
 
-		// `IExecutor` properties. 😈
-		instance.reply = (operation, func) =>
-			nexus('REPLY', operation, async (incoming, outgoing, proceed) => {
-				let incomingData = '';
-				let outgoingData = '';
-				try {
-					// Read: Incoming stream.
-					for await (const chunk of incoming) {
-						incomingData += chunk;
-					}
+	/**
+	 * Creates a handler for executing conductor function.
+	 *
+	 * @param func conductor function to execute.
+	 */
+	private static conductorHandler(func: ConductorFunction): IncomingHandler {
+		return async (incoming, outgoing, proceed) => {
+			let incomingData = '';
 
-					// Execute. 🤖
-					try {
-						const returned = await func(...JSON.parse(incomingData));
-						outgoingData = returned !== undefined || null ? JSON.stringify(returned) : JSON.stringify({});
-						outgoing.parameters.STATUS = 'OK';
-					} catch (error) {
-						error instanceof Error && delete error.stack; // Delete stack from error because we don't need it.
-						outgoingData = JSON.stringify(error, Object.getOwnPropertyNames(error));
-						outgoing.parameters.STATUS = 'ERROR';
-					}
-
-					// Write: Outgoing stream.
-					outgoing.end(outgoingData);
-					await Stream.finished(outgoing);
-				} catch (error) {
-					// ❗️⚠️❗️
-					incoming.destroy();
-					outgoing.destroy();
+			const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
+			try {
+				// Read: Conductor.
+				for await (const chunk of conductor) {
+					incomingData += chunk;
 				}
-			});
-		instance.conductor = (operation, func) =>
-			nexus('CONDUCTOR', operation, async (incoming, outgoing, proceed) => {
-				let incomingData = '';
 
-				// Initialize. 🎩🚦🔲
-				const conductor = new Conductor(incoming, outgoing);
-				try {
-					// Read: Conductor.
-					for await (const chunk of conductor) {
-						incomingData += chunk;
-					}
+				// Execute. 🤖
+				func(conductor, ...JSON.parse(incomingData));
 
-					// Execute. 🤖
-					func(conductor, ...JSON.parse(incomingData));
-
-					// Flush RFI + Data in the conductor. 🚽💨
-					await conductor.flush();
-				} catch (error) {
-					// ❗️⚠️❗️
-					conductor.destroy();
-				}
-			});
-		instance.omni = (operation, handler) => nexus('OMNI', operation, handler);
+				// Write: Conductor.
+				await conductor.flush(); // 🚽💨
+			} catch (error) {
+				// ❗️⚠️❗️
+				conductor.destroy();
+			}
+		};
 	}
 }
 
@@ -457,26 +516,73 @@ export type ConductorFunction = (conductor: Conductor, ...args: Array<any>) => P
 //////////////////////////////
 //////// Connection
 //////////////////////////////
-export interface Connection extends InstanceType<typeof scp.Connection> {
+/**
+ * Represents a client socket connection used by the SCP `Server`.
+ *
+ * @emits `incoming` when a new incoming stream is received.
+ */
+export class Connection extends Protocol {
 	/**
 	 * Unique identifier of the client socket connection.
 	 */
-	identifier: string;
+	public identifier: string;
 
 	/**
 	 * `true` if the connection can accept broadcasts, `false` otherwise.
 	 */
-	canBroadcast: boolean;
+	public canBroadcast: boolean;
 
 	/**
-	 * Current incoming stream.
+	 * Creates an instance of SCP `Connection`.
+	 *
+	 * @param socket underlying socket.
 	 */
-	incoming: ServerIncoming;
+	constructor(socket: TcpSocket) {
+		super(socket);
+
+		// Initialize variables.
+		this.identifier = 'unknown';
+		this.canBroadcast = false;
+
+		// Add listeners.
+		this.addListener('end', () => this.end());
+		this.addListener('error', (error: Error) => this.destroy());
+
+		// 🚴🏽💨
+		this.cycleIO();
+	}
+
+	//////////////////////////////
+	//////// Incoming/Outgoing
+	//////////////////////////////
+	/**
+	 * Creates a new `Incoming` and `Outgoing` stream.
+	 * Invoked recursively on the `close` event of the current outgoing stream to continuously listen for incoming streams.
+	 *
+	 * @emits `incoming` when a new incoming stream is received.
+	 */
+	private cycleIO() {
+		const incoming = new ServerIncoming(this);
+		incoming.once('rfi', () => {
+			const outgoing = new ServerOutgoing(this);
+			outgoing.setRFI(incoming.mode, incoming.operation);
+			outgoing.once('close', () => this.cycleIO());
+			this.emit('incoming', incoming, outgoing);
+		});
+	}
 
 	/**
-	 * Current outgoing stream.
+	 * Creates a new `Outgoing` stream.
+	 *
+	 * @param mode mode of the remote function.
+	 * @param operation operation of the remote function.
+	 * @param parameters parameters of the remote function.
 	 */
-	outgoing: ServerOutgoing;
+	public createOutgoing(mode: Mode, operation: string, parameters: Parameters) {
+		const outgoing = new ServerOutgoing(this);
+		outgoing.setRFI(mode, operation, parameters);
+		return outgoing;
+	}
 }
 
 //////////////////////////////
@@ -485,34 +591,34 @@ export interface Connection extends InstanceType<typeof scp.Connection> {
 /**
  * Represents an SCP server incoming.
  */
-export interface ServerIncoming extends Incoming {
+export class ServerIncoming extends Incoming {
 	/**
-	 * Underlying SCP Socket.
+	 * Underlying SCP stream.
 	 */
-	socket: Connection;
+	declare public scp: Connection;
 
 	/**
 	 * Segment portion of the operation pattern.
 	 */
-	segment: string;
+	segment!: string;
 
 	/**
 	 * Nexus portion of the operation pattern.
 	 */
-	nexus: string;
+	nexus!: string;
 
 	/**
 	 * `true` if the segment matched, `false` otherwise.
 	 */
-	matched: boolean;
+	matched!: boolean;
 }
 
 /**
  * Represents an SCP server outgoing.
  */
-export interface ServerOutgoing extends Outgoing {
+export class ServerOutgoing extends Outgoing {
 	/**
-	 * Underlying SCP Socket.
+	 * Underlying SCP stream.
 	 */
-	socket: Connection;
+	declare public scp: Connection;
 }

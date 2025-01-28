@@ -1,14 +1,15 @@
 // Import Libs.
 import { EventEmitter, once } from 'events';
 import { promises as Stream } from 'stream';
-import { AddressInfo } from 'net';
-
-// Import @iprolab Libs.
-import { Socket } from '@iprolab/scp';
+import { Socket as TcpSocket } from 'net';
 
 // Import Local.
-import { RFI, Incoming, Outgoing } from './definitions';
+import { Mode, Parameters } from './rfi';
+import Protocol, { Incoming, Outgoing } from './protocol';
 import Orchestrator, { Conductor } from './orchestrator';
+
+// Symbol Definitions.
+const pool = Symbol('Pool');
 
 /**
  * `Client` manages connections to an SCP server.
@@ -16,144 +17,85 @@ import Orchestrator, { Conductor } from './orchestrator';
  *
  * @emits `connect` when the connection is successfully established.
  * @emits `<operation>` when a broadcast is received.
+ * @emits `pool:create` when a new socket is created and added to the connection pool.
+ * @emits `pool:acquire` when a socket is acquired from the connection pool.
+ * @emits `pool:drain`  when all sockets(message) are removed from the connection pool.
  * @emits `error` when an error occurs.
- * @emits `close` when the connection is closed.
+ * @emits `close` when all the connections are closed.
  */
-export default class Client extends EventEmitter implements IClient {
+export default class Client extends EventEmitter {
 	/**
 	 * Unique identifier of the client.
 	 */
 	public readonly identifier: string;
 
 	/**
-	 * `true` when the client is connected, `false` when destroyed.
+	 * Socket connection pool.
 	 */
-	private _connected: boolean;
+	private readonly [pool]: Array<Socket>;
 
 	/**
-	 * Underlying SCP Socket.
+	 * Options of the client.
 	 */
-	private _socket!: Socket;
+	#options: Options;
 
 	/**
 	 * Creates an instance of SCP `Client`.
 	 *
 	 * @param identifier unique identifier of the client.
+	 * @param options options of the client.
 	 */
-	constructor(identifier: string) {
+	constructor(identifier: string, options?: Options) {
 		super();
 
 		// Initialize options.
 		this.identifier = identifier;
+		this.#options = options ?? {};
+		this.#options.maxPoolSize = this.#options.maxPoolSize ?? 10;
+		this.#options.maxMessages = this.#options.maxMessages ?? 100;
+		this.#options.idleTimeout = this.#options.idleTimeout ?? 0;
 
 		// Initialize variables.
-		this._connected = false;
+		this[pool] = new Array();
 
 		// Bind listeners.
-		this.onConnect = this.onConnect.bind(this);
-		this.onIncoming = this.onIncoming.bind(this);
-		this.onError = this.onError.bind(this);
-		this.onEnd = this.onEnd.bind(this);
-		this.onClose = this.onClose.bind(this);
+		this.onBroadcast = this.onBroadcast.bind(this);
 	}
 
 	//////////////////////////////
 	//////// Gets/Sets
 	//////////////////////////////
 	/**
-	 * `true` when the client is connected, `false` otherwise.
+	 * Remote port of the client.
 	 */
-	public get connected() {
-		return this._connected;
+	public get remotePort() {
+		if (this[pool].length === 0) return null;
+		return this[pool][0].socket.remotePort!;
 	}
 
 	/**
 	 * Remote address of the client.
 	 */
 	public get remoteAddress() {
-		return this._socket?.remoteAddress;
+		if (this[pool].length === 0) return null;
+		return this[pool][0].socket.remoteAddress!;
 	}
 
 	/**
-	 * Local address of the client.
+	 * `true` when all sockets in the pool are connected, `false` otherwise.
 	 */
-	public get localAddress() {
-		return this._socket?.localAddress;
+	public get connected() {
+		if (this[pool].length === 0) return false;
+		return this[pool].every((socket) => socket.connected);
 	}
 
 	/**
-	 * Remote port of the client.
+	 * Returns the current state of the connection pool.
 	 */
-	public get remotePort() {
-		return this._socket?.remotePort;
-	}
-
-	/**
-	 * Local port of the client.
-	 */
-	public get localPort() {
-		return this._socket?.localPort;
-	}
-
-	/**
-	 * Remote family of the client.
-	 */
-	public get remoteFamily() {
-		return this._socket?.remoteFamily;
-	}
-
-	/**
-	 * Retrieves the bound address, family, and port of the client as reported by operating system.
-	 */
-	public address() {
-		return this._socket && this.connected ? (this._socket.address() as AddressInfo) : null;
-	}
-
-	//////////////////////////////
-	//////// Event Listeners
-	//////////////////////////////
-	/**
-	 * @emits `connect` when the connection is successfully established.
-	 */
-	private onConnect() {
-		this.subscribe().then(() => {
-			this._connected = true;
-			this.emit('connect');
-		});
-	}
-
-	/**
-	 * - Subscribe is handled by `subscribe` function.
-	 * - Broadcast is handled by `broadcast` function.
-	 */
-	private onIncoming(incoming: Incoming) {
-		if (incoming.mode === 'SUBSCRIBE') {
-			this._socket.emit('subscribe', incoming);
-		} else if (incoming.mode === 'BROADCAST') {
-			this.broadcast(incoming);
-		}
-	}
-
-	/**
-	 * @emits `error` when an error occurs.
-	 */
-	private onError(error: Error) {
-		this.emit('error', error);
-	}
-
-	/**
-	 * FIN packet is received. Ending writable operations on the socket.
-	 */
-	private onEnd() {
-		this._socket.destroy();
-	}
-
-	/**
-	 * @emits `close` when the connection is closed.
-	 */
-	private onClose() {
-		this._connected = false;
-		this.emit('close');
+	public get pool() {
+		if (this[pool].length === 0) return { size: 0, busy: 0, idle: 0 };
+		const { busy, idle } = this[pool].reduce((counts, socket) => (counts[socket.ioQueue > 0 ? 'busy' : 'idle']++, counts), { busy: 0, idle: 0 });
+		return { size: this[pool].length, busy, idle };
 	}
 
 	//////////////////////////////
@@ -162,26 +104,21 @@ export default class Client extends EventEmitter implements IClient {
 	/**
 	 * Subscribes to the server to receive broadcasts.
 	 */
-	private async subscribe() {
-		let incoming!: Incoming;
-		let outgoing!: Outgoing;
-
+	private async subscribe(socket: Socket) {
+		const { incoming, outgoing } = await this.IO('SUBSCRIBE', '', { CID: this.identifier }, socket);
 		try {
 			// Write: Outgoing stream.
-			outgoing = await new Promise((resolve) => this._socket.createOutgoing((outgoing) => resolve(outgoing as Outgoing)));
-			outgoing.setRFI(new RFI('SUBSCRIBE', '', { CID: this.identifier }));
 			outgoing.end('');
 			await Stream.finished(outgoing);
 
 			// Read: Incoming stream.
-			[incoming] = await once(this._socket, 'subscribe');
+			await once(incoming, 'rfi');
 			incoming.resume();
 			await Stream.finished(incoming);
 		} catch (error) {
 			// ❗️⚠️❗️
-			incoming?.destroy();
-			outgoing?.destroy();
-			(incoming || outgoing).socket.destroy(error as Error);
+			incoming.destroy();
+			outgoing.destroy();
 		}
 	}
 
@@ -193,7 +130,7 @@ export default class Client extends EventEmitter implements IClient {
 	 *
 	 * @emits `<operation>` when a broadcast is received.
 	 */
-	private async broadcast(incoming: Incoming) {
+	private async onBroadcast(incoming: Incoming) {
 		try {
 			// No listener was added to the broadcast, Drain the stream. Move on to the next one.
 			if (this.listenerCount(incoming.operation) === 0) {
@@ -202,41 +139,39 @@ export default class Client extends EventEmitter implements IClient {
 				return;
 			}
 
-			// Read: Incoming stream. ✅
-			let data = '';
+			// Read: Incoming stream.
+			let incomingData = '';
 			for await (const chunk of incoming) {
-				data += chunk;
+				incomingData += chunk;
 			}
-			this.emit(incoming.operation, ...JSON.parse(data));
+			this.emit(incoming.operation, ...JSON.parse(incomingData));
 		} catch (error) {
 			// ❗️⚠️❗️
 			incoming.destroy();
-			incoming.socket.destroy(error as Error);
 		}
 	}
 
 	//////////////////////////////
-	//////// IClient
+	//////// Message/Conduct
 	//////////////////////////////
-	public IO(mode: IOMode, operation: string) {
-		const { incoming, outgoing } = new IOSocket().connect(this.remotePort!, this.remoteAddress!);
-		outgoing.setRFI(new RFI(mode, operation, { CID: this.identifier }));
-		return { incoming, outgoing };
-	}
-
+	/**
+	 * Sends a message to the server and returns a promise resolving to a reply.
+	 *
+	 * @param operation operation pattern.
+	 * @param args arguments to send.
+	 */
 	public async message<Returned>(operation: string, ...args: Array<any>) {
-		const { incoming, outgoing } = this.IO('REPLY', operation);
+		const { incoming, outgoing } = await this.IO('REPLY', operation, { CID: this.identifier });
 		let incomingData = '';
 		let outgoingData = JSON.stringify(args);
+
 		try {
 			// Write: Outgoing stream.
 			outgoing.end(outgoingData);
 			await Stream.finished(outgoing);
 
-			// Waiting for RFI... ⌛🕵️‍♂️
-			await once(incoming, 'rfi');
-
 			// Read: Incoming stream.
+			await once(incoming, 'rfi');
 			for await (const chunk of incoming) {
 				incomingData += chunk;
 			}
@@ -253,24 +188,103 @@ export default class Client extends EventEmitter implements IClient {
 		return JSON.parse(incomingData) as Returned;
 	}
 
+	/**
+	 * Sends a message to the server and returns a promise that resolves to `void`, enabling the coordination of signals.
+	 *
+	 * @param operation operation pattern.
+	 * @param orchestrator orchestrator that coordinates signals.
+	 * @param args arguments to send.
+	 */
 	public async conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
-		const { incoming, outgoing } = this.IO('CONDUCTOR', operation);
+		const { incoming, outgoing } = await this.IO('CONDUCTOR', operation, { CID: this.identifier });
 		let outgoingData = JSON.stringify(args);
 
-		// Initialize. 🎩🚦🔲
-		const conductor = new Conductor(incoming, outgoing);
+		const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
 		orchestrator.manage(conductor);
 		try {
 			// Write: Conductor.
 			await conductor.deliver(outgoingData);
 
-			// Waiting for RFI... ⌛🕵️‍♂️
-			await once(conductor, 'rfi');
+			// Read: Conductor.
+			await once(incoming, 'rfi');
 		} catch (error) {
 			// ❗️⚠️❗️
 			conductor.destroy();
 			throw error;
 		}
+	}
+
+	//////////////////////////////
+	//////// Incoming/Outgoing
+	//////////////////////////////
+	/**
+	 * Creates and returns a new `Incoming` and `Outgoing` stream.
+	 *
+	 * @param mode mode of the remote function.
+	 * @param operation operation of the remote function.
+	 * @param parameters parameters of the remote function.
+	 * @param socket optional socket to use. If not provided, a socket will be acquired from the connection pool.
+	 */
+	public async IO(mode: Mode, operation: string, parameters: Parameters, socket?: Socket) {
+		socket = socket ?? this.acquireSocket();
+		return new Promise<{ outgoing: Outgoing; incoming: Incoming }>((resolve) => socket.createIO(mode, operation, parameters, (outgoing, incoming) => resolve({ outgoing, incoming })));
+	}
+
+	//////////////////////////////
+	//////// Connection Pool
+	//////////////////////////////
+	/**
+	 * Returns the least busy and available socket from the connection pool.
+	 *
+	 * @emits `pool:acquire` when a socket is acquired from the connection pool.
+	 */
+	private acquireSocket() {
+		let socket = this[pool].find((socket) => socket.ioQueue === 0);
+		if (socket) {
+			// 🤸🏽🪩
+		} else {
+			if (this[pool].length < this.#options.maxPoolSize!) {
+				socket = this.createSocket({ maxMessages: this.#options.maxMessages!, idleTimeout: this.#options.idleTimeout! }, this.remotePort!, this.remoteAddress!);
+			} else {
+				socket = this[pool].reduce((leastBusy, current) => (current.ioQueue < leastBusy.ioQueue ? current : leastBusy));
+			}
+		}
+		this.emit('pool:acquire', socket);
+		return socket;
+	}
+
+	/**
+	 * Creates and initializes a new connected socket, then adds it to the connection pool.
+	 *
+	 * @param options options of the socket.
+	 * @param port remote port.
+	 * @param host remote host.
+	 * @emits `pool:create` when a new socket is created and added to the connection pool.
+	 * @emits `pool:drain` when all sockets(message) are removed from the connection pool.
+	 * @emits `error` when an error occurs.
+	 * @emits `close` when all the connections are closed.
+	 */
+	private createSocket(options: SocketOptions, port: number, host: string) {
+		const socket = new Socket(options);
+		socket.on('error', (error: Error) => {
+			this.emit('error', error);
+		});
+		socket.on('close', () => {
+			// Find the socket and remove it.
+			const socketIndex = this[pool].findIndex((s) => s === socket);
+			if (socketIndex >= 0) this[pool].splice(socketIndex, 1);
+
+			// 🏄🏽
+			if (this[pool].length === 1) {
+				this.emit('pool:drain');
+			} else if (this[pool].length === 0) {
+				this.emit('close');
+			}
+		});
+		socket.connect(port, host);
+		this[pool].push(socket);
+		this.emit('pool:create', socket);
+		return socket;
 	}
 
 	//////////////////////////////
@@ -286,121 +300,243 @@ export default class Client extends EventEmitter implements IClient {
 	public connect(port: number, host: string, callback?: () => void) {
 		callback && this.once('connect', callback);
 
-		// Setup Socket.
-		this._socket = new Socket();
-		this._socket.addListener('connect', this.onConnect);
-		this._socket.addListener('incoming', this.onIncoming);
-		this._socket.addListener('error', this.onError);
-		this._socket.addListener('end', this.onEnd);
-		this._socket.addListener('close', this.onClose);
-		this._socket.setKeepAlive(true);
-		this._socket.connect(port, host);
+		// Socket is reserved for receiving broadcasts. 📡🏃🏽💨
+		const socket = this.createSocket({ maxMessages: Infinity, idleTimeout: 0 }, port, host);
+		socket.on('broadcast', this.onBroadcast);
+		socket.on('connect', () =>
+			this.subscribe(socket).then(() => {
+				socket.cycleIncoming();
+				this.emit('connect');
+			})
+		);
 		return this;
 	}
 
 	/**
-	 * Closes connection to the server.
+	 * Closes all connections to the server.
 	 *
 	 * @param callback optional callback added as a one-time listener for the `close` event.
 	 */
 	public close(callback?: () => void) {
-		if (!this._socket) return this;
-
 		callback && this.once('close', callback);
-		this._socket.destroy();
-		return this;
-	}
 
-	//////////////////////////////
-	//////// Ref/Unref
-	//////////////////////////////
-	/**
-	 * References the socket, preventing it from closing automatically.
-	 * Calling `ref` again has no effect if already referenced.
-	 */
-	public ref() {
-		this._socket?.ref();
-		return this;
-	}
-
-	/**
-	 * Unreferences the socket, allowing it to close automatically when no other event loop activity is present.
-	 * Calling `unref` again has no effect if already unreferenced.
-	 */
-	public unref() {
-		this._socket?.unref();
+		// 🏁✋🏽
+		for (const socket of this[pool]) {
+			socket.end();
+		}
 		return this;
 	}
 }
 
 //////////////////////////////
-//////// IClient
+//////// Client Options
+//////////////////////////////
+export interface Options {
+	/**
+	 * Maximum number of sockets that can exist in the connection pool.
+	 * When the limit is reached, no new sockets will be created. Instead,
+	 * existing sockets' I/O queue will be used to handle new messages,
+	 * leveraging their FIFO mechanism to ensure proper message ordering.
+	 *
+	 * @default 10
+	 */
+	maxPoolSize?: number;
+
+	/**
+	 * Maximum number of messages that a single socket can process before it is destroyed.
+	 * A new socket will be created for further messages.
+	 *
+	 * @default 100
+	 */
+	maxMessages?: number;
+
+	/**
+	 * Maximum amount of time (in milliseconds) that a socket can remain idle before it is destroyed.
+	 * The timer resets on activity. If set to `0`, the idle timeout is disabled,
+	 * allowing the socket to remain open indefinitely unless explicitly closed or destroyed.
+	 *
+	 * @default 0
+	 */
+	idleTimeout?: number;
+}
+
+//////////////////////////////
+//////// Socket
 //////////////////////////////
 /**
- * Interface for the SCP `Client`.
+ * Represents a socket connection used by the SCP `Client`.
+ *
+ * @emits `connect` when a connection is successfully established.
+ * @emits `<mode>` when a new incoming stream is received.
+ * @emits `io:drain` when all callbacks in the I/O queue are executed.
  */
-export interface IClient {
+export class Socket extends Protocol {
 	/**
-	 * Creates an `Outgoing` stream to send data and an `Incoming` stream to receive data from the server.
+	 * RFI + I/O callback queue.
+	 */
+	readonly #ioQueue: Array<{ mode: Mode; operation: string; parameters: Parameters; callback: (outgoing: Outgoing, incoming: Incoming) => void }>;
+
+	/**
+	 * Number of I/O streams processed.
+	 */
+	#ioProcessed: number;
+
+	/**
+	 * - `IO`: Message/Reply mode. Socket processes queued I/O operations.
+	 * - `Incoming`: Continuous incoming mode. Socket repeatedly listens for incoming streams.
+	 */
+	#ioMode: 'IO' | 'Incoming';
+
+	/**
+	 * Options of the socket.
+	 */
+	#options: SocketOptions;
+
+	/**
+	 * Creates an instance of SCP `Socket`.
 	 *
-	 * @param mode mode of the `RFI`.
-	 * @param operation operation pattern of the `RFI`.
+	 * @param options options of the socket.
 	 */
-	IO: (mode: IOMode, operation: string) => IO;
+	constructor(options: SocketOptions) {
+		super(new TcpSocket());
 
-	/**
-	 * Sends a message to the server and returns a promise resolving to a reply.
-	 *
-	 * @param operation operation pattern.
-	 * @param args arguments to send.
-	 */
-	message: <Returned>(operation: string, ...args: Array<any>) => Promise<Returned> | Returned;
+		// Initialize options.
+		this.#options = options;
 
-	/**
-	 * Sends a message to the server and returns a promise that resolves to `void`, enabling the coordination of signals.
-	 *
-	 * @param operation operation pattern.
-	 * @param orchestrator orchestrator that coordinates signals.
-	 * @param args arguments to send.
-	 */
-	conduct: (operation: string, orchestrator: Orchestrator, ...args: Array<any>) => Promise<void>;
-}
-
-export type IOMode = 'REPLY' | 'CONDUCTOR';
-
-export interface IO {
-	incoming: Incoming;
-	outgoing: Outgoing;
-}
-
-//////////////////////////////
-//////// IO Socket
-//////////////////////////////
-/**
- * Implements a simple SCP IOSocket.
- * Manages a single instance of `Incoming` and `Outgoing` streams,
- * ensuring one-time use with automatic cleanup on stream completion.
- */
-export class IOSocket extends Socket {
-	/**
-	 * Creates an instance of SCP `IOSocket`.
-	 */
-	constructor() {
-		super({ flow: IOSocket.SINGLE });
+		// Initialize variables.
+		this.#ioQueue = new Array();
+		this.#ioProcessed = 0;
+		this.#ioMode = 'IO';
 
 		// Add listeners.
-		this.once('end', () => this.destroy());
-		this.incoming.once('end', () => this.destroy());
+		this.socket.addListener('connect', () => this.emit('connect'));
+		this.socket.addListener('timeout', () => this.destroy());
+		this.socket.addListener('end', () => !this.readableEnded && this.resume()); // Underlying socket closed. Forcefully read(), triggering `end` event. 🤪
+		this.addListener('end', () => this.end());
+		this.addListener('error', (error: Error) => this.destroy());
+
+		// Initialize.
+		this.socket.setTimeout(this.#options.idleTimeout);
 	}
 
 	//////////////////////////////
 	//////// Gets/Sets
 	//////////////////////////////
-	public get incoming() {
-		return super.incoming as Incoming;
+	/**
+	 * `true` when the socket is connected, `false` otherwise.
+	 */
+	public get connected() {
+		return !this.socket.pending && !this.destroyed && this.socket.readyState === 'open';
 	}
 
-	public get outgoing() {
-		return super.outgoing as Outgoing;
+	/**
+	 * Number of I/O streams queued to process.
+	 */
+	public get ioQueue() {
+		if (this.#ioMode === 'IO') return this.#ioQueue.length;
+		return Infinity;
 	}
+
+	//////////////////////////////
+	//////// Incoming/Outgoing
+	//////////////////////////////
+	/**
+	 * Creates a new `Incoming` and `Outgoing` stream.
+	 *
+	 * @param mode mode of the remote function.
+	 * @param operation operation of the remote function.
+	 * @param parameters parameters of the remote function.
+	 * @param callback callback executed when the I/O stream is ready.
+	 */
+	public createIO(mode: Mode, operation: string, parameters: Parameters, callback: (outgoing: Outgoing, incoming: Incoming) => void) {
+		// Push the RFI + I/O callback into the queue.
+		this.#ioQueue.push({ mode, operation, parameters, callback });
+
+		// This is the first in the queue, let's execute it!
+		if (this.#ioQueue.length === 1) {
+			this.executeIO();
+		}
+
+		return this;
+	}
+
+	/**
+	 * Executes one I/O callback at a time in FIFO manner.
+	 * Invoked recursively on the `close` event of the current incoming stream.
+	 *
+	 * @emits `io:drain` when all callbacks in the I/O queue are executed.
+	 */
+	private executeIO() {
+		// The first(0th) RFI + I/O callback from the queue.
+		const { mode, operation, parameters, callback: firstCallback } = this.#ioQueue[0];
+
+		const incoming = new Incoming(this);
+		incoming.once('close', () => {
+			this.#ioProcessed++;
+
+			// Remove the first(0th) RFI + I/O callback from the queue.
+			this.#ioQueue.shift();
+
+			// 🚨
+			if (this.#ioProcessed >= this.#options.maxMessages) return this.destroy();
+
+			// 🎡
+			if (this.#ioQueue.length > 0) {
+				this.executeIO();
+			} else if (this.#ioQueue.length === 0) {
+				this.emit('io:drain');
+			}
+		});
+		const outgoing = new Outgoing(this);
+		outgoing.setRFI(mode, operation, parameters);
+
+		// Let's execute the I/O callback!
+		firstCallback(outgoing, incoming);
+	}
+
+	/**
+	 * Creates a new `Incoming` stream.
+	 * Invoked recursively on the `close` event of the current incoming stream to continuously listen for incoming streams.
+	 *
+	 * @emits `<mode>` when a new incoming stream is received.
+	 */
+	public cycleIncoming() {
+		this.#ioMode = 'Incoming'; // 👂🏽🔁
+		const incoming = new Incoming(this);
+		incoming.once('rfi', () => this.emit(incoming.rfi.mode.toLowerCase(), incoming));
+		incoming.once('close', () => this.cycleIncoming());
+		return this;
+	}
+
+	//////////////////////////////
+	//////// Connection Management
+	//////////////////////////////
+	/**
+	 * Initiates a connection to the server.
+	 *
+	 * @param port remote port.
+	 * @param host remote host.
+	 * @param callback optional callback added as a one-time listener for the `connect` event.
+	 */
+	public connect(port: number, host: string, callback?: () => void) {
+		this.socket.connect({ port, host, keepAlive: true }, callback);
+		return this;
+	}
+}
+
+//////////////////////////////
+//////// Socket Options
+//////////////////////////////
+export interface SocketOptions {
+	/**
+	 * Maximum number of messages this socket can process before it is destroyed.
+	 */
+	maxMessages: number;
+
+	/**
+	 * Maximum amount of time (in milliseconds) that this socket can remain idle before it is destroyed.
+	 * The timer resets on activity. If set to `0`, the idle timeout is disabled,
+	 * allowing the socket to remain open indefinitely unless explicitly closed or destroyed.
+	 */
+	idleTimeout: number;
 }

@@ -9,11 +9,6 @@ import { Method, RequestHeaders, ResponseHeaders } from './definitions';
 /**
  * `Server` binds to an IP address and port number, listening for incoming HTTP client connections.
  * Manages registered routes to handle various HTTP methods and dispatches requests to the appropriate route handlers.
- *
- * @emits `listening` when the server is bound after calling `server.listen()`.
- * @emits `error` when an error occurs.
- * @emits `drop` when the number of connections reaches the `server.maxConnections` threshold.
- * @emits `close` when the server is fully closed.
  */
 export default class Server extends http.Server implements IServer {
 	/**
@@ -187,7 +182,7 @@ export class Router implements IRouter {
 	declare public mount: (path: string, ...routers: Array<IRouter>) => this;
 
 	//////////////////////////////
-	//////// Factory
+	//////// Apply
 	//////////////////////////////
 	/**
 	 * Applies properties of `IRouter` interface to the provided instance,
@@ -196,40 +191,84 @@ export class Router implements IRouter {
 	 * @param instance instance to which the `IRouter` properties are applied.
 	 */
 	public static applyProperties<I extends IRouter>(instance: I) {
-		// Factory for handling path transformations.
-		const handleTrailingSlash = (path: string) => path.replace(/\/$/, '') || '/';
-		const handleWildcard = (path: string) => path.replace(/\*/g, '.*');
-		const handleOptionalParams = (path: string) => path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
-		const handleRequiredParams = (path: string) => path.replace(/:([^\s/]+)/g, '([^/]+)');
+		instance.get = this.registerEndpoint(instance, 'GET');
+		instance.post = this.registerEndpoint(instance, 'POST');
+		instance.put = this.registerEndpoint(instance, 'PUT');
+		instance.patch = this.registerEndpoint(instance, 'PATCH');
+		instance.delete = this.registerEndpoint(instance, 'DELETE');
+		instance.all = this.registerEndpoint(instance, 'ALL');
+		instance.mount = this.registerStack(instance);
+	}
 
-		// Factory for registering a `Endpoint`.
-		const endpoint = (method: Method) => {
-			return (path: string, ...handlers: Array<RequestHandler>) => {
-				const regExp = new RegExp(`^${handleRequiredParams(handleOptionalParams(handleWildcard(handleTrailingSlash(path))))}$`);
-				const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
-				instance.routes.push({ method, path, regExp, paramKeys, handlers });
-				return instance;
-			};
+	//////////////////////////////
+	//////// Register
+	//////////////////////////////
+	/**
+	 * Registers an individual HTTP endpoint for a specific HTTP method.
+	 *
+	 * @param instance router instance where the endpoint will be registered.
+	 * @param method HTTP method for the endpoint.
+	 */
+	private static registerEndpoint<I extends IRouter>(instance: I, method: Method) {
+		return (path: string, ...handlers: Array<RequestHandler>) => {
+			const regExp = new RegExp(`^${this.transformRequiredParams(this.transformOptionalParams(this.transformWildcard(this.transformTrailingSlash(path))))}$`);
+			const paramKeys = (path.match(/:([^\s/]+)/g) || []).map((param: string) => param.slice(1).replace('?', ''));
+			instance.routes.push({ method, path, regExp, paramKeys, handlers });
+			return instance;
 		};
+	}
 
-		// Factory for registering a `Stack`.
-		const stack = () => {
-			return (path: string, ...routers: Array<IRouter>) => {
-				const regExp = new RegExp(`^${handleTrailingSlash(path)}`);
-				const routes = routers.map((router) => router.routes);
-				instance.routes.push({ path, regExp, routes });
-				return instance;
-			};
+	/**
+	 * Registers a stack of routes.
+	 *
+	 * @param instance router instance where the stack will be registered.
+	 */
+	private static registerStack<I extends IRouter>(instance: I) {
+		return (path: string, ...routers: Array<IRouter>) => {
+			const regExp = new RegExp(`^${this.transformTrailingSlash(path)}`);
+			const routes = routers.map((router) => router.routes);
+			instance.routes.push({ path, regExp, routes });
+			return instance;
 		};
+	}
 
-		// `IRouter` properties. 😈
-		instance.get = endpoint('GET');
-		instance.post = endpoint('POST');
-		instance.put = endpoint('PUT');
-		instance.patch = endpoint('PATCH');
-		instance.delete = endpoint('DELETE');
-		instance.all = endpoint('ALL');
-		instance.mount = stack();
+	//////////////////////////////
+	//////// Transform Path
+	//////////////////////////////
+	/**
+	 * Transforms the path by removing the trailing slash, except for the root path.
+	 *
+	 * @param path path containing trailing slash.
+	 */
+	private static transformTrailingSlash(path: string) {
+		return path.replace(/\/$/, '') || '/';
+	}
+
+	/**
+	 * Transforms wildcard characters (*) in the path to regex-compatible format.
+	 *
+	 * @param path path containing wildcards.
+	 */
+	private static transformWildcard(path: string) {
+		return path.replace(/\*/g, '.*');
+	}
+
+	/**
+	 * Transforms optional parameters in the path to regex-compatible format.
+	 *
+	 * @param path path containing required parameters.
+	 */
+	private static transformRequiredParams(path: string) {
+		return path.replace(/:([^\s/]+)/g, '([^/]+)');
+	}
+
+	/**
+	 * Transforms required parameters in the path to regex-compatible format.
+	 *
+	 * @param path path containing optional parameters.
+	 */
+	private static transformOptionalParams(path: string) {
+		return path.replace(/\/:([^\s/]+)\?/g, '(?:/([^/]*)?)?');
 	}
 }
 

@@ -11,13 +11,18 @@ const host = '127.0.0.1';
 const port = 3000;
 
 mocha.describe('HTTP Test', () => {
-	let server: Server;
-
-	mocha.beforeEach(() => {
-		server = new Server(createIdentifier());
+	mocha.describe('Constructor Base Test', () => {
+		mocha.it('should construct server', () => {
+			const identifier = createIdentifier();
+			const server = new Server(identifier);
+			assert.deepStrictEqual(server.identifier, identifier);
+			assert.deepStrictEqual(server.routes, new Array());
+		});
 	});
 
 	mocha.describe('Register Test', () => {
+		let server: Server;
+
 		const handlers = Array<RequestHandler>(3).fill((request, response, next) => {});
 		const validateEndpoint = (endpoint: Endpoint, method: Method, path: string, paramKeys: Array<string>, handlers: Array<RequestHandler>) => {
 			assert.deepStrictEqual(endpoint.method, method);
@@ -26,6 +31,10 @@ mocha.describe('HTTP Test', () => {
 			assert.deepStrictEqual(endpoint.paramKeys, paramKeys);
 			assert.deepStrictEqual(endpoint.handlers, handlers);
 		};
+
+		mocha.beforeEach(() => {
+			server = new Server(createIdentifier());
+		});
 
 		mocha.it('should register GET route', () => {
 			server.get('');
@@ -89,6 +98,8 @@ mocha.describe('HTTP Test', () => {
 	});
 
 	mocha.describe('Mount Test', () => {
+		let server: Server;
+
 		const registerEndpoints = <R extends IRouter>(router: R) => {
 			const handlers = Array<RequestHandler>(3).fill((request, response, next) => {});
 			router.get('/endpoint1', ...handlers);
@@ -98,6 +109,10 @@ mocha.describe('HTTP Test', () => {
 			router.delete('/endpoint5', ...handlers);
 			router.all('/*', ...handlers);
 		};
+
+		mocha.beforeEach(() => {
+			server = new Server(createIdentifier());
+		});
 
 		mocha.it('should mount no router on empty path', () => {
 			server.mount('');
@@ -168,6 +183,7 @@ mocha.describe('HTTP Test', () => {
 	});
 
 	mocha.describe('Dispatch Test', () => {
+		let server: Server;
 		let nextCalled: number;
 
 		const nextHandler: RequestHandler = (request, response, next) => {
@@ -180,9 +196,10 @@ mocha.describe('HTTP Test', () => {
 		};
 
 		mocha.beforeEach(async () => {
-			nextCalled = 0;
+			server = new Server(createIdentifier());
 			server.listen(port);
 			await once(server, 'listening');
+			nextCalled = 0;
 		});
 
 		mocha.afterEach(async () => {
@@ -488,18 +505,18 @@ mocha.describe('HTTP Test', () => {
 			assert.deepStrictEqual(responseBody, requestBody);
 		});
 
-		mocha.it('should dispatch request to route with multiple middleware in order', async () => {
+		mocha.it('should dispatch request to route with multiple handlers in order', async () => {
 			// Server
 			const nextHandlers = Array();
-			const firstMiddleware: RequestHandler = (request, response, next) => {
+			const firstHandler: RequestHandler = (request, response, next) => {
 				nextHandlers.push('First');
 				next();
 			};
-			const secondMiddleware: RequestHandler = (request, response, next) => {
+			const secondHandler: RequestHandler = (request, response, next) => {
 				nextHandlers.push('Second');
 				next();
 			};
-			server.get('/endpoint', firstMiddleware, secondMiddleware, (request, response, next) => {
+			server.get('/endpoint', firstHandler, secondHandler, (request, response, next) => {
 				assert.deepStrictEqual(nextHandlers, ['First', 'Second']);
 				assert.deepStrictEqual(request.path, '/endpoint');
 				assert.deepStrictEqual(request.params, {});

@@ -2,11 +2,9 @@
 import EventEmitter, { once } from 'events';
 import { promises as Stream } from 'stream';
 
-// Import @iprolab Libs.
-import { Signal, Tags } from '@iprolab/scp';
-
 // Import Local.
-import { Incoming, Outgoing } from './definitions';
+import Signal, { Tags } from './signal';
+import { Incoming, Outgoing } from './protocol';
 
 /**
  * `Orchestrator` manages the life cycle of multiple `Conductor` instances and coordinates signals.
