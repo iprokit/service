@@ -14,8 +14,8 @@ const connections = Symbol('Connections');
  * `Server` binds to an IP address and port number, listening for incoming SCP client connections.
  * Manages registered executions to handle various SCP modes and dispatches I/Os to the appropriate execution handlers.
  *
- * @emits `scp:connection` when a new scp connection is made.
  * @emits `incoming` when a new incoming stream is received.
+ * @emits `clientError` when an error occurs on the client connection.
  */
 export default class Server extends net.Server implements IServer {
 	/**
@@ -64,8 +64,8 @@ export default class Server extends net.Server implements IServer {
 	//////// Event Listeners
 	//////////////////////////////
 	/**
-	 * @emits `scp:connection` when a new scp connection is made.
 	 * @emits `incoming` when a new incoming stream is received.
+	 * @emits `clientError` when an error occurs on the client connection.
 	 */
 	private onConnection(socket: TcpSocket) {
 		const connection = new Connection(socket);
@@ -73,7 +73,7 @@ export default class Server extends net.Server implements IServer {
 			this.emit('incoming', incoming, outgoing);
 		});
 		connection.on('error', (error: Error) => {
-			this.emit('error', error);
+			this.emit('clientError', error, connection);
 		});
 		connection.on('close', () => {
 			// Find the connection and remove it.
@@ -81,7 +81,6 @@ export default class Server extends net.Server implements IServer {
 			if (connectionIndex >= 0) this[connections].splice(connectionIndex, 1);
 		});
 		this[connections].push(connection);
-		this.emit('scp:connection', connection);
 	}
 
 	/**
