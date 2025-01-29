@@ -34,7 +34,7 @@ mocha.describe('SCP Test', () => {
 			server = new Server(createIdentifier());
 		});
 
-		mocha.it('should emit listening, scp:connection, incoming & close events for single connection', async () => {
+		mocha.it('should emit listening, incoming & close events for single connection', async () => {
 			// Client
 			const client = new Client(createIdentifier());
 
@@ -45,7 +45,7 @@ mocha.describe('SCP Test', () => {
 			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
 			await (async () => {
 				client.connect(port, host);
-				await Promise.all([once(server, 'scp:connection'), once(server, 'incoming'), once(client, 'connect')]);
+				await Promise.all([once(server, 'incoming'), once(client, 'connect')]);
 				assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 1);
 			})();
 			server.close(); // Server 1st Close.
@@ -54,7 +54,7 @@ mocha.describe('SCP Test', () => {
 			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
 		});
 
-		mocha.it('should emit listening, scp:connection incoming & close events for multiple connections', async () => {
+		mocha.it('should emit listening, incoming & close events for multiple connections', async () => {
 			// Client
 			const clients = Array(20)
 				.fill({})
@@ -67,7 +67,7 @@ mocha.describe('SCP Test', () => {
 			assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), 0);
 			for (let i = 0; i < clients.length; i++) {
 				clients[i].connect(port, host);
-				await Promise.all([once(server, 'scp:connection'), once(server, 'incoming'), once(clients[i], 'connect')]);
+				await Promise.all([once(server, 'incoming'), once(clients[i], 'connect')]);
 				assert.deepStrictEqual(await new Promise((resolve) => server.getConnections((error, count) => resolve(count))), i + 1);
 			}
 			server.close(); // Server 1st Close.

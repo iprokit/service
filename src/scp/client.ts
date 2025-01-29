@@ -267,7 +267,7 @@ export default class Client extends EventEmitter {
 	private createSocket(options: SocketOptions, port: number, host: string) {
 		const socket = new Socket(options);
 		socket.on('error', (error: Error) => {
-			this.emit('error', error);
+			this.emit('error', error, socket);
 		});
 		socket.on('close', () => {
 			// Find the socket and remove it.

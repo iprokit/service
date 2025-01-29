@@ -445,3 +445,4 @@ executor.omni('inventory*', (incoming, outgoing) => {
 | 1.2.0   | Removed HTTP proxy handler.                                                                                                                                                                  |
 | 1.2.1   | Improved readability and optimized code.                                                                                                                                                     |
 | 1.3.0   | Added connection pool to `RemoteService` and converted the SCP & SDP repositories to native modules.                                                                                         |
+| 1.3.1   | Improved error handling for SCP client and server.                                                                                                                                           |
