@@ -2,7 +2,6 @@
 import mocha from 'mocha';
 import assert from 'assert';
 import { once } from 'events';
-import { promisify } from 'util';
 
 // Import Local.
 import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, ClientOptions, Socket, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
@@ -665,6 +664,7 @@ mocha.describe('SCP Test', () => {
 			const client = await createClient({ maxPoolSize: 2, maxMessages: 100, idleTimeout: 0 });
 			const returned = await Promise.all(messages.map(async (message) => client.message('nexus', message)));
 			assert.deepStrictEqual(returned, messages);
+			await once(client, 'pool:drain');
 			assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
 			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 1 });
 			assert.deepStrictEqual(poolSocket, { drain: 1 });
@@ -682,7 +682,7 @@ mocha.describe('SCP Test', () => {
 			assert.deepStrictEqual(client.pool, { size: 2, busy: 1, idle: 1 });
 			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 0 });
 			assert.deepStrictEqual(poolSocket, { drain: 2 });
-			await promisify(setTimeout)(150);
+			await once(client, 'pool:drain');
 			assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
 			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 1 });
 			assert.deepStrictEqual(poolSocket, { drain: 2 });
