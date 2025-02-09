@@ -503,7 +503,7 @@ export class Socket extends Protocol {
 	public cycleIncoming() {
 		this.#ioMode = 'Incoming'; // 👂🏽🔁
 		const incoming = new Incoming(this);
-		incoming.once('rfi', () => this.emit(incoming.rfi.mode.toLowerCase(), incoming));
+		incoming.once('rfi', () => this.emit(incoming.mode.toLowerCase(), incoming));
 		incoming.once('close', () => this.cycleIncoming());
 		return this;
 	}
