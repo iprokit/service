@@ -446,3 +446,4 @@ executor.omni('inventory*', (incoming, outgoing) => {
 | 1.2.1   | Improved readability and optimized code.                                                                                                                                                     |
 | 1.3.0   | Added connection pool to `RemoteService` and converted the SCP & SDP repositories to native modules.                                                                                         |
 | 1.3.1   | Improved error handling for SCP client and server.                                                                                                                                           |
+| 1.4.0   | Renamed `Orchestrator` to `Coordinator` and introduced a queue mechanism for the outgoing stream in the SCP server.                                                                          |
