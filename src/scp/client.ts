@@ -6,7 +6,7 @@ import { Socket as TcpSocket } from 'net';
 // Import Local.
 import { Mode, Parameters } from './rfi';
 import Protocol, { Incoming, Outgoing } from './protocol';
-import Orchestrator, { Conductor } from './orchestrator';
+import Coordinator, { Conductor } from './coordinator';
 
 // Symbol Definitions.
 const pool = Symbol('Pool');
@@ -192,15 +192,15 @@ export default class Client extends EventEmitter {
 	 * Sends a message to the server and returns a promise that resolves to `void`, enabling the coordination of signals.
 	 *
 	 * @param operation operation pattern.
-	 * @param orchestrator orchestrator that coordinates signals.
+	 * @param coordinator coordinator that coordinates signals.
 	 * @param args arguments to send.
 	 */
-	public async conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
+	public async conduct(operation: string, coordinator: Coordinator, ...args: Array<any>) {
 		const { incoming, outgoing } = await this.IO('CONDUCTOR', operation, { CID: this.identifier });
 		let outgoingData = JSON.stringify(args);
 
 		const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
-		orchestrator.manage(conductor);
+		coordinator.manage(conductor);
 		try {
 			// Write: Conductor.
 			await conductor.deliver(outgoingData);
@@ -343,7 +343,7 @@ export interface Options {
 	maxPoolSize?: number;
 
 	/**
-	 * Maximum number of messages that a single socket can process before it is destroyed.
+	 * Maximum number of messages that a single socket can process before it is closed.
 	 * A new socket will be created for further messages.
 	 *
 	 * @default 100
@@ -351,9 +351,9 @@ export interface Options {
 	maxMessages?: number;
 
 	/**
-	 * Maximum amount of time (in milliseconds) that a socket can remain idle before it is destroyed.
+	 * Maximum amount of time (in milliseconds) that a socket can remain idle before it is closed.
 	 * The timer resets on activity. If set to `0`, the idle timeout is disabled,
-	 * allowing the socket to remain open indefinitely unless explicitly closed or destroyed.
+	 * allowing the socket to remain open indefinitely unless explicitly closed.
 	 *
 	 * @default 0
 	 */
@@ -410,7 +410,7 @@ export class Socket extends Protocol {
 
 		// Add listeners.
 		this.socket.addListener('connect', () => this.emit('connect'));
-		this.socket.addListener('timeout', () => this.destroy());
+		this.socket.addListener('timeout', () => this.end());
 		this.socket.addListener('end', () => !this.readableEnded && this.resume()); // Underlying socket closed. Forcefully read(), triggering `end` event. 🤪
 		this.addListener('end', () => this.end());
 		this.addListener('error', (error: Error) => this.destroy());
@@ -478,7 +478,7 @@ export class Socket extends Protocol {
 			this.#ioQueue.shift();
 
 			// 🚨
-			if (this.#ioProcessed >= this.#options.maxMessages) return this.destroy();
+			if (this.#ioProcessed >= this.#options.maxMessages) return this.end();
 
 			// 🎡
 			if (this.#ioQueue.length > 0) {
@@ -503,7 +503,7 @@ export class Socket extends Protocol {
 	public cycleIncoming() {
 		this.#ioMode = 'Incoming'; // 👂🏽🔁
 		const incoming = new Incoming(this);
-		incoming.once('rfi', () => this.emit(incoming.rfi.mode.toLowerCase(), incoming));
+		incoming.once('rfi', () => this.emit(incoming.mode.toLowerCase(), incoming));
 		incoming.once('close', () => this.cycleIncoming());
 		return this;
 	}
@@ -529,14 +529,14 @@ export class Socket extends Protocol {
 //////////////////////////////
 export interface SocketOptions {
 	/**
-	 * Maximum number of messages this socket can process before it is destroyed.
+	 * Maximum number of messages this socket can process before it is closed.
 	 */
 	maxMessages: number;
 
 	/**
-	 * Maximum amount of time (in milliseconds) that this socket can remain idle before it is destroyed.
+	 * Maximum amount of time (in milliseconds) that this socket can remain idle before it is closed.
 	 * The timer resets on activity. If set to `0`, the idle timeout is disabled,
-	 * allowing the socket to remain open indefinitely unless explicitly closed or destroyed.
+	 * allowing the socket to remain open indefinitely unless explicitly closed.
 	 */
 	idleTimeout: number;
 }

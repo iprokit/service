@@ -270,7 +270,7 @@ console.log('ServiceB is running and linked to ServiceA.');
 
 # SCP (Service Communication Protocol)
 
-The **SCP** module enables seamless interaction between services by defining remote functions, broadcasting messages, and orchestrating complex workflows. SCP supports various communication modes, making it easy to tailor inter-service interactions to your system’s requirements.
+The **SCP** module enables seamless interaction between services by defining remote functions, broadcasting messages, and coordinating complex workflows. SCP supports various communication modes, making it easy to tailor inter-service interactions to your system’s requirements.
 
 ## Broadcast
 
@@ -331,30 +331,30 @@ serviceA.conductor('createOrder', (conductor, orderDetails) => {
 });
 ```
 
-Orchestrate conductors across multiple services:
+Coordinate conductors across multiple services:
 
 ```javascript
-import { Orchestrator } from '@iprolab/service';
+import { Coordinator } from '@iprolab/service';
 
-const orchestrator = new Orchestrator();
+const coordinator = new Coordinator();
 try {
 	console.log('Starting workflow.');
 
 	// Conduct operations across services.
-	await remoteToA.conduct('createOrder', orchestrator, { orderId: 'O123' });
+	await remoteToA.conduct('createOrder', coordinator, { orderId: 'O123' });
 	console.log('Order validated.');
 
-	await remoteToB.conduct('processPayment', orchestrator, { paymentId: 'P456' });
+	await remoteToB.conduct('processPayment', coordinator, { paymentId: 'P456' });
 	console.log('Payment processed.');
 
 	console.log('Sending COMMIT signal.');
-	await orchestrator.signal('COMMIT');
+	await coordinator.signal('COMMIT');
 } catch (error) {
 	console.error('Error occurred. Sending ROLLBACK signal.', error);
-	await orchestrator.signal('ROLLBACK');
+	await coordinator.signal('ROLLBACK');
 } finally {
-	console.log('Ending orchestrator.');
-	await orchestrator.end();
+	console.log('Ending coordinator.');
+	await coordinator.end();
 }
 ```
 
@@ -446,3 +446,4 @@ executor.omni('inventory*', (incoming, outgoing) => {
 | 1.2.1   | Improved readability and optimized code.                                                                                                                                                     |
 | 1.3.0   | Added connection pool to `RemoteService` and converted the SCP & SDP repositories to native modules.                                                                                         |
 | 1.3.1   | Improved error handling for SCP client and server.                                                                                                                                           |
+| 1.4.0   | Renamed `Orchestrator` to `Coordinator` and introduced a queue mechanism for the outgoing stream in the SCP server.                                                                          |

@@ -8,7 +8,7 @@ export * as scp from './scp';
 export { Frame, FrameType, RFI, IRFI, Mode, Parameters, Signal, Tags, Protocol, Incoming, Outgoing } from './scp';
 export { Executor, IExecutor, Execution, Segment, Nexus, IncomingHandler, ProceedFunction, ReplyFunction, ConductorFunction, Connection, ServerIncoming, ServerOutgoing } from './scp';
 export { Socket, SocketOptions } from './scp';
-export { Orchestrator, Conductor } from './scp';
+export { Coordinator, Conductor } from './scp';
 
 // Export SDP.
 export * as sdp from './sdp';

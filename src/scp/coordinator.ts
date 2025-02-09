@@ -7,16 +7,16 @@ import Signal, { Tags } from './signal';
 import { Incoming, Outgoing } from './protocol';
 
 /**
- * `Orchestrator` manages the life cycle of multiple `Conductor` instances and coordinates signals.
+ * `Coordinator` manages the life cycle of multiple `Conductor` instances and coordinates signals.
  */
-export default class Orchestrator {
+export default class Coordinator {
 	/**
 	 * Conductors registered.
 	 */
 	public readonly conductors: Array<Conductor>;
 
 	/**
-	 * Creates an instance of `Orchestrator`.
+	 * Creates an instance of `Coordinator`.
 	 */
 	constructor() {
 		this.conductors = new Array();

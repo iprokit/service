@@ -106,9 +106,9 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	 */
 	public address() {
 		return {
-			http: this.httpServer.address() as AddressInfo,
-			scp: this.scpServer.address() as AddressInfo,
-			sdp: this.sdpServer.address() as AddressInfo
+			http: this.httpServer.address() as AddressInfo | null,
+			scp: this.scpServer.address() as AddressInfo | null,
+			sdp: this.sdpServer.address() as AddressInfo | null
 		};
 	}
 

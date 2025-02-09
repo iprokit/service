@@ -5,7 +5,7 @@ import net, { Socket as TcpSocket } from 'net';
 // Import Local.
 import { Mode, Parameters } from './rfi';
 import Protocol, { Incoming, Outgoing } from './protocol';
-import { Conductor } from './orchestrator';
+import { Conductor } from './coordinator';
 
 // Symbol Definitions.
 const connections = Symbol('Connections');
@@ -195,20 +195,21 @@ export default class Server extends net.Server implements IServer {
 		const outgoingData = JSON.stringify(args);
 		for (const connection of this[connections]) {
 			if (connection.canBroadcast) {
-				const broadcast = async () => {
-					const outgoing = connection.createOutgoing('BROADCAST', operation, { SID: this.identifier });
-					try {
-						// Write: Outgoing stream.
-						outgoing.end(outgoingData);
-						await Stream.finished(outgoing);
-						return connection.identifier;
-					} catch (error) {
-						// ❗️⚠️❗️
-						outgoing.destroy();
-						throw error;
-					}
-				};
-				broadcasts.push(broadcast());
+				const broadcast = new Promise<string>((resolve, reject) => {
+					connection.createOutgoing('BROADCAST', operation, { SID: this.identifier }, async (outgoing) => {
+						try {
+							// Write: Outgoing stream.
+							outgoing.end(outgoingData);
+							await Stream.finished(outgoing);
+							resolve(connection.identifier);
+						} catch (error) {
+							// ❗️⚠️❗️
+							outgoing.destroy();
+							reject(error);
+						}
+					});
+				});
+				broadcasts.push(broadcast);
 			}
 		}
 		return Promise.all(broadcasts);
@@ -249,7 +250,9 @@ export default class Server extends net.Server implements IServer {
 export interface IServer extends IExecutor {
 	/**
 	 * Broadcasts the supplied to all subscribed client socket connections.
-	 * Returns identifiers of client sockets that successfully received broadcast.
+	 *
+	 * Returns identifiers of client sockets to which the broadcast was sent.
+	 * Receipt of the broadcast is not guaranteed.
 	 *
 	 * @param operation operation pattern.
 	 * @param args arguments to broadcast.
@@ -532,6 +535,11 @@ export class Connection extends Protocol {
 	public canBroadcast: boolean;
 
 	/**
+	 * RFI + outgoing callback queue.
+	 */
+	readonly #outgoingQueue: Array<{ mode: Mode; operation: string; parameters: Parameters; callback: (outgoing: ServerOutgoing) => void }>;
+
+	/**
 	 * Creates an instance of SCP `Connection`.
 	 *
 	 * @param socket underlying socket.
@@ -542,6 +550,7 @@ export class Connection extends Protocol {
 		// Initialize variables.
 		this.identifier = 'unknown';
 		this.canBroadcast = false;
+		this.#outgoingQueue = new Array();
 
 		// Add listeners.
 		this.addListener('end', () => this.end());
@@ -576,11 +585,42 @@ export class Connection extends Protocol {
 	 * @param mode mode of the remote function.
 	 * @param operation operation of the remote function.
 	 * @param parameters parameters of the remote function.
+	 * @param callback callback executed when the outgoing stream is ready.
 	 */
-	public createOutgoing(mode: Mode, operation: string, parameters: Parameters) {
+	public createOutgoing(mode: Mode, operation: string, parameters: Parameters, callback: (outgoing: ServerOutgoing) => void) {
+		// Push the RFI + outgoing callback into the queue.
+		this.#outgoingQueue.push({ mode, operation, parameters, callback });
+
+		// This is the first in the queue, let's execute it!
+		if (this.#outgoingQueue.length === 1) {
+			this.executeOutgoing();
+		}
+
+		return this;
+	}
+
+	/**
+	 * Executes one outgoing callback at a time in FIFO manner.
+	 * Invoked recursively on the `close` event of the current outgoing stream.
+	 */
+	private executeOutgoing() {
+		// The first(0th) RFI + outgoing callback from the queue.
+		const { mode, operation, parameters, callback: firstCallback } = this.#outgoingQueue[0];
+
 		const outgoing = new ServerOutgoing(this);
 		outgoing.setRFI(mode, operation, parameters);
-		return outgoing;
+		outgoing.once('close', () => {
+			// Remove the first(0th) RFI + outgoing callback from the queue.
+			this.#outgoingQueue.shift();
+
+			// 🎡
+			if (this.#outgoingQueue.length > 0) {
+				this.executeOutgoing();
+			}
+		});
+
+		// Let's execute the outgoing callback!
+		firstCallback(outgoing);
 	}
 }
 

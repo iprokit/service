@@ -37,9 +37,9 @@ mocha.describe('Service Test', () => {
 			service.on('start', () => {
 				start++;
 				assert.deepStrictEqual(service.listening, { http: true, scp: true, sdp: true });
-				assert.deepStrictEqual(service.address().http.port, httpPort);
-				assert.deepStrictEqual(service.address().scp.port, scpPort);
-				assert.deepStrictEqual(service.address().sdp.port, sdpPort);
+				assert.deepStrictEqual(service.address().http!.port, httpPort);
+				assert.deepStrictEqual(service.address().scp!.port, scpPort);
+				assert.deepStrictEqual(service.address().sdp!.port, sdpPort);
 				assert.deepStrictEqual(service.membership, sdpAddress);
 				assert.notDeepStrictEqual(service.localAddress, null);
 			});
