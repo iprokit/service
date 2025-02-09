@@ -5,7 +5,7 @@ import net, { Socket as TcpSocket } from 'net';
 // Import Local.
 import { Mode, Parameters } from './rfi';
 import Protocol, { Incoming, Outgoing } from './protocol';
-import { Conductor } from './orchestrator';
+import { Conductor } from './coordinator';
 
 // Symbol Definitions.
 const connections = Symbol('Connections');

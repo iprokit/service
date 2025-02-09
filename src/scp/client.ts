@@ -6,7 +6,7 @@ import { Socket as TcpSocket } from 'net';
 // Import Local.
 import { Mode, Parameters } from './rfi';
 import Protocol, { Incoming, Outgoing } from './protocol';
-import Orchestrator, { Conductor } from './orchestrator';
+import Coordinator, { Conductor } from './coordinator';
 
 // Symbol Definitions.
 const pool = Symbol('Pool');
@@ -192,15 +192,15 @@ export default class Client extends EventEmitter {
 	 * Sends a message to the server and returns a promise that resolves to `void`, enabling the coordination of signals.
 	 *
 	 * @param operation operation pattern.
-	 * @param orchestrator orchestrator that coordinates signals.
+	 * @param coordinator coordinator that coordinates signals.
 	 * @param args arguments to send.
 	 */
-	public async conduct(operation: string, orchestrator: Orchestrator, ...args: Array<any>) {
+	public async conduct(operation: string, coordinator: Coordinator, ...args: Array<any>) {
 		const { incoming, outgoing } = await this.IO('CONDUCTOR', operation, { CID: this.identifier });
 		let outgoingData = JSON.stringify(args);
 
 		const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
-		orchestrator.manage(conductor);
+		coordinator.manage(conductor);
 		try {
 			// Write: Conductor.
 			await conductor.deliver(outgoingData);

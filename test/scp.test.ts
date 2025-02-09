@@ -4,7 +4,7 @@ import assert from 'assert';
 import { once } from 'events';
 
 // Import Local.
-import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, ClientOptions, Socket, Orchestrator, Conductor, Signal, Tags } from '../lib/scp';
+import { Server, Executor, IExecutor, Segment, Nexus, IncomingHandler, Mode, Client, ClientOptions, Socket, Coordinator, Conductor, Signal, Tags } from '../lib/scp';
 import { createString, createIdentifier, clientIO, read } from './util';
 
 const host = '127.0.0.1';
@@ -317,10 +317,10 @@ mocha.describe('SCP Test', () => {
 
 			// Client
 			const outgoingData = createString(1000);
-			const orchestrator = new Orchestrator();
-			await client.conduct('nexus1', orchestrator, outgoingData);
-			await client.conduct('nexus2', orchestrator, outgoingData);
-			await orchestrator.end();
+			const coordinator = new Coordinator();
+			await client.conduct('nexus1', coordinator, outgoingData);
+			await client.conduct('nexus2', coordinator, outgoingData);
+			await coordinator.end();
 		});
 
 		mocha.it('should dispatch I/O to execution with wildcard operation', async () => {
@@ -464,12 +464,12 @@ mocha.describe('SCP Test', () => {
 			conductor.on('end', () => conductor.end());
 		};
 
-		const orchestrate = async (orchestrator: Orchestrator, iterations: number, signals: number, payloads: number) => {
+		const coordinate = async (coordinator: Coordinator, iterations: number, signals: number, payloads: number) => {
 			for (let i = 0; i < iterations; i++) {
 				for (let j = 0; j < signals; j++) {
 					// Signals
 					const signal = new Signal(createString(10), { ID: createString(5) });
-					const returnedSignals = await orchestrator.signal(signal.event, signal.tags); // Write + Read
+					const returnedSignals = await coordinator.signal(signal.event, signal.tags); // Write + Read
 					returnedSignals.forEach((returnedSignal) => {
 						assert.deepStrictEqual(returnedSignal.event, signal.event);
 						assert.deepStrictEqual(returnedSignal.tags, signal.tags);
@@ -478,7 +478,7 @@ mocha.describe('SCP Test', () => {
 				for (let j = 0; j < payloads; j++) {
 					// Payloads
 					await Promise.all(
-						orchestrator.conductors.map(async (conductor) => {
+						coordinator.conductors.map(async (conductor) => {
 							const data = createString(20);
 							await conductor.deliver(data); // Write
 							await once(conductor, 'payload');
@@ -560,7 +560,7 @@ mocha.describe('SCP Test', () => {
 			}
 		});
 
-		mocha.it('should send a message and orchestrate in sequence', async () => {
+		mocha.it('should send a message and coordinate in sequence', async () => {
 			const operations = Array(20)
 				.fill({})
 				.map(() => createString(5));
@@ -573,15 +573,15 @@ mocha.describe('SCP Test', () => {
 			});
 
 			// Client
-			const orchestrator = new Orchestrator();
+			const coordinator = new Coordinator();
 			for await (const operation of operations) {
-				await client.conduct(operation, orchestrator, ...args);
+				await client.conduct(operation, coordinator, ...args);
 			}
-			await orchestrate(orchestrator, 5, 5, 5);
-			await orchestrator.end();
+			await coordinate(coordinator, 5, 5, 5);
+			await coordinator.end();
 		});
 
-		mocha.it('should send a message and orchestrate in parallel', async () => {
+		mocha.it('should send a message and coordinate in parallel', async () => {
 			const operations = Array(20)
 				.fill({})
 				.map(() => createString(5));
@@ -594,14 +594,14 @@ mocha.describe('SCP Test', () => {
 			});
 
 			// Client
-			const orchestrator = new Orchestrator();
+			const coordinator = new Coordinator();
 			await Promise.all(
 				operations.map(async (operation) => {
-					await client.conduct(operation, orchestrator, ...args);
+					await client.conduct(operation, coordinator, ...args);
 				})
 			);
-			await orchestrate(orchestrator, 5, 5, 5);
-			await orchestrator.end();
+			await coordinate(coordinator, 5, 5, 5);
+			await coordinator.end();
 		});
 	});
 
