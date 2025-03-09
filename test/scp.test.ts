@@ -553,11 +553,9 @@ mocha.describe('SCP Test', () => {
 			});
 
 			// Client
-			try {
-				const returned = await client.message('nexus', 'SCP Error');
-			} catch (error) {
-				assert.deepStrictEqual((error as Error).message, 'SCP Error');
-			}
+			await assert.rejects(async () => {
+				await client.message('nexus', 'SCP Error');
+			}, /SCP Error/);
 		});
 
 		mocha.it('should send a message and coordinate in sequence', async () => {
@@ -686,6 +684,20 @@ mocha.describe('SCP Test', () => {
 			assert.deepStrictEqual(client.pool, { size: 1, busy: 1, idle: 0 });
 			assert.deepStrictEqual(pool, { create: 2, acquire: 100, drain: 1 });
 			assert.deepStrictEqual(poolSocket, { drain: 2 });
+		});
+
+		mocha.it('should throw NO_CONNECTION', async () => {
+			// Client
+			const client = new Client(createIdentifier());
+			await assert.rejects(async () => {
+				await client.IO('REPLY', 'nexus');
+			}, /NO_CONNECTION/);
+			await assert.rejects(async () => {
+				await client.message('nexus');
+			}, /NO_CONNECTION/);
+			await assert.rejects(async () => {
+				await client.conduct('nexus', new Coordinator());
+			}, /NO_CONNECTION/);
 		});
 	});
 });

@@ -79,7 +79,7 @@ export function clientRequest(host: string, port: number, method: Method, path: 
 }
 
 export async function clientIO(client: Client, mode: Mode, operation: string, data: string) {
-	const { incoming, outgoing } = await client.IO(mode, operation, { CID: client.identifier });
+	const { incoming, outgoing } = await client.IO(mode, operation);
 	outgoing.end(data);
 	await Stream.finished(outgoing);
 	await once(incoming, 'rfi');
