@@ -312,16 +312,11 @@ mocha.describe('SCP Protocol Test', () => {
 
 		mocha.it('should throw FRAME_TOO_LARGE', async () => {
 			const frames = Array(createFrame(Frame.PAYLOAD_BYTES * 2));
-			let errors = 0;
 
 			// Client
-			try {
+			await assert.rejects(async () => {
 				await write(protocol, frames, false);
-			} catch (error) {
-				errors++;
-				assert.deepStrictEqual((error as Error).message, 'FRAME_TOO_LARGE');
-			}
-			assert.deepStrictEqual(errors, 1);
+			}, /FRAME_TOO_LARGE/);
 		});
 	});
 
@@ -422,17 +417,12 @@ mocha.describe('SCP Protocol Test', () => {
 
 		mocha.it('should throw RFI_NOT_SET', async () => {
 			const data = Array(createData());
-			let errors = 0;
 
 			// Client
-			try {
+			await assert.rejects(async () => {
 				const outgoing = new Outgoing(protocol);
 				await write(outgoing, data, true);
-			} catch (error) {
-				errors++;
-				assert.deepStrictEqual((error as Error).message, 'RFI_NOT_SET');
-			}
-			assert.deepStrictEqual(errors, 1);
+			}, /RFI_NOT_SET/);
 		});
 	});
 
@@ -551,19 +541,14 @@ mocha.describe('SCP Protocol Test', () => {
 			const streams = Array(20)
 				.fill({})
 				.map(() => ({ data: Array(createData()) }));
-			let errors = 0;
 
 			// Client
 			for await (const { data } of streams) {
-				try {
+				await assert.rejects(async () => {
 					const outgoing = new Outgoing(protocol);
 					await write(outgoing, data, true);
-				} catch (error) {
-					errors++;
-					assert.deepStrictEqual((error as Error).message, 'RFI_NOT_SET');
-				}
+				}, /RFI_NOT_SET/);
 			}
-			assert.deepStrictEqual(errors, streams.length);
 		});
 	});
 });

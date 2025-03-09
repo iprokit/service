@@ -105,7 +105,7 @@ export default class Client extends EventEmitter {
 	 * Subscribes to the server to receive broadcasts.
 	 */
 	private async subscribe(socket: Socket) {
-		const { incoming, outgoing } = await this.IO('SUBSCRIBE', '', { CID: this.identifier }, socket);
+		const { incoming, outgoing } = await this.IO('SUBSCRIBE', '', {}, socket);
 		try {
 			// Write: Outgoing stream.
 			outgoing.end('');
@@ -161,7 +161,7 @@ export default class Client extends EventEmitter {
 	 * @param args arguments to send.
 	 */
 	public async message<Returned>(operation: string, ...args: Array<any>) {
-		const { incoming, outgoing } = await this.IO('REPLY', operation, { CID: this.identifier });
+		const { incoming, outgoing } = await this.IO('REPLY', operation);
 		let incomingData = '';
 		let outgoingData = JSON.stringify(args);
 
@@ -196,7 +196,7 @@ export default class Client extends EventEmitter {
 	 * @param args arguments to send.
 	 */
 	public async conduct(operation: string, coordinator: Coordinator, ...args: Array<any>) {
-		const { incoming, outgoing } = await this.IO('CONDUCTOR', operation, { CID: this.identifier });
+		const { incoming, outgoing } = await this.IO('CONDUCTOR', operation);
 		let outgoingData = JSON.stringify(args);
 
 		const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
@@ -222,10 +222,13 @@ export default class Client extends EventEmitter {
 	 *
 	 * @param mode mode of the remote function.
 	 * @param operation operation of the remote function.
-	 * @param parameters parameters of the remote function.
+	 * @param parameters optional parameters of the remote function.
 	 * @param socket optional socket to use. If not provided, a socket will be acquired from the connection pool.
 	 */
-	public async IO(mode: Mode, operation: string, parameters: Parameters, socket?: Socket) {
+	public async IO(mode: Mode, operation: string, parameters?: Parameters, socket?: Socket) {
+		if (!this.connected && this[pool].length === 0) throw new Error('NO_CONNECTION');
+
+		parameters = { ...(parameters ?? {}), CID: this.identifier };
 		socket = socket ?? this.acquireSocket();
 		return new Promise<{ outgoing: Outgoing; incoming: Incoming }>((resolve) => socket.createIO(mode, operation, parameters, (outgoing, incoming) => resolve({ outgoing, incoming })));
 	}
