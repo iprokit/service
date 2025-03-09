@@ -325,15 +325,15 @@ mocha.describe('HTTP Test', () => {
 		mocha.it('should dispatch request to route with required parameters', async () => {
 			// Server
 			server.get('/endpoint/:param1/:param2/:param3/:param4', (request, response, next) => {
-				assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
-				assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
+				assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4 4 4 4 ');
+				assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4 4 4 4 ' });
 				assert.deepStrictEqual({ ...request.query }, {});
 				request.pipe(response).writeHead(StatusCode.OK);
 			});
 
 			// Client
 			const requestBody = createString(1000);
-			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', requestBody);
+			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4%204%204%204%20', requestBody);
 			assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
 			assert.deepStrictEqual(response.statusCode, StatusCode.OK);
 			assert.deepStrictEqual(responseBody, requestBody);
@@ -342,15 +342,15 @@ mocha.describe('HTTP Test', () => {
 		mocha.it('should dispatch request to route with optional parameters(provided)', async () => {
 			// Server
 			server.get('/endpoint/:param1?/:param2?/:param3?/:param4?', (request, response, next) => {
-				assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4444');
-				assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4444' });
+				assert.deepStrictEqual(request.path, '/endpoint/1/22/333/4 4 4 4 ');
+				assert.deepStrictEqual(request.params, { param1: '1', param2: '22', param3: '333', param4: '4 4 4 4 ' });
 				assert.deepStrictEqual({ ...request.query }, {});
 				request.pipe(response).writeHead(StatusCode.OK);
 			});
 
 			// Client
 			const requestBody = createString(1000);
-			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4444', requestBody);
+			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/1/22/333/4%204%204%204%20', requestBody);
 			assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
 			assert.deepStrictEqual(response.statusCode, StatusCode.OK);
 			assert.deepStrictEqual(responseBody, requestBody);
@@ -378,13 +378,13 @@ mocha.describe('HTTP Test', () => {
 			server.get('/endpoint', (request, response, next) => {
 				assert.deepStrictEqual(request.path, '/endpoint');
 				assert.deepStrictEqual(request.params, {});
-				assert.deepStrictEqual({ ...request.query }, { query1: '1', query2: '22', query3: '333', query4: '4444' });
+				assert.deepStrictEqual({ ...request.query }, { query1: '1', query2: '22', query3: '333', query4: '4 4 4 4 ' });
 				request.pipe(response).writeHead(StatusCode.OK);
 			});
 
 			// Client
 			const requestBody = createString(1000);
-			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint?query1=1&query2=22&query3=333&query4=4444', requestBody);
+			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint?query1=1&query2=22&query3=333&query4=4%204%204%204%20', requestBody);
 			assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
 			assert.deepStrictEqual(response.statusCode, StatusCode.OK);
 			assert.deepStrictEqual(responseBody, requestBody);
@@ -481,7 +481,7 @@ mocha.describe('HTTP Test', () => {
 
 			// Client
 			const requestBody = createString(1000);
-			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/special!@$%*([', requestBody);
+			const { response, body: responseBody } = await clientRequest(host, port, 'GET', '/endpoint/special!@$%25*([', requestBody);
 			assert.deepStrictEqual(response.headers['x-server-identifier'], server.identifier);
 			assert.deepStrictEqual(response.statusCode, StatusCode.OK);
 			assert.deepStrictEqual(responseBody, requestBody);

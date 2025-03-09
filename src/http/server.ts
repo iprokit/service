@@ -57,7 +57,7 @@ export default class Server extends http.Server implements IServer {
 
 		// Set: Request.
 		const { pathname, query } = URL.parse(request.url!, true);
-		request.path = pathname!;
+		request.path = decodeURI(pathname!);
 		request.query = query;
 
 		// Below line will blow your mind! 🤯
@@ -112,7 +112,7 @@ export default class Server extends http.Server implements IServer {
 
 			if (methodMatches && pathMatches && handlerMatches) {
 				// Endpoint found, Extract params and execute the handler.
-				request.params = route.paramKeys.reduce((params: Record<string, string>, param: string, index: number) => ((params[param] = pathMatches[index + 1]), params), {});
+				request.params = route.paramKeys.reduce((params: Record<string, string | undefined>, param: string, index: number) => ((params[param] = pathMatches[index + 1] ?? undefined), params), {});
 				request.endpoint = route;
 
 				// 🎉
@@ -429,7 +429,7 @@ export interface ServerRequest extends http.IncomingMessage {
 	/**
 	 * Parameters extracted from the URL.
 	 */
-	params: Record<string, string>;
+	params: Record<string, string | undefined>;
 
 	/**
 	 * Query parameters.
