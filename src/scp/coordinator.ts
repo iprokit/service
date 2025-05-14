@@ -139,14 +139,14 @@ export class Conductor extends EventEmitter {
 	 */
 	private async *readPayload() {
 		while (true) {
-			const chunk: string | Signal = this.incoming.read();
+			const chunk: string | Buffer | Signal = this.incoming.read();
 			if (!chunk) {
 				// Ready or not, here we wait! 👀
 				await once(this.incoming, 'readable');
 				continue;
 			} else if (chunk instanceof Signal && chunk.event === Conductor.START) {
 				continue;
-			} else if (typeof chunk === 'string') {
+			} else if (typeof chunk === 'string' || chunk instanceof Buffer) {
 				yield chunk;
 			} else if (chunk instanceof Signal && chunk.event === Conductor.END) {
 				this.readSignal();
@@ -165,7 +165,7 @@ export class Conductor extends EventEmitter {
 	 */
 	private async readSignal() {
 		while (true) {
-			const chunk: string | Signal = this.incoming.read();
+			const chunk: string | Buffer | Signal = this.incoming.read();
 			if (!chunk) {
 				// Waiting for a clearer sign! 🔮
 				await once(this.incoming, 'readable');
@@ -188,7 +188,7 @@ export class Conductor extends EventEmitter {
 	 *
 	 * @param chunk data chunk of the payload.
 	 */
-	public async deliver(chunk: string) {
+	public async deliver(chunk: string | Buffer) {
 		await this.write(new Signal(Conductor.START));
 		await this.write(chunk);
 		await this.write(new Signal(Conductor.END));
@@ -216,7 +216,7 @@ export class Conductor extends EventEmitter {
 	 *
 	 * @param chunk chunk to write.
 	 */
-	private async write(chunk: string | Signal) {
+	private async write(chunk: string | Buffer | Signal) {
 		const write = this.outgoing.write(chunk);
 		if (!write) {
 			// Ah, backpressure strikes again! 😬

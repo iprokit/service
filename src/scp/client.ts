@@ -140,11 +140,11 @@ export default class Client extends EventEmitter {
 			}
 
 			// Read: Incoming stream.
-			let incomingData = '';
+			let incomingData = new Array<Buffer>();
 			for await (const chunk of incoming) {
-				incomingData += chunk;
+				incomingData.push(chunk);
 			}
-			this.emit(incoming.operation, ...JSON.parse(incomingData));
+			this.emit(incoming.operation, ...JSON.parse(Buffer.concat(incomingData).toString()));
 		} catch (error) {
 			// ❗️⚠️❗️
 			incoming.destroy();
@@ -162,7 +162,7 @@ export default class Client extends EventEmitter {
 	 */
 	public async message<Returned>(operation: string, ...args: Array<any>) {
 		const { incoming, outgoing } = await this.IO('REPLY', operation);
-		let incomingData = '';
+		let incomingData = new Array<Buffer>();
 		let outgoingData = JSON.stringify(args);
 
 		try {
@@ -173,7 +173,7 @@ export default class Client extends EventEmitter {
 			// Read: Incoming stream.
 			await once(incoming, 'rfi');
 			for await (const chunk of incoming) {
-				incomingData += chunk;
+				incomingData.push(chunk);
 			}
 		} catch (error) {
 			// ❗️⚠️❗️
@@ -183,9 +183,9 @@ export default class Client extends EventEmitter {
 		}
 
 		if (incoming.parameters.STATUS === 'ERROR') {
-			throw Object.assign(new Error(), JSON.parse(incomingData)) as Error;
+			throw Object.assign(new Error(), JSON.parse(Buffer.concat(incomingData).toString())) as Error;
 		}
-		return JSON.parse(incomingData) as Returned;
+		return JSON.parse(Buffer.concat(incomingData).toString()) as Returned;
 	}
 
 	/**

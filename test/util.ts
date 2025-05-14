@@ -17,7 +17,7 @@ export function createString(size: number) {
 }
 
 export function createFrame(size?: number) {
-	return Frame.createData(createString(size ?? Frame.PAYLOAD_BYTES));
+	return new Frame(Frame.DATA, Buffer.from(createString(size ?? Frame.PAYLOAD_BYTES)));
 }
 
 export function createRFI() {
@@ -45,9 +45,9 @@ export async function readObjects<R extends Readable>(readable: R) {
 	return chunksReceived;
 }
 
-export async function writeObjects<W extends Writable, C>(writable: W, chunks: Array<C>, shouldFinish: boolean) {
+export async function writeObjects<W extends Writable, C>(writable: W, chunks: Array<C>, encoding: BufferEncoding | undefined, shouldFinish: boolean) {
 	for await (const chunk of chunks) {
-		if (!writable.write(chunk)) {
+		if (!writable.write(chunk, encoding!)) {
 			await once(writable, 'drain');
 		}
 	}
@@ -55,12 +55,12 @@ export async function writeObjects<W extends Writable, C>(writable: W, chunks: A
 	shouldFinish && (await Stream.finished(writable));
 }
 
-export async function read<R extends Readable | AsyncIterable<string>>(readable: R) {
-	let chunks = '';
+export async function read<R extends Readable | AsyncIterable<string | Buffer>>(readable: R) {
+	let chunks = new Array<Buffer>();
 	for await (const chunk of readable) {
-		chunks += chunk;
+		chunks.push(chunk);
 	}
-	return chunks;
+	return Buffer.concat(chunks).toString();
 }
 
 export function clientRequest(host: string, port: number, method: Method, path: string, body: string) {

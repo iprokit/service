@@ -79,24 +79,16 @@ export default class Protocol extends Duplex {
 			return;
 		}
 
-		// Create a new frame buffer.
-		const frameBuffer = Buffer.allocUnsafe(frame.length);
-
-		/**
-		 * Start head at 0.
-		 * After each segment increment the number with the number of bytes written.
-		 */
-		let writeHead = 0;
-
 		// Write HEAD Segments.
-		frameBuffer.writeUInt16BE(frame.length, writeHead);
-		writeHead += Frame.LENGTH_BYTES;
+		const head = Buffer.allocUnsafe(Frame.HEAD_BYTES);
+		head.writeUInt16BE(frame.length, 0);
+		head.writeInt8(frame.type, Frame.LENGTH_BYTES);
 
-		frameBuffer.writeInt8(frame.type, writeHead);
-		writeHead += Frame.TYPE_BYTES;
+		// Write TAIL Segments.
+		const tail = frame.payload ?? Buffer.alloc(0);
 
-		// Write TAIL Segments if any.
-		frame.payload && frameBuffer.write(frame.payload, writeHead);
+		// Create a new frame buffer.
+		const frameBuffer = Buffer.concat([head, tail]);
 
 		/**
 		 * Used to cache the error and return when `callback` is ready.
@@ -144,35 +136,29 @@ export default class Protocol extends Duplex {
 	 */
 	private onReadable() {
 		while (!this[readingPaused]) {
-			const lengthBuffer: Buffer = this.socket.read(Frame.LENGTH_BYTES);
-			// Looks like the length buffer is empty. oops!!!
-			if (!lengthBuffer) return;
+			const head: Buffer = this.socket.read(Frame.HEAD_BYTES);
+			// Looks like the HEAD is unavailable. oops!!!
+			if (!head) return;
 
-			// Read HEAD Segment 1.
-			const length: number = lengthBuffer.readUInt16BE();
+			// Read HEAD Segments.
+			const length = head.readUInt16BE(0);
+			const type = head.readInt8(Frame.LENGTH_BYTES) as Type;
 
-			/**
-			 * Validate if enough data is available on the wire.
-			 * If not put the data back into the buffer with unshift to read in the next pass.
-			 */
-			const readHead = length - Frame.LENGTH_BYTES;
-			if (this.socket.readableLength < readHead) {
-				this.socket.unshift(lengthBuffer);
-				return;
-			}
+			// Read TAIL Segments.
+			let payload: Buffer | undefined;
+			const payloadLength = length - Frame.HEAD_BYTES;
+			if (payloadLength > 0) {
+				if (this.socket.readableLength < payloadLength) {
+					// Put the HEAD back into the buffer to read in the next pass since TAIL is not available on the wire.
+					this.socket.unshift(head);
+					return;
+				}
 
-			// Read HEAD Segment 2.
-			const type: Type = this.socket.read(Frame.TYPE_BYTES).readInt8();
-
-			// Read TAIL Segments if any.
-			let payload: string | undefined;
-			if (length > Frame.HEAD_BYTES) {
-				const payloadLength = length - Frame.HEAD_BYTES;
-				payload = this.socket.read(payloadLength).toString();
+				payload = this.socket.read(payloadLength);
 			}
 
 			// Create a new instance of the frame.
-			const frame = new Frame(length, type, payload);
+			const frame = new Frame(type, payload);
 
 			// Signal frame to the `data` event.
 			const push = this.push(frame);
@@ -235,6 +221,12 @@ export class Incoming extends Readable implements IRFI {
 	 * RFI received on the stream.
 	 */
 	#rfi!: RFI;
+
+	/**
+	 * String encoding to apply when decoding `DATA` frames.
+	 * If not set, raw Buffers will be returned.
+	 */
+	#encoding?: BufferEncoding;
 
 	/**
 	 * `true` when read buffer is full and calls to `push` return `false`.
@@ -333,6 +325,19 @@ export class Incoming extends Readable implements IRFI {
 		return this.#rfi.size;
 	}
 
+	/**
+	 * Sets the string encoding to apply when decoding `DATA` frames.
+	 * If not set, raw Buffers will be returned.
+	 *
+	 * Note: This does not affect `SIGNAL` frames, which will continue to be emitted as `Signal` objects.
+	 *
+	 * @param encoding string encoding to apply.
+	 */
+	public setEncoding(encoding: BufferEncoding) {
+		this.#encoding = encoding;
+		return this;
+	}
+
 	//////////////////////////////
 	//////// Readable
 	//////////////////////////////
@@ -375,26 +380,30 @@ export class Incoming extends Readable implements IRFI {
 
 			// This is self explanatory. REALLY!!!
 			if (!this.#rfi) {
-				if (frame.isRFI()) {
-					this.#rfi = RFI.objectify(frame.payload!);
+				if (frame.type === Frame.RFI) {
+					this.#rfi = RFI.objectify(frame.payload!.toString());
 					this.emit('rfi');
 					return;
 				}
 				continue;
 			}
 
-			if (frame.isEnd()) {
+			if (frame.type === Frame.END) {
 				// Signal `end` event.
 				this.push(null);
 				return;
 			}
 
 			// Let's see what we've got?
-			let chunk!: string | Signal;
-			if (frame.isSignal()) {
-				chunk = Signal.objectify(frame.payload!);
-			} else if (frame.isData()) {
-				chunk = frame.payload !== undefined ? frame.payload : '';
+			let chunk!: string | Buffer | Signal;
+			if (frame.type === Frame.DATA) {
+				if (this.#encoding) {
+					chunk = frame.payload?.toString(this.#encoding) ?? '';
+				} else {
+					chunk = frame.payload ?? Buffer.alloc(0);
+				}
+			} else if (frame.type === Frame.SIGNAL) {
+				chunk = Signal.objectify(frame.payload!.toString());
 			}
 
 			// Signal `data` event.
@@ -565,7 +574,7 @@ export class Outgoing extends Writable implements IRFI {
 	 *
 	 * WARNING: Should not be called by the consumer.
 	 */
-	public _write(chunk: string | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+	public _write(chunk: string | Buffer | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
 		if (!this[rifSent]) {
 			if (!this.#rfi) {
 				callback(new Error('RFI_NOT_SET'));
@@ -579,10 +588,10 @@ export class Outgoing extends Writable implements IRFI {
 				}
 
 				this[rifSent] = true;
-				this.writePayload(chunk, callback);
+				this.writePayload(chunk, encoding, callback);
 			});
 		} else {
-			this.writePayload(chunk, callback);
+			this.writePayload(chunk, encoding, callback);
 		}
 	}
 
@@ -611,7 +620,7 @@ export class Outgoing extends Writable implements IRFI {
 	 * @param callback callback called when the write operation is complete.
 	 */
 	private writeRFI(rfi: RFI, callback: (error?: Error | null) => void) {
-		const rfiFrame = Frame.createRFI(rfi.stringify());
+		const rfiFrame = new Frame(Frame.RFI, Buffer.from(rfi.stringify()));
 		this.writeFrame(rfiFrame, callback);
 	}
 
@@ -619,10 +628,14 @@ export class Outgoing extends Writable implements IRFI {
 	 * Writes payload(data/signal) into the underlying SCP stream.
 	 *
 	 * @param payload payload to write.
+	 * @param encoding string encoding to apply when encoding strings into Buffers. If not set, `utf8` will be used by default.
 	 * @param callback callback called when the write operation is complete.
 	 */
-	private writePayload(payload: string | Signal, callback: (error?: Error | null) => void) {
+	private writePayload(payload: string | Buffer | Signal, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
 		if (typeof payload === 'string') {
+			const payloadBuffer = Buffer.from(payload, encoding ?? 'utf8');
+			this.writeData(payloadBuffer, 0, Frame.PAYLOAD_BYTES, callback);
+		} else if (payload instanceof Buffer) {
 			this.writeData(payload, 0, Frame.PAYLOAD_BYTES, callback);
 		} else if (payload instanceof Signal) {
 			this.writeSignal(payload, callback);
@@ -637,8 +650,8 @@ export class Outgoing extends Writable implements IRFI {
 	 * @param endHead end head.
 	 * @param callback callback called when the write operation is complete.
 	 */
-	private writeData(data: string, startHead: number, endHead: number, callback: (error?: Error | null) => void) {
-		const dataFrame = Frame.createData(data.slice(startHead, endHead));
+	private writeData(data: Buffer, startHead: number, endHead: number, callback: (error?: Error | null) => void) {
+		const dataFrame = new Frame(Frame.DATA, data.subarray(startHead, endHead));
 		this.writeFrame(dataFrame, (error?: Error | null) => {
 			if (error) {
 				callback(error);
@@ -664,7 +677,7 @@ export class Outgoing extends Writable implements IRFI {
 	 * @param callback callback called when the write operation is complete.
 	 */
 	private writeSignal(signal: Signal, callback: (error?: Error | null) => void) {
-		const signalFrame = Frame.createSignal(signal.stringify());
+		const signalFrame = new Frame(Frame.SIGNAL, Buffer.from(signal.stringify()));
 		this.writeFrame(signalFrame, callback);
 	}
 
@@ -674,7 +687,7 @@ export class Outgoing extends Writable implements IRFI {
 	 * @param callback callback called when the write operation is complete.
 	 */
 	private writeEnd(callback: (error?: Error | null) => void) {
-		const endFrame = Frame.createEnd();
+		const endFrame = new Frame(Frame.END);
 		this.writeFrame(endFrame, callback);
 	}
 

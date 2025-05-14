@@ -6,14 +6,9 @@
  *  - Length: Byte length of the frame, using 2 unsigned 16-bit bytes.
  *  - Type: Frame type, using 1 int 8-bit byte.
  * - TAIL:
- *  - Payload: Optional frame payload, using P string bytes.
+ *  - Payload: Optional frame payload, using P raw bytes.
  */
 export default class Frame {
-	/**
-	 * Byte length of the frame.
-	 */
-	public readonly length: number;
-
 	/**
 	 * Type of the frame.
 	 */
@@ -22,94 +17,27 @@ export default class Frame {
 	/**
 	 * Payload of the frame.
 	 */
-	public readonly payload?: string;
+	public readonly payload?: Buffer;
 
 	/**
 	 * Creates an instance of `Frame`.
 	 *
-	 * @param length byte length of the frame.
 	 * @param type type of the frame.
 	 * @param payload optional payload of the frame.
 	 */
-	constructor(length: number, type: Type, payload?: string) {
-		this.length = length;
+	constructor(type: Type, payload?: Buffer) {
 		this.type = type;
 		this.payload = payload;
 	}
 
 	//////////////////////////////
-	//////// Creation Helpers
+	//////// Gets/Sets
 	//////////////////////////////
 	/**
-	 * Creates an RFI `Frame`.
-	 *
-	 * @param rfi RFI of the frame.
+	 * Byte length of the frame.
 	 */
-	public static createRFI(rfi: string) {
-		let length = Frame.HEAD_BYTES + Buffer.byteLength(rfi);
-		return new Frame(length, Frame.RFI, rfi);
-	}
-
-	/**
-	 * Creates a data `Frame`.
-	 *
-	 * @param data optional data of the frame.
-	 */
-	public static createData(data?: string) {
-		let length = Frame.HEAD_BYTES;
-		if (data) {
-			length += Buffer.byteLength(data);
-		}
-		return new Frame(length, Frame.DATA, data);
-	}
-
-	/**
-	 * Creates a signal `Frame`.
-	 *
-	 * @param signal signal of the frame.
-	 */
-	public static createSignal(signal: string) {
-		let length = Frame.HEAD_BYTES + Buffer.byteLength(signal);
-		return new Frame(length, Frame.SIGNAL, signal);
-	}
-
-	/**
-	 * Creates an end `Frame`.
-	 */
-	public static createEnd() {
-		let length = Frame.HEAD_BYTES;
-		return new Frame(length, Frame.END);
-	}
-
-	//////////////////////////////
-	//////// Validations
-	//////////////////////////////
-	/**
-	 * Returns `true` if this is an RFI frame, `false` otherwise.
-	 */
-	public isRFI() {
-		return this.type === Frame.RFI ? true : false;
-	}
-
-	/**
-	 * Returns `true` if this is a data frame, `false` otherwise.
-	 */
-	public isData() {
-		return this.type === Frame.DATA ? true : false;
-	}
-
-	/**
-	 * Returns `true` if this is a signal frame, `false` otherwise.
-	 */
-	public isSignal() {
-		return this.type === Frame.SIGNAL ? true : false;
-	}
-
-	/**
-	 * Returns `true` if this is an end frame, `false` otherwise.
-	 */
-	public isEnd() {
-		return this.type === Frame.END ? true : false;
+	public get length() {
+		return Frame.HEAD_BYTES + (this.payload?.length ?? 0);
 	}
 
 	//////////////////////////////
