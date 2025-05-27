@@ -13,10 +13,10 @@ const address = '224.0.0.2';
 mocha.describe('SDP Test', () => {
 	mocha.describe('Constructor Pod Test', () => {
 		mocha.it('should construct pod with default variables', () => {
-			const _pod = 'ID*true';
-			const pod = new Pod('ID', true);
+			const _pod = 'ID*A0001';
+			const pod = new Pod('ID', 'A0001');
 			assert.deepStrictEqual(pod.identifier, 'ID');
-			assert.deepStrictEqual(pod.available, true);
+			assert.deepStrictEqual(pod.session, 'A0001');
 			assert.deepStrictEqual(pod.attributes, {});
 			assert.deepStrictEqual(pod.size, 0);
 			assert.deepStrictEqual(pod.stringify(), _pod);
@@ -24,10 +24,10 @@ mocha.describe('SDP Test', () => {
 		});
 
 		mocha.it('should construct pod with custom(attributes 1) variables', () => {
-			const _pod = 'ID*false';
-			const pod = new Pod('ID', false, {});
+			const _pod = 'ID*B0001';
+			const pod = new Pod('ID', 'B0001', {});
 			assert.deepStrictEqual(pod.identifier, 'ID');
-			assert.deepStrictEqual(pod.available, false);
+			assert.deepStrictEqual(pod.session, 'B0001');
 			assert.deepStrictEqual(pod.attributes, {});
 			assert.deepStrictEqual(pod.size, 0);
 			assert.deepStrictEqual(pod.stringify(), _pod);
@@ -35,10 +35,10 @@ mocha.describe('SDP Test', () => {
 		});
 
 		mocha.it('should construct pod with custom(attributes 2) variables', () => {
-			const _pod = 'ID*true$ONE=';
-			const pod = new Pod('ID', true, { ONE: '' });
+			const _pod = 'ID*B0002$ONE=';
+			const pod = new Pod('ID', 'B0002', { ONE: '' });
 			assert.deepStrictEqual(pod.identifier, 'ID');
-			assert.deepStrictEqual(pod.available, true);
+			assert.deepStrictEqual(pod.session, 'B0002');
 			assert.deepStrictEqual(pod.attributes, { ONE: '' });
 			assert.deepStrictEqual(pod.get('ONE'), '');
 			assert.deepStrictEqual(pod.size, 1);
@@ -47,11 +47,11 @@ mocha.describe('SDP Test', () => {
 		});
 
 		mocha.it('should construct pod with custom(attributes 3) variables', () => {
-			const _pod = 'ID*false$ONE=&TWO=2&THREE=3';
-			const pod = new Pod('ID', false, { ONE: '', TWO: '', THREE: '3' });
+			const _pod = 'ID*B0003$ONE=&TWO=2&THREE=3';
+			const pod = new Pod('ID', 'B0003', { ONE: '', TWO: '', THREE: '3' });
 			pod.set('TWO', '2');
 			assert.deepStrictEqual(pod.identifier, 'ID');
-			assert.deepStrictEqual(pod.available, false);
+			assert.deepStrictEqual(pod.session, 'B0003');
 			assert.deepStrictEqual(pod.attributes, { ONE: '', TWO: '2', THREE: '3' });
 			assert.deepStrictEqual(pod.get('ONE'), '');
 			assert.deepStrictEqual(pod.has('TWO'), true);
@@ -163,6 +163,45 @@ mocha.describe('SDP Test', () => {
 			// Stop A
 			serverA.close();
 			await once(serverA, 'close');
+		});
+
+		mocha.it('should re-emit available event after non-graceful restart', async () => {
+			const identifierA = createIdentifier(),
+				identifierB = createIdentifier();
+
+			// Start A + B
+			const serverA = new Server(identifierA);
+			serverA.listen(port, address);
+			let serverB = new Server(identifierB);
+			serverB.listen(port, address);
+			const startAB = await Promise.all([once(serverA, 'listening'), once(serverB, 'listening'), once(serverA, 'available'), once(serverB, 'available')]);
+
+			// Stop B --Force
+			const serverB_Symbol = Object.getOwnPropertySymbols(serverB).find((symbol) => symbol.toString().includes('Socket'));
+			const serverB_UDP = (serverB as any)[serverB_Symbol!];
+			serverB_UDP.close();
+			await once(serverB_UDP, 'close');
+
+			const podAB = serverA.pods.get(identifierB),
+				podBA = serverB.pods.get(identifierA);
+
+			// Start B --Restart
+			serverB = new Server(identifierB);
+			serverB.listen(port, address);
+			const startB = await Promise.all([once(serverB, 'listening'), once(serverA, 'available'), once(serverB, 'available')]);
+
+			assert.deepStrictEqual([startAB[2], startAB[3]], [startB[1], startB[2]]);
+			assert.notDeepStrictEqual(podAB, serverA.pods.get(identifierB));
+			assert.deepStrictEqual(podBA, serverB.pods.get(identifierA));
+
+			// Stop A + B
+			serverA.close();
+			await once(serverA, 'close');
+			serverB.close();
+			await once(serverB, 'close');
+
+			assert.notDeepStrictEqual(serverA.pods.get(identifierB), { session: Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			assert.deepStrictEqual(serverB.pods.get(identifierA), { session: Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
 		});
 	});
 });

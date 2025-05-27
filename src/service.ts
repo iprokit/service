@@ -41,6 +41,11 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	public readonly remoteServices: Map<string, RemoteService>;
 
 	/**
+	 * State of the service.
+	 */
+	#state: 'created' | 'starting' | 'started' | 'stopping' | 'stopped';
+
+	/**
 	 * Creates an instance of `Service`.
 	 *
 	 * @param identifier unique identifier of the service.
@@ -56,6 +61,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 		this.scpServer = new ScpServer(this.identifier);
 		this.sdpServer = new SdpServer(this.identifier);
 		this.remoteServices = new Map();
+		this.#state = 'created';
 
 		// Bind listeners.
 		this.onAvailable = this.onAvailable.bind(this);
@@ -126,6 +132,13 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 		return this.sdpServer.localAddress;
 	}
 
+	/**
+	 * State of the service.
+	 */
+	public get state() {
+		return this.#state;
+	}
+
 	//////////////////////////////
 	//////// Event Listeners
 	//////////////////////////////
@@ -162,6 +175,16 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	 */
 	public link(identifier: string, remoteService: RemoteService) {
 		if (!this.remoteServices.has(identifier)) {
+			remoteService.on('close', () => {
+				if (this.#state === 'stopping' || this.#state === 'stopped') return;
+
+				// Did the pod ghost us? 👻
+				const foundPod = this.pods.get(identifier)!;
+				if (foundPod.session === SdpServer.UNAVAILABLE_TOKEN) return;
+
+				// We assume a rage-quit! 🧐 — reset it. 💤
+				this.pods.set(identifier, { session: SdpServer.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			});
 			this.remoteServices.set(identifier, remoteService);
 		}
 		return this;
@@ -322,6 +345,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	 * @emits `start` when the service starts.
 	 */
 	public async start(httpPort: number, scpPort: number, sdpPort: number, sdpAddress: string) {
+		this.#state = 'starting';
+
 		// HTTP
 		this.httpServer.listen(httpPort);
 		await once(this.httpServer, 'listening');
@@ -345,6 +370,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 		}
 		await Promise.all(connections);
 
+		this.#state = 'started';
 		this.emit('start');
 		return this;
 	}
@@ -355,6 +381,8 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 	 * @emits `stop` when the service stops.
 	 */
 	public async stop() {
+		this.#state = 'stopping';
+
 		// HTTP
 		this.httpServer.close();
 		await once(this.httpServer, 'close');
@@ -377,6 +405,7 @@ export default class Service extends EventEmitter implements IHttpServer, IScpSe
 		this.sdpServer.close();
 		await once(this.sdpServer, 'close');
 
+		this.#state = 'stopped';
 		this.emit('stop');
 		return this;
 	}

@@ -20,16 +20,6 @@ const socket = Symbol('Socket');
  */
 export default class Server extends EventEmitter {
 	/**
-	 * Unique identifier of the server.
-	 */
-	public readonly identifier: string;
-
-	/**
-	 * Attributes of the server.
-	 */
-	public readonly attributes: Attributes;
-
-	/**
 	 * Pods discovered.
 	 */
 	public readonly pods: Map<string, IPod>;
@@ -38,6 +28,11 @@ export default class Server extends EventEmitter {
 	 * Underlying UDP Socket.
 	 */
 	private readonly [socket]: UdpSocket;
+
+	/**
+	 * Representation of the server as a Pod.
+	 */
+	#pod: Pod;
 
 	/**
 	 * Multicast group that have been joined.
@@ -55,11 +50,6 @@ export default class Server extends EventEmitter {
 	#localAddress: string | null;
 
 	/**
-	 * `true` when the server is listening for connections, `false` otherwise.
-	 */
-	#listening: boolean;
-
-	/**
 	 * Creates an instance of SDP `Server`.
 	 *
 	 * @param identifier unique identifier of the server.
@@ -67,17 +57,13 @@ export default class Server extends EventEmitter {
 	constructor(identifier: string) {
 		super();
 
-		// Initialize options.
-		this.identifier = identifier;
-
 		// Initialize variables.
-		this.attributes = {};
 		this.pods = new Map();
 		this[socket] = createSocket({ type: 'udp4', reuseAddr: true });
+		this.#pod = new Pod(identifier, Server.UNAVAILABLE_TOKEN);
 		this.#membership = null;
 		this.#localPort = null;
 		this.#localAddress = null;
-		this.#listening = false;
 
 		// Bind listeners.
 		this.onMessage = this.onMessage.bind(this);
@@ -90,6 +76,20 @@ export default class Server extends EventEmitter {
 	//////////////////////////////
 	//////// Gets/Sets
 	//////////////////////////////
+	/**
+	 * Unique identifier of the server.
+	 */
+	public get identifier() {
+		return this.#pod.identifier;
+	}
+
+	/**
+	 * Attributes of the server.
+	 */
+	public get attributes() {
+		return this.#pod.attributes;
+	}
+
 	/**
 	 * Multicast group that have been joined.
 	 */
@@ -115,14 +115,14 @@ export default class Server extends EventEmitter {
 	 * `true` when the server is listening for connections, `false` otherwise.
 	 */
 	public get listening() {
-		return this.#listening;
+		return this.#pod.session !== Server.UNAVAILABLE_TOKEN;
 	}
 
 	/**
 	 * Retrieves the bound address, family, and port of the server as reported by operating system.
 	 */
 	public address() {
-		return this.#listening ? this[socket].address() : null;
+		return this.listening ? this[socket].address() : null;
 	}
 
 	//////////////////////////////
@@ -133,7 +133,7 @@ export default class Server extends EventEmitter {
 	 * @emits `unavailable` when a pod is unavailable.
 	 */
 	private onMessage(buffer: Buffer, remoteInfo: RemoteInfo) {
-		const { identifier, available, attributes } = Pod.objectify(buffer.toString());
+		const { identifier, session, attributes } = Pod.objectify(buffer.toString());
 		const { address: host } = remoteInfo;
 
 		if (identifier === this.identifier) {
@@ -143,21 +143,14 @@ export default class Server extends EventEmitter {
 
 		// Be ready to be confused. 😈
 		const foundPod = this.pods.get(identifier);
-		if (!foundPod) {
-			this.pods.set(identifier, { available: true, attributes, host });
-			this.send(true, () => this.emit('available', identifier, attributes, host));
+		if (foundPod && session === foundPod.session) return;
+
+		if (session !== Server.UNAVAILABLE_TOKEN) {
+			this.pods.set(identifier, { session, attributes, host });
+			this.send(() => this.emit('available', identifier, attributes, host));
 		} else {
-			if (available && !foundPod.available) {
-				this.pods.set(identifier, { available: true, attributes, host });
-				this.send(true, () => this.emit('available', identifier, attributes, host)); // Server restarted.
-			} else if (!available && foundPod.available) {
-				this.pods.set(identifier, { available: false, attributes: null, host: null });
-				this.emit('unavailable', identifier); // Server shutting down.
-			} else if (!available && !foundPod.available) {
-				return;
-			} else if (available && foundPod.available) {
-				return;
-			}
+			this.pods.set(identifier, { session: Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			this.emit('unavailable', identifier);
 		}
 	}
 
@@ -165,28 +158,25 @@ export default class Server extends EventEmitter {
 	//////// Send/Echo
 	//////////////////////////////
 	/**
-	 * Encodes and multicasts a pod on the network.
+	 * Encodes and multicasts `this.#pod` on the network.
 	 *
-	 * @param available `true` for an available pod, `false` otherwise.
 	 * @param callback called once the pod is multicast.
 	 */
-	private send(available: boolean, callback?: () => void) {
-		const pod = new Pod(this.identifier, available, this.attributes);
-		this[socket].send(pod.stringify(), this.#localPort!, this.#membership!, (error: Error | null) => callback && callback());
+	private send(callback?: () => void) {
+		this[socket].send(this.#pod.stringify(), this.#localPort!, this.#membership!, (error: Error | null) => callback && callback());
 	}
 
 	/**
-	 * Encodes and multicasts a pod on the network, then waits for an echo.
+	 * Encodes and multicasts `this.#pod` on the network, then waits for an echo.
 	 *
-	 * @param available `true` for an available pod, `false` otherwise.
 	 * @param callback called once the echo is received.
 	 */
-	private echo(available: boolean, callback: (address: string) => void) {
+	private echo(callback: (address: string) => void) {
 		// Read
 		this[socket].once('echo', (address: string) => callback(address));
 
 		// Write
-		this.send(available);
+		this.send();
 	}
 
 	//////////////////////////////
@@ -206,9 +196,9 @@ export default class Server extends EventEmitter {
 		this.#membership = address;
 		this[socket].bind(this.#localPort!, () => {
 			this[socket].addMembership(this.#membership!);
-			this.echo(true, (address: string) => {
+			this.#pod.session = Server.createToken();
+			this.echo((address: string) => {
 				this.#localAddress = address;
-				this.#listening = true;
 				this.emit('listening');
 			});
 		});
@@ -223,13 +213,13 @@ export default class Server extends EventEmitter {
 	public close(callback?: () => void) {
 		callback && this.once('close', callback);
 
-		this.echo(false, (address: string) => {
+		this.#pod.session = Server.UNAVAILABLE_TOKEN;
+		this.echo((address: string) => {
 			this[socket].dropMembership(this.#membership!);
 			this[socket].close(() => {
 				this.#membership = null;
 				this.#localPort = null;
 				this.#localAddress = null;
-				this.#listening = false;
 				this.emit('close');
 			});
 		});
@@ -256,6 +246,22 @@ export default class Server extends EventEmitter {
 		this[socket].unref();
 		return this;
 	}
+
+	//////////////////////////////
+	//////// Session Helpers
+	//////////////////////////////
+	/**
+	 * Returns a new session token for an available pod.
+	 */
+	private static createToken() {
+		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+	}
+
+	/**
+	 * Session token representing an unavailable pod.
+	 */
+	public static readonly UNAVAILABLE_TOKEN = '00000';
 }
 
 //////////////////////////////
@@ -266,9 +272,9 @@ export default class Server extends EventEmitter {
  */
 export interface IPod {
 	/**
-	 * `true` if the Pod is available, `false` otherwise.
+	 * Session token of the pod.
 	 */
-	available: boolean;
+	session: string;
 
 	/**
 	 * Attributes of the Pod.

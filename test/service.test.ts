@@ -1,9 +1,10 @@
 // Import Libs.
 import mocha from 'mocha';
 import assert from 'assert';
+import { once } from 'events';
 
 // Import Local.
-import Service, { RemoteService } from '../lib';
+import Service, { RemoteService, sdp } from '../lib';
 import { createIdentifier } from './util';
 
 const httpPort = 3000;
@@ -34,6 +35,7 @@ mocha.describe('Service Test', () => {
 			assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
 			assert.deepStrictEqual(service.membership, null);
 			assert.deepStrictEqual(service.localAddress, null);
+			assert.deepStrictEqual(service.state, 'created');
 			service.on('start', () => {
 				start++;
 				assert.deepStrictEqual(service.listening, { http: true, scp: true, sdp: true });
@@ -42,6 +44,7 @@ mocha.describe('Service Test', () => {
 				assert.deepStrictEqual(service.address().sdp!.port, sdpPort);
 				assert.deepStrictEqual(service.membership, sdpAddress);
 				assert.notDeepStrictEqual(service.localAddress, null);
+				assert.deepStrictEqual(service.state, 'started');
 			});
 			service.on('stop', () => {
 				stop++;
@@ -49,10 +52,15 @@ mocha.describe('Service Test', () => {
 				assert.deepStrictEqual(service.address(), { http: null, scp: null, sdp: null });
 				assert.deepStrictEqual(service.membership, null);
 				assert.deepStrictEqual(service.localAddress, null);
+				assert.deepStrictEqual(service.state, 'stopped');
 			});
-			await service.start(httpPort, scpPort, sdpPort, sdpAddress);
-			await service.stop();
-			assert.deepStrictEqual(start, stop);
+			const started = service.start(httpPort, scpPort, sdpPort, sdpAddress);
+			assert.deepStrictEqual(service.state, 'starting');
+			await started;
+			const stopped = service.stop();
+			assert.deepStrictEqual(service.state, 'stopping');
+			await stopped;
+			assert.deepStrictEqual([start, stop], [1, 1]);
 		});
 	});
 
@@ -118,6 +126,50 @@ mocha.describe('Service Test', () => {
 			// Stop(All)
 			await Promise.all([...services.map((service) => service.stop())]);
 			validate(services, false, serviceCount);
+		});
+
+		mocha.it('should re-link to remote services on non-graceful restart', async () => {
+			const identifierA = createIdentifier(),
+				identifierB = createIdentifier();
+
+			// Start A + B
+			const serviceA = new Service(identifierA);
+			serviceA.link(identifierB, new RemoteService(identifierA));
+			let serviceB = new Service(identifierB);
+			serviceB.link(identifierA, new RemoteService(identifierB));
+			await Promise.all([serviceA.start(httpPort, scpPort, sdpPort, sdpAddress), serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress)]);
+
+			// Stop B --Force
+			const serverB_Symbol = Object.getOwnPropertySymbols(serviceB.sdpServer).find((symbol) => symbol.toString().includes('Socket'));
+			const serverB_UDP = (serviceB.sdpServer as any)[serverB_Symbol!];
+			serverB_UDP.close();
+			serviceB.scpServer.close();
+			serviceB.httpServer.close();
+			await Promise.all([once(serviceB.httpServer, 'close'), once(serviceB.scpServer, 'close'), once(serverB_UDP, 'close')]);
+
+			const podAB = serviceA.pods.get(identifierB),
+				podBA = serviceB.pods.get(identifierA);
+			assert.deepStrictEqual(serviceA.remoteServices.get(identifierB)!.connected, false);
+			assert.deepStrictEqual(serviceB.remoteServices.get(identifierA)!.connected, true);
+
+			// Start B --Restart
+			serviceB = new Service(identifierB);
+			serviceB.link(identifierA, new RemoteService(identifierB));
+			await serviceB.start(httpPort + 1, scpPort + 1, sdpPort, sdpAddress);
+
+			assert.deepStrictEqual(podAB, { session: sdp.Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			assert.deepStrictEqual(podBA, serviceB.pods.get(identifierA));
+			assert.deepStrictEqual(serviceA.remoteServices.get(identifierB)!.connected, true);
+			assert.deepStrictEqual(serviceB.remoteServices.get(identifierA)!.connected, true);
+
+			// Stop A + B
+			await serviceA.stop();
+			await serviceB.stop();
+
+			assert.notDeepStrictEqual(serviceA.pods.get(identifierB), { session: sdp.Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			assert.deepStrictEqual(serviceB.pods.get(identifierA), { session: sdp.Server.UNAVAILABLE_TOKEN, attributes: null, host: null });
+			assert.deepStrictEqual(serviceA.remoteServices.get(identifierB)!.connected, false);
+			assert.deepStrictEqual(serviceB.remoteServices.get(identifierA)!.connected, false);
 		});
 	});
 });
