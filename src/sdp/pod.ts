@@ -3,12 +3,12 @@
  * and represents a network entity.
  * It is case-sensitive and formatted as a string.
  *
- * Example: `ID*true$ONE=1&TWO=2`
+ * Example: `ID*A0001$ONE=1&TWO=2`
  *
- * A Pod consists of an identifier, availability, and attributes:
+ * A Pod consists of an identifier, session, and attributes:
  *  - Identifier: `ID` (Unique identifier)
- *  - Available: `true`/`false`
- *  - Attributes: `ONE=1&TWO=1`
+ *  - Session: `A0001` (Session token)
+ *  - Attributes: `ONE=1&TWO=2`
  */
 export default class Pod {
 	/**
@@ -17,25 +17,25 @@ export default class Pod {
 	public readonly identifier: string;
 
 	/**
-	 * `true` if the pod is available, `false` otherwise.
+	 * Session token of the pod.
 	 */
-	public available: boolean;
+	public session: string;
 
 	/**
 	 * Attributes of the pod.
 	 */
-	public attributes: Attributes;
+	public readonly attributes: Attributes;
 
 	/**
 	 * Creates an instance of `Pod`.
 	 *
 	 * @param identifier unique identifier of the pod.
-	 * @param available set to `true` if the pod is available, `false` otherwise.
+	 * @param session optional session token of the pod.
 	 * @param attributes optional attributes of the pod.
 	 */
-	constructor(identifier: string, available: boolean, attributes?: Attributes) {
+	constructor(identifier: string, session: string, attributes?: Attributes) {
 		this.identifier = identifier;
-		this.available = available;
+		this.session = session;
 		this.attributes = attributes ?? {};
 	}
 
@@ -120,10 +120,10 @@ export default class Pod {
 		const _attributes = this.entries()
 			.map(([key, value]) => key + Pod.ATTRIBUTE_DELIMITER + value)
 			.join(Pod.ATTRIBUTES_DELIMITER);
-		const attributes = _attributes ? Pod.AVAILABLE_DELIMITER + _attributes : '';
+		const attributes = _attributes ? Pod.SESSION_DELIMITER + _attributes : '';
 
-		// Return combined identifier, availability, and attributes as a string.
-		return this.identifier + Pod.IDENTIFIER_DELIMITER + this.available + attributes;
+		// Return combined identifier, session, and attributes as a string.
+		return this.identifier + Pod.IDENTIFIER_DELIMITER + this.session + attributes;
 	}
 
 	/**
@@ -132,14 +132,13 @@ export default class Pod {
 	 * @param pod stringified version of a `Pod`.
 	 */
 	public static objectify(pod: string) {
-		// Deconstruct identifier, availability, and attributes from the string.
+		// Deconstruct identifier, session, and attributes from the string.
 		const [identifier, _pod] = pod.split(Pod.IDENTIFIER_DELIMITER);
-		const [_available, _attributes] = _pod.split(Pod.AVAILABLE_DELIMITER);
-		const available = _available === 'true' ? true : false;
+		const [session, _attributes] = _pod.split(Pod.SESSION_DELIMITER);
 		const attributes = _attributes ? Object.fromEntries(_attributes.split(Pod.ATTRIBUTES_DELIMITER).map((attribute) => attribute.split(Pod.ATTRIBUTE_DELIMITER) as [string, string])) : {};
 
 		// Return new Pod as an object.
-		return new Pod(identifier, available, attributes);
+		return new Pod(identifier, session, attributes);
 	}
 
 	//////////////////////////////
@@ -148,16 +147,16 @@ export default class Pod {
 	/**
 	 * Delimiter for identifier, denoted by `*`.
 	 *
-	 * @example `identifier*available`
+	 * @example `identifier*session`
 	 */
 	public static readonly IDENTIFIER_DELIMITER = '*';
 
 	/**
-	 * Delimiter for availability, denoted by `$`.
+	 * Delimiter for session, denoted by `$`.
 	 *
-	 * @example `available$attributes`
+	 * @example `session$attributes`
 	 */
-	public static readonly AVAILABLE_DELIMITER = '$';
+	public static readonly SESSION_DELIMITER = '$';
 
 	/**
 	 * Delimiter for attributes, denoted by `&`.

@@ -13,96 +13,28 @@ const host = '127.0.0.1';
 const port = 6000;
 
 mocha.describe('SCP Protocol Test', () => {
-	mocha.describe('Creation Frame Test', () => {
-		mocha.it('should create a rfi(`rfi`) frame', () => {
-			const rfi = 'MODE:Operation#ONE=1&TWO=2&THREE=3';
-			const frame = Frame.createRFI(rfi);
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES + rfi.length);
-			assert.deepStrictEqual(frame.type, Frame.RFI);
-			assert.deepStrictEqual(frame.payload, rfi);
-			assert.deepStrictEqual(frame.isRFI(), true);
-			assert.deepStrictEqual(frame.isData(), false);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a rfi(``) frame', () => {
-			const frame = Frame.createRFI(``);
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES);
-			assert.deepStrictEqual(frame.type, Frame.RFI);
-			assert.deepStrictEqual(frame.payload, ``);
-			assert.deepStrictEqual(frame.isRFI(), true);
-			assert.deepStrictEqual(frame.isData(), false);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a data(`data`) frame', () => {
-			const data = 'Data';
-			const frame = Frame.createData(data);
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES + data.length);
-			assert.deepStrictEqual(frame.type, Frame.DATA);
-			assert.deepStrictEqual(frame.payload, data);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), true);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a data(``) frame', () => {
-			const frame = Frame.createData(``);
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES);
-			assert.deepStrictEqual(frame.type, Frame.DATA);
-			assert.deepStrictEqual(frame.payload, ``);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), true);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a data() frame', () => {
-			const frame = Frame.createData();
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES);
+	mocha.describe('Constructor Frame Test', () => {
+		mocha.it('should construct frame with default variables', () => {
+			const frame = new Frame(Frame.DATA);
 			assert.deepStrictEqual(frame.type, Frame.DATA);
 			assert.deepStrictEqual(frame.payload, undefined);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), true);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a signal(`signal`) frame', () => {
-			const signal = 'SIGNAL%ONE=1&TWO=2&THREE=3';
-			const frame = Frame.createSignal(signal);
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES + signal.length);
-			assert.deepStrictEqual(frame.type, Frame.SIGNAL);
-			assert.deepStrictEqual(frame.payload, signal);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), false);
-			assert.deepStrictEqual(frame.isSignal(), true);
-			assert.deepStrictEqual(frame.isEnd(), false);
-		});
-
-		mocha.it('should create a signal(``) frame', () => {
-			const frame = Frame.createSignal(``);
 			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES);
-			assert.deepStrictEqual(frame.type, Frame.SIGNAL);
-			assert.deepStrictEqual(frame.payload, ``);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), false);
-			assert.deepStrictEqual(frame.isSignal(), true);
-			assert.deepStrictEqual(frame.isEnd(), false);
 		});
 
-		mocha.it('should create a end frame', () => {
-			const frame = Frame.createEnd();
-			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES);
-			assert.deepStrictEqual(frame.type, Frame.END);
-			assert.deepStrictEqual(frame.payload, undefined);
-			assert.deepStrictEqual(frame.isRFI(), false);
-			assert.deepStrictEqual(frame.isData(), false);
-			assert.deepStrictEqual(frame.isSignal(), false);
-			assert.deepStrictEqual(frame.isEnd(), true);
+		mocha.it('should construct frame with custom(paylod 1) variables', () => {
+			const payload = Buffer.alloc(0);
+			const frame = new Frame(Frame.DATA, payload);
+			assert.deepStrictEqual(frame.type, Frame.DATA);
+			assert.deepStrictEqual(frame.payload, payload);
+			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES + 0);
+		});
+
+		mocha.it('should construct frame with custom(paylod 2) variables', () => {
+			const payload = Buffer.from('Payload');
+			const frame = new Frame(Frame.DATA, payload);
+			assert.deepStrictEqual(frame.type, Frame.DATA);
+			assert.deepStrictEqual(frame.payload, payload);
+			assert.deepStrictEqual(frame.length, Frame.HEAD_BYTES + payload.length);
 		});
 	});
 
@@ -294,7 +226,7 @@ mocha.describe('SCP Protocol Test', () => {
 			const frames = Array(createFrame());
 
 			// Client
-			await write(protocol, frames, false);
+			await write(protocol, frames, undefined, false);
 			const framesReceived = (await read(protocol)) as Array<Frame>;
 			assert.deepStrictEqual(framesReceived, frames);
 		});
@@ -305,7 +237,7 @@ mocha.describe('SCP Protocol Test', () => {
 				.map(() => createFrame());
 
 			// Client
-			await write(protocol, frames, false);
+			await write(protocol, frames, undefined, false);
 			const framesReceived = (await read(protocol)) as Array<Frame>;
 			assert.deepStrictEqual(framesReceived, frames);
 		});
@@ -315,7 +247,7 @@ mocha.describe('SCP Protocol Test', () => {
 
 			// Client
 			await assert.rejects(async () => {
-				await write(protocol, frames, false);
+				await write(protocol, frames, undefined, false);
 			}, /FRAME_TOO_LARGE/);
 		});
 	});
@@ -365,7 +297,7 @@ mocha.describe('SCP Protocol Test', () => {
 			// Client
 			const outgoing = new Outgoing(protocol);
 			outgoing.setRFI(mode, operation, parameters); // Prepare Write
-			await write(outgoing, data, true);
+			await write(outgoing, data, undefined, true);
 		});
 
 		mocha.it('should read & write empty frame(data)', async () => {
@@ -375,8 +307,9 @@ mocha.describe('SCP Protocol Test', () => {
 			// Client
 			const outgoing = new Outgoing(protocol);
 			outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-			await write(outgoing, data, true);
+			await write(outgoing, data, 'utf8', true);
 			const incoming = new Incoming(protocol);
+			incoming.setEncoding('utf8');
 			await once(incoming, 'rfi'); // Prepare Read
 			const dataReceived = (await read(incoming)) as Array<string | Signal>;
 			assert.deepStrictEqual(incoming.rfi, rfi);
@@ -390,8 +323,9 @@ mocha.describe('SCP Protocol Test', () => {
 			// Client
 			const outgoing = new Outgoing(protocol);
 			outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-			await write(outgoing, data, true);
+			await write(outgoing, data, 'utf8', true);
 			const incoming = new Incoming(protocol);
+			incoming.setEncoding('utf8');
 			await once(incoming, 'rfi'); // Prepare Read
 			const dataReceived = (await read(incoming)) as Array<string | Signal>;
 			assert.deepStrictEqual(incoming.rfi, rfi);
@@ -407,12 +341,28 @@ mocha.describe('SCP Protocol Test', () => {
 			// Client
 			const outgoing = new Outgoing(protocol);
 			outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-			await write(outgoing, data, true);
+			await write(outgoing, data, 'utf8', true);
 			const incoming = new Incoming(protocol);
+			incoming.setEncoding('utf8');
 			await once(incoming, 'rfi'); // Prepare Read
 			const dataReceived = (await read(incoming)) as Array<string | Signal>;
 			assert.deepStrictEqual(incoming.rfi, rfi);
 			assert.deepStrictEqual(dataReceived, data);
+		});
+
+		mocha.it('should read & write multiple frames(buffer)', async () => {
+			const rfi = createRFI();
+			const data = Array(Buffer.from('🔖'.repeat(10000)));
+
+			// Client
+			const outgoing = new Outgoing(protocol);
+			outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
+			await write(outgoing, data, undefined, true);
+			const incoming = new Incoming(protocol);
+			await once(incoming, 'rfi'); // Prepare Read
+			const dataReceived = (await read(incoming)) as Array<Buffer>;
+			assert.deepStrictEqual(incoming.rfi, rfi);
+			assert.deepStrictEqual([Buffer.concat(dataReceived)], data);
 		});
 
 		mocha.it('should throw RFI_NOT_SET', async () => {
@@ -421,7 +371,7 @@ mocha.describe('SCP Protocol Test', () => {
 			// Client
 			await assert.rejects(async () => {
 				const outgoing = new Outgoing(protocol);
-				await write(outgoing, data, true);
+				await write(outgoing, data, undefined, true);
 			}, /RFI_NOT_SET/);
 		});
 	});
@@ -474,7 +424,7 @@ mocha.describe('SCP Protocol Test', () => {
 			for await (const { rfi, data } of streams) {
 				const outgoing = new Outgoing(protocol);
 				outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-				await write(outgoing, data, true);
+				await write(outgoing, data, undefined, true);
 			}
 		});
 
@@ -487,8 +437,9 @@ mocha.describe('SCP Protocol Test', () => {
 			for await (const { rfi, data } of streams) {
 				const outgoing = new Outgoing(protocol);
 				outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-				await write(outgoing, data, true);
+				await write(outgoing, data, 'ascii', true);
 				const incoming = new Incoming(protocol);
+				incoming.setEncoding('ascii');
 				await once(incoming, 'rfi'); // Prepare Read
 				const dataReceived = (await read(incoming)) as Array<string | Signal>;
 				assert.deepStrictEqual(incoming.rfi, rfi);
@@ -505,8 +456,9 @@ mocha.describe('SCP Protocol Test', () => {
 			for await (const { rfi, data } of streams) {
 				const outgoing = new Outgoing(protocol);
 				outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-				await write(outgoing, data, true);
+				await write(outgoing, data, 'ascii', true);
 				const incoming = new Incoming(protocol);
+				incoming.setEncoding('ascii');
 				await once(incoming, 'rfi'); // Prepare Read
 				const dataReceived = (await read(incoming)) as Array<string | Signal>;
 				assert.deepStrictEqual(incoming.rfi, rfi);
@@ -528,12 +480,31 @@ mocha.describe('SCP Protocol Test', () => {
 			for await (const { rfi, data } of streams) {
 				const outgoing = new Outgoing(protocol);
 				outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
-				await write(outgoing, data, true);
+				await write(outgoing, data, 'ascii', true);
 				const incoming = new Incoming(protocol);
+				incoming.setEncoding('ascii');
 				await once(incoming, 'rfi'); // Prepare Read
 				const dataReceived = (await read(incoming)) as Array<string | Signal>;
 				assert.deepStrictEqual(incoming.rfi, rfi);
 				assert.deepStrictEqual(dataReceived, data);
+			}
+		});
+
+		mocha.it('should read & write multiple frames(buffer)', async () => {
+			const streams = Array(20)
+				.fill({})
+				.map(() => ({ rfi: createRFI(), data: Array(Buffer.from('🔖'.repeat(10000))) }));
+
+			// Client
+			for await (const { rfi, data } of streams) {
+				const outgoing = new Outgoing(protocol);
+				outgoing.setRFI(rfi.mode, rfi.operation, rfi.parameters); // Prepare Write
+				await write(outgoing, data, undefined, true);
+				const incoming = new Incoming(protocol);
+				await once(incoming, 'rfi'); // Prepare Read
+				const dataReceived = (await read(incoming)) as Array<Buffer>;
+				assert.deepStrictEqual(incoming.rfi, rfi);
+				assert.deepStrictEqual([Buffer.concat(dataReceived)], data);
 			}
 		});
 
@@ -546,7 +517,7 @@ mocha.describe('SCP Protocol Test', () => {
 			for await (const { data } of streams) {
 				await assert.rejects(async () => {
 					const outgoing = new Outgoing(protocol);
-					await write(outgoing, data, true);
+					await write(outgoing, data, undefined, true);
 				}, /RFI_NOT_SET/);
 			}
 		});

@@ -434,17 +434,3 @@ executor.omni('inventory*', (incoming, outgoing) => {
 	outgoing.end(`Handled operation: ${incoming.operation}`);
 });
 ```
-
-# Versions:
-
-| Version | Description                                                                                                                                                                                  |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.0.0   | First release of Service.                                                                                                                                                                    |
-| 1.1.0   | Introduced `Router` and `Executor` as modular classes, and `Remote` to enhance service linking. Introduced `Orchestrator` and `Conductor` for coordinating signals across multiple services. |
-| 1.1.1   | Formatted HTTP headers to follow a standard.                                                                                                                                                 |
-| 1.2.0   | Removed HTTP proxy handler.                                                                                                                                                                  |
-| 1.2.1   | Improved readability and optimized code.                                                                                                                                                     |
-| 1.3.0   | Added connection pool to `RemoteService` and converted the SCP & SDP repositories to native modules.                                                                                         |
-| 1.3.1   | Improved error handling for SCP client and server.                                                                                                                                           |
-| 1.4.0   | Renamed `Orchestrator` to `Coordinator` and introduced a queue mechanism for the outgoing stream in the SCP server.                                                                          |
-| 1.4.1   | Resolved URI decoding for path and query parameters, now throwing “INVALID_CONNECTION” when `RemoteService` is not connected and calling sub-functions.                                      |

@@ -341,18 +341,18 @@ export class Executor implements IExecutor {
 	 */
 	private static replyHandler<Returned>(func: ReplyFunction<Returned>): IncomingHandler {
 		return async (incoming, outgoing, proceed) => {
-			let incomingData = '';
+			let incomingData = new Array<Buffer>();
 			let outgoingData = '';
 
 			try {
 				// Read: Incoming stream.
 				for await (const chunk of incoming) {
-					incomingData += chunk;
+					incomingData.push(chunk);
 				}
 
 				// Execute. 🤖
 				try {
-					const returned = await func(...JSON.parse(incomingData));
+					const returned = await func(...JSON.parse(Buffer.concat(incomingData).toString()));
 					outgoingData = returned !== undefined || null ? JSON.stringify(returned) : JSON.stringify({});
 					outgoing.parameters.STATUS = 'OK';
 				} catch (error) {
@@ -379,17 +379,17 @@ export class Executor implements IExecutor {
 	 */
 	private static conductorHandler(func: ConductorFunction): IncomingHandler {
 		return async (incoming, outgoing, proceed) => {
-			let incomingData = '';
+			let incomingData = new Array<Buffer>();
 
 			const conductor = new Conductor(incoming, outgoing); // 🎩🚦🔲
 			try {
 				// Read: Conductor.
 				for await (const chunk of conductor) {
-					incomingData += chunk;
+					incomingData.push(chunk as Buffer);
 				}
 
 				// Execute. 🤖
-				func(conductor, ...JSON.parse(incomingData));
+				func(conductor, ...JSON.parse(Buffer.concat(incomingData).toString()));
 
 				// Write: Conductor.
 				await conductor.flush(); // 🚽💨
