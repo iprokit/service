@@ -1,3 +1,7 @@
+[![Service Logo](https://www.iprotechs.com/iprokit/service_1.jpg)](https://github.com/iprokit/service) Powering distributed systems with simplicity and speed.
+
+[![npm version](https://img.shields.io/npm/v/@iprokit/service.svg)](https://www.npmjs.com/package/@iprokit/service) ![npm](https://img.shields.io/npm/dm/@iprokit/service) ![Node.js](https://img.shields.io/node/v/@iprokit/service) ![TypeScript](https://img.shields.io/badge/types-TypeScript-blue) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE) ![Maintenance](https://img.shields.io/maintenance/yes/2025) ![Made with love](https://img.shields.io/badge/made%20with-%E2%9D%A4-red)
+
 # Service
 
 `Service` is a powerful, lightweight framework designed to simplify the development of efficient, reliable, and scalable applications. Whether you're developing a monolithic system or a suite of interconnected microservices, `Service` simplifies the process with minimal configuration.
@@ -11,7 +15,7 @@
 # Installation
 
 ```sh
-npm install @iprolab/service --save
+npm install @iprokit/service --save
 ```
 
 # Quick Start
@@ -19,7 +23,7 @@ npm install @iprolab/service --save
 Here’s how to get a basic service running:
 
 ```javascript
-import Service from '@iprolab/service';
+import Service from '@iprokit/service';
 
 // Create a service instance.
 const service = new Service('MyService');
@@ -149,7 +153,7 @@ Organize and manage related routes with the `Router` class.
 Create a router and mount it to the service:
 
 ```javascript
-import { Router } from '@iprolab/service';
+import { Router } from '@iprokit/service';
 
 const router = new Router();
 
@@ -239,7 +243,7 @@ The **SDP** module allows services to automatically discover and connect to each
 A service can be configured to become discoverable on the network, allowing other services to link to it.
 
 ```javascript
-import Service from '@iprolab/service';
+import Service from '@iprokit/service';
 
 // Create a discoverable service instance.
 const serviceA = new Service('ServiceA');
@@ -254,7 +258,7 @@ console.log('ServiceA is discoverable on SDP (Port: 5000, Address: 224.0.0.2).')
 A service can link to a discoverable target service using the `RemoteService` class. This establishes a connection during startup, enabling communication between the two services.
 
 ```javascript
-import Service, { RemoteService } from '@iprolab/service';
+import Service, { RemoteService } from '@iprokit/service';
 
 // Create a service instance.
 const serviceB = new Service('ServiceB');
@@ -334,7 +338,7 @@ serviceA.conductor('createOrder', (conductor, orderDetails) => {
 Coordinate conductors across multiple services:
 
 ```javascript
-import { Coordinator } from '@iprolab/service';
+import { Coordinator } from '@iprokit/service';
 
 const coordinator = new Coordinator();
 try {
@@ -434,3 +438,21 @@ executor.omni('inventory*', (incoming, outgoing) => {
 	outgoing.end(`Handled operation: ${incoming.operation}`);
 });
 ```
+
+# Contributing
+
+We welcome contributions to [`@iprokit/service`](https://github.com/iprokit/service)! Whether it's reporting bugs, suggesting enhancements, or submitting pull requests — your help is appreciated.
+
+To contribute:
+
+1. Fork the repository.
+2. Create a new branch for your feature or fix.
+3. Submit a pull request with a clear description of your changes.
+
+Please ensure your code is clean, well-documented, and covered by tests where appropriate.
+
+For major changes or questions, feel free to open an issue to discuss your ideas first.
+
+# License
+
+This project is licensed under the Apache License 2.0 – see the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files for details.

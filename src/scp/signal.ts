@@ -1,4 +1,10 @@
 /**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Signal is used for multi-stage communication.
  * It is represented as a case-sensitive string.
  *

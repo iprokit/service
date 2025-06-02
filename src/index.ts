@@ -1,3 +1,9 @@
+/**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Export HTTP.
 export * as http from './http';
 export { Method, StatusCode, RequestHeaders, ResponseHeaders } from './http';

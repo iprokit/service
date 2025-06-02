@@ -1,4 +1,10 @@
 /**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * SCP frames implement a stream-based frame delivery system.
  *
  * A frame consists of 3 segments: Length, Type, and Payload.
