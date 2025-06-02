@@ -1,4 +1,10 @@
 /**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * `RFI` stands for Remote Function Identifier.
  * It is represented as a case-sensitive string.
  *

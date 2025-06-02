@@ -1,3 +1,9 @@
+/**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Export Local.
 export { default as Frame, Type as FrameType } from './frame';
 export { default as RFI, IRFI, Mode, Parameters } from './rfi';

@@ -1,3 +1,9 @@
+/**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Import Libs.
 import { Duplex, Readable, Writable } from 'stream';
 import { Socket as TcpSocket } from 'net';

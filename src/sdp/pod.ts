@@ -1,4 +1,10 @@
 /**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Pod is a communication unit used during multicasting
  * and represents a network entity.
  * It is case-sensitive and formatted as a string.

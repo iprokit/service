@@ -1,3 +1,9 @@
+/**
+ * @iProKit/Service
+ * Copyright (c) 2019-2025 Rutvik Katuri / iProTechs
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Import Libs.
 import EventEmitter, { once } from 'events';
 import { promises as Stream } from 'stream';
