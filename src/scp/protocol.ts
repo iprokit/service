@@ -146,6 +146,9 @@ export default class Protocol extends Duplex {
 			// Looks like the HEAD is unavailable. oops!!!
 			if (!head) return;
 
+			// Incomplete HEAD, Drop it!!!
+			if (head.length < Frame.HEAD_BYTES) return;
+
 			// Read HEAD Segments.
 			const length = head.readUInt16BE(0);
 			const type = head.readInt8(Frame.LENGTH_BYTES) as Type;

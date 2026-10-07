@@ -242,6 +242,38 @@ mocha.describe('SCP Protocol Test', () => {
 			assert.deepStrictEqual(framesReceived, frames);
 		});
 
+		mocha.it('should read & write truncated HEAD(1 byte)', async () => {
+			const head = Buffer.from([0x00]);
+
+			// Client
+			protocol.socket.write(head);
+			protocol.end();
+			const framesReceived = (await read(protocol)) as Array<Frame>;
+			assert.deepStrictEqual(framesReceived, []);
+		});
+
+		mocha.it('should read & write truncated HEAD(2 bytes)', async () => {
+			const head = Buffer.from([0x00, 0x05]);
+
+			// Client
+			protocol.socket.write(head);
+			protocol.end();
+			const framesReceived = (await read(protocol)) as Array<Frame>;
+			assert.deepStrictEqual(framesReceived, []);
+		});
+
+		mocha.it('should read & write frame & truncated HEAD', async () => {
+			const frame = createFrame();
+			const head = Buffer.from([0x00, 0x05]);
+
+			// Client
+			protocol.write(frame);
+			protocol.socket.write(head);
+			protocol.end();
+			const framesReceived = (await read(protocol)) as Array<Frame>;
+			assert.deepStrictEqual(framesReceived, [frame]);
+		});
+
 		mocha.it('should throw FRAME_TOO_LARGE', async () => {
 			const frames = Array(createFrame(Frame.PAYLOAD_BYTES * 2));
 
