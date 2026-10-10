@@ -1,4 +1,4 @@
-[![Service Logo](https://www.iprotechs.com/iprokit/service_1.jpg)](https://github.com/iprokit/service) Powering distributed systems with simplicity and speed.
+[![Service Logo](https://cdn.iprokit.iprotechs.com/Service%201.jpg)](https://github.com/iprokit/service) Powering distributed systems with simplicity and speed.
 
 [![npm version](https://img.shields.io/npm/v/@iprokit/service.svg)](https://www.npmjs.com/package/@iprokit/service) ![npm](https://img.shields.io/npm/dm/@iprokit/service) ![Node.js](https://img.shields.io/node/v/@iprokit/service) ![TypeScript](https://img.shields.io/badge/types-TypeScript-blue) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE) ![Maintenance](https://img.shields.io/maintenance/yes/2025) ![Made with love](https://img.shields.io/badge/made%20with-%E2%9D%A4-red)
 
